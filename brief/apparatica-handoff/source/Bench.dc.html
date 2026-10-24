@@ -1,0 +1,556 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Страница задачи — Bench</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0}
+a{color:inherit}
+button{font-family:inherit}
+code{font-family:var(--mono);font-size:12px;background:var(--sf2);border:1px solid var(--bd);padding:0 4px;border-radius:2px}
+.kw{color:var(--kw)}.ty{color:var(--ty)}.nm{color:var(--nm)}.cm{color:var(--cm);font-style:italic}.fn{color:var(--fn)}.id{color:var(--tx)}.pn{color:var(--mu)}
+.sep{color:var(--mu)}.warn{color:var(--wn)}.err{color:var(--er);font-weight:500}.ok{color:var(--ok)}.dim{color:var(--mu)}
+.lnk{color:var(--ac);text-decoration:underline;text-underline-offset:2px}
+.lbl{font-family:var(--mono);font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;color:var(--mu)}
+.ptab{display:flex;align-items:center;gap:6px;height:36px;padding:0 14px;border:0;border-top:2px solid transparent;border-right:1px solid var(--bd);background:var(--sf2);color:var(--mu);font-size:13px;cursor:pointer;white-space:nowrap}
+.ptab.on{background:var(--sf);color:var(--tx);border-top-color:var(--ac)}
+.rtab{display:flex;align-items:center;gap:6px;height:32px;padding:0 12px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--mu);font-size:12.5px;cursor:pointer;white-space:nowrap}
+.rtab.on{color:var(--tx);border-bottom-color:var(--ac)}
+.btn{white-space:nowrap;display:inline-flex;align-items:center;gap:7px;height:28px;padding:0 10px;border-radius:3px;border:1px solid var(--bc);background:var(--sf);color:var(--tx);font-size:12.5px;cursor:pointer}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--mu)}
+.btn.out{border-color:var(--ac);color:var(--ac)}
+.btn.pri{background:var(--ac);border-color:var(--ac);color:var(--acx);font-weight:500}
+.kbd{font-family:var(--mono);font-size:10.5px;opacity:.8}
+.stage{min-width:0;display:flex;align-items:center;gap:8px;padding:0 10px;border-radius:2px}
+.stage .t{display:flex;flex-direction:column;line-height:1.25;min-width:0}
+.stage .n{font-weight:500;font-size:12.5px;color:var(--tx)}
+.stage .s{font-family:var(--mono);font-size:11px;color:var(--mu);white-space:nowrap}
+.st-warn{background:var(--wns);color:var(--wn)}.st-warn .s{color:var(--wn)}
+.st-err{background:var(--ers);color:var(--er);box-shadow:inset 0 0 0 1px var(--er)}.st-err .s{color:var(--er)}
+.st-ok{background:var(--oks);color:var(--ok)}.st-ok .s{color:var(--ok)}
+.st-run{background:var(--ins);color:var(--in);box-shadow:inset 0 0 0 1px var(--in)}.st-run .s{color:var(--in)}
+.st-skip{border:1px dashed var(--bd);color:var(--mu);background:repeating-linear-gradient(135deg,transparent 0 6px,var(--sf2) 6px 8px)}
+.st-idle{border:1px solid var(--bd);color:var(--mu)}
+.band-err{background:var(--ers)}.band-ok{background:var(--oks)}.band-run{background:var(--ins)}
+.band-err .ic{color:var(--er)}.band-ok .ic{color:var(--ok)}.band-run .ic{color:var(--in)}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{animation:spin 1s linear infinite}
+@media (prefers-reduced-motion:reduce){.spin{animation:none}}
+div[style*='var(--mono)'],code{font-variant-ligatures:none}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+</style>
+</helmet>
+<div style="{{rootVars}}width:100%;height:900px;display:flex;flex-direction:column;background:var(--bg);color:var(--tx);font-family:var(--sans);font-size:13px;line-height:1.5;font-variant-numeric:tabular-nums;box-sizing:border-box;overflow:hidden">
+
+  <!-- Верхняя строка -->
+  <header style="height:40px;flex:0 0 40px;display:flex;align-items:center;gap:16px;padding:0 12px;background:var(--sf);border-bottom:1px solid var(--bd)">
+    <a href="#" style="display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--tx)">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linejoin="round" aria-hidden="true" style="stroke:var(--ac)"><rect x="4" y="3" width="17" height="18" rx="2"/><path d="M4 9.5l5 2.5-5 2.5"/></svg>
+      <span style="font-size:14px;font-weight:600;letter-spacing:0.01em">Apparatica</span>
+    </a>
+    <span aria-hidden="true" style="width:1px;height:18px;background:var(--bd)"></span>
+    <nav aria-label="Путь" style="display:flex;align-items:center;gap:8px;color:var(--mu);font-size:12.5px">
+      <a href="#" style="text-decoration:none">Задачи</a>
+      <span aria-hidden="true">/</span>
+      <span style="color:var(--tx)">Синхронный FIFO</span>
+    </nav>
+    <div style="flex:1"></div>
+    <label style="display:flex;align-items:center;gap:8px;height:26px;width:240px;padding:0 8px;border:1px solid var(--bc);border-radius:3px;background:var(--ed);color:var(--mu)">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <input type="text" aria-label="Поиск задач" placeholder="Поиск задач" style="flex:1;min-width:0;border:0;outline:0;background:transparent;color:var(--tx);font:inherit;font-size:12.5px">
+      <span class="kbd">Ctrl K</span>
+    </label>
+    <button aria-label="Профиль ivan_s" style="display:flex;align-items:center;gap:8px;height:28px;padding:0 6px;border:0;border-radius:3px;background:transparent;color:var(--tx);cursor:pointer;font-size:12.5px">
+      <span style="width:20px;height:20px;border-radius:2px;background:var(--acs);color:var(--ac);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600">ИС</span>
+      ivan_s
+    </button>
+  </header>
+
+  <div style="flex:1;min-height:0;display:flex;gap:1px">
+
+    <!-- Боковая рейка -->
+    <nav aria-label="Разделы" style="flex:0 0 48px;display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 0;background:var(--sf)">
+      <button aria-label="Задачи" aria-current="page" style="width:36px;height:36px;border:0;border-radius:3px;background:var(--acs);color:var(--ac);display:flex;align-items:center;justify-content:center;cursor:pointer">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+      </button>
+      <button aria-label="Рейтинг" style="width:36px;height:36px;border:0;border-radius:3px;background:transparent;color:var(--mu);display:flex;align-items:center;justify-content:center;cursor:pointer">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
+      </button>
+      <button aria-label="Дашборд" style="width:36px;height:36px;border:0;border-radius:3px;background:transparent;color:var(--mu);display:flex;align-items:center;justify-content:center;cursor:pointer">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+      </button>
+      <div style="flex:1"></div>
+      <button aria-label="Профиль" style="width:36px;height:36px;border:0;border-radius:3px;background:transparent;color:var(--mu);display:flex;align-items:center;justify-content:center;cursor:pointer">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      </button>
+    </nav>
+
+    <!-- Левая панель -->
+    <section style="flex:0 0 38%;min-width:0;display:flex;flex-direction:column;background:var(--sf)">
+      <div role="tablist" aria-label="Разделы задачи" style="display:flex;background:var(--sf2);border-bottom:1px solid var(--bd);overflow:hidden">
+        <button role="tab" aria-selected="true" class="ptab on">Условие</button>
+        <button role="tab" aria-selected="false" class="ptab">Мои отправки <span style="font-family:var(--mono);font-size:11px;color:var(--mu)">{{subCount}}</span></button>
+        <button role="tab" aria-selected="false" class="ptab">Решения</button>
+        <button role="tab" aria-selected="false" class="ptab">Рейтинг</button>
+        <button role="tab" aria-selected="false" class="ptab" title="Откроется после вашего Accepted">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="18" height="11" x="3" y="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+          Эталон
+        </button>
+      </div>
+
+      <div style="padding:18px 22px 14px;display:flex;flex-direction:column;gap:10px;border-bottom:1px solid var(--bd)">
+        <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:12px">
+          <h1 style="margin:0;font-size:22px;line-height:30px;font-weight:600;letter-spacing:-0.01em">Синхронный FIFO</h1>
+          <div style="display:flex;gap:2px">
+            <button class="btn ghost" aria-label="Поделиться" title="Поделиться" style="padding:0 8px">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" x2="15.42" y1="13.51" y2="17.49"/><line x1="15.41" x2="8.59" y1="6.51" y2="10.49"/></svg>
+            </button>
+            <button class="btn ghost" aria-label="Пожаловаться на задачу" title="Пожаловаться на задачу" style="padding:0 8px">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 15s1-1 4-1 5 2 8 2 4-1 4-1V3s-1 1-4 1-5-2-8-2-4 1-4 1z"/><line x1="4" x2="4" y1="22" y2="15"/></svg>
+            </button>
+          </div>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;align-items:center;gap:6px">
+          <span style="display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:2px;background:var(--ins);color:var(--in);font-family:var(--mono);font-size:11.5px;font-weight:500">
+            <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><rect x="1" y="6" width="2.4" height="5" fill="currentColor"/><rect x="4.8" y="3.5" width="2.4" height="7.5" fill="currentColor"/><rect x="8.6" y="1" width="2.4" height="10" fill="currentColor" opacity="0.3"/></svg>
+            MEDIUM
+          </span>
+          <span style="height:22px;padding:0 8px;border-radius:2px;border:1px solid var(--bd);color:var(--mu);font-family:var(--mono);font-size:11.5px;display:inline-flex;align-items:center">FIFO</span>
+          <span style="height:22px;padding:0 8px;border-radius:2px;border:1px solid var(--bd);color:var(--mu);font-family:var(--mono);font-size:11.5px;display:inline-flex;align-items:center">память</span>
+          <span style="height:22px;padding:0 8px;border-radius:2px;border:1px solid var(--bd);color:var(--mu);font-family:var(--mono);font-size:11.5px;display:inline-flex;align-items:center">указатели</span>
+          <span style="margin-left:6px;color:var(--mu);font-size:12px">принято <span style="font-family:var(--mono);color:var(--tx)">41%</span></span>
+        </div>
+      </div>
+
+      <div style="flex:1;min-height:0;overflow:hidden;padding:16px 22px;font-size:13.5px;line-height:1.65;display:flex;flex-direction:column;gap:12px">
+        <p style="margin:0">Реализуйте синхронную FIFO-очередь с общим тактовым сигналом для записи и чтения. Слово записывается по <code>push</code>, если очередь не заполнена; <code>pop</code> удаляет самое старое слово, если очередь не пуста. Выход <code>rdata</code> всегда показывает слово на вершине очереди — его можно прочитать ещё до <code>pop</code>.</p>
+        <p style="margin:0">Одновременные <code>push</code> и <code>pop</code> допустимы. Лишний <code>push</code> при <code>full</code> и <code>pop</code> при <code>empty</code> игнорируются. Сброс синхронный, активный уровень низкий.</p>
+
+        <div class="lbl" style="margin-top:4px">Интерфейс</div>
+        <div style="border:1px solid var(--bd);border-radius:3px;overflow:hidden;font-size:12.5px">
+          <sc-for list="{{ports}}" as="p" hint-placeholder-count="8">
+            <div style="display:grid;grid-template-columns:70px 56px 66px 1fr;gap:6px;padding:3px 10px;border-bottom:1px solid var(--bd)">
+              <span style="font-family:var(--mono);font-size:12px;font-weight:500;color:var(--ac)">{{p.name}}</span>
+              <span style="color:var(--mu)">{{p.dir}}</span>
+              <span style="font-family:var(--mono);font-size:12px;color:var(--mu)">{{p.width}}</span>
+              <span>{{p.note}}</span>
+            </div>
+          </sc-for>
+        </div>
+
+        <div class="lbl" style="margin-top:4px">Пример</div>
+        <svg viewBox="0 0 520 180" role="img" aria-label="Временная диаграмма: два push подряд, затем pop; rdata показывает 3A, затем 5C" style="width:100%;height:auto;max-height:140px;border:1px solid var(--bc);border-radius:3px;background:var(--ed)">
+          <g stroke-width="1" style="stroke:var(--bd)"><path d="M134 4V176M188 4V176M242 4V176M296 4V176M350 4V176M404 4V176M458 4V176M512 4V176"/></g>
+          <g style="font-family:var(--mono);font-size:11px;fill:var(--mu)"><text x="10" y="26">clk</text><text x="10" y="60">push</text><text x="10" y="94">wdata</text><text x="10" y="128">pop</text><text x="10" y="162">rdata</text></g>
+          <g fill="none" stroke-width="1.6" stroke-linejoin="miter" style="stroke:var(--ac)">
+            <path d="M80 32V10H107V32H134V10H161V32H188V10H215V32H242V10H269V32H296V10H323V32H350V10H377V32H404V10H431V32H458V10H485V32H512"/>
+            <path d="M80 66H134V44H242V66H512"/>
+            <path d="M80 100H134"/><path d="M134 89l4-11H184l4 11-4 11H138z"/><path d="M188 89l4-11H238l4 11-4 11H192z"/><path d="M242 100H512"/>
+            <path d="M80 134H296V112H350V134H512"/>
+            <path d="M80 168H188"/><path d="M188 157l4-11H346l4 11-4 11H192z"/><path d="M350 157l4-11H508l4 11-4 11H354z"/>
+          </g>
+          <g style="font-family:var(--mono);font-size:11px;fill:var(--tx)" text-anchor="middle"><text x="161" y="93">3A</text><text x="215" y="93">5C</text><text x="269" y="162">3A</text><text x="431" y="162">5C</text></g>
+        </svg>
+      </div>
+    </section>
+
+    <!-- Правая колонка -->
+    <section style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px">
+
+      <!-- Редактор -->
+      <div style="flex:0 0 404px;display:flex;flex-direction:column;background:var(--sf)">
+        <div style="height:36px;flex:0 0 36px;display:flex;align-items:stretch;background:var(--sf2);border-bottom:1px solid var(--bd)">
+          <div style="display:flex;align-items:center;gap:8px;padding:0 14px;background:var(--sf);border-top:2px solid var(--ac);border-right:1px solid var(--bd)">
+            <span style="font-family:var(--mono);font-size:12.5px">sync_fifo.sv</span>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-label="Сохранено" role="img" style="color:var(--ok)"><path d="M20 6 9 17l-5-5"/></svg>
+          </div>
+          <div style="flex:1"></div>
+          <div role="group" aria-label="Режим" style="display:flex;align-items:center;gap:0;margin-right:8px;align-self:center;border:1px solid var(--bc);border-radius:3px;overflow:hidden">
+            <button style="height:26px;padding:0 10px;border:0;background:var(--ac);color:var(--acx);font-size:12px;font-weight:500;cursor:pointer">Практика</button>
+            <button style="height:26px;padding:0 10px;border:0;background:var(--sf);color:var(--mu);font-size:12px;cursor:pointer">Индустриальный</button>
+          </div>
+          <div style="display:flex;align-items:center;gap:6px;padding-right:8px">
+            <button class="btn ghost" aria-label="Сбросить к шаблону" title="Сбросить к шаблону" style="padding:0 7px">
+              <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/></svg>
+            </button>
+            <button class="btn out" title="Run: открытые тесты">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><polygon points="6 3 20 12 6 21 6 3"/></svg>
+              Run <span class="kbd">Ctrl ↵</span>
+            </button>
+            <button class="btn pri" title="Submit: полная проверка">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m22 2-7 20-4-9-9-4Z"/><path d="M22 2 11 13"/></svg>
+              Submit <span class="kbd">Ctrl ⇧ ↵</span>
+            </button>
+          </div>
+        </div>
+        <div style="flex:1;min-height:0;overflow:hidden;display:flex;background:var(--ed);padding-top:6px">
+          <div aria-hidden="true" style="flex:0 0 54px;display:flex;flex-direction:column;align-items:flex-end;padding-right:14px;font-family:var(--mono);font-size:12.5px;line-height:19px;color:var(--mu)">
+            <sc-for list="{{codeLines}}" as="ln" hint-placeholder-count="19">
+              <div style="display:flex;align-items:center;gap:4px;height:19px"><sc-if value="{{ln.warn}}" hint-placeholder-val="{{false}}"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" style="stroke:var(--wn)"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></sc-if><span>{{ln.n}}</span></div>
+            </sc-for>
+          </div>
+          <div style="flex:1;min-width:0;font-family:var(--mono);font-size:12.5px;line-height:19px">
+            <sc-for list="{{codeLines}}" as="ln" hint-placeholder-count="19">
+              <div style="height:19px;white-space:pre;padding-right:16px;background:{{ln.bg}}"><sc-for list="{{ln.tokens}}" as="tok"><span class="{{tok.c}}">{{tok.t}}</span></sc-for></div>
+            </sc-for>
+          </div>
+        </div>
+      </div>
+
+      <!-- Результаты -->
+      <div style="flex:1;min-height:0;display:flex;flex-direction:column;background:var(--sf)">
+        <!-- Конвейер: шкала этапов -->
+        <div style="flex:0 0 auto;padding:10px 14px 0;display:flex;flex-direction:column;gap:6px">
+          <div style="display:flex;justify-content:space-between;align-items:baseline">
+            <span class="lbl">Конвейер проверки</span>
+            <span style="font-family:var(--mono);font-size:11.5px;color:var(--mu)">{{totalLabel}}</span>
+          </div>
+          <div style="display:flex;gap:3px;height:44px">
+            <sc-for list="{{stages}}" as="s" hint-placeholder-count="4">
+              <div class="stage {{s.cls}}" style="flex:{{s.grow}}">
+                <sc-if value="{{s.isWarn}}" hint-placeholder-val="{{false}}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></sc-if>
+                <sc-if value="{{s.isErr}}" hint-placeholder-val="{{false}}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg></sc-if>
+                <sc-if value="{{s.isOk}}" hint-placeholder-val="{{false}}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg></sc-if>
+                <sc-if value="{{s.isRun}}" hint-placeholder-val="{{false}}"><svg class="spin" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg></sc-if>
+                <sc-if value="{{s.isSkip}}" hint-placeholder-val="{{false}}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg></sc-if>
+                <sc-if value="{{s.isWait}}" hint-placeholder-val="{{false}}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></sc-if>
+                <div class="t"><span class="n">{{s.name}}</span><span class="s">{{s.sub}}</span></div>
+              </div>
+            </sc-for>
+          </div>
+        </div>
+
+        <!-- Баннер вердикта: неверный ответ -->
+        <sc-if value="{{showWrong}}" hint-placeholder-val="{{true}}">
+          <div class="band-err" style="margin:10px 14px 0;padding:8px 12px;border-radius:3px;display:flex;align-items:center;gap:12px">
+            <svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px">
+              <span style="font-weight:600;color:var(--er)">Неверный ответ · Run на открытых тестах</span>
+              <span>Тест 7 упал на такте 143: ожидалось <code>0x3A</code>, получено <code>0x00</code>. Слово уже записано, но <code>rdata</code> ещё не обновился — посмотрите на диаграмме.</span>
+            </div>
+            <button class="btn" style="flex:0 0 auto">Показать на диаграмме</button>
+          </div>
+        </sc-if>
+
+        <!-- Баннер вердикта: принято -->
+        <sc-if value="{{showAccepted}}" hint-placeholder-val="{{false}}">
+          <div class="band-ok" style="margin:10px 14px 0;padding:8px 12px;border-radius:3px;display:flex;align-items:center;gap:12px">
+            <svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px">
+              <span style="font-weight:600;color:var(--ok)">Принято · место 12 из 304</span>
+              <span>Все этапы пройдены. Решение стало публичным и попало в рейтинг задачи.</span>
+            </div>
+            <div style="display:flex;gap:6px;flex:0 0 auto">
+              <button class="btn">Поделиться</button>
+              <button class="btn">Смотреть рейтинг</button>
+              <button class="btn pri">Сравнить с эталоном</button>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- Баннер: идёт проверка -->
+        <sc-if value="{{showRunning}}" hint-placeholder-val="{{false}}">
+          <div class="band-run" style="margin:10px 14px 0;padding:8px 12px;border-radius:3px;display:flex;align-items:center;gap:12px">
+            <svg class="ic spin" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px">
+              <span style="font-weight:600;color:var(--in)">Выполняется · симуляция, 1,4 с</span>
+              <span>Тест 4 из 32. Проверку можно закрыть — она продолжится на сервере.</span>
+            </div>
+            <button class="btn" style="flex:0 0 auto">Отменить</button>
+          </div>
+        </sc-if>
+
+        <!-- Баннер: в очереди -->
+        <sc-if value="{{showQueued}}" hint-placeholder-val="{{false}}">
+          <div class="band-run" style="margin:10px 14px 0;padding:8px 12px;border-radius:3px;display:flex;align-items:center;gap:12px">
+            <svg class="ic" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+            <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:1px">
+              <span style="font-weight:600;color:var(--in)">В очереди · позиция 3</span>
+              <span>Ожидание около 12 с. Проверка начнётся сама, когда освободится воркер.</span>
+            </div>
+            <button class="btn" style="flex:0 0 auto">Отменить</button>
+          </div>
+        </sc-if>
+
+        <!-- Вкладки результатов -->
+        <div role="tablist" aria-label="Результаты проверки" style="display:flex;align-items:center;padding:6px 6px 0;margin-top:10px;border-bottom:1px solid var(--bd)">
+          <button role="tab" aria-selected="{{tabs.consoleSel}}" class="rtab {{tabs.console}}">Консоль</button>
+          <button role="tab" aria-selected="false" class="rtab">Тесты <sc-if value="{{showWrongBadge}}" hint-placeholder-val="{{false}}"><span style="font-family:var(--mono);font-size:11px;padding:0 5px;border-radius:2px;background:var(--ers);color:var(--er)">7/32</span></sc-if></button>
+          <button role="tab" aria-selected="{{tabs.waveSel}}" class="rtab {{tabs.wave}}">Временные диаграммы</button>
+          <button role="tab" aria-selected="{{tabs.synthSel}}" class="rtab {{tabs.synth}}">Синтез</button>
+          <button role="tab" aria-selected="false" class="rtab">Формал</button>
+          <div style="flex:1"></div>
+          <button class="btn ghost" aria-label="Копировать вывод" title="Копировать вывод" style="height:26px;padding:0 7px;margin-bottom:3px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="14" height="14" x="8" y="8" rx="2" ry="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg>
+          </button>
+        </div>
+
+        <!-- Тело: консоль -->
+        <sc-if value="{{bodyConsole}}" hint-placeholder-val="{{true}}">
+          <div style="flex:1;min-height:0;overflow:hidden;padding:8px 14px;background:var(--ed);font-family:var(--mono);font-size:12.5px;line-height:20px">
+            <sc-for list="{{consoleLines}}" as="c" hint-placeholder-count="7">
+              <div class="{{c.cls}}" style="white-space:pre-wrap"><span>{{c.pre}}</span><sc-if value="{{c.link}}" hint-placeholder-val="{{false}}"><a href="#" class="lnk">{{c.link}}</a></sc-if><span>{{c.post}}</span></div>
+            </sc-for>
+          </div>
+        </sc-if>
+
+        <!-- Тело: пустое состояние -->
+        <sc-if value="{{bodyEmpty}}" hint-placeholder-val="{{false}}">
+          <div style="flex:1;min-height:0;overflow:hidden;background:var(--ed);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:0 40px">
+            <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="color:var(--mu)"><polyline points="4 17 10 11 4 5"/><line x1="12" x2="20" y1="19" y2="19"/></svg>
+            <div style="font-weight:500;font-size:14px">Результатов пока нет</div>
+            <div style="color:var(--mu);max-width:420px">Напишите решение в редакторе и нажмите <strong style="color:var(--tx);font-weight:500">Run</strong>: проверка пойдёт на открытых тестах и покажет консоль и диаграммы. <strong style="color:var(--tx);font-weight:500">Submit</strong> запускает полную проверку с синтезом и попаданием в рейтинг.</div>
+            <div style="display:flex;gap:16px;color:var(--mu);font-size:12px"><span><span class="kbd">Ctrl ↵</span> — Run</span><span><span class="kbd">Ctrl ⇧ ↵</span> — Submit</span></div>
+          </div>
+        </sc-if>
+
+        <!-- Тело: временные диаграммы (Surfer) -->
+        <sc-if value="{{bodyWave}}" hint-placeholder-val="{{false}}">
+          <div style="flex:1;min-height:0;overflow:hidden;background:var(--ed);display:flex;flex-direction:column">
+            <div style="flex:0 0 32px;display:flex;align-items:center;gap:8px;padding:0 10px 0 14px;border-bottom:1px solid var(--bd)">
+              <span class="lbl">Такты 139–147 · окно вокруг первого расхождения</span>
+              <div style="flex:1"></div>
+              <button class="btn ghost" aria-label="Уменьшить" title="Уменьшить" style="height:24px;padding:0 6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="M8 11h6"/></svg></button>
+              <button class="btn ghost" aria-label="Увеличить" title="Увеличить" style="height:24px;padding:0 6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/><path d="M11 8v6"/><path d="M8 11h6"/></svg></button>
+              <button class="btn ghost" aria-label="Вписать в окно" title="Вписать в окно" style="height:24px;padding:0 6px"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button>
+              <button class="btn" style="height:24px">Открыть трассу целиком</button>
+            </div>
+            <svg viewBox="0 0 712 212" role="img" aria-label="Временная диаграмма вокруг такта 143: rdata ожидалось 3A, получено 00" style="flex:1;min-height:0;width:100%">
+              <rect x="412" y="22" width="58" height="188" style="fill:var(--er);opacity:0.1"/>
+              <g stroke-width="1" style="stroke:var(--bd)"><path d="M180 22V210M238 22V210M296 22V210M354 22V210M470 22V210M528 22V210M586 22V210M644 22V210M702 22V210"/></g>
+              <g style="font-family:var(--mono);font-size:11px;fill:var(--mu)" text-anchor="middle"><text x="209" y="15">139</text><text x="267" y="15">140</text><text x="325" y="15">141</text><text x="383" y="15">142</text><text x="499" y="15">144</text><text x="557" y="15">145</text><text x="615" y="15">146</text><text x="673" y="15">147</text></g>
+              <g style="font-family:var(--mono);font-size:11px;fill:var(--mu)"><text x="10" y="43">clk</text><text x="10" y="73">push</text><text x="10" y="103">pop</text><text x="10" y="133">empty</text><text x="10" y="163">rdata ожидалось</text><text x="10" y="193">rdata получено</text></g>
+              <g style="font-family:var(--mono);font-size:11px;fill:var(--tx)" text-anchor="end"><text x="170" y="43">1</text><text x="170" y="73">0</text><text x="170" y="103">0</text><text x="170" y="133">0</text><text x="170" y="163">3A</text><text x="170" y="193" style="fill:var(--er);font-weight:500">00</text></g>
+              <g fill="none" stroke-width="1.6" stroke-linejoin="miter" style="stroke:var(--ac)">
+                <path d="{{wave.clk}}"/>
+                <path d="M180 78H354V60H412V78H702"/>
+                <path d="M180 108H528V90H586V108H702"/>
+                <path d="M180 120H412V138H702"/>
+                <path d="{{wave.exp1}}"/><path d="{{wave.exp2}}"/>
+                <path d="{{wave.act1}}"/><path d="{{wave.act3}}"/>
+              </g>
+              <path d="{{wave.act2}}" fill="none" stroke-width="1.8" style="stroke:var(--er);fill:var(--ers)"/>
+              <g style="font-family:var(--mono);font-size:11px;fill:var(--tx)" text-anchor="middle"><text x="296" y="163">00</text><text x="557" y="163">3A</text><text x="296" y="193">00</text><text x="441" y="193" style="fill:var(--er);font-weight:500">00</text><text x="586" y="193">3A</text></g>
+              <path d="M412 22V210" stroke-width="1.6" style="stroke:var(--er)"/>
+              <rect x="412" y="1" width="46" height="16" rx="2" style="fill:var(--er)"/>
+              <text x="435" y="13" text-anchor="middle" style="font-family:var(--mono);font-size:11px;font-weight:500;fill:var(--sf)">143</text>
+            </svg>
+          </div>
+        </sc-if>
+
+        <!-- Тело: синтез -->
+        <sc-if value="{{bodySynth}}" hint-placeholder-val="{{false}}">
+          <div style="flex:1;min-height:0;overflow:hidden;padding:12px 14px;background:var(--ed);display:flex;flex-direction:column;gap:12px">
+            <div style="display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px">
+              <sc-for list="{{metrics}}" as="m" hint-placeholder-count="4">
+                <div title="{{m.hint}}" style="border:1px solid var(--bd);border-radius:3px;background:var(--sf);padding:10px 12px;display:flex;flex-direction:column;gap:3px">
+                  <span class="lbl">{{m.label}}</span>
+                  <div style="display:flex;align-items:baseline;gap:6px"><span style="font-family:var(--mono);font-size:26px;line-height:34px;font-weight:500;letter-spacing:-0.02em">{{m.value}}</span><span style="color:var(--mu);font-size:12px">{{m.unit}}</span></div>
+                  <span style="font-size:12px;font-weight:500;color:{{m.deltaColor}}">{{m.delta}}</span>
+                  <span style="font-family:var(--mono);font-size:11px;color:var(--mu)">{{m.ref}}</span>
+                </div>
+              </sc-for>
+            </div>
+            <div style="display:flex;flex-direction:column;gap:6px">
+              <div style="display:flex;justify-content:space-between;align-items:baseline">
+                <span class="lbl">Место в рейтинге задачи · задержка → площадь → время</span>
+                <span style="font-family:var(--mono);font-size:12px"><span style="color:var(--ok);font-weight:500">12</span> <span style="color:var(--mu)">из 304</span></span>
+              </div>
+              <div style="position:relative;height:6px;border-radius:3px;background:var(--sf2);border:1px solid var(--bd)">
+                <div style="position:absolute;left:0;top:-1px;bottom:-1px;width:4%;border-radius:3px;background:var(--ok)"></div>
+              </div>
+              <div style="display:flex;justify-content:space-between;font-family:var(--mono);font-size:10.5px;color:var(--mu)"><span>1</span><span>лучше, чем у 96% решений</span><span>304</span></div>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+    </section>
+  </div>
+
+  <!-- Строка состояния -->
+  <footer style="height:24px;flex:0 0 24px;display:flex;align-items:center;gap:16px;padding:0 12px;background:var(--ac);color:var(--acx);font-family:var(--mono);font-size:11px">
+    <span>Практика</span>
+    <span>Medium</span>
+    <span>Автосохранение 14:32</span>
+    <div style="flex:1"></div>
+    <span>SystemVerilog</span>
+    <span>{{statusPos}}</span>
+  </footer>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"state":{"editor":"enum","options":["empty","queued","running","wrong","wave","accepted"],"default":"wrong"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  tokenize(line) {
+    const re = /(\/\/.*$)|(\$\w+)|(\d+'[bhdBHD][0-9a-fA-F_]+|\b\d+\b|'0)|(\b(?:module|endmodule|parameter|localparam|input|output|always_ff|assign|begin|end|if|else|posedge|wire)\b)|(\b(?:logic|int)\b)|([A-Za-z_]\w*)|(\s+)|([\s\S])/g;
+    const out = [];
+    let m;
+    while ((m = re.exec(line))) {
+      const c = m[1] ? 'cm' : m[2] ? 'fn' : m[3] ? 'nm' : m[4] ? 'kw' : m[5] ? 'ty' : m[6] ? 'id' : 'pn';
+      out.push({ c, t: m[0] });
+    }
+    return out;
+  }
+  bus(a, b, y1, y2) {
+    const h = (y2 - y1) / 2;
+    return 'M' + a + ' ' + (y1 + h) + 'l4 ' + (-h) + 'H' + (b - 4) + 'l4 ' + h + 'l-4 ' + h + 'H' + (a + 4) + 'z';
+  }
+  renderVals() {
+    const st = this.props.state ?? 'wrong';
+    const dark = (this.props.theme ?? 'light') === 'dark';
+    const light = {
+      '--bg': '#d6dad2', '--sf': '#f6f7f3', '--sf2': '#e9ece4', '--ed': '#fbfcf9', '--bd': '#c3c9bf', '--bc': '#7d877f',
+      '--tx': '#141a15', '--mu': '#505a52', '--ac': '#0e7490', '--acx': '#ffffff', '--acs': '#e0f1f5',
+      '--ok': '#166534', '--oks': '#e1f1e4', '--er': '#b42318', '--ers': '#fbe6e2', '--wn': '#7a4f00', '--wns': '#f8ecc9',
+      '--in': '#1d4ed8', '--ins': '#e3ebfb', '--sh': 'rgba(0,0,0,0.1)',
+      '--kw': '#0e7490', '--ty': '#6d28d9', '--nm': '#a24b0a', '--cm': '#5a665c', '--fn': '#1d4ed8'
+    };
+    const night = {
+      '--bg': '#050706', '--sf': '#0d100e', '--sf2': '#151a17', '--ed': '#090c0a', '--bd': '#222a25', '--bc': '#667168',
+      '--tx': '#dfe6df', '--mu': '#8f9b92', '--ac': '#22d3ee', '--acx': '#04222a', '--acs': '#0b2a31',
+      '--ok': '#4ade80', '--oks': '#0f2a18', '--er': '#ff7b72', '--ers': '#2b1311', '--wn': '#e3b341', '--wns': '#2a2107',
+      '--in': '#79c0ff', '--ins': '#10233a', '--sh': 'rgba(0,0,0,0.5)',
+      '--kw': '#22d3ee', '--ty': '#c4b5fd', '--nm': '#fbbf24', '--cm': '#7d887e', '--fn': '#86efac'
+    };
+    const v = dark ? night : light;
+    v['--sans'] = "'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif";
+    v['--mono'] = "'IBM Plex Mono',ui-monospace,'SF Mono',Menlo,monospace";
+    const rootVars = Object.keys(v).map((k) => k + ':' + v[k]).join(';') + ';';
+
+    // Код: шаблон для пустого состояния, решение пользователя для остальных
+    const template = [
+      'module sync_fifo #(', '  parameter int WIDTH = 8,', '  parameter int DEPTH = 16', ') (',
+      '  input  logic             clk,', '  input  logic             rst_n,', '  input  logic             push,',
+      '  input  logic [WIDTH-1:0] wdata,', '  input  logic             pop,', '  output logic [WIDTH-1:0] rdata,',
+      '  output logic             full,', '  output logic             empty', ');',
+      '  // Ваше решение', 'endmodule'
+    ];
+    const solution = [
+      'module sync_fifo #(', '  parameter int WIDTH = 8,', '  parameter int DEPTH = 16', ') (',
+      '  input  logic             clk,', '  input  logic             rst_n,', '  input  logic             push,',
+      '  input  logic [WIDTH-1:0] wdata,', '  input  logic             pop,', '  output logic [WIDTH-1:0] rdata,',
+      '  output logic             full,', '  output logic             empty', ');',
+      '  localparam int AW = $clog2(DEPTH);', '',
+      '  logic [WIDTH-1:0] mem [DEPTH];', '  logic [AW-1:0]    wptr, rptr;', '  logic [AW:0]      count;', '',
+      '  wire do_push = push && !full;', '  wire do_pop  = pop  && !empty;', '',
+      '  always_ff @(posedge clk) begin',
+      '    if (do_push) wptr <= wptr + 5\'d1;',
+      '    if (do_pop)  rptr <= rptr + 1\'b1;',
+      '    if (do_push) mem[wptr] <= wdata;',
+      '    count <= count + do_push - do_pop;',
+      '    if (!rst_n) begin wptr <= \'0; rptr <= \'0; count <= \'0; end',
+      '  end', '',
+      '  assign full  = (count == DEPTH);', '  assign empty = (count == 0);',
+      '  always_ff @(posedge clk) rdata <= mem[rptr];', 'endmodule'
+    ];
+    const isEmpty = st === 'empty';
+    const hasLint = st === 'wrong' || st === 'wave';
+    const codeLines = (isEmpty ? template : solution).map((s, i) => ({
+      n: i + 1, warn: hasLint && i + 1 === 24, bg: hasLint && i + 1 === 24 ? 'var(--wns)' : 'transparent', tokens: this.tokenize(s)
+    })).slice(isEmpty ? 0 : 15);
+
+    // Конвейер по состояниям
+    const S = (name, sub, cls, kind, grow) => {
+      const o = { name, sub, cls, grow, isWarn: false, isErr: false, isOk: false, isRun: false, isSkip: false, isWait: false };
+      o[kind] = true;
+      return o;
+    };
+    const names = ['Линт', 'Симуляция', 'Синтез', 'Формал'];
+    const grow = [3, 4, 3, 3];
+    let stages, totalLabel;
+    if (st === 'empty') {
+      stages = names.map((n, i) => S(n, 'не запускался', 'st-idle', 'isWait', grow[i]));
+      totalLabel = '—';
+    } else if (st === 'queued') {
+      stages = names.map((n, i) => S(n, 'ожидает', 'st-idle', 'isWait', grow[i]));
+      totalLabel = 'ожидание ≈ 12 с';
+    } else if (st === 'running') {
+      stages = [S('Линт', 'чисто · 0,3 с', 'st-ok', 'isOk', 3), S('Симуляция', 'идёт · 1,4 с', 'st-run', 'isRun', 4), S('Синтез', 'ожидает', 'st-idle', 'isWait', 3), S('Формал', 'ожидает', 'st-idle', 'isWait', 3)];
+      totalLabel = 'идёт 1,7 с';
+    } else if (st === 'accepted') {
+      stages = [S('Линт', 'чисто · 0,3 с', 'st-ok', 'isOk', 3), S('Симуляция', '32 из 32 · 2,3 с', 'st-ok', 'isOk', 4), S('Синтез', 'готово · 1,9 с', 'st-ok', 'isOk', 3), S('Формал', '6 из 6 · 4,2 с', 'st-ok', 'isOk', 3)];
+      totalLabel = 'всего 8,7 с';
+    } else {
+      stages = [S('Линт', '1 замечание · 0,4 с', 'st-warn', 'isWarn', 3), S('Симуляция', 'тест 7 из 32 · 2,1 с', 'st-err', 'isErr', 4), S('Синтез', 'пропущен', 'st-skip', 'isSkip', 3), S('Формал', 'пропущен', 'st-skip', 'isSkip', 3)];
+      totalLabel = 'всего 2,5 с';
+    }
+
+    // Консоль
+    const bar = (t) => t + ' ' + '─'.repeat(Math.max(4, 58 - t.length));
+    let consoleLines = [];
+    if (st === 'queued') {
+      consoleLines = [{ cls: 'dim', pre: 'queued · позиция 3 · ожидание ≈ 12 с', link: '', post: '' }];
+    } else if (st === 'running') {
+      consoleLines = [
+        { cls: 'sep', pre: bar('── lint'), link: '', post: '' },
+        { cls: 'ok', pre: 'lint passed', link: '', post: '' },
+        { cls: 'sep', pre: bar('── simulation'), link: '', post: '' },
+        { cls: 'dim', pre: 'compiling sync_fifo (Verilator)… done', link: '', post: '' },
+        { cls: 'ok', pre: 'tests 1–3/32  PASSED', link: '', post: '' },
+        { cls: 'dim', pre: 'test 4/32  running…', link: '', post: '' }
+      ];
+    } else {
+      consoleLines = [
+        { cls: 'sep', pre: bar('── lint'), link: '', post: '' },
+        { cls: 'warn', pre: '%Warning-WIDTHTRUNC: ', link: 'sync_fifo.sv:24:17', post: ': Operator ASSIGN expects 4 bits on the Assign RHS, but Assign RHS\'s ADD generates 5 bits.' },
+        { cls: 'sep', pre: bar('── simulation'), link: '', post: '' },
+        { cls: 'ok', pre: 'tests 1–6/32  PASSED', link: '', post: '' },
+        { cls: 'err', pre: 'test 7/32  FAILED at cycle 143: rdata expected 0x3A, got 0x00', link: '', post: '' },
+        { cls: 'dim', pre: 'simulation stopped at first failure — synthesis and formal skipped', link: '', post: '' }
+      ];
+    }
+
+    // Временная диаграмма
+    const x0 = 180, w = 58, X = (k) => x0 + k * w;
+    let clk = 'M' + x0 + ' 48';
+    for (let k = 0; k < 9; k++) clk += 'V30H' + (X(k) + 29) + 'V48H' + X(k + 1);
+    const wave = {
+      clk,
+      exp1: this.bus(180, 412, 150, 168), exp2: this.bus(412, 702, 150, 168),
+      act1: this.bus(180, 412, 180, 198), act2: this.bus(412, 470, 180, 198), act3: this.bus(470, 702, 180, 198)
+    };
+
+    // Метрики синтеза
+    const metrics = [
+      { label: 'Задержка пути', value: '0,84', unit: 'нс · ≈ 1,19 ГГц', delta: '↓ 8% лучше эталона', deltaColor: 'var(--ok)', ref: 'эталон 0,91 · лучшее 0,71', hint: 'Время прохождения сигнала по самому длинному пути между триггерами. Чем меньше, тем выше достижимая частота.' },
+      { label: 'Площадь', value: '836', unit: 'µm²', delta: '↓ 7% лучше эталона', deltaColor: 'var(--ok)', ref: 'эталон 902 · лучшее 744', hint: 'Суммарная площадь ячеек после синтеза на библиотеку открытой PDK.' },
+      { label: 'Ячеек', value: '187', unit: '', delta: '↓ 7% лучше эталона', deltaColor: 'var(--ok)', ref: 'эталон 201 · лучшее 162', hint: 'Число логических ячеек в синтезированной схеме.' },
+      { label: 'Триггеров', value: '140', unit: '', delta: '= как у эталона', deltaColor: 'var(--mu)', ref: 'эталон 140 · лучшее 136', hint: 'Число триггеров: хранит ли решение лишнее состояние.' }
+    ];
+
+    const ports = [
+      { name: 'clk', dir: 'вход', width: '1', note: 'Общий тактовый сигнал' },
+      { name: 'rst_n', dir: 'вход', width: '1', note: 'Синхронный сброс, активный 0' },
+      { name: 'push', dir: 'вход', width: '1', note: 'Записать wdata' },
+      { name: 'wdata', dir: 'вход', width: 'WIDTH', note: 'Записываемое слово' },
+      { name: 'pop', dir: 'вход', width: '1', note: 'Удалить слово с вершины' },
+      { name: 'rdata', dir: 'выход', width: 'WIDTH', note: 'Слово на вершине очереди' },
+      { name: 'full', dir: 'выход', width: '1', note: 'Очередь заполнена' },
+      { name: 'empty', dir: 'выход', width: '1', note: 'Очередь пуста' }
+    ];
+
+    const tabs = {
+      console: (st === 'wave' || st === 'accepted') ? '' : 'on', consoleSel: !(st === 'wave' || st === 'accepted'),
+      wave: st === 'wave' ? 'on' : '', waveSel: st === 'wave',
+      synth: st === 'accepted' ? 'on' : '', synthSel: st === 'accepted'
+    };
+
+    return {
+      rootVars, codeLines, stages, totalLabel, consoleLines, wave, metrics, ports, tabs,
+      showWrong: st === 'wrong' || st === 'wave', showAccepted: st === 'accepted', showRunning: st === 'running', showQueued: st === 'queued',
+      showWrongBadge: st === 'wrong' || st === 'wave',
+      bodyConsole: st === 'queued' || st === 'running' || st === 'wrong',
+      bodyEmpty: st === 'empty', bodyWave: st === 'wave', bodySynth: st === 'accepted',
+      statusPos: isEmpty ? 'Стр 14, Стлб 3' : 'Стр 24, Стлб 17',
+      subCount: st === 'empty' ? '0' : st === 'accepted' ? '4' : '3'
+    };
+  }
+}
+</script>
+</body>
+</html>

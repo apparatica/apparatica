@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Компоненты: статусы и конвейер — Bench</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap">
+<style>
+
+body{margin:0}
+a{color:inherit}
+button{font-family:inherit}
+code{font-family:var(--mono);font-size:12px;background:var(--sf2);border:1px solid var(--bd);padding:0 4px;border-radius:2px}
+div[style*='var(--mono)'],code{font-variant-ligatures:none}
+.lbl{font-family:var(--mono);font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;color:var(--mu)}
+.btn{white-space:nowrap;display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 10px;border-radius:3px;border:1px solid var(--bc);background:var(--sf);color:var(--tx);font-size:12.5px;cursor:pointer;text-decoration:none}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--mu)}
+.btn.on{background:var(--acs);border-color:var(--ac);color:var(--ac)}
+.btn.pri{background:var(--ac);border-color:var(--ac);color:var(--acx);font-weight:500}
+.kbd{font-family:var(--mono);font-size:10.5px;opacity:.8}
+.card{border:1px solid var(--bd);border-radius:3px;background:var(--sf);padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.chip{height:20px;padding:0 7px;border-radius:2px;border:1px solid var(--bd);color:var(--mu);font-family:var(--mono);font-size:11px;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.lvl{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:2px;font-family:var(--mono);font-size:11px;font-weight:500;white-space:nowrap}
+.lv-e{background:var(--es);color:var(--e)}.lv-m{background:var(--ms);color:var(--m)}.lv-h{background:var(--hs);color:var(--h)}
+.bars{display:inline-flex;align-items:flex-end;gap:1.5px;height:10px}
+.bars i{display:block;width:2.5px;background:currentColor;opacity:.3}
+.bars i:nth-child(1){height:4px}.bars i:nth-child(2){height:7px}.bars i:nth-child(3){height:10px}
+.b1 i:nth-child(1),.b2 i:nth-child(-n+2),.b3 i{opacity:1}
+.c0{background:var(--sf2)}.c1{background:var(--h1)}.c2{background:var(--h2)}.c3{background:var(--h3)}.c4{background:var(--h4)}
+.kw{color:var(--kw)}.ty{color:var(--ty)}.nm{color:var(--nm)}.cm{color:var(--cm);font-style:italic}.fn{color:var(--fn)}.id{color:var(--tx)}.pn{color:var(--mu)}
+.sub-row{display:flex;align-items:center;gap:10px;height:38px;border-bottom:1px solid var(--bd)}
+.sub-row:last-child{border-bottom:0}
+.av{width:22px;height:22px;border-radius:2px;background:var(--sf2);border:1px solid var(--bd);color:var(--mu);display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;flex:0 0 auto}
+.av.me{background:var(--acs);border-color:var(--ac);color:var(--ac)}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+
+.stage{min-width:0;display:flex;align-items:center;gap:8px;padding:0 10px;border-radius:2px}
+.stage .t{display:flex;flex-direction:column;line-height:1.25;min-width:0}
+.stage .n{font-weight:500;font-size:12.5px;color:var(--tx)}
+.stage .s{font-family:var(--mono);font-size:11px;color:var(--mu);white-space:nowrap}
+.st-warn{background:var(--wns);color:var(--wn)}.st-warn .s{color:var(--wn)}
+.st-err{background:var(--ers);color:var(--er);box-shadow:inset 0 0 0 1px var(--er)}.st-err .s{color:var(--er)}
+.st-ok{background:var(--oks);color:var(--ok)}.st-ok .s{color:var(--ok)}
+.st-run{background:var(--ins);color:var(--in);box-shadow:inset 0 0 0 1px var(--in)}.st-run .s{color:var(--in)}
+.st-skip{border:1px dashed var(--bd);color:var(--mu);background:repeating-linear-gradient(135deg,transparent 0 6px,var(--sf2) 6px 8px)}
+.st-idle{border:1px solid var(--bd);color:var(--mu)}
+.st-stop{border:1px solid var(--mu);color:var(--mu);background:var(--sf2)}
+.band{margin:10px 14px 0;padding:8px 12px;border-radius:3px;display:flex;align-items:center;gap:12px}
+.band-err{background:var(--ers)}.band-ok{background:var(--oks)}.band-run{background:var(--ins)}.band-warn{background:var(--wns)}.band-neu{background:var(--sf2);border:1px solid var(--bd)}
+.band-err .ic{color:var(--er)}.band-ok .ic{color:var(--ok)}.band-run .ic{color:var(--in)}.band-warn .ic{color:var(--wn)}.band-neu .ic{color:var(--mu)}
+.rtab{display:flex;align-items:center;gap:6px;height:32px;padding:0 12px;border:0;border-bottom:2px solid transparent;background:transparent;color:var(--mu);font-size:12.5px;cursor:pointer;white-space:nowrap}
+.rtab.on{color:var(--tx);border-bottom-color:var(--ac)}
+.ptab{display:flex;align-items:center;gap:6px;height:36px;padding:0 10px;border:0;border-top:2px solid transparent;border-right:1px solid var(--bd);background:var(--sf2);color:var(--mu);font-size:12.5px;cursor:pointer;white-space:nowrap}
+.ptab.on{background:var(--sf);color:var(--tx);border-top-color:var(--ac)}
+.con{font-family:var(--mono);font-size:12.5px;line-height:20px;padding:8px 14px;background:var(--ed);white-space:pre-wrap;overflow:hidden}
+.sep{color:var(--mu)}.warn{color:var(--wn)}.err{color:var(--er);font-weight:500}.ok{color:var(--ok)}.dim{color:var(--mu)}.inf{color:var(--in)}
+.lnk{color:var(--ac);text-decoration:underline;text-underline-offset:2px}
+.tag-l{font-family:var(--mono);font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;color:var(--mu)}
+.frag{border:1px solid var(--bd);border-radius:3px;background:var(--sf);overflow:hidden;display:flex;flex-direction:column}
+@keyframes spin{to{transform:rotate(360deg)}}
+.spin{animation:spin 1s linear infinite}
+@media (prefers-reduced-motion:reduce){.spin{animation:none}}
+.row2{display:flex;align-items:center;gap:10px;padding:8px 14px;border-bottom:1px solid var(--bd)}
+.row2:last-child{border-bottom:0}
+.sk{background:var(--sf2);border-radius:3px;position:relative;overflow:hidden}
+.sk::after{content:'';position:absolute;inset:0;background:linear-gradient(90deg,transparent,var(--shim),transparent);transform:translateX(-100%);animation:shim 1.6s ease-in-out infinite}
+@keyframes shim{to{transform:translateX(100%)}}
+@media (prefers-reduced-motion:reduce){.sk::after{animation:none}}
+
+.vb{display:inline-flex;align-items:center;gap:7px;height:26px;padding:0 10px;border-radius:2px;font-size:12.5px;font-weight:500;white-space:nowrap}
+.vb.ok{background:var(--oks);color:var(--ok)}.vb.er{background:var(--ers);color:var(--er)}.vb.wn{background:var(--wns);color:var(--wn)}.vb.in{background:var(--ins);color:var(--in)}
+.vb.ne{background:var(--sf2);color:var(--tx);box-shadow:inset 0 0 0 1px var(--bc)}
+.vb.ou{background:transparent;color:var(--er);box-shadow:inset 0 0 0 1.5px var(--er)}
+.lvl{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:2px;font-family:var(--mono);font-size:11px;font-weight:500;white-space:nowrap}
+.lv-e{background:var(--es);color:var(--e)}.lv-m{background:var(--ms);color:var(--m)}.lv-h{background:var(--hs);color:var(--h)}
+.bars{display:inline-flex;align-items:flex-end;gap:1.5px;height:10px}.bars i{display:block;width:2.5px;background:currentColor;opacity:.3}
+.bars i:nth-child(1){height:4px}.bars i:nth-child(2){height:7px}.bars i:nth-child(3){height:10px}
+.b1 i:nth-child(1),.b2 i:nth-child(-n+2),.b3 i{opacity:1}
+.chip{height:20px;padding:0 7px;border-radius:2px;border:1px solid var(--bd);color:var(--mu);font-family:var(--mono);font-size:11px;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.chip.on{border-color:var(--ac);color:var(--ac);background:var(--acs)}
+.card{border:1px solid var(--bd);border-radius:3px;background:var(--sf);padding:12px 14px;display:flex;flex-direction:column;gap:10px}
+.btn{white-space:nowrap;display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 10px;border-radius:3px;border:1px solid var(--bc);background:var(--sf);color:var(--tx);font-size:12.5px;cursor:pointer}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--mu)}
+.btn.on{background:var(--acs);border-color:var(--ac);color:var(--ac)}
+.btn.pri{background:var(--ac);border-color:var(--ac);color:var(--acx);font-weight:500}
+.btn.dis{opacity:.45;cursor:not-allowed}
+.kbd{font-family:var(--mono);font-size:10.5px;opacity:.8}
+.inp{display:flex;align-items:center;gap:8px;height:30px;padding:0 10px;border:1px solid var(--bc);border-radius:3px;background:var(--ed);color:var(--tx);font-size:12.5px}
+.lbl{font-family:var(--mono);font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;color:var(--mu)}
+.cap{font-size:11.5px;color:var(--mu)}
+.sub{font-family:var(--mono);font-size:10px;color:var(--mu);letter-spacing:.02em}
+.row3{display:flex;align-items:center;gap:10px;min-height:38px;padding:6px 0;border-bottom:1px solid var(--bd)}
+.row3:last-child{border-bottom:0}
+.kw{color:var(--kw)}.ty{color:var(--ty)}.nm{color:var(--nm)}.cm{color:var(--cm);font-style:italic}.fn{color:var(--fn)}.id{color:var(--tx)}.pn{color:var(--mu)}
+div[style*='var(--mono)'],code{font-variant-ligatures:none}
+code{font-family:var(--mono);font-size:12px;background:var(--sf2);border:1px solid var(--bd);padding:0 4px;border-radius:2px}
+
+</style>
+</helmet>
+<div style="{{rootVars}}width:100%;height:900px;background:var(--bg);color:var(--tx);font-family:var(--sans);font-size:13px;line-height:1.5;font-variant-numeric:tabular-nums;box-sizing:border-box;overflow:hidden;padding:28px 36px;display:flex;flex-direction:column;gap:18px;"><div><h1 style="margin:0;font-size:22px;line-height:30px;font-weight:600;letter-spacing:-0.01em">Компоненты · статусы</h1><span style="color:var(--mu)">Статус никогда не передаётся одним цветом: цвет, иконка и текст. Формы иконок различаются для дальтоников.</span></div><div style="display:flex;gap:28px;flex:1;min-height:0">
+  <div style="flex:1.1;min-width:0;display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;flex-direction:column;gap:8px;"><span class="tag-l">Бейдж вердикта · 10 статусов</span><div class="card" style="padding:4px 14px"><div class="row3"><span class="vb ok"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>Принято</span><span style="flex:1;font-size:12px;color:var(--mu)">Все этапы пройдены</span><span class="sub">принят</span></div><div class="row3"><span class="vb er"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg>Неверный ответ</span><span style="flex:1;font-size:12px;color:var(--mu)">Тесты или свойства не прошли</span><span class="sub">ошибка</span></div><div class="row3"><span class="vb er"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><path d="m18 16 4-4-4-4"/><path d="m6 8-4 4 4 4"/><path d="m14.5 4-5 16"/></svg>Ошибка компиляции</span><span style="flex:1;font-size:12px;color:var(--mu)">Verilator или slang не собрали код</span><span class="sub">ошибка</span></div><div class="row3"><span class="vb wn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>Предупреждения линта</span><span style="flex:1;font-size:12px;color:var(--mu)">Принято, но есть замечания</span><span class="sub">предупреждение</span></div><div class="row3"><span class="vb wn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><line x1="10" x2="14" y1="2" y2="2"/><line x1="12" x2="15" y1="14" y2="11"/><circle cx="12" cy="14" r="8"/></svg>Превышен лимит</span><span style="flex:1;font-size:12px;color:var(--mu)">Время, память или объём вывода</span><span class="sub">предупреждение</span></div><div class="row3"><span class="vb er"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m14.5 9.5-5 5"/><path d="m9.5 9.5 5 5"/></svg>Запрещённая конструкция</span><span style="flex:1;font-size:12px;color:var(--mu)">Статическая проверка не пропустила код</span><span class="sub">ошибка</span></div><div class="row3"><span class="vb in"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>В очереди · позиция 3</span><span style="flex:1;font-size:12px;color:var(--mu)">Ожидание около 12 с</span><span class="sub">информация</span></div><div class="row3"><span class="vb in"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="spin" style="flex:0 0 auto"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg>Выполняется · синтез 4,2 с</span><span style="flex:1;font-size:12px;color:var(--mu)">Текущий этап и время</span><span class="sub">информация</span></div><div class="row3"><span class="vb ne"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><circle cx="12" cy="12" r="10"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>Отменено</span><span style="flex:1;font-size:12px;color:var(--mu)">Пользователем или новым запуском</span><span class="sub">нейтральный</span></div><div class="row3"><span class="vb ou"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><path d="M7.86 2h8.28L22 7.86v8.28L16.14 22H7.86L2 16.14V7.86Z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg>Внутренняя ошибка</span><span style="flex:1;font-size:12px;color:var(--mu)">Сбой платформы, не вина пользователя</span><span class="sub">контур, не заливка</span></div></div></div>
+    <div style="display:flex;flex-direction:column;gap:8px;"><span class="tag-l">Компактный вид · иконка и подсказка</span><div style="display:flex;gap:6px"><span title="Принято" style="width:26px;height:26px;border-radius:2px;display:inline-flex;align-items:center;justify-content:center" class="vb ok"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg></span><span title="Неверный ответ" style="width:26px;height:26px;border-radius:2px;display:inline-flex;align-items:center;justify-content:center" class="vb er"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg></span><span title="Ошибка компиляции" style="width:26px;height:26px;border-radius:2px;display:inline-flex;align-items:center;justify-content:center" class="vb er"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><path d="m18 16 4-4-4-4"/><path d="m6 8-4 4 4 4"/><path d="m14.5 4-5 16"/></svg></span><span title="Предупреждения линта" style="width:26px;height:26px;border-radius:2px;display:inline-flex;align-items:center;justify-content:center" class="vb wn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span><span title="Превышен лимит" style="width:26px;height:26px;border-radius:2px;display:inline-flex;align-items:center;justify-content:center" class="vb wn"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><line x1="10" x2="14" y1="2" y2="2"/><line x1="12" x2="15" y1="14" y2="11"/><circle cx="12" cy="14" r="8"/></svg></span><span title="Запрещённая конструкция" style="width:26px;height:26px;border-radius:2px;display:inline-flex;align-items:center;justify-content:center" class="vb er"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><path d="M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z"/><path d="m14.5 9.5-5 5"/><path d="m9.5 9.5 5 5"/></svg></span><span title="В очереди · позиция 3" style="width:26px;height:26px;border-radius:2px;display:inline-flex;align-items:center;justify-content:center" class="vb in"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg></span><span title="Выполняется · синтез 4,2 с" style="width:26px;height:26px;border-radius:2px;display:inline-flex;align-items:center;justify-content:center" class="vb in"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="spin" style="flex:0 0 auto"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg></span><span title="Отменено" style="width:26px;height:26px;border-radius:2px;display:inline-flex;align-items:center;justify-content:center" class="vb ne"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><circle cx="12" cy="12" r="10"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg></span><span title="Внутренняя ошибка" style="width:26px;height:26px;border-radius:2px;display:inline-flex;align-items:center;justify-content:center" class="vb ou"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><path d="M7.86 2h8.28L22 7.86v8.28L16.14 22H7.86L2 16.14V7.86Z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg></span></div></div>
+  </div>
+  <div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:14px">
+    <div style="display:flex;flex-direction:column;gap:8px;"><span class="tag-l">Этап конвейера · 8 состояний</span><div style="display:grid;grid-template-columns:1fr 1fr;gap:10px 8px"><div style="display:flex;flex-direction:column;gap:5px"><div style="height:44px;display:flex"><div class="stage st-idle" style="flex:1"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg><div class="t"><span class="n">Ожидает</span><span class="s">ждёт воркера</span></div></div></div><span class="sub">Ожидает</span></div><div style="display:flex;flex-direction:column;gap:5px"><div style="height:44px;display:flex"><div class="stage st-run" style="flex:1"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" class="spin" style="flex:0 0 auto"><path d="M21 12a9 9 0 1 1-6.219-8.56"/></svg><div class="t"><span class="n">Идёт</span><span class="s">идёт · 1,4 с</span></div></div></div><span class="sub">Идёт</span></div><div style="display:flex;flex-direction:column;gap:5px"><div style="height:44px;display:flex"><div class="stage st-ok" style="flex:1"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg><div class="t"><span class="n">Чисто</span><span class="s">0,3 с</span></div></div></div><span class="sub">Чисто</span></div><div style="display:flex;flex-direction:column;gap:5px"><div style="height:44px;display:flex"><div class="stage st-warn" style="flex:1"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg><div class="t"><span class="n">Предупреждение</span><span class="s">1 замечание</span></div></div></div><span class="sub">Предупреждение</span></div><div style="display:flex;flex-direction:column;gap:5px"><div style="height:44px;display:flex"><div class="stage st-err" style="flex:1"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg><div class="t"><span class="n">Ошибка</span><span class="s">тест 7 из 32</span></div></div></div><span class="sub">Ошибка</span></div><div style="display:flex;flex-direction:column;gap:5px"><div style="height:44px;display:flex"><div class="stage st-skip" style="flex:1"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><circle cx="12" cy="12" r="10"/><path d="M8 12h8"/></svg><div class="t"><span class="n">Пропущен</span><span class="s">пропущен</span></div></div></div><span class="sub">Пропущен</span></div><div style="display:flex;flex-direction:column;gap:5px"><div style="height:44px;display:flex"><div class="stage st-stop" style="flex:1"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><circle cx="12" cy="12" r="10"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg><div class="t"><span class="n">Отменён</span><span class="s">отменено</span></div></div></div><span class="sub">Отменён</span></div><div style="display:flex;flex-direction:column;gap:5px"><div style="height:44px;display:flex"><div class="stage st-err" style="flex:1"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><path d="M7.86 2h8.28L22 7.86v8.28L16.14 22H7.86L2 16.14V7.86Z"/><path d="M12 8v4"/><path d="M12 16h.01"/></svg><div class="t"><span class="n">Сбой</span><span class="s">сбой платформы</span></div></div></div><span class="sub">Сбой</span></div></div></div>
+    <div style="display:flex;flex-direction:column;gap:8px;"><span class="tag-l">Сложность</span><div style="display:flex;gap:8px;align-items:center"><span class="lvl lv-e"><span class="bars b1"><i></i><i></i><i></i></span>Easy</span><span class="lvl lv-m"><span class="bars b2"><i></i><i></i><i></i></span>Medium</span><span class="lvl lv-h"><span class="bars b3"><i></i><i></i><i></i></span>Hard</span><span class="cap">три столбика + цвет + слово</span></div></div>
+    <div style="display:flex;flex-direction:column;gap:8px;"><span class="tag-l">Теги и фильтры</span><div style="display:flex;gap:6px;align-items:center;flex-wrap:wrap"><span class="chip">FIFO</span><span class="chip">память</span><span class="chip on">CDC</span><span class="chip on">FSM ×</span><span class="cap" style="margin-left:6px">обычный · выбран · со сбросом</span></div></div>
+    <div style="display:flex;flex-direction:column;gap:8px;"><span class="tag-l">Принятые</span><div style="display:flex;align-items:center;gap:6px;color:var(--mu);font-size:12px">принято <span style="font-family:var(--mono);color:var(--tx)">41%</span><span class="cap" style="margin-left:6px">процент принятых отправок</span></div></div>
+  </div>
+</div></div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+
+  renderVals() {
+
+    const dark = (this.props.theme ?? 'light') === 'dark';
+    const light = {
+      '--bg': '#d6dad2', '--sf': '#f6f7f3', '--sf2': '#e9ece4', '--ed': '#fbfcf9', '--bd': '#c3c9bf', '--bc': '#7d877f',
+      '--tx': '#141a15', '--mu': '#505a52', '--ac': '#0e7490', '--acx': '#ffffff', '--acs': '#e0f1f5',
+      '--ok': '#166534', '--oks': '#e1f1e4', '--er': '#b42318', '--ers': '#fbe6e2', '--wn': '#7a4f00', '--wns': '#f8ecc9',
+      '--in': '#1d4ed8', '--ins': '#e3ebfb', '--sh': 'rgba(0,0,0,0.1)',
+      '--e': '#0f766e', '--es': '#d9efec', '--m': '#1d4ed8', '--ms': '#e3ebfb', '--h': '#6d28d9', '--hs': '#ebe3fa',
+      '--h1': '#c6e3ea', '--h2': '#8ec6d4', '--h3': '#3f9db3', '--h4': '#0e7490',
+      '--kw': '#0e7490', '--ty': '#6d28d9', '--nm': '#a24b0a', '--cm': '#5a665c', '--fn': '#1d4ed8'
+    };
+    const night = {
+      '--bg': '#050706', '--sf': '#0d100e', '--sf2': '#151a17', '--ed': '#090c0a', '--bd': '#222a25', '--bc': '#667168',
+      '--tx': '#dfe6df', '--mu': '#8f9b92', '--ac': '#22d3ee', '--acx': '#04222a', '--acs': '#0b2a31',
+      '--ok': '#4ade80', '--oks': '#0f2a18', '--er': '#ff7b72', '--ers': '#2b1311', '--wn': '#e3b341', '--wns': '#2a2107',
+      '--in': '#79c0ff', '--ins': '#10233a', '--sh': 'rgba(0,0,0,0.5)',
+      '--e': '#5eead4', '--es': '#0d2b28', '--m': '#79c0ff', '--ms': '#10233a', '--h': '#c4b5fd', '--hs': '#221a3d',
+      '--h1': '#0d3a44', '--h2': '#116073', '--h3': '#1796ae', '--h4': '#22d3ee',
+      '--kw': '#22d3ee', '--ty': '#c4b5fd', '--nm': '#fbbf24', '--cm': '#7d887e', '--fn': '#86efac'
+    };
+    const v = dark ? night : light;
+    v['--sans'] = "'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif";
+    v['--mono'] = "'IBM Plex Mono',ui-monospace,'SF Mono',Menlo,monospace";
+    const rootVars = Object.keys(v).map((k) => k + ':' + v[k]).join(';') + ';';
+
+    v['--shim'] = dark ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.55)';
+    const rootVars2 = Object.keys(v).map((k) => k + ':' + v[k]).join(';') + ';';
+    return { rootVars: rootVars2 };
+  }
+}
+</script>
+</body>
+</html>

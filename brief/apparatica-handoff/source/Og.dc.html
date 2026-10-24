@@ -1,0 +1,98 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>OG-карточка — Bench</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap">
+<style>
+
+body{margin:0}
+a{color:inherit}
+button{font-family:inherit}
+code{font-family:var(--mono);font-size:12px;background:var(--sf2);border:1px solid var(--bd);padding:0 4px;border-radius:2px}
+div[style*='var(--mono)'],code{font-variant-ligatures:none}
+.lbl{font-family:var(--mono);font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;color:var(--mu)}
+.btn{white-space:nowrap;display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 10px;border-radius:3px;border:1px solid var(--bc);background:var(--sf);color:var(--tx);font-size:12.5px;cursor:pointer;text-decoration:none}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--mu)}
+.btn.on{background:var(--acs);border-color:var(--ac);color:var(--ac)}
+.btn.pri{background:var(--ac);border-color:var(--ac);color:var(--acx);font-weight:500}
+.kbd{font-family:var(--mono);font-size:10.5px;opacity:.8}
+.card{border:1px solid var(--bd);border-radius:3px;background:var(--sf);padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.chip{height:20px;padding:0 7px;border-radius:2px;border:1px solid var(--bd);color:var(--mu);font-family:var(--mono);font-size:11px;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.lvl{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:2px;font-family:var(--mono);font-size:11px;font-weight:500;white-space:nowrap}
+.lv-e{background:var(--es);color:var(--e)}.lv-m{background:var(--ms);color:var(--m)}.lv-h{background:var(--hs);color:var(--h)}
+.bars{display:inline-flex;align-items:flex-end;gap:1.5px;height:10px}
+.bars i{display:block;width:2.5px;background:currentColor;opacity:.3}
+.bars i:nth-child(1){height:4px}.bars i:nth-child(2){height:7px}.bars i:nth-child(3){height:10px}
+.b1 i:nth-child(1),.b2 i:nth-child(-n+2),.b3 i{opacity:1}
+.c0{background:var(--sf2)}.c1{background:var(--h1)}.c2{background:var(--h2)}.c3{background:var(--h3)}.c4{background:var(--h4)}
+.kw{color:var(--kw)}.ty{color:var(--ty)}.nm{color:var(--nm)}.cm{color:var(--cm);font-style:italic}.fn{color:var(--fn)}.id{color:var(--tx)}.pn{color:var(--mu)}
+.sub-row{display:flex;align-items:center;gap:10px;height:38px;border-bottom:1px solid var(--bd)}
+.sub-row:last-child{border-bottom:0}
+.av{width:22px;height:22px;border-radius:2px;background:var(--sf2);border:1px solid var(--bd);color:var(--mu);display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;flex:0 0 auto}
+.av.me{background:var(--acs);border-color:var(--ac);color:var(--ac)}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+
+</style>
+</helmet>
+<div style="width:100%;height:630px;position:relative;overflow:hidden;box-sizing:border-box;background:#0d100e;color:#dfe6df;font-family:'IBM Plex Sans',system-ui,sans-serif;padding:56px 64px;display:flex;flex-direction:column;justify-content:space-between;font-variant-numeric:tabular-nums">
+  <div aria-hidden="true" style="position:absolute;inset:0;background:radial-gradient(900px 400px at 100% 0%,rgba(34,211,238,.10),transparent 60%)"></div>
+  <svg width="520" height="220" viewBox="0 0 520 220" fill="none" aria-hidden="true" style="position:absolute;right:0;top:0;opacity:.9"><g stroke="#22d3ee" stroke-width="2" stroke-opacity=".55"><path d="M0 60H70V30H150V60H230V30H310V60H390V30H470V60H520"/></g><g stroke="#1796ae" stroke-width="2" stroke-opacity=".4"><path d="M0 110H110V80H190V110H330V80H410V110H520"/></g><g stroke="#116073" stroke-width="2" stroke-opacity=".5"><path d="M0 160H40L56 135H176L192 160H352L368 135H472L488 160H520"/></g></svg>
+  <div style="position:relative;display:flex;align-items:center;gap:14px">
+    <svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="#22d3ee" stroke-width="2" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="17" height="18" rx="2"/><path d="M4 9.5l5 2.5-5 2.5"/></svg>
+    <span style="font-size:32px;font-weight:600;letter-spacing:0.01em">Apparatica</span>
+  </div>
+  <div style="position:relative;display:flex;flex-direction:column;gap:20px">
+    <div style="display:flex;align-items:center;gap:18px">
+      <span style="display:inline-flex;align-items:center;gap:10px;height:38px;padding:0 16px;border-radius:3px;background:#10233a;color:#79c0ff;font-family:'IBM Plex Mono',monospace;font-size:20px;font-weight:500"><span style="display:inline-flex;align-items:flex-end;gap:3px;height:18px"><i style="display:block;width:5px;height:8px;background:#79c0ff"></i><i style="display:block;width:5px;height:13px;background:#79c0ff"></i><i style="display:block;width:5px;height:18px;background:#79c0ff;opacity:.3"></i></span>Medium</span>
+      <span style="display:inline-flex;align-items:center;gap:10px;font-size:24px;font-weight:500;color:#4ade80"><svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg>Принято</span>
+    </div>
+    <h1 style="margin:0;font-size:84px;line-height:92px;font-weight:600;letter-spacing:-0.025em">Синхронный FIFO</h1>
+    <span style="font-size:28px;color:#8f9b92">Решение <span style="color:#dfe6df;font-weight:500">nastya.k</span> · 5 место из 304 по задержке</span>
+  </div>
+  <div style="position:relative;display:flex;gap:72px;padding-top:28px;border-top:1px solid #222a25">
+    <div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:20px;color:#8f9b92">задержка</span><span style="font-family:'IBM Plex Mono',monospace;font-size:60px;line-height:64px;font-weight:500;letter-spacing:-0.02em;color:#dfe6df">0,79<span style="font-size:24px;font-weight:400;color:#8f9b92"> нс</span></span></div><div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:20px;color:#8f9b92">площадь</span><span style="font-family:'IBM Plex Mono',monospace;font-size:60px;line-height:64px;font-weight:500;letter-spacing:-0.02em;color:#dfe6df">790<span style="font-size:24px;font-weight:400;color:#8f9b92"> µm²</span></span></div><div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:20px;color:#8f9b92">ячейки</span><span style="font-family:'IBM Plex Mono',monospace;font-size:60px;line-height:64px;font-weight:500;letter-spacing:-0.02em;color:#dfe6df">176<span style="font-size:24px;font-weight:400;color:#8f9b92"> </span></span></div><div style="display:flex;flex-direction:column;gap:6px"><span style="font-size:20px;color:#8f9b92">триггеры</span><span style="font-family:'IBM Plex Mono',monospace;font-size:60px;line-height:64px;font-weight:500;letter-spacing:-0.02em;color:#dfe6df">138<span style="font-size:24px;font-weight:400;color:#8f9b92"> </span></span></div>
+    <div style="margin-left:auto;display:flex;flex-direction:column;gap:6px;align-items:flex-end"><span style="font-size:20px;color:#8f9b92">место в рейтинге</span><span style="font-family:'IBM Plex Mono',monospace;font-size:60px;line-height:64px;font-weight:500;color:#22d3ee">5<span style="font-size:24px;font-weight:400;color:#8f9b92"> из 304</span></span></div>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+
+  renderVals() {
+
+    const dark = (this.props.theme ?? 'light') === 'dark';
+    const light = {
+      '--bg': '#d6dad2', '--sf': '#f6f7f3', '--sf2': '#e9ece4', '--ed': '#fbfcf9', '--bd': '#c3c9bf', '--bc': '#7d877f',
+      '--tx': '#141a15', '--mu': '#505a52', '--ac': '#0e7490', '--acx': '#ffffff', '--acs': '#e0f1f5',
+      '--ok': '#166534', '--oks': '#e1f1e4', '--er': '#b42318', '--ers': '#fbe6e2', '--wn': '#7a4f00', '--wns': '#f8ecc9',
+      '--in': '#1d4ed8', '--ins': '#e3ebfb', '--sh': 'rgba(0,0,0,0.1)',
+      '--e': '#0f766e', '--es': '#d9efec', '--m': '#1d4ed8', '--ms': '#e3ebfb', '--h': '#6d28d9', '--hs': '#ebe3fa',
+      '--h1': '#c6e3ea', '--h2': '#8ec6d4', '--h3': '#3f9db3', '--h4': '#0e7490',
+      '--kw': '#0e7490', '--ty': '#6d28d9', '--nm': '#a24b0a', '--cm': '#5a665c', '--fn': '#1d4ed8'
+    };
+    const night = {
+      '--bg': '#050706', '--sf': '#0d100e', '--sf2': '#151a17', '--ed': '#090c0a', '--bd': '#222a25', '--bc': '#667168',
+      '--tx': '#dfe6df', '--mu': '#8f9b92', '--ac': '#22d3ee', '--acx': '#04222a', '--acs': '#0b2a31',
+      '--ok': '#4ade80', '--oks': '#0f2a18', '--er': '#ff7b72', '--ers': '#2b1311', '--wn': '#e3b341', '--wns': '#2a2107',
+      '--in': '#79c0ff', '--ins': '#10233a', '--sh': 'rgba(0,0,0,0.5)',
+      '--e': '#5eead4', '--es': '#0d2b28', '--m': '#79c0ff', '--ms': '#10233a', '--h': '#c4b5fd', '--hs': '#221a3d',
+      '--h1': '#0d3a44', '--h2': '#116073', '--h3': '#1796ae', '--h4': '#22d3ee',
+      '--kw': '#22d3ee', '--ty': '#c4b5fd', '--nm': '#fbbf24', '--cm': '#7d887e', '--fn': '#86efac'
+    };
+    const v = dark ? night : light;
+    v['--sans'] = "'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif";
+    v['--mono'] = "'IBM Plex Mono',ui-monospace,'SF Mono',Menlo,monospace";
+    const rootVars = Object.keys(v).map((k) => k + ':' + v[k]).join(';') + ';';
+
+    return { rootVars };
+  }
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,128 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Мобильный каталог — Bench</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap">
+<style>
+
+body{margin:0}
+a{color:inherit}
+button{font-family:inherit}
+code{font-family:var(--mono);font-size:12px;background:var(--sf2);border:1px solid var(--bd);padding:0 4px;border-radius:2px}
+div[style*='var(--mono)'],code{font-variant-ligatures:none}
+.lbl{font-family:var(--mono);font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;color:var(--mu)}
+.btn{white-space:nowrap;display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 10px;border-radius:3px;border:1px solid var(--bc);background:var(--sf);color:var(--tx);font-size:12.5px;cursor:pointer;text-decoration:none}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--mu)}
+.btn.on{background:var(--acs);border-color:var(--ac);color:var(--ac)}
+.btn.pri{background:var(--ac);border-color:var(--ac);color:var(--acx);font-weight:500}
+.kbd{font-family:var(--mono);font-size:10.5px;opacity:.8}
+.card{border:1px solid var(--bd);border-radius:3px;background:var(--sf);padding:14px 16px;display:flex;flex-direction:column;gap:12px}
+.chip{height:20px;padding:0 7px;border-radius:2px;border:1px solid var(--bd);color:var(--mu);font-family:var(--mono);font-size:11px;display:inline-flex;align-items:center;gap:5px;white-space:nowrap}
+.lvl{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:2px;font-family:var(--mono);font-size:11px;font-weight:500;white-space:nowrap}
+.lv-e{background:var(--es);color:var(--e)}.lv-m{background:var(--ms);color:var(--m)}.lv-h{background:var(--hs);color:var(--h)}
+.bars{display:inline-flex;align-items:flex-end;gap:1.5px;height:10px}
+.bars i{display:block;width:2.5px;background:currentColor;opacity:.3}
+.bars i:nth-child(1){height:4px}.bars i:nth-child(2){height:7px}.bars i:nth-child(3){height:10px}
+.b1 i:nth-child(1),.b2 i:nth-child(-n+2),.b3 i{opacity:1}
+.c0{background:var(--sf2)}.c1{background:var(--h1)}.c2{background:var(--h2)}.c3{background:var(--h3)}.c4{background:var(--h4)}
+.kw{color:var(--kw)}.ty{color:var(--ty)}.nm{color:var(--nm)}.cm{color:var(--cm);font-style:italic}.fn{color:var(--fn)}.id{color:var(--tx)}.pn{color:var(--mu)}
+.sub-row{display:flex;align-items:center;gap:10px;height:38px;border-bottom:1px solid var(--bd)}
+.sub-row:last-child{border-bottom:0}
+.av{width:22px;height:22px;border-radius:2px;background:var(--sf2);border:1px solid var(--bd);color:var(--mu);display:inline-flex;align-items:center;justify-content:center;font-size:10px;font-weight:600;flex:0 0 auto}
+.av.me{background:var(--acs);border-color:var(--ac);color:var(--ac)}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+
+.m *{box-sizing:border-box}
+.tap{min-height:44px}
+.lvl{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:2px;font-family:var(--mono);font-size:11px;font-weight:500;white-space:nowrap}
+.lv-e{background:var(--es);color:var(--e)}.lv-m{background:var(--ms);color:var(--m)}.lv-h{background:var(--hs);color:var(--h)}
+.bars{display:inline-flex;align-items:flex-end;gap:1.5px;height:10px}.bars i{display:block;width:2.5px;background:currentColor;opacity:.3}
+.bars i:nth-child(1){height:4px}.bars i:nth-child(2){height:7px}.bars i:nth-child(3){height:10px}
+.b1 i:nth-child(1),.b2 i:nth-child(-n+2),.b3 i{opacity:1}
+.chip{height:32px;padding:0 12px;border-radius:3px;border:1px solid var(--bc);color:var(--tx);font-size:12.5px;display:inline-flex;align-items:center;gap:6px;white-space:nowrap;background:var(--sf);flex:0 0 auto}
+.chip.on{border-color:var(--ac);color:var(--ac);background:var(--acs);font-weight:500}
+.card{border:1px solid var(--bd);border-radius:3px;background:var(--sf);padding:12px 14px}
+.btn{white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;gap:8px;height:44px;padding:0 14px;border-radius:3px;border:1px solid var(--bc);background:var(--sf);color:var(--tx);font-size:14px;font-family:var(--sans)}
+.btn.pri{background:var(--ac);border-color:var(--ac);color:var(--acx);font-weight:500}
+.lbl{font-family:var(--mono);font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;color:var(--mu)}
+.cap{font-size:12px;color:var(--mu)}
+.mono{font-family:var(--mono);font-variant-ligatures:none}
+.sc{overflow:hidden;display:flex;gap:8px}
+code{font-family:var(--mono);font-size:12px;background:var(--sf2);border:1px solid var(--bd);padding:0 4px;border-radius:2px;font-variant-ligatures:none}
+.c0,.c1,.c2,.c3,.c4{display:block}
+
+</style>
+</helmet>
+<div class="m" style="{{rootVars}}width:100%;height:844px;display:flex;flex-direction:column;background:var(--bg);color:var(--tx);font-family:var(--sans);font-size:14px;line-height:1.5;font-variant-numeric:tabular-nums;box-sizing:border-box;overflow:hidden">
+<header style="flex:0 0 52px;display:flex;align-items:center;gap:10px;padding:0 14px;background:var(--sf);border-bottom:1px solid var(--bd)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linejoin="round" aria-hidden="true" style="stroke:var(--ac)"><rect x="4" y="3" width="17" height="18" rx="2"/><path d="M4 9.5l5 2.5-5 2.5"/></svg><span style="font-size:15px;font-weight:600;letter-spacing:0.01em;flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">Задачи</span><span style="width:44px;height:44px;margin-right:-10px;display:flex;align-items:center;justify-content:center;color:var(--mu)"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg></span></header>
+<main style="flex:1;min-height:0;overflow:hidden;position:relative"><div style="background:var(--sf);height:100%"><div style="padding:12px 14px 0;background:var(--sf)"><div style="display:flex;align-items:center;gap:10px;height:44px;padding:0 12px;border:1px solid var(--bc);border-radius:3px;background:var(--ed);color:var(--mu)"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg><span>Найти задачу</span></div></div><div class="sc" style="padding:10px 14px;border-bottom:1px solid var(--bd);background:var(--sf)"><span class="chip on">Все 48</span><span class="chip">Easy</span><span class="chip">Medium</span><span class="chip">Hard</span><span class="chip">Теги</span><span class="chip">Статус</span></div><div style="padding:10px 14px;display:flex;justify-content:space-between;background:var(--sf);border-bottom:1px solid var(--bd)"><span class="cap">48 задач</span><span class="cap" style="display:flex;align-items:center;gap:4px">по номеру <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><path d="m6 9 6 6 6-6"/></svg></span></div><div style="padding:12px 14px;border-bottom:1px solid var(--bd);display:flex;gap:12px;min-height:76px;align-items:flex-start">
+<span class="mono" style="width:26px;color:var(--mu);font-size:12px;padding-top:2px">01</span>
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px"><span style="font-weight:500;font-size:14.5px;line-height:1.3">Двухвходовой мультиплексор</span>
+<div style="display:flex;align-items:center;gap:8px;flex-wrap:nowrap"><span class="lvl lv-e"><span class="bars b1"><i></i><i></i><i></i></span>Easy</span><span class="cap mono" style="white-space:nowrap">92% принято</span><span class="cap" style="white-space:nowrap;border:1px solid var(--bd);border-radius:2px;padding:0 5px;font-family:var(--mono);font-size:11px">комб.</span></div></div>
+<span style="display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--ok);width:52px;font-size:10.5px;padding-top:2px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg><span>решено</span></span></div><div style="padding:12px 14px;border-bottom:1px solid var(--bd);display:flex;gap:12px;min-height:76px;align-items:flex-start">
+<span class="mono" style="width:26px;color:var(--mu);font-size:12px;padding-top:2px">07</span>
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px"><span style="font-weight:500;font-size:14.5px;line-height:1.3">Счётчик с синхронным сбросом</span>
+<div style="display:flex;align-items:center;gap:8px;flex-wrap:nowrap"><span class="lvl lv-e"><span class="bars b1"><i></i><i></i><i></i></span>Easy</span><span class="cap mono" style="white-space:nowrap">81% принято</span><span class="cap" style="white-space:nowrap;border:1px solid var(--bd);border-radius:2px;padding:0 5px;font-family:var(--mono);font-size:11px">счётчик</span></div></div>
+<span style="display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--ok);width:52px;font-size:10.5px;padding-top:2px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg><span>решено</span></span></div><div style="padding:12px 14px;border-bottom:1px solid var(--bd);display:flex;gap:12px;min-height:76px;align-items:flex-start">
+<span class="mono" style="width:26px;color:var(--mu);font-size:12px;padding-top:2px">12</span>
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px"><span style="font-weight:500;font-size:14.5px;line-height:1.3">Синхронный FIFO</span>
+<div style="display:flex;align-items:center;gap:8px;flex-wrap:nowrap"><span class="lvl lv-m"><span class="bars b2"><i></i><i></i><i></i></span>Medium</span><span class="cap mono" style="white-space:nowrap">41% принято</span><span class="cap" style="white-space:nowrap;border:1px solid var(--bd);border-radius:2px;padding:0 5px;font-family:var(--mono);font-size:11px">FIFO</span></div></div>
+<span style="display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--wn);width:52px;font-size:10.5px;padding-top:2px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg><span>пробовал</span></span></div><div style="padding:12px 14px;border-bottom:1px solid var(--bd);display:flex;gap:12px;min-height:76px;align-items:flex-start">
+<span class="mono" style="width:26px;color:var(--mu);font-size:12px;padding-top:2px">18</span>
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px"><span style="font-weight:500;font-size:14.5px;line-height:1.3">Детектор последовательности</span>
+<div style="display:flex;align-items:center;gap:8px;flex-wrap:nowrap"><span class="lvl lv-m"><span class="bars b2"><i></i><i></i><i></i></span>Medium</span><span class="cap mono" style="white-space:nowrap">47% принято</span><span class="cap" style="white-space:nowrap;border:1px solid var(--bd);border-radius:2px;padding:0 5px;font-family:var(--mono);font-size:11px">FSM</span></div></div>
+<span style="display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--mu);width:52px;font-size:10.5px;padding-top:2px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><circle cx="12" cy="12" r="10"/></svg><span>не начато</span></span></div><div style="padding:12px 14px;border-bottom:1px solid var(--bd);display:flex;gap:12px;min-height:76px;align-items:flex-start">
+<span class="mono" style="width:26px;color:var(--mu);font-size:12px;padding-top:2px">23</span>
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px"><span style="font-weight:500;font-size:14.5px;line-height:1.3">Асинхронный FIFO</span>
+<div style="display:flex;align-items:center;gap:8px;flex-wrap:nowrap"><span class="lvl lv-h"><span class="bars b3"><i></i><i></i><i></i></span>Hard</span><span class="cap mono" style="white-space:nowrap">14% принято</span><span class="cap" style="white-space:nowrap;border:1px solid var(--bd);border-radius:2px;padding:0 5px;font-family:var(--mono);font-size:11px">FIFO</span></div></div>
+<span style="display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--mu);width:52px;font-size:10.5px;padding-top:2px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><circle cx="12" cy="12" r="10"/></svg><span>не начато</span></span></div><div style="padding:12px 14px;border-bottom:1px solid var(--bd);display:flex;gap:12px;min-height:76px;align-items:flex-start">
+<span class="mono" style="width:26px;color:var(--mu);font-size:12px;padding-top:2px">31</span>
+<div style="flex:1;min-width:0;display:flex;flex-direction:column;gap:6px"><span style="font-weight:500;font-size:14.5px;line-height:1.3">Арбитр с круговым приоритетом</span>
+<div style="display:flex;align-items:center;gap:8px;flex-wrap:nowrap"><span class="lvl lv-m"><span class="bars b2"><i></i><i></i><i></i></span>Medium</span><span class="cap mono" style="white-space:nowrap">38% принято</span><span class="cap" style="white-space:nowrap;border:1px solid var(--bd);border-radius:2px;padding:0 5px;font-family:var(--mono);font-size:11px">арбитр</span></div></div>
+<span style="display:flex;flex-direction:column;align-items:center;gap:2px;color:var(--mu);width:52px;font-size:10.5px;padding-top:2px"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><circle cx="12" cy="12" r="10"/></svg><span>не начато</span></span></div></div></main>
+
+<nav aria-label="Разделы" style="flex:0 0 56px;display:flex;background:var(--sf);border-top:1px solid var(--bd)"><div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;height:56px;color:var(--ac);font-size:11px;font-weight:600;box-shadow:inset 0 2px 0 var(--ac);"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg><span>Задачи</span></div><div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;height:56px;color:var(--mu);font-size:11px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg><span>Рейтинг</span></div><div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;height:56px;color:var(--mu);font-size:11px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg><span>Дашборд</span></div><div style="flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;height:56px;color:var(--mu);font-size:11px;"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="flex:0 0 auto"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span>Профиль</span></div></nav></div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+
+  renderVals() {
+
+    const dark = (this.props.theme ?? 'light') === 'dark';
+    const light = {
+      '--bg': '#d6dad2', '--sf': '#f6f7f3', '--sf2': '#e9ece4', '--ed': '#fbfcf9', '--bd': '#c3c9bf', '--bc': '#7d877f',
+      '--tx': '#141a15', '--mu': '#505a52', '--ac': '#0e7490', '--acx': '#ffffff', '--acs': '#e0f1f5',
+      '--ok': '#166534', '--oks': '#e1f1e4', '--er': '#b42318', '--ers': '#fbe6e2', '--wn': '#7a4f00', '--wns': '#f8ecc9',
+      '--in': '#1d4ed8', '--ins': '#e3ebfb', '--sh': 'rgba(0,0,0,0.1)',
+      '--e': '#0f766e', '--es': '#d9efec', '--m': '#1d4ed8', '--ms': '#e3ebfb', '--h': '#6d28d9', '--hs': '#ebe3fa',
+      '--h1': '#c6e3ea', '--h2': '#8ec6d4', '--h3': '#3f9db3', '--h4': '#0e7490',
+      '--kw': '#0e7490', '--ty': '#6d28d9', '--nm': '#a24b0a', '--cm': '#5a665c', '--fn': '#1d4ed8'
+    };
+    const night = {
+      '--bg': '#050706', '--sf': '#0d100e', '--sf2': '#151a17', '--ed': '#090c0a', '--bd': '#222a25', '--bc': '#667168',
+      '--tx': '#dfe6df', '--mu': '#8f9b92', '--ac': '#22d3ee', '--acx': '#04222a', '--acs': '#0b2a31',
+      '--ok': '#4ade80', '--oks': '#0f2a18', '--er': '#ff7b72', '--ers': '#2b1311', '--wn': '#e3b341', '--wns': '#2a2107',
+      '--in': '#79c0ff', '--ins': '#10233a', '--sh': 'rgba(0,0,0,0.5)',
+      '--e': '#5eead4', '--es': '#0d2b28', '--m': '#79c0ff', '--ms': '#10233a', '--h': '#c4b5fd', '--hs': '#221a3d',
+      '--h1': '#0d3a44', '--h2': '#116073', '--h3': '#1796ae', '--h4': '#22d3ee',
+      '--kw': '#22d3ee', '--ty': '#c4b5fd', '--nm': '#fbbf24', '--cm': '#7d887e', '--fn': '#86efac'
+    };
+    const v = dark ? night : light;
+    v['--sans'] = "'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif";
+    v['--mono'] = "'IBM Plex Mono',ui-monospace,'SF Mono',Menlo,monospace";
+    const rootVars = Object.keys(v).map((k) => k + ':' + v[k]).join(';') + ';';
+
+    v['--shim'] = dark ? 'rgba(255,255,255,0.05)' : 'rgba(255,255,255,0.55)';
+    const rootVars2 = Object.keys(v).map((k) => k + ':' + v[k]).join(';') + ';';
+    return { rootVars: rootVars2 };
+  }
+}
+</script>
+</body>
+</html>

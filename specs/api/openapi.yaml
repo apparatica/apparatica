@@ -1,0 +1,1006 @@
+openapi: 3.1.0
+info:
+  title: Apparatica API
+  version: 0.1.0-draft
+  description: |
+    Черновик контракта, написанный до кода (specs/05-api.md §0). Источник правды — Pydantic-схемы
+    и сгенерированный backend/openapi.json; черновик служит входом для PR контракта каждой фазы
+    и удаляется после T5.0. Тег x-phase у операции — фаза появления.
+  license:
+    name: AGPL-3.0-or-later
+    identifier: AGPL-3.0-or-later
+servers:
+  - url: /api/v1
+tags:
+  - name: meta
+  - name: problems
+  - name: submissions
+  - name: auth
+  - name: me
+  - name: users
+  - name: leaderboards
+  - name: solutions
+  - name: moderation
+
+paths:
+  /health:
+    get:
+      tags: [meta]
+      operationId: health
+      x-phase: F0
+      responses:
+        '200': {description: OK, content: {application/json: {schema: {type: object, properties: {status: {const: ok}}}}}}
+
+  /config:
+    get:
+      tags: [meta]
+      operationId: getConfig
+      x-phase: F0
+      responses:
+        '200':
+          description: Client configuration
+          content: {application/json: {schema: {$ref: '#/components/schemas/ClientConfig'}}}
+
+  /tags:
+    get:
+      tags: [problems]
+      operationId: listTags
+      x-phase: F0
+      responses:
+        '200':
+          description: Tags
+          content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/Tag'}}}}
+
+  /problems:
+    get:
+      tags: [problems]
+      operationId: listProblems
+      x-phase: F0
+      parameters:
+        - {name: difficulty, in: query, schema: {type: array, items: {type: string}}, style: form, explode: true}
+        - {name: tag, in: query, schema: {type: array, items: {type: string}}, style: form, explode: true}
+        - {name: status, in: query, description: Только для вошедших (Ф2), schema: {type: array, items: {$ref: '#/components/schemas/UserProblemStatus'}}}
+        - {name: q, in: query, schema: {type: string, maxLength: 100}}
+        - {name: sort, in: query, schema: {enum: [number, difficulty, acceptance, -acceptance], default: number}}
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+      responses:
+        '200':
+          description: Catalog page
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PageMeta'
+                  - type: object
+                    required: [items, progress]
+                    properties:
+                      items: {type: array, items: {$ref: '#/components/schemas/ProblemListItem'}}
+                      progress:
+                        description: Прогресс по уровням (для вошедших; для гостя — только total)
+                        type: array
+                        items: {$ref: '#/components/schemas/DifficultyProgress'}
+
+  /problems/{slug}:
+    get:
+      tags: [problems]
+      operationId: getProblem
+      x-phase: F0
+      parameters: [{$ref: '#/components/parameters/Slug'}]
+      responses:
+        '200': {description: Current version, content: {application/json: {schema: {$ref: '#/components/schemas/ProblemDetail'}}}}
+        '404': {$ref: '#/components/responses/Error'}
+
+  /problems/{slug}/versions/{version}:
+    get:
+      tags: [problems]
+      operationId: getProblemVersion
+      x-phase: F0
+      parameters:
+        - $ref: '#/components/parameters/Slug'
+        - {name: version, in: path, required: true, schema: {type: integer, minimum: 1}}
+      responses:
+        '200': {description: Version, content: {application/json: {schema: {$ref: '#/components/schemas/ProblemDetail'}}}}
+        '404': {$ref: '#/components/responses/Error'}
+
+  /problems/{slug}/reference:
+    get:
+      tags: [problems]
+      operationId: getReference
+      x-phase: F3
+      parameters: [{$ref: '#/components/parameters/Slug'}]
+      responses:
+        '200':
+          description: Reference solutions
+          content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/ReferenceSolution'}}}}
+        '403': {$ref: '#/components/responses/Error'}
+
+  /problems/{slug}/leaderboard:
+    get:
+      tags: [leaderboards]
+      operationId: getProblemLeaderboard
+      x-phase: F3
+      parameters:
+        - $ref: '#/components/parameters/Slug'
+        - {name: group, in: query, schema: {type: boolean, default: true}}
+        - {name: around, in: query, schema: {enum: [me]}}
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+      responses:
+        '200': {description: Leaderboard, content: {application/json: {schema: {$ref: '#/components/schemas/ProblemLeaderboard'}}}}
+
+  /problems/{slug}/solutions:
+    get:
+      tags: [solutions]
+      operationId: listProblemSolutions
+      x-phase: F3
+      parameters:
+        - $ref: '#/components/parameters/Slug'
+        - {name: sort, in: query, schema: {enum: [delay, area, new], default: delay}}
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+      responses:
+        '200':
+          description: Solutions
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PageMeta'
+                  - type: object
+                    required: [items, code_locked]
+                    properties:
+                      code_locked: {type: boolean}
+                      items: {type: array, items: {$ref: '#/components/schemas/SolutionSummary'}}
+
+  /problems/{slug}/reports:
+    post:
+      tags: [moderation]
+      operationId: createReport
+      x-phase: F5
+      parameters: [{$ref: '#/components/parameters/Slug'}, {$ref: '#/components/parameters/Csrf'}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: '#/components/schemas/ReportCreate'}}}
+      responses:
+        '201': {description: Created, content: {application/json: {schema: {type: object, properties: {id: {type: string, format: uuid}}}}}}
+        '422': {$ref: '#/components/responses/Error'}
+        '428': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/Error'}
+
+  /submissions:
+    post:
+      tags: [submissions]
+      operationId: createSubmission
+      x-phase: F0
+      parameters: [{$ref: '#/components/parameters/Csrf'}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: '#/components/schemas/SubmissionCreate'}}}
+      responses:
+        '202': {description: Queued, content: {application/json: {schema: {$ref: '#/components/schemas/Submission'}}}}
+        '403': {$ref: '#/components/responses/Error'}
+        '409': {$ref: '#/components/responses/Error'}
+        '413': {$ref: '#/components/responses/Error'}
+        '428': {$ref: '#/components/responses/Error'}
+        '429': {$ref: '#/components/responses/Error'}
+        '503': {$ref: '#/components/responses/Error'}
+    get:
+      tags: [submissions]
+      operationId: listMySubmissions
+      x-phase: F1
+      parameters:
+        - {name: problem, in: query, schema: {type: string}}
+        - {name: status, in: query, schema: {type: array, items: {$ref: '#/components/schemas/SubmissionStatus'}}}
+        - {name: cursor, in: query, schema: {type: string}}
+        - {name: limit, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 20}}
+      responses:
+        '200':
+          description: Own submissions (user or guest)
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [items]
+                properties:
+                  items: {type: array, items: {$ref: '#/components/schemas/SubmissionSummary'}}
+                  next_cursor: {type: [string, 'null']}
+
+  /submissions/{id}:
+    get:
+      tags: [submissions]
+      operationId: getSubmission
+      x-phase: F0
+      parameters: [{$ref: '#/components/parameters/Id'}]
+      responses:
+        '200': {description: Submission, content: {application/json: {schema: {$ref: '#/components/schemas/Submission'}}}}
+        '404': {$ref: '#/components/responses/Error'}
+
+  /submissions/{id}/events:
+    get:
+      tags: [submissions]
+      operationId: streamSubmissionEvents
+      x-phase: F1
+      description: Server-Sent Events. Each `data:` is a SubmissionEvent; `id:` is the Redis Stream entry id.
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - {name: Last-Event-ID, in: header, schema: {type: string}}
+        - {name: from, in: query, schema: {type: string}}
+      responses:
+        '200':
+          description: Event stream
+          content:
+            text/event-stream:
+              schema: {$ref: '#/components/schemas/SubmissionEvent'}
+        '404': {$ref: '#/components/responses/Error'}
+
+  /submissions/{id}/cancel:
+    post:
+      tags: [submissions]
+      operationId: cancelSubmission
+      x-phase: F1
+      parameters: [{$ref: '#/components/parameters/Id'}, {$ref: '#/components/parameters/Csrf'}]
+      responses:
+        '202': {description: Cancellation requested}
+        '409': {$ref: '#/components/responses/Error'}
+
+  /submissions/{id}/artifacts/{kind}:
+    get:
+      tags: [submissions]
+      operationId: getArtifact
+      x-phase: F1
+      parameters:
+        - $ref: '#/components/parameters/Id'
+        - {name: kind, in: path, required: true, schema: {$ref: '#/components/schemas/ArtifactKind'}}
+        - {name: stage, in: query, schema: {type: string}}
+      responses:
+        '302': {description: Redirect to presigned URL}
+        '404': {$ref: '#/components/responses/Error'}
+
+  /submissions/{id}/waveform:
+    post:
+      tags: [submissions]
+      operationId: requestWaveform
+      x-phase: F1
+      parameters: [{$ref: '#/components/parameters/Id'}, {$ref: '#/components/parameters/Csrf'}]
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                scope: {enum: [failure_window, full_test], default: failure_window}
+                test: {type: string}
+      responses:
+        '202': {description: Regeneration queued; follow events stream}
+
+  /captcha/challenge:
+    get:
+      tags: [meta]
+      operationId: getCaptchaChallenge
+      x-phase: F1
+      responses:
+        '200': {description: ALTCHA challenge, content: {application/json: {schema: {type: object, additionalProperties: true}}}}
+
+  /auth/providers:
+    get:
+      tags: [auth]
+      operationId: listAuthProviders
+      x-phase: F2
+      responses:
+        '200':
+          description: Enabled providers
+          content:
+            application/json:
+              schema:
+                type: array
+                items: {type: object, required: [id, kind], properties: {id: {type: string}, kind: {enum: [oauth, telegram, email]}}}
+
+  /auth/{provider}/login:
+    get:
+      tags: [auth]
+      operationId: oauthLogin
+      x-phase: F2
+      description: 'Ф2 — github; Ф4 — vk, yandex, google'
+      parameters:
+        - {name: provider, in: path, required: true, schema: {enum: [vk, yandex, github, google]}}
+        - {name: next, in: query, schema: {type: string}}
+      responses:
+        '302': {description: Redirect to provider}
+
+  /auth/{provider}/callback:
+    get:
+      tags: [auth]
+      operationId: oauthCallback
+      x-phase: F2
+      parameters:
+        - {name: provider, in: path, required: true, schema: {enum: [vk, yandex, github, google]}}
+        - {name: code, in: query, schema: {type: string}}
+        - {name: state, in: query, schema: {type: string}}
+      responses:
+        '302': {description: 'Session cookie set, redirect to next'}
+
+  /auth/telegram:
+    post:
+      tags: [auth]
+      operationId: telegramLogin
+      x-phase: F4
+      parameters: [{$ref: '#/components/parameters/Csrf'}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {type: object, additionalProperties: true, description: Telegram Login Widget payload with hash}}}
+      responses:
+        '200': {description: Logged in, content: {application/json: {schema: {$ref: '#/components/schemas/Me'}}}}
+        '401': {$ref: '#/components/responses/Error'}
+
+  /auth/email/request:
+    post:
+      tags: [auth]
+      operationId: requestMagicLink
+      x-phase: F2
+      parameters: [{$ref: '#/components/parameters/Csrf'}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {type: object, required: [email], properties: {email: {type: string, format: email}, next: {type: string}, captcha: {type: string}}}}}
+      responses:
+        '202': {description: Always accepted (does not reveal account existence)}
+        '429': {$ref: '#/components/responses/Error'}
+
+  /auth/email/verify:
+    post:
+      tags: [auth]
+      operationId: verifyMagicLink
+      x-phase: F2
+      parameters: [{$ref: '#/components/parameters/Csrf'}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {type: object, required: [token], properties: {token: {type: string}}}}}
+      responses:
+        '200': {description: Logged in, content: {application/json: {schema: {$ref: '#/components/schemas/Me'}}}}
+        '401': {$ref: '#/components/responses/Error'}
+
+  /auth/logout:
+    post:
+      tags: [auth]
+      operationId: logout
+      x-phase: F2
+      parameters: [{$ref: '#/components/parameters/Csrf'}]
+      responses: {'204': {description: Logged out}}
+
+  /auth/logout-all:
+    post:
+      tags: [auth]
+      operationId: logoutAll
+      x-phase: F2
+      parameters: [{$ref: '#/components/parameters/Csrf'}]
+      responses: {'204': {description: All sessions revoked}}
+
+  /me:
+    get:
+      tags: [me]
+      operationId: getMe
+      x-phase: F2
+      responses:
+        '200': {description: Current user, content: {application/json: {schema: {$ref: '#/components/schemas/Me'}}}}
+        '401': {$ref: '#/components/responses/Error'}
+    patch:
+      tags: [me]
+      operationId: updateMe
+      x-phase: F2
+      parameters: [{$ref: '#/components/parameters/Csrf'}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {type: object, properties: {nick: {type: string, pattern: '^[a-z0-9_.-]{3,24}$'}, display_name: {type: string, maxLength: 60}}}}}
+      responses:
+        '200': {description: Updated, content: {application/json: {schema: {$ref: '#/components/schemas/Me'}}}}
+        '409': {$ref: '#/components/responses/Error'}
+    delete:
+      tags: [me]
+      operationId: deleteMe
+      x-phase: F2
+      parameters: [{$ref: '#/components/parameters/Csrf'}]
+      responses: {'202': {description: Deletion scheduled (7 days)}}
+
+  /me/export:
+    get:
+      tags: [me]
+      operationId: exportMe
+      x-phase: F2
+      responses: {'200': {description: JSON export, content: {application/json: {schema: {type: object, additionalProperties: true}}}}}
+
+  /me/identities:
+    get:
+      tags: [me]
+      operationId: listIdentities
+      x-phase: F4
+      responses:
+        '200':
+          description: Linked identities
+          content: {application/json: {schema: {type: array, items: {type: object, properties: {id: {type: string}, provider: {type: string}, created_at: {type: string, format: date-time}}}}}}
+
+  /me/identities/{id}:
+    delete:
+      tags: [me]
+      operationId: unlinkIdentity
+      x-phase: F4
+      parameters: [{$ref: '#/components/parameters/Id'}, {$ref: '#/components/parameters/Csrf'}]
+      responses:
+        '204': {description: Unlinked}
+        '409': {$ref: '#/components/responses/Error'}
+
+  /me/dashboard:
+    get:
+      tags: [me]
+      operationId: getDashboard
+      x-phase: F4
+      responses:
+        '200': {description: Dashboard, content: {application/json: {schema: {$ref: '#/components/schemas/Dashboard'}}}}
+
+  /me/drafts/{slug}:
+    get:
+      tags: [me]
+      operationId: getDraft
+      x-phase: F2
+      parameters: [{$ref: '#/components/parameters/Slug'}]
+      responses:
+        '200': {description: Draft, content: {application/json: {schema: {$ref: '#/components/schemas/Draft'}}}}
+        '404': {$ref: '#/components/responses/Error'}
+    put:
+      tags: [me]
+      operationId: saveDraft
+      x-phase: F2
+      parameters: [{$ref: '#/components/parameters/Slug'}, {$ref: '#/components/parameters/Csrf'}]
+      requestBody:
+        required: true
+        content: {application/json: {schema: {$ref: '#/components/schemas/Draft'}}}
+      responses: {'204': {description: Saved}}
+
+  /me/guest-import:
+    post:
+      tags: [me]
+      operationId: importGuest
+      x-phase: F4
+      parameters: [{$ref: '#/components/parameters/Csrf'}]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                submission_ids: {type: array, items: {type: string, format: uuid}, maxItems: 500}
+                drafts: {type: array, maxItems: 200, items: {type: object, required: [slug, code], properties: {slug: {type: string}, code: {type: string}, updated_at: {type: string, format: date-time}}}}
+      responses:
+        '200':
+          description: Imported (only submissions owned by the current guest cookie)
+          content: {application/json: {schema: {type: object, properties: {submissions: {type: integer}, drafts: {type: integer}}}}}
+
+  /home:
+    get:
+      tags: [users]
+      operationId: getHome
+      x-phase: F4
+      responses:
+        '200': {description: Guest home, content: {application/json: {schema: {$ref: '#/components/schemas/Home'}}}}
+
+  /users/{nick}:
+    get:
+      tags: [users]
+      operationId: getProfile
+      x-phase: F2
+      parameters: [{$ref: '#/components/parameters/Nick'}]
+      responses:
+        '200': {description: Profile, content: {application/json: {schema: {$ref: '#/components/schemas/Profile'}}}}
+        '404': {$ref: '#/components/responses/Error'}
+
+  /users/{nick}/activity:
+    get:
+      tags: [users]
+      operationId: getActivity
+      x-phase: F4
+      parameters:
+        - $ref: '#/components/parameters/Nick'
+        - {name: weeks, in: query, schema: {type: integer, minimum: 1, maximum: 53, default: 26}}
+      responses:
+        '200': {description: Heatmap, content: {application/json: {schema: {type: array, items: {$ref: '#/components/schemas/ActivityDay'}}}}}
+
+  /users/{nick}/solutions:
+    get:
+      tags: [users]
+      operationId: getUserSolutions
+      x-phase: F3
+      parameters: [{$ref: '#/components/parameters/Nick'}, {$ref: '#/components/parameters/Page'}, {$ref: '#/components/parameters/PerPage'}]
+      responses:
+        '200':
+          description: Public solutions
+          content:
+            application/json:
+              schema:
+                allOf:
+                  - $ref: '#/components/schemas/PageMeta'
+                  - {type: object, properties: {items: {type: array, items: {$ref: '#/components/schemas/SolutionSummary'}}}}
+
+  /solutions/{id}:
+    get:
+      tags: [solutions]
+      operationId: getSolution
+      x-phase: F3
+      parameters: [{$ref: '#/components/parameters/Id'}]
+      responses:
+        '200': {description: Solution, content: {application/json: {schema: {$ref: '#/components/schemas/Solution'}}}}
+        '404': {$ref: '#/components/responses/Error'}
+
+  /leaderboard:
+    get:
+      tags: [leaderboards]
+      operationId: getGlobalLeaderboard
+      x-phase: F3
+      parameters:
+        - {name: around, in: query, schema: {enum: [me]}}
+        - $ref: '#/components/parameters/Page'
+        - $ref: '#/components/parameters/PerPage'
+      responses:
+        '200': {description: Global leaderboard, content: {application/json: {schema: {$ref: '#/components/schemas/GlobalLeaderboard'}}}}
+
+components:
+  parameters:
+    Slug: {name: slug, in: path, required: true, schema: {type: string, pattern: '^[a-z0-9]+(-[a-z0-9]+)*$'}}
+    Id: {name: id, in: path, required: true, schema: {type: string, format: uuid}}
+    Nick: {name: nick, in: path, required: true, schema: {type: string}}
+    Page: {name: page, in: query, schema: {type: integer, minimum: 1, default: 1}}
+    PerPage: {name: per_page, in: query, schema: {type: integer, minimum: 1, maximum: 100, default: 12}}
+    Csrf: {name: X-CSRF-Token, in: header, required: true, schema: {type: string}}
+
+  responses:
+    Error:
+      description: Error (RFC 9457)
+      content: {application/problem+json: {schema: {$ref: '#/components/schemas/ProblemDetails'}}}
+
+  schemas:
+    ProblemDetails:
+      type: object
+      required: [type, title, status, code]
+      properties:
+        type: {type: string}
+        title: {type: string}
+        status: {type: integer}
+        code: {type: string}
+        detail: {type: string}
+        params: {type: object, additionalProperties: true}
+        errors: {type: array, items: {type: object, properties: {loc: {type: array, items: {type: [string, integer]}}, code: {type: string}, msg: {type: string}}}}
+        request_id: {type: string}
+
+    PageMeta:
+      type: object
+      required: [page, per_page, total]
+      properties:
+        page: {type: integer}
+        per_page: {type: integer}
+        total: {type: integer}
+
+    ClientConfig:
+      type: object
+      required: [flags, difficulties, limits]
+      properties:
+        flags: {type: object, additionalProperties: {type: boolean}}
+        difficulties: {type: array, items: {$ref: '#/components/schemas/Difficulty'}}
+        auth_providers: {type: array, items: {type: string}}
+        limits:
+          type: object
+          properties:
+            code_max_bytes: {type: integer}
+            guest_checks_per_hour: {type: integer}
+            user_checks_per_hour: {type: integer}
+        captcha: {type: object, properties: {provider: {enum: [altcha, none]}, enabled: {type: boolean}}}
+
+    Difficulty:
+      type: object
+      required: [key, title, level]
+      properties:
+        key: {type: string, examples: [medium]}
+        title: {type: string, examples: [Medium]}
+        level: {type: integer, minimum: 1, maximum: 3, description: Число заполненных столбиков бейджа}
+
+    Tag:
+      type: object
+      required: [slug, title]
+      properties: {slug: {type: string}, title: {type: string}}
+
+    UserProblemStatus: {enum: [solved, attempted, not_started]}
+
+    DifficultyProgress:
+      type: object
+      required: [difficulty, total]
+      properties:
+        difficulty: {type: string}
+        solved: {type: integer}
+        total: {type: integer}
+
+    ProblemListItem:
+      type: object
+      required: [slug, number, title, difficulty, tags, acceptance]
+      properties:
+        slug: {type: string}
+        number: {type: integer}
+        title: {type: string}
+        difficulty: {type: string}
+        tags: {type: array, items: {type: string}}
+        acceptance: {type: number, minimum: 0, maximum: 1}
+        user_status: {$ref: '#/components/schemas/UserProblemStatus'}
+
+    Port:
+      type: object
+      required: [name, dir, width]
+      properties:
+        name: {type: string}
+        dir: {enum: [input, output, inout]}
+        width: {type: string}
+        role: {enum: [data, clock, reset]}
+        description: {type: string}
+
+    ProblemDetail:
+      type: object
+      required: [slug, number, version, title, difficulty, tags, statement_md, template, interface, language, stats, modes]
+      properties:
+        slug: {type: string}
+        number: {type: integer}
+        version: {type: integer}
+        title: {type: string}
+        difficulty: {type: string}
+        tags: {type: array, items: {type: string}}
+        language: {type: string, examples: [systemverilog]}
+        statement_md: {type: string}
+        template: {type: string}
+        file_name: {type: string, examples: [sync_fifo.sv]}
+        interface:
+          type: object
+          properties:
+            top: {type: string}
+            parameters: {type: array, items: {type: object, properties: {name: {type: string}, type: {type: string}, default: {type: [integer, string]}}}}
+            ports: {type: array, items: {$ref: '#/components/schemas/Port'}}
+        stats:
+          type: object
+          properties:
+            acceptance: {type: number}
+            accepted_users: {type: integer}
+            attempted_users: {type: integer}
+        modes: {type: array, items: {enum: [practice, industrial]}}
+        pipeline:
+          type: object
+          description: Этапы Run и Submit для отрисовки конвейера
+          properties:
+            run: {type: array, items: {$ref: '#/components/schemas/PipelineStageInfo'}}
+            submit: {type: array, items: {$ref: '#/components/schemas/PipelineStageInfo'}}
+        tests: {type: object, properties: {public: {type: integer}, hidden: {type: integer}}}
+        reference_visibility: {enum: [after_accepted, public, hidden]}
+        changelog: {type: string}
+        published_at: {type: string, format: date-time}
+
+    PipelineStageInfo:
+      type: object
+      required: [key, type]
+      properties:
+        key: {type: string}
+        type: {type: string, examples: [lint, sim, synth, formal]}
+
+    SubmissionKind: {enum: [run, submit]}
+
+    SubmissionStatus:
+      enum: [queued, running, accepted, accepted_with_warnings, wrong_answer, compile_error, limit_exceeded, forbidden_construct, cancelled, internal_error]
+
+    StageStatus:
+      enum: [pending, running, passed, warning, failed, skipped, cancelled, error]
+
+    ArtifactKind:
+      enum: [log, events, fst, netlist_json, netlist_v, tb_result, synth_report, formal_trace]
+
+    SubmissionCreate:
+      type: object
+      required: [problem, version, kind, code]
+      properties:
+        problem: {type: string, description: slug}
+        version: {type: integer}
+        kind: {$ref: '#/components/schemas/SubmissionKind'}
+        code: {type: string, maxLength: 65536}
+        captcha: {type: string, description: 'ALTCHA payload, когда сервер ответил CAPTCHA_REQUIRED'}
+
+    Diagnostic:
+      type: object
+      required: [severity, message]
+      properties:
+        severity: {enum: [error, warning, info]}
+        code: {type: string, examples: [WIDTHTRUNC]}
+        file: {type: string}
+        line: {type: integer}
+        col: {type: integer}
+        end_line: {type: integer}
+        end_col: {type: integer}
+        message: {type: string}
+
+    TestCase:
+      type: object
+      required: [id, name, group, status]
+      properties:
+        id: {type: string}
+        name: {type: string}
+        group: {type: string, examples: [public, hidden]}
+        status: {enum: [passed, failed, running, not_run]}
+        duration_ms: {type: integer}
+        cycle: {type: integer, description: Такт расхождения}
+        mismatches:
+          type: array
+          items: {type: object, properties: {signal: {type: string}, cycle: {type: integer}, expected: {type: string}, actual: {type: string}, hint: {type: string, description: Подсказка автора задачи}}}
+
+    FormalProperty:
+      type: object
+      required: [name, status]
+      properties:
+        name: {type: string}
+        description: {type: string}
+        status: {enum: [proved, failed, unknown]}
+        depth: {type: integer}
+        trace_artifact: {type: boolean}
+
+    StageResult:
+      type: object
+      required: [key, type, ordinal, status]
+      properties:
+        key: {type: string}
+        type: {type: string}
+        ordinal: {type: integer}
+        status: {$ref: '#/components/schemas/StageStatus'}
+        failure_kind: {enum: [forbidden, compile, wrong, limit, null]}
+        started_at: {type: [string, 'null'], format: date-time}
+        duration_ms: {type: [integer, 'null']}
+        metrics_schema: {type: string, examples: [synth/v1]}
+        metrics: {type: object, additionalProperties: true}
+        cached: {type: boolean}
+        error_code: {type: [string, 'null'], description: 'Код сбоя платформы для status=error, напр. OUTPUT_INVALID'}
+        summary:
+          type: object
+          properties:
+            caption: {type: string, description: 'Подпись блока конвейера, напр. «тест 7 из 32»'}
+            skip_reason: {enum: [previous_failed, not_in_pipeline, cancelled]}
+            diagnostics: {type: array, items: {$ref: '#/components/schemas/Diagnostic'}}
+            tests: {type: array, items: {$ref: '#/components/schemas/TestCase'}}
+            hidden_tests: {type: object, properties: {total: {type: integer}, passed: {type: integer}, failed_index: {type: integer}}}
+            properties: {type: array, items: {$ref: '#/components/schemas/FormalProperty'}}
+
+    Artifact:
+      type: object
+      required: [kind, size_bytes]
+      properties:
+        kind: {$ref: '#/components/schemas/ArtifactKind'}
+        stage: {type: string}
+        size_bytes: {type: integer}
+        expired: {type: boolean}
+        meta: {type: object, additionalProperties: true, description: 'Напр. для fst — cycles, cursor_cycle, test'}
+
+    SubmissionSummary:
+      type: object
+      required: [id, problem, version, kind, status, created_at]
+      properties:
+        id: {type: string, format: uuid}
+        problem: {type: string}
+        problem_title: {type: string}
+        version: {type: integer}
+        kind: {$ref: '#/components/schemas/SubmissionKind'}
+        status: {$ref: '#/components/schemas/SubmissionStatus'}
+        caption: {type: string, description: 'Краткая причина, напр. «тест 7 из 32», «$system в строке 12»'}
+        created_at: {type: string, format: date-time}
+
+    Submission:
+      allOf:
+        - $ref: '#/components/schemas/SubmissionSummary'
+        - type: object
+          required: [stages]
+          properties:
+            code: {type: string}
+            seed: {type: string, description: 64-битное число строкой}
+            toolchain_profile: {type: string}
+            queue_position: {type: [integer, 'null']}
+            eta_s: {type: [integer, 'null']}
+            started_at: {type: [string, 'null'], format: date-time}
+            finished_at: {type: [string, 'null'], format: date-time}
+            verdict_detail:
+              type: object
+              properties:
+                limit: {enum: [time, memory, output, waveform]}
+                first_failure: {type: object, properties: {stage: {type: string}, test: {type: string}, cycle: {type: integer}, signal: {type: string}, expected: {type: string}, actual: {type: string}, hint: {type: string}}}
+                warnings:
+                  type: array
+                  description: 'Источники замечаний для accepted_with_warnings: линт, неопределённые свойства формала'
+                  items: {type: object, required: [stage, count], properties: {stage: {type: string}, stage_type: {type: string}, count: {type: integer}}}
+                error_code: {type: string, description: Код сбоя для internal_error}
+                superseded_by: {type: string, format: uuid, description: 'Новый Run, отменивший этот'}
+            stages: {type: array, items: {$ref: '#/components/schemas/StageResult'}}
+            artifacts: {type: array, items: {$ref: '#/components/schemas/Artifact'}}
+            leaderboard: {$ref: '#/components/schemas/LeaderboardPlacement'}
+
+    LeaderboardPlacement:
+      type: [object, 'null']
+      description: Ф3, для принятого Submit
+      properties:
+        rank: {type: integer, description: 'Решения с равными метриками делят место (1, 2, 2, 4)'}
+        total: {type: integer}
+        percentile: {type: number}
+        grouped_with: {type: [string, 'null'], format: uuid}
+
+    SubmissionEvent:
+      description: |
+        События стрима отправки (specs/07 §4.1). Все события воркера содержат attempt; при новой попытке клиент
+        сбрасывает состояние панели результатов. Итоговый статус приходит только в finalized (пишет ингестор).
+      oneOf:
+        - {type: object, required: [type, position], properties: {type: {const: queue}, position: {type: integer}, eta_s: {type: integer}}}
+        - {type: object, required: [type, attempt, stage], properties: {type: {const: stage_start}, attempt: {type: integer}, stage: {type: string}, stage_type: {type: string}, ordinal: {type: integer}}}
+        - {type: object, required: [type, attempt, stage, ch, text], properties: {type: {const: log}, attempt: {type: integer}, stage: {type: string}, ch: {enum: [out, err, sys]}, text: {type: string}}}
+        - {type: object, required: [type, attempt, stage, elapsed_ms], properties: {type: {const: heartbeat}, attempt: {type: integer}, stage: {type: string}, elapsed_ms: {type: integer}, note: {type: string}}}
+        - {type: object, required: [type, attempt, test], properties: {type: {const: test}, attempt: {type: integer}, test: {$ref: '#/components/schemas/TestCase'}}}
+        - {type: object, required: [type, attempt, result], properties: {type: {const: stage_end}, attempt: {type: integer}, result: {$ref: '#/components/schemas/StageResult'}}}
+        - {type: object, required: [type, attempt, stage, limit_kb], properties: {type: {const: truncated}, attempt: {type: integer}, stage: {type: string}, limit_kb: {type: integer}}}
+        - {type: object, required: [type, attempt], properties: {type: {const: done}, attempt: {type: integer}}}
+        - {type: object, required: [type, status], properties: {type: {const: finalized}, status: {$ref: '#/components/schemas/SubmissionStatus'}, verdict_detail: {type: object, additionalProperties: true}, leaderboard: {$ref: '#/components/schemas/LeaderboardPlacement'}}}
+
+    UserRef:
+      type: object
+      required: [nick]
+      properties:
+        nick: {type: string}
+        display_name: {type: string}
+        avatar_url: {type: [string, 'null']}
+
+    Me:
+      allOf:
+        - $ref: '#/components/schemas/UserRef'
+        - type: object
+          properties:
+            id: {type: string, format: uuid}
+            email: {type: [string, 'null']}
+            role: {enum: [user, author, moderator, admin]}
+            created_at: {type: string, format: date-time}
+            has_guest_data_hint: {type: boolean, description: Предложить импорт гостевых решений}
+
+    Draft:
+      type: object
+      required: [code]
+      properties:
+        code: {type: string, maxLength: 65536}
+        version: {type: integer}
+        updated_at: {type: string, format: date-time}
+
+    ActivityDay:
+      type: object
+      required: [date, accepted]
+      properties:
+        date: {type: string, format: date}
+        accepted: {type: integer}
+        submissions: {type: integer}
+
+    Dashboard:
+      type: object
+      properties:
+        continue: {type: [object, 'null'], properties: {problem: {$ref: '#/components/schemas/ProblemListItem'}, last_submission: {$ref: '#/components/schemas/SubmissionSummary'}}}
+        progress: {type: array, items: {$ref: '#/components/schemas/DifficultyProgress'}}
+        topics: {type: array, items: {type: object, properties: {tag: {type: string}, title: {type: string}, solved: {type: integer}, total: {type: integer}}}}
+        activity: {type: array, items: {$ref: '#/components/schemas/ActivityDay'}}
+        global_rank: {type: [object, 'null'], properties: {rank: {type: integer}, total: {type: integer}, week_delta: {type: integer}}}
+        recent_submissions: {type: array, items: {$ref: '#/components/schemas/SubmissionSummary'}}
+        best_places: {type: array, items: {type: object, properties: {problem: {type: string}, problem_title: {type: string}, rank: {type: integer}, total: {type: integer}, metric: {type: string}}}}
+
+    Home:
+      type: object
+      properties:
+        problem_of_the_day: {$ref: '#/components/schemas/ProblemListItem'}
+        popular: {type: array, items: {$ref: '#/components/schemas/ProblemListItem'}}
+        top_users: {type: array, items: {$ref: '#/components/schemas/GlobalLeaderboardRow'}}
+
+    Profile:
+      allOf:
+        - $ref: '#/components/schemas/UserRef'
+        - type: object
+          properties:
+            created_at: {type: string, format: date-time}
+            progress: {type: array, items: {$ref: '#/components/schemas/DifficultyProgress'}}
+            solved: {type: array, items: {$ref: '#/components/schemas/ProblemListItem'}}
+            best_places: {$ref: '#/components/schemas/Dashboard/properties/best_places'}
+            global_rank: {type: [integer, 'null']}
+
+    SynthMetrics:
+      type: object
+      properties:
+        critical_path_ns: {type: number}
+        fmax_mhz: {type: number}
+        area_um2: {type: number}
+        cells: {type: integer}
+        flops: {type: integer}
+        logic_depth: {type: integer}
+
+    SolutionSummary:
+      type: object
+      required: [id, author, metrics, submitted_at]
+      properties:
+        id: {type: string, format: uuid}
+        author: {$ref: '#/components/schemas/UserRef'}
+        metrics: {$ref: '#/components/schemas/SynthMetrics'}
+        rank: {type: [integer, 'null']}
+        duplicates: {type: integer, description: Число совпадающих решений в группе}
+        duplicate_of: {type: [string, 'null'], format: uuid}
+        submitted_at: {type: string, format: date-time}
+
+    Solution:
+      allOf:
+        - $ref: '#/components/schemas/SolutionSummary'
+        - type: object
+          required: [problem, code_locked]
+          properties:
+            problem: {$ref: '#/components/schemas/ProblemListItem'}
+            code: {type: [string, 'null']}
+            code_locked: {type: boolean}
+            total: {type: integer}
+            toolchain_profile: {type: string}
+
+    ReferenceSolution:
+      type: object
+      required: [title, code]
+      properties:
+        title: {type: string}
+        code: {type: string}
+        explanation_md: {type: string}
+        metrics: {$ref: '#/components/schemas/SynthMetrics'}
+
+    LeaderboardRow:
+      type: object
+      required: [rank, author, metrics, submission_id, submitted_at]
+      properties:
+        rank: {type: integer}
+        author: {$ref: '#/components/schemas/UserRef'}
+        submission_id: {type: string, format: uuid}
+        metrics: {$ref: '#/components/schemas/SynthMetrics'}
+        submitted_at: {type: string, format: date-time}
+        is_me: {type: boolean}
+        group:
+          type: array
+          description: Совпадающие решения (при group=true)
+          items: {type: object, properties: {author: {$ref: '#/components/schemas/UserRef'}, submission_id: {type: string, format: uuid}, submitted_at: {type: string, format: date-time}}}
+
+    ProblemLeaderboard:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [items, order]
+          properties:
+            order: {type: array, items: {type: object, properties: {metric: {type: string}, dir: {enum: [asc, desc]}}}}
+            best: {$ref: '#/components/schemas/LeaderboardRow'}
+            reference: {$ref: '#/components/schemas/SynthMetrics'}
+            me: {type: [object, 'null'], allOf: [{$ref: '#/components/schemas/LeaderboardRow'}]}
+            items: {type: array, items: {$ref: '#/components/schemas/LeaderboardRow'}}
+
+    GlobalLeaderboardRow:
+      type: object
+      required: [rank, user, points]
+      properties:
+        rank: {type: integer}
+        user: {$ref: '#/components/schemas/UserRef'}
+        points: {type: integer}
+        solved: {type: object, additionalProperties: {type: integer}, description: По ключам уровней}
+        is_me: {type: boolean}
+
+    GlobalLeaderboard:
+      allOf:
+        - $ref: '#/components/schemas/PageMeta'
+        - type: object
+          required: [items]
+          properties:
+            formula_version: {type: integer}
+            items: {type: array, items: {$ref: '#/components/schemas/GlobalLeaderboardRow'}}
+            around_me: {type: array, items: {$ref: '#/components/schemas/GlobalLeaderboardRow'}}
+
+    ReportCreate:
+      type: object
+      required: [category, text, version]
+      properties:
+        category: {enum: [statement, test, tooling, other]}
+        text: {type: string, minLength: 10, maxLength: 1000}
+        version: {type: integer}
+        submission_id: {type: string, format: uuid}
+        captcha: {type: string}

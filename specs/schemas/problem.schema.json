@@ -1,0 +1,464 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://apparatica.app/schemas/problem/1.json",
+  "title": "Apparatica problem manifest (problem.yaml)",
+  "type": "object",
+  "required": [
+    "schema",
+    "id",
+    "number",
+    "version",
+    "leaderboard_epoch",
+    "language",
+    "kind",
+    "title",
+    "difficulty",
+    "tags",
+    "resource_class",
+    "top",
+    "interface",
+    "files",
+    "stages",
+    "pipelines"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema": {
+      "const": 1
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "maxLength": 64
+    },
+    "number": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "version": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "changelog": {
+      "type": "string",
+      "maxLength": 2000,
+      "description": "Что изменилось относительно предыдущей версии; показывается пользователю (FR-PRB-05)"
+    },
+    "leaderboard_epoch": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "language": {
+      "enum": [
+        "systemverilog"
+      ]
+    },
+    "kind": {
+      "enum": [
+        "design"
+      ]
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 120
+    },
+    "title_i18n": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "difficulty": {
+      "type": "string",
+      "description": "Ключ из config/difficulties.yaml"
+    },
+    "tags": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "uniqueItems": true
+    },
+    "resource_class": {
+      "enum": [
+        "light",
+        "heavy"
+      ]
+    },
+    "authors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "name"
+        ],
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "github": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "license": {
+      "type": "string"
+    },
+    "top": {
+      "type": "string",
+      "pattern": "^[A-Za-z_][A-Za-z0-9_$]*$"
+    },
+    "interface": {
+      "type": "object",
+      "required": [
+        "ports"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "parameters": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "type",
+              "default"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "type": {
+                "enum": [
+                  "int",
+                  "int unsigned",
+                  "bit",
+                  "logic"
+                ]
+              },
+              "default": {
+                "type": [
+                  "integer",
+                  "string"
+                ]
+              },
+              "description": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "ports": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "name",
+              "dir",
+              "width"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "dir": {
+                "enum": [
+                  "input",
+                  "output",
+                  "inout"
+                ]
+              },
+              "width": {
+                "type": "string",
+                "description": "Выражение от параметров, например \"WIDTH\" или \"1\""
+              },
+              "signed": {
+                "type": "boolean",
+                "default": false
+              },
+              "role": {
+                "enum": [
+                  "data",
+                  "clock",
+                  "reset"
+                ],
+                "default": "data"
+              },
+              "reset": {
+                "type": "object",
+                "properties": {
+                  "active": {
+                    "enum": [
+                      "low",
+                      "high"
+                    ]
+                  },
+                  "sync": {
+                    "type": "boolean"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "description": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "files": {
+      "type": "object",
+      "required": [
+        "statement",
+        "template"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "statement": {
+          "type": "string"
+        },
+        "template": {
+          "type": "string"
+        },
+        "statement_i18n": {
+          "type": "object",
+          "description": "Задел i18n: язык → файл условия",
+          "additionalProperties": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "testbenches": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "top",
+          "sources",
+          "groups"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "top": {
+            "type": "string"
+          },
+          "sources": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "minItems": 1
+          },
+          "groups": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        }
+      }
+    },
+    "stages": {
+      "type": "object",
+      "description": "Ключ — stage_key, значение — конфиг этапа. Поле type выбирает плагин языкового модуля; остальные поля валидирует плагин.",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "type"
+        ],
+        "properties": {
+          "type": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "pipelines": {
+      "type": "object",
+      "required": [
+        "practice"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "practice": {
+          "$ref": "#/$defs/pipeline"
+        },
+        "industrial": {
+          "type": "object",
+          "description": "Ф6: шаги индустриального режима"
+        }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "stage_timeout_s": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          }
+        },
+        "memory_mb": {
+          "type": "integer",
+          "minimum": 128
+        },
+        "output_kb": {
+          "type": "integer",
+          "minimum": 16
+        },
+        "fst_mb": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "leaderboard": {
+      "type": "object",
+      "required": [
+        "formula_version",
+        "order"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "formula_version": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "order": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": [
+              "metric",
+              "dir"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "metric": {
+                "type": "string",
+                "pattern": "^[a-z_]+\\.[a-z0-9_]+$"
+              },
+              "dir": {
+                "enum": [
+                  "asc",
+                  "desc"
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    "reference": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "visibility": {
+          "enum": [
+            "after_accepted",
+            "public",
+            "hidden"
+          ]
+        },
+        "solutions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "file",
+              "title"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "file": {
+                "type": "string"
+              },
+              "title": {
+                "type": "string"
+              },
+              "explanation": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "mutants": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "file",
+          "expect"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "file": {
+            "type": "string"
+          },
+          "expect": {
+            "enum": [
+              "wrong_answer",
+              "compile_error",
+              "forbidden_construct",
+              "limit_exceeded"
+            ]
+          },
+          "caught_by": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "note": {
+            "type": "string"
+          }
+        }
+      }
+    }
+  },
+  "$defs": {
+    "pipeline": {
+      "type": "object",
+      "required": [
+        "run",
+        "submit"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "run": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        },
+        "submit": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1
+        }
+      }
+    }
+  }
+}

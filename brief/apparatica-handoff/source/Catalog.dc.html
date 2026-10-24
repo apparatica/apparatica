@@ -1,0 +1,193 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Каталог задач — Bench</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600&amp;family=IBM+Plex+Mono:wght@400;500&amp;display=swap">
+<style>
+body{margin:0}
+a{color:inherit}
+button{font-family:inherit}
+.lbl{font-family:var(--mono);font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase;color:var(--mu)}
+.btn{white-space:nowrap;display:inline-flex;align-items:center;gap:7px;height:30px;padding:0 10px;border-radius:3px;border:1px solid var(--bc);background:var(--sf);color:var(--tx);font-size:12.5px;cursor:pointer}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--mu)}
+.btn.on{background:var(--acs);border-color:var(--ac);color:var(--ac)}
+.kbd{font-family:var(--mono);font-size:10.5px;opacity:.8}
+.chip{height:20px;padding:0 7px;border-radius:2px;border:1px solid var(--bd);color:var(--mu);font-family:var(--mono);font-size:11px;display:inline-flex;align-items:center;white-space:nowrap}
+.lvl{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:2px;font-family:var(--mono);font-size:11px;font-weight:500;white-space:nowrap}
+.lv-e{background:var(--es);color:var(--e)}.lv-m{background:var(--ms);color:var(--m)}.lv-h{background:var(--hs);color:var(--h)}
+.bars{display:inline-flex;align-items:flex-end;gap:1.5px;height:10px}
+.bars i{display:block;width:2.5px;background:currentColor;opacity:.3}
+.bars i:nth-child(1){height:4px}.bars i:nth-child(2){height:7px}.bars i:nth-child(3){height:10px}
+.b1 i:nth-child(1),.b2 i:nth-child(-n+2),.b3 i{opacity:1}
+.row{display:grid;grid-template-columns:128px minmax(0,1fr) 108px 290px 110px;gap:12px;align-items:center;padding:0 16px;height:40px;border-bottom:1px solid var(--bd)}
+.row:hover{background:var(--sf2)}
+a:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(--ac);outline-offset:1px}
+</style>
+</helmet>
+<div style="{{rootVars}}width:100%;height:900px;display:flex;flex-direction:column;background:var(--bg);color:var(--tx);font-family:var(--sans);font-size:13px;line-height:1.5;font-variant-numeric:tabular-nums;box-sizing:border-box;overflow:hidden">
+
+  <header style="height:40px;flex:0 0 40px;display:flex;align-items:center;gap:16px;padding:0 12px;background:var(--sf);border-bottom:1px solid var(--bd)">
+    <a href="#" style="display:flex;align-items:center;gap:8px;text-decoration:none;color:var(--tx)">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linejoin="round" aria-hidden="true" style="stroke:var(--ac)"><rect x="4" y="3" width="17" height="18" rx="2"/><path d="M4 9.5l5 2.5-5 2.5"/></svg>
+      <span style="font-size:14px;font-weight:600;letter-spacing:0.01em">Apparatica</span>
+    </a>
+    <span aria-hidden="true" style="width:1px;height:18px;background:var(--bd)"></span>
+    <nav aria-label="Путь" style="display:flex;align-items:center;gap:8px;color:var(--mu);font-size:12.5px"><span style="color:var(--tx)">Задачи</span></nav>
+    <div style="flex:1"></div>
+    <label style="display:flex;align-items:center;gap:8px;height:26px;width:240px;padding:0 8px;border:1px solid var(--bc);border-radius:3px;background:var(--ed);color:var(--mu)">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+      <input type="text" aria-label="Быстрый поиск" placeholder="Быстрый поиск" style="flex:1;min-width:0;border:0;outline:0;background:transparent;color:var(--tx);font:inherit;font-size:12.5px">
+      <span class="kbd">Ctrl K</span>
+    </label>
+    <button aria-label="Профиль ivan_s" style="display:flex;align-items:center;gap:8px;height:28px;padding:0 6px;border:0;border-radius:3px;background:transparent;color:var(--tx);cursor:pointer;font-size:12.5px">
+      <span style="width:20px;height:20px;border-radius:2px;background:var(--acs);color:var(--ac);display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:600">ИС</span>
+      ivan_s
+    </button>
+  </header>
+
+  <div style="flex:1;min-height:0;display:flex;gap:1px">
+    <nav aria-label="Разделы" style="flex:0 0 48px;display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px 0;background:var(--sf)">
+      <button aria-label="Задачи" aria-current="page" style="width:36px;height:36px;border:0;border-radius:3px;background:var(--acs);color:var(--ac);display:flex;align-items:center;justify-content:center;cursor:pointer">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/></svg>
+      </button>
+      <button aria-label="Рейтинг" style="width:36px;height:36px;border:0;border-radius:3px;background:transparent;color:var(--mu);display:flex;align-items:center;justify-content:center;cursor:pointer">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
+      </button>
+      <button aria-label="Дашборд" style="width:36px;height:36px;border:0;border-radius:3px;background:transparent;color:var(--mu);display:flex;align-items:center;justify-content:center;cursor:pointer">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>
+      </button>
+      <div style="flex:1"></div>
+      <button aria-label="Профиль" style="width:36px;height:36px;border:0;border-radius:3px;background:transparent;color:var(--mu);display:flex;align-items:center;justify-content:center;cursor:pointer">
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      </button>
+    </nav>
+
+    <main style="flex:1;min-width:0;background:var(--sf);overflow:hidden">
+      <div style="max-width:1240px;margin:0 auto;padding:24px 32px 0;display:flex;flex-direction:column;gap:16px">
+
+        <div style="display:flex;align-items:flex-end;justify-content:space-between;gap:16px;flex-wrap:wrap">
+          <div style="display:flex;flex-direction:column;gap:2px">
+            <h1 style="margin:0;font-size:22px;line-height:30px;font-weight:600;letter-spacing:-0.01em">Задачи</h1>
+            <span style="color:var(--mu)">Решайте на SystemVerilog, проверка идёт в браузере: линт, симуляция, синтез.</span>
+          </div>
+        </div>
+
+        <!-- Сводка по уровням -->
+        <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(260px,100%),1fr));gap:8px">
+          <sc-for list="{{levels}}" as="l" hint-placeholder-count="3">
+            <div style="border:1px solid var(--bd);border-radius:3px;padding:10px 12px;display:flex;flex-direction:column;gap:8px;background:var(--sf)">
+              <div style="display:flex;align-items:center;justify-content:space-between">
+                <span class="lvl {{l.cls}}"><span class="bars {{l.bars}}" aria-hidden="true"><i></i><i></i><i></i></span>{{l.name}}</span>
+                <span style="font-family:var(--mono);font-size:12px"><span style="font-weight:500">{{l.done}}</span><span style="color:var(--mu)"> из {{l.total}}</span></span>
+              </div>
+              <div style="height:6px;border-radius:3px;background:var(--sf2);border:1px solid var(--bd)"><div class="{{l.cls}}" style="height:100%;border-radius:3px;background:currentColor;width:{{l.pct}}"></div></div>
+            </div>
+          </sc-for>
+        </div>
+
+        <!-- Панель фильтров -->
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <label style="display:flex;align-items:center;gap:8px;height:30px;width:280px;padding:0 10px;border:1px solid var(--bc);border-radius:3px;background:var(--ed);color:var(--mu)">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
+            <input type="text" aria-label="Поиск по задачам" placeholder="Название или тег" style="flex:1;min-width:0;border:0;outline:0;background:transparent;color:var(--tx);font:inherit;font-size:12.5px">
+          </label>
+          <button class="btn">Сложность <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+          <button class="btn">Теги <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+          <button class="btn">Статус <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+          <div style="flex:1"></div>
+          <span style="color:var(--mu);font-size:12.5px">Всего <span style="font-family:var(--mono);color:var(--tx)">58</span> задач</span>
+          <button class="btn">Сортировка: по номеру <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg></button>
+        </div>
+
+        <!-- Таблица -->
+        <div role="table" aria-label="Список задач" style="border:1px solid var(--bd);border-radius:3px;overflow:hidden">
+          <div role="row" class="row" style="height:34px;background:var(--sf2);color:var(--mu);font-family:var(--mono);font-size:10.5px;letter-spacing:0.08em;text-transform:uppercase">
+            <span role="columnheader">Статус</span><span role="columnheader">Название</span><span role="columnheader">Уровень</span><span role="columnheader">Теги</span><span role="columnheader" style="text-align:right">Принято</span>
+          </div>
+          <sc-for list="{{tasks}}" as="t" hint-placeholder-count="12">
+            <div role="row" class="row">
+              <span role="cell" style="display:flex;align-items:center;gap:8px;font-size:12.5px">
+                <sc-if value="{{t.solved}}" hint-placeholder-val="{{false}}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="stroke:var(--ok)"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg><span style="color:var(--ok)">Решено</span></sc-if>
+                <sc-if value="{{t.tried}}" hint-placeholder-val="{{false}}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="stroke:var(--mu)"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 1 0 20z" style="fill:var(--mu)"/></svg><span style="color:var(--tx)">Пробовал</span></sc-if>
+                <sc-if value="{{t.fresh}}" hint-placeholder-val="{{false}}"><svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke-width="2" aria-hidden="true" style="stroke:var(--mu)"><circle cx="12" cy="12" r="10"/></svg><span style="color:var(--mu)">Не начато</span></sc-if>
+              </span>
+              <a role="cell" href="#" style="font-weight:500;text-decoration:none;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{t.title}}</a>
+              <span role="cell"><span class="lvl {{t.cls}}"><span class="bars {{t.bars}}" aria-hidden="true"><i></i><i></i><i></i></span>{{t.level}}</span></span>
+              <span role="cell" style="display:flex;gap:4px;min-width:0;overflow:hidden"><sc-for list="{{t.tags}}" as="g"><span class="chip">{{g.name}}</span></sc-for></span>
+              <span role="cell" style="text-align:right;font-family:var(--mono);font-size:12.5px">{{t.rate}}</span>
+            </div>
+          </sc-for>
+        </div>
+
+        <div style="display:flex;align-items:center;justify-content:space-between;color:var(--mu);font-size:12.5px;padding-bottom:16px">
+          <span>Показано <span style="font-family:var(--mono);color:var(--tx)">1–12</span> из 58</span>
+          <div style="display:flex;gap:4px">
+            <button class="btn" aria-label="Предыдущая страница" disabled style="opacity:.5">←</button>
+            <button class="btn on">1</button><button class="btn">2</button><button class="btn">3</button><button class="btn">4</button><button class="btn">5</button>
+            <button class="btn" aria-label="Следующая страница">→</button>
+          </div>
+        </div>
+      </div>
+    </main>
+  </div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"theme":{"editor":"enum","options":["light","dark"],"default":"light"},"$preview":{"width":1440,"height":900}}'>
+class Component extends DCLogic {
+  renderVals() {
+    const dark = (this.props.theme ?? 'light') === 'dark';
+    const light = {
+      '--bg': '#d6dad2', '--sf': '#f6f7f3', '--sf2': '#e9ece4', '--ed': '#fbfcf9', '--bd': '#c3c9bf', '--bc': '#7d877f',
+      '--tx': '#141a15', '--mu': '#505a52', '--ac': '#0e7490', '--acx': '#ffffff', '--acs': '#e0f1f5',
+      '--ok': '#166534', '--er': '#b42318', '--wn': '#7a4f00',
+      '--e': '#0f766e', '--es': '#d9efec', '--m': '#1d4ed8', '--ms': '#e3ebfb', '--h': '#6d28d9', '--hs': '#ebe3fa'
+    };
+    const night = {
+      '--bg': '#050706', '--sf': '#0d100e', '--sf2': '#151a17', '--ed': '#090c0a', '--bd': '#222a25', '--bc': '#667168',
+      '--tx': '#dfe6df', '--mu': '#8f9b92', '--ac': '#22d3ee', '--acx': '#04222a', '--acs': '#0b2a31',
+      '--ok': '#4ade80', '--er': '#ff7b72', '--wn': '#e3b341',
+      '--e': '#5eead4', '--es': '#0d2b28', '--m': '#79c0ff', '--ms': '#10233a', '--h': '#c4b5fd', '--hs': '#221a3d'
+    };
+    const v = dark ? night : light;
+    v['--sans'] = "'IBM Plex Sans',system-ui,-apple-system,'Segoe UI',sans-serif";
+    v['--mono'] = "'IBM Plex Mono',ui-monospace,'SF Mono',Menlo,monospace";
+    const rootVars = Object.keys(v).map((k) => k + ':' + v[k]).join(';') + ';';
+
+    const L = {
+      Easy: { cls: 'lv-e', bars: 'b1' }, Medium: { cls: 'lv-m', bars: 'b2' }, Hard: { cls: 'lv-h', bars: 'b3' }
+    };
+    const levels = [
+      { name: 'Easy', done: 12, total: 40, pct: '30%', cls: 'lv-e', bars: 'b1' },
+      { name: 'Medium', done: 7, total: 58, pct: '12%', cls: 'lv-m', bars: 'b2' },
+      { name: 'Hard', done: 1, total: 22, pct: '5%', cls: 'lv-h', bars: 'b3' }
+    ];
+    const T = (status, title, level, tags, rate) => ({
+      solved: status === 's', tried: status === 't', fresh: status === 'n',
+      title, level, cls: L[level].cls, bars: L[level].bars, tags: tags.map((name) => ({ name })), rate
+    });
+    const tasks = [
+      T('s', 'Мультиплексор 4:1', 'Easy', ['комбинационная логика'], '78%'),
+      T('s', 'Счётчик по модулю N', 'Easy', ['счётчики'], '71%'),
+      T('s', 'Сумматор с переносом', 'Easy', ['арифметика'], '64%'),
+      T('t', 'Детектор последовательности', 'Medium', ['FSM'], '52%'),
+      T('t', 'Синхронный FIFO', 'Medium', ['FIFO', 'память', 'указатели'], '41%'),
+      T('n', 'Арбитр с круговым приоритетом', 'Medium', ['FSM', 'арбитраж'], '38%'),
+      T('n', 'Конвейерный умножитель', 'Medium', ['арифметика', 'конвейеры'], '33%'),
+      T('n', 'Двухтриггерный синхронизатор', 'Medium', ['CDC'], '29%'),
+      T('n', 'APB-слейв с регистровой картой', 'Medium', ['протоколы', 'APB'], '26%'),
+      T('n', 'Асинхронный FIFO с кодом Грея', 'Hard', ['FIFO', 'CDC', 'память'], '17%'),
+      T('n', 'AXI-Stream регистровый слайс', 'Hard', ['протоколы', 'конвейеры'], '14%'),
+      T('n', 'Кэш прямого отображения', 'Hard', ['память', 'FSM'], '9%')
+    ];
+    return { rootVars, levels, tasks };
+  }
+}
+</script>
+</body>
+</html>

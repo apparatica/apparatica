@@ -1,0 +1,106 @@
+/* Apparatica · Bench — токены дизайна. Источник истины: холст «Apparatica — страница задачи».
+   Тема переключается атрибутом data-theme на <html>. Тёмная палитра нарисована отдельно, это не инверсия светлой.
+   Цвет статуса всегда сопровождается иконкой и текстом. --bc — граница полей и кнопок (>= 3:1), --bd — декоративные разделители. */
+:root {
+  --sans: 'IBM Plex Sans', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', Menlo, monospace;
+  --r-sm: 2px; --r-md: 3px; --r-lg: 4px;
+}
+:root, :root[data-theme="light"] {
+  /* Поверхности */
+  --bg: #d6dad2;
+  --sf: #f6f7f3;
+  --sf2: #e9ece4;
+  --ed: #fbfcf9;
+  /* Границы */
+  --bd: #c3c9bf;
+  --bc: #7d877f;
+  /* Текст */
+  --tx: #141a15;
+  --mu: #505a52;
+  /* Акцент */
+  --ac: #0e7490;
+  --acx: #ffffff;
+  --acs: #e0f1f5;
+  /* Статусы */
+  --ok: #166534;
+  --oks: #e1f1e4;
+  --er: #b42318;
+  --ers: #fbe6e2;
+  --wn: #7a4f00;
+  --wns: #f8ecc9;
+  --in: #1d4ed8;
+  --ins: #e3ebfb;
+  /* Сложность */
+  --e: #0f766e;
+  --es: #d9efec;
+  --m: #1d4ed8;
+  --ms: #e3ebfb;
+  --h: #6d28d9;
+  --hs: #ebe3fa;
+  /* Тепловая карта */
+  --h1: #c6e3ea;
+  --h2: #8ec6d4;
+  --h3: #3f9db3;
+  --h4: #0e7490;
+  /* Подсветка кода */
+  --kw: #0e7490;
+  --ty: #6d28d9;
+  --nm: #a24b0a;
+  --cm: #5a665c;
+  --fn: #1d4ed8;
+  /* Тень */
+  --sh: rgba(0,0,0,0.1);
+}
+
+:root[data-theme="dark"] {
+  /* Поверхности */
+  --bg: #050706;
+  --sf: #0d100e;
+  --sf2: #151a17;
+  --ed: #090c0a;
+  /* Границы */
+  --bd: #222a25;
+  --bc: #667168;
+  /* Текст */
+  --tx: #dfe6df;
+  --mu: #8f9b92;
+  /* Акцент */
+  --ac: #22d3ee;
+  --acx: #04222a;
+  --acs: #0b2a31;
+  /* Статусы */
+  --ok: #4ade80;
+  --oks: #0f2a18;
+  --er: #ff7b72;
+  --ers: #2b1311;
+  --wn: #e3b341;
+  --wns: #2a2107;
+  --in: #79c0ff;
+  --ins: #10233a;
+  /* Сложность */
+  --e: #5eead4;
+  --es: #0d2b28;
+  --m: #79c0ff;
+  --ms: #10233a;
+  --h: #c4b5fd;
+  --hs: #221a3d;
+  /* Тепловая карта */
+  --h1: #0d3a44;
+  --h2: #116073;
+  --h3: #1796ae;
+  --h4: #22d3ee;
+  /* Подсветка кода */
+  --kw: #22d3ee;
+  --ty: #c4b5fd;
+  --nm: #fbbf24;
+  --cm: #7d887e;
+  --fn: #86efac;
+  /* Тень */
+  --sh: rgba(0,0,0,0.5);
+}
+
+body { font-family: var(--sans); font-size: 13px; line-height: 20px; font-variant-numeric: tabular-nums; background: var(--bg); color: var(--tx); }
+code, pre, .mono { font-family: var(--mono); font-variant-ligatures: none; }
+:focus-visible { outline: 2px solid var(--ac); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { * { animation: none !important; transition: none !important; } }
