@@ -1,0 +1,85 @@
+name: Toolchain image
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - toolchain/**
+      - .github/workflows/toolchain.yml
+  pull_request:
+    paths:
+      - toolchain/**
+      - .github/workflows/toolchain.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: toolchain-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  IMAGE: ghcr.io/${{ github.repository_owner }}/toolchain
+  POETRY_VERSION: "2.3.2"
+
+jobs:
+  build:
+    name: Build, test, publish
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+      # The image tests run with pytest from the judge environment on the runner.
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+      - name: Install test environment
+        run: |
+          pipx install "poetry==${POETRY_VERSION}"
+          poetry -C judge install
+
+      - name: Read toolchain profile
+        id: profile
+        run: echo "id=$(sed -n 's/^TOOLCHAIN_PROFILE=//p' toolchain/versions.lock)" >> "$GITHUB_OUTPUT"
+
+      - name: Build
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: toolchain
+          load: true
+          tags: apparatica-toolchain:dev
+          cache-from: type=gha,scope=toolchain
+          cache-to: type=gha,scope=toolchain,mode=max
+
+      - name: Test image
+        run: just toolchain-test
+
+      - name: Log in to GHCR
+        if: github.event_name == 'push'
+        uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      # A profile tag is immutable: results are comparable only within one profile (specs/09 §2).
+      # Pull requests check it too, so a missing TOOLCHAIN_PROFILE bump fails before merge.
+      - name: Check that the profile tag is new
+        run: |
+          if docker manifest inspect "$IMAGE:${{ steps.profile.outputs.id }}" > /dev/null 2>&1; then
+            echo "::error::$IMAGE:${{ steps.profile.outputs.id }} already exists; bump TOOLCHAIN_PROFILE in toolchain/versions.lock"
+            exit 1
+          fi
+
+      - name: Publish
+        if: github.event_name == 'push'
+        run: |
+          for tag in "${{ steps.profile.outputs.id }}" "sha-${GITHUB_SHA::12}"; do
+            docker tag apparatica-toolchain:dev "$IMAGE:$tag"
+            docker push "$IMAGE:$tag"
+          done

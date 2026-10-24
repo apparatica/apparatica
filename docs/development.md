@@ -12,10 +12,11 @@
 | pnpm | 11 (версия закреплена в `packageManager` корневого `package.json`) | зависимости JS |
 | just | любая актуальная | точка входа для команд (`justfile`) |
 | pre-commit | ≥ 4 | git-хуки |
+| Docker | ≥ 24 | образ тулчейна (`toolchain-build`, `toolchain-test`) |
 
 Пример установки на Windows: `winget install Casey.Just`, `pipx install pre-commit`; на macOS — `brew install just pre-commit`; на Linux — пакетный менеджер дистрибутива или `pipx install pre-commit` и `cargo install just`.
 
-Docker понадобится для образа тулчейна и стенда (`just up`) — эти команды появятся в T0.3 и T0.19.
+Стенд (`just up`) появится в T0.19.
 
 ## Первый запуск
 
@@ -34,11 +35,13 @@ Poetry создаёт виртуальное окружение внутри к�
 | `just install` | ставит зависимости Python и JS (`install-py`, `install-js`), подключает git-хуки |
 | `just lint` | `lint-py` (ruff: линт и проверка форматирования), `lint-imports` (архитектурные контракты), `lint-js` (eslint и prettier `--check` в `web/`) |
 | `just fmt` | применяет ruff format, безопасные исправления ruff и prettier в `web/` |
-| `just typecheck` | mypy `--strict` в каждом Python-проекте и для `scripts/` |
+| `just typecheck` | mypy `--strict` в каждом Python-проекте, для `scripts/` и Python-кода `toolchain/` (с `--platform linux`) |
 | `just test` | `test-py`: pytest в каждом Python-проекте и тесты `scripts/` |
 | `just check-locks` | `poetry check --lock` в каждом проекте и сверка версий общих зависимостей между тремя `poetry.lock` |
 | `just check-licenses` | лицензии зависимостей Python (`check-licenses-py`) и JS (`check-licenses-js`) по политике |
 | `just check` | `check-locks`, `check-licenses`, `lint`, `typecheck`, `test` |
+| `just toolchain-build` | собирает образ тулчейна `apparatica-toolchain:dev` |
+| `just toolchain-test` | тесты образа: pytest на хосте, команды через `docker exec` в контейнере с ограничениями песочницы |
 
 Рецепты `justfile` работают и в sh (Linux, macOS, CI), и в PowerShell 7 (Windows).
 
@@ -50,6 +53,8 @@ GitHub Actions, `.github/workflows/ci.yml`, на GitHub-hosted раннерах 
 |---|---|
 | Python | `install-py`, `check-locks`, `lint-py`, `lint-imports`, `typecheck`, `test-py`, `check-licenses-py` |
 | JS | `install-js`, `lint-js`, `check-licenses-js` |
+
+Образ тулчейна собирает и публикует отдельный workflow `.github/workflows/toolchain.yml` — при изменениях в `toolchain/` (подробности — [toolchain/README.md](../toolchain/README.md)).
 
 Python 3.13 и Poetry (версия в `POETRY_VERSION` workflow) ставятся в job'е, виртуальные окружения кэшируются по хэшу `poetry.lock`; Node 24 и pnpm — из `packageManager`, кэш pnpm-store. Сторонние actions закреплены по SHA коммита, версия — в комментарии. Unit-тесты TS добавятся в JS job вместе с Vitest (T0.20).
 
@@ -82,6 +87,7 @@ backend/    FastAPI-приложение и ингестор (Poetry, пакет
 worker/     воркер и оркестратор песочницы (Poetry, пакет apparatica_worker)
 web/        фронтенд (пакет pnpm workspace; каркас Next.js — T0.20)
 .github/    CI (GitHub Actions)
+toolchain/  образ тулчейна песочницы: Dockerfile, versions.lock, apx-run, apx-verilate, тесты образа
 problems/   пакеты задач, CC BY-SA 4.0
 scripts/    служебные скрипты: сверка lock-файлов и лицензий, политика лицензий
 docs/       проектная документация
@@ -89,7 +95,7 @@ specs/      спецификация и план
 brief/      исходные материалы заказчика (не редактируются)
 ```
 
-Остальные каталоги из [specs/03 §6](../specs/03-architecture.md) (`toolchain/`, `config/`, `deploy/`, `tests/`) появляются вместе с задачами, которые их наполняют.
+Остальные каталоги из [specs/03 §6](../specs/03-architecture.md) (`config/`, `deploy/`, `tests/`) появляются вместе с задачами, которые их наполняют.
 
 ## Python-проекты
 

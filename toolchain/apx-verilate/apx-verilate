@@ -1,0 +1,23 @@
+#!/bin/sh
+# apx-verilate: Verilator with the runtime flags that the prebuilt runtime library was compiled for.
+# Verilator runtime objects are built into the image and never compiled per submission (ADR-0003),
+# so these flags belong to the toolchain profile; callers add the rest (sources, -j, warnings, X handling).
+#
+# Usage: apx-verilate [VERILATOR ARGS...]
+# APX_VERILATE_BUILD_RUNTIME=1 compiles the runtime instead of linking the library (image build only).
+set -eu
+
+RUNTIME_DIR=/opt/apx/verilator-runtime
+RUNTIME_FLAGS="--binary --timing --trace-fst"
+
+if [ "${APX_VERILATE_BUILD_RUNTIME:-0}" = 1 ]; then
+    # shellcheck disable=SC2086 # RUNTIME_FLAGS is a list of flags
+    exec verilator $RUNTIME_FLAGS "$@"
+fi
+
+# Empty VM_GLOBAL_* keep make from compiling runtime sources; the library provides their objects.
+# shellcheck disable=SC2086
+exec verilator $RUNTIME_FLAGS \
+    -MAKEFLAGS VM_GLOBAL_FAST= -MAKEFLAGS VM_GLOBAL_SLOW= \
+    -LDFLAGS "$RUNTIME_DIR/libverilated_apx.a" \
+    "$@"

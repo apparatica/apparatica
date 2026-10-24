@@ -79,7 +79,7 @@ class Stage(Protocol):
 
 ### 2.3 `sim` — сборка и симуляция (Verilator)
 
-1. Сборка: `verilator --binary --timing --trace-fst --x-assign unique --x-initial unique -j N -Wno-fatal -Wno-lint <tb sources> <design> --top-module <tb.top>`, где `<design>` — канонический `solution.sv` (или нетлист для `netlist_sim`, §2.5). Объектные файлы рантайма Verilator предсобраны в образе (ADR-0003).
+1. Сборка: `apx-verilate --x-assign unique --x-initial unique -j N -Wno-fatal -Wno-lint <tb sources> <design> --top-module <tb.top>`, где `<design>` — канонический `solution.sv` (или нетлист для `netlist_sim`, §2.5). `apx-verilate` — обёртка образа: добавляет флаги `--binary --timing --trace-fst` и подключает рантайм Verilator, предсобранный в образе для этих флагов (ADR-0003); рантайм на отправку не компилируется.
 2. Кэш сборки: оркестратор копирует бинарник **до первого запуска** и кладёт в бакет `build-cache` по ключу `(code_hash, problem_version, toolchain_profile, design)` на 24 ч. Run → Submit без изменений кода не пересобирает.
 3. Прогон: `./Vtb +apx_seed=<seed> +apx_groups=<...> +apx_result=out/tb_result.jsonl +apx_nonce=<n> +verilator+seed+<seed> +verilator+rand+reset+2`. Неинициализированные переменные и регистры получают случайные значения, зависящие от сида: решение, которое полагается на начальное состояние вместо сброса, не проходит тесты. Лимит тактов — `max_cycles` (библиотека тестбенча), лимит времени — таймаут этапа.
 4. Интерпретация: файл результатов (с лимитом размера до разбора) → `summary.tests[]`, `metrics` (`sim/v1`). Падение теста → `failed`, `failure_kind=wrong`. Нет `suite_end` → см. 06 §3.3.
@@ -175,7 +175,7 @@ write_verilog -noexpr -noattr netlist.v ; write_json netlist.json
 
 ### 4.3 PTY и лимиты вывода
 
-- Каждая команда этапа запускается через `docker exec` с выделенным TTY, чтобы `$display` и лог Yosys шли построчно. stderr при TTY сливается со stdout; канал `err` назначается обёрткой `apx-run` в образе и разбором строк (`%Error`, `ERROR:`).
+- Каждая команда этапа запускается через `docker exec` с выделенным TTY, чтобы `$display` и лог Yosys шли построчно. stderr при TTY сливается со stdout; канал `err` назначается обёрткой `apx-run` в образе (она даёт команде отдельные псевдотерминалы для stdout и stderr и помечает каждую строку stderr байтом `0x1E` в начале) и разбором строк (`%Error`, `ERROR:`).
 - Лимит вывода этапа (`output_kb`, по умолчанию 1 МБ). Превышение → процесс убивается, этап `failed`, `failure_kind=limit`, `verdict_detail.limit = "output"`; в стрим — `truncated`, в консоль — первые N и последняя строка. Полный лог до обрезки — в артефакте.
 - Лог Yosys в консоль идёт в сокращённом виде (фильтр по уровню из конфига этапа); полный — в артефакт.
 
