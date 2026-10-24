@@ -6,6 +6,8 @@
 
 ## Ветки
 
+Основная ветка — `master`: от неё создаются рабочие ветки, в неё направляются PR.
+
 Имя ветки — `<тип>/<краткое-описание>`: латиница в нижнем регистре, слова через дефис. Если работа относится к задаче плана или спайку, описание начинается с её ID.
 
 | Тип | Когда |
@@ -23,6 +25,12 @@
 | `spike/` | прототип из [spikes-and-risks.md](specs/plan/spikes-and-risks.md); в основную ветку не сливается |
 
 Примеры: `chore/t0.1-monorepo-skeleton`, `feat/t1.14-use-submission`, `fix/sse-reconnect-last-event-id`, `problem/t0.11-mux4-counter`, `spike/s2-gvisor-verilator`.
+
+## Коммиты
+
+Сообщение коммита — по [Conventional Commits](https://www.conventionalcommits.org/ru/v1.0.0/): `<тип>: <описание>`, типы те же, что у веток (кроме `problem` и `spike`: для них — `feat`, `fix` или `chore`). ID задачи плана — в скобках в конце первой строки. Подробности — в теле сообщения.
+
+Пример: `chore: scaffold monorepo (T0.1)`, `feat(judge): add verdict aggregation (T0.6)`.
 
 ## Pull request
 

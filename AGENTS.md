@@ -10,7 +10,7 @@ Apparatica — открытый тренажёр по RTL на SystemVerilog («
 
 ## Правила
 - Перед PR: `just check` (линтеры, типы, тесты, lock-файлы). Окружение — `docs/development.md`.
-- Ветки — `<тип>/<описание>` с ID задачи плана (`feat/t1.14-use-submission`), коммиты с `Signed-off-by` (DCO): `CONTRIBUTING.md`.
+- Основная ветка — `master`. Ветки — `<тип>/<описание>` с ID задачи плана (`feat/t1.14-use-submission`); коммиты по Conventional Commits (`feat(judge): add verdict aggregation (T0.6)`) с `Signed-off-by` (DCO): `CONTRIBUTING.md`.
 - Contract-first, источник правды — код: Pydantic-схемы и роуты FastAPI → `just openapi` → `backend/openapi.json` (коммитится, CI проверяет актуальность) → TS-клиент. Фаза начинается с PR контракта (`T<фаза>.0`): схемы, роуты-заглушки, `openapi.json`, клиент, моки. Схемы SSE-событий и ошибок `problem+json` объявляйте явно через `responses=`. `specs/api/openapi.yaml` — черновик-вход, не поддерживается параллельно с кодом (specs/05 §0).
 - Ядро не знает SystemVerilog: всё SV-специфичное — в `judge/languages/systemverilog/` (ADR-0011).
 - Фронтенд: только токены из `tokens.css`, все состояния компонентов из `components.md`, все строки — через next-intl (`messages/ru.json`).
