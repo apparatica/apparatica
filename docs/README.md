@@ -7,6 +7,7 @@
 | [architecture.md](architecture.md) | компоненты, как они общаются, путь проверки | целевая архитектура; уточняется по мере реализации |
 | [glossary.md](glossary.md) | термины проекта | актуален |
 | [adr/](adr/README.md) | архитектурные решения и их причины | актуален |
+| [spikes/](spikes/) | отчёты спайков из [spikes-and-risks.md](../specs/plan/spikes-and-risks.md): цифры и рекомендации | S5 |
 | [development.md](development.md) | установка окружения, команды `just`, структура репозитория, git-хуки | актуален; запуск стенда добавится в T0.19, генерация API-клиента — в T0.18 |
 | `configuration.md` | переменные окружения, файлы `config/`, feature flags | появится в Ф0 (T0.14) |
 | `problem-authoring.md` | как написать задачу: пакет, тестбенч, мутанты, `judge validate` | появится в Ф0 (T0.11) |
