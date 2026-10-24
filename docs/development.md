@@ -31,15 +31,48 @@ Poetry создаёт виртуальное окружение внутри к�
 | Команда | Что делает |
 |---|---|
 | `just` | список команд |
-| `just install` | ставит зависимости Python и JS, подключает git-хуки |
-| `just lint` | ruff (линт и проверка форматирования); eslint и prettier `--check` в `web/` |
+| `just install` | ставит зависимости Python и JS (`install-py`, `install-js`), подключает git-хуки |
+| `just lint` | `lint-py` (ruff: линт и проверка форматирования), `lint-imports` (архитектурные контракты), `lint-js` (eslint и prettier `--check` в `web/`) |
 | `just fmt` | применяет ruff format, безопасные исправления ruff и prettier в `web/` |
 | `just typecheck` | mypy `--strict` в каждом Python-проекте и для `scripts/` |
-| `just test` | pytest в каждом Python-проекте |
+| `just test` | `test-py`: pytest в каждом Python-проекте и тесты `scripts/` |
 | `just check-locks` | `poetry check --lock` в каждом проекте и сверка версий общих зависимостей между тремя `poetry.lock` |
-| `just check` | `check-locks`, `lint`, `typecheck`, `test` |
+| `just check-licenses` | лицензии зависимостей Python (`check-licenses-py`) и JS (`check-licenses-js`) по политике |
+| `just check` | `check-locks`, `check-licenses`, `lint`, `typecheck`, `test` |
 
 Рецепты `justfile` работают и в sh (Linux, macOS, CI), и в PowerShell 7 (Windows).
+
+## CI
+
+GitHub Actions, `.github/workflows/ci.yml`, на GitHub-hosted раннерах `ubuntu-24.04`. Запускается на push в `master`, на каждый pull request и вручную. Два параллельных job'а вызывают те же рецепты `just`, что и локальная проверка:
+
+| Job | Шаги |
+|---|---|
+| Python | `install-py`, `check-locks`, `lint-py`, `lint-imports`, `typecheck`, `test-py`, `check-licenses-py` |
+| JS | `install-js`, `lint-js`, `check-licenses-js` |
+
+Python 3.13 и Poetry (версия в `POETRY_VERSION` workflow) ставятся в job'е, виртуальные окружения кэшируются по хэшу `poetry.lock`; Node 24 и pnpm — из `packageManager`, кэш pnpm-store. Сторонние actions закреплены по SHA коммита, версия — в комментарии. Unit-тесты TS добавятся в JS job вместе с Vitest (T0.20).
+
+## Архитектурные контракты
+
+import-linter проверяет границу ядра и языковых модулей (ADR-0011, NFR-MAINT-04). Контракты лежат в `[tool.importlinter]` проекта, чьё окружение их проверяет:
+
+| Проект | Контракт |
+|---|---|
+| `judge` | `judge.core` не импортирует `judge.languages` |
+| `backend` | `apparatica` не импортирует `judge.languages` ни напрямую, ни через другие модули `judge` |
+
+Языковые модули подключаются к ядру через entry points реестра (`judge.core.registry`), поэтому исключений в контрактах нет. Новые границы (например, между модулями бэкенда) добавляются в те же секции.
+
+## Лицензии зависимостей
+
+`scripts/check_licenses.py` сверяет лицензии всех установленных Python-пакетов (из метаданных окружения каждого проекта) и JS-пакетов (`pnpm licenses list --json -r`) с политикой `scripts/license-policy.toml` (NFR-MAINT-07, ADR-0012):
+
+- `allowed` — SPDX-идентификаторы, совместимые с AGPL-3.0-or-later. Выражения `OR`, `AND`, `WITH` разбираются: для `OR` достаточно одной разрешённой лицензии, для `AND` нужны все;
+- `aliases` — нестандартные (не SPDX) названия из метаданных и классификаторов PyPI (`MIT License` → `MIT`);
+- `exceptions` — явно допущенные зависимости с несовместимой лицензией; каждое исключение ссылается на ADR. Сейчас единственное — liberty Nangate45 (ADR-0007), она проверяется с образом тулчейна.
+
+Если проверка упала на новой зависимости: при пермиссивной или совместимой лицензии, которой нет в списке, расширьте `allowed` и список в ADR-0012 в том же PR; при нестандартном названии — добавьте алиас; если лицензия несовместима — замените зависимость. Исключение требует ADR.
 
 ## Структура репозитория
 
@@ -48,14 +81,15 @@ judge/      пакет судьи и CLI (Poetry, пакет judge)
 backend/    FastAPI-приложение и ингестор (Poetry, пакет apparatica)
 worker/     воркер и оркестратор песочницы (Poetry, пакет apparatica_worker)
 web/        фронтенд (пакет pnpm workspace; каркас Next.js — T0.20)
+.github/    CI (GitHub Actions)
 problems/   пакеты задач, CC BY-SA 4.0
-scripts/    служебные скрипты (check_locks.py)
+scripts/    служебные скрипты: сверка lock-файлов и лицензий, политика лицензий
 docs/       проектная документация
 specs/      спецификация и план
 brief/      исходные материалы заказчика (не редактируются)
 ```
 
-Остальные каталоги из [specs/03 §6](../specs/03-architecture.md) (`toolchain/`, `config/`, `deploy/`, `tests/`, `.github/`) появляются вместе с задачами, которые их наполняют.
+Остальные каталоги из [specs/03 §6](../specs/03-architecture.md) (`toolchain/`, `config/`, `deploy/`, `tests/`) появляются вместе с задачами, которые их наполняют.
 
 ## Python-проекты
 

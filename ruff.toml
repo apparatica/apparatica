@@ -1,4 +1,6 @@
 target-version = "py313"
+# Source roots: imports from these directories are first-party.
+src = ["judge/src", "backend/src", "worker/src", "scripts"]
 line-length = 100
 extend-exclude = ["brief", "*.md"]
 
@@ -15,6 +17,3 @@ select = [
     "PT",  # flake8-pytest-style
     "RUF", # ruff-specific
 ]
-
-[lint.isort]
-known-first-party = ["judge", "apparatica", "apparatica_worker"]

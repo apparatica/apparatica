@@ -12,6 +12,7 @@ dev = [
     "mypy>=1.18",
     "pytest>=8.4",
     "ruff>=0.14",
+    "import-linter>=2.3",
 ]
 
 [tool.poetry]
@@ -28,3 +29,12 @@ files = ["src", "tests"]
 [build-system]
 requires = ["poetry-core>=2.0"]
 build-backend = "poetry.core.masonry.api"
+
+[tool.importlinter]
+root_package = "judge"
+
+[[tool.importlinter.contracts]]
+name = "Judge core does not depend on language modules (ADR-0011)"
+type = "forbidden"
+source_modules = ["judge.core"]
+forbidden_modules = ["judge.languages"]

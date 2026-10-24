@@ -1,0 +1,53 @@
+# Dependency license policy (NFR-MAINT-07, ADR-0012). Checked by scripts/check_licenses.py.
+
+# SPDX identifiers compatible with AGPL-3.0-or-later.
+allowed = [
+    # Permissive
+    "MIT",
+    "MIT-0",
+    "0BSD",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "Apache-2.0",
+    "ISC",
+    "Zlib",
+    "PSF-2.0",
+    "Python-2.0",
+    "BlueOak-1.0.0",
+    "Unlicense",
+    # Weak copyleft
+    "MPL-2.0",
+    "LGPL-2.1-only",
+    "LGPL-2.1-or-later",
+    "LGPL-3.0-only",
+    "LGPL-3.0-or-later",
+    "EUPL-1.2",
+    # Strong copyleft (GPL-2.0-only is incompatible with AGPL-3.0 and is not listed)
+    "GPL-2.0-or-later",
+    "GPL-3.0-only",
+    "GPL-3.0-or-later",
+    "AGPL-3.0-only",
+    "AGPL-3.0-or-later",
+    # Data
+    "CC0-1.0",
+    "CC-BY-3.0",
+    "CC-BY-4.0",
+]
+
+# Non-SPDX names found in package metadata and trove classifiers, mapped to SPDX identifiers.
+[aliases]
+"MIT License" = "MIT"
+"BSD License" = "BSD-3-Clause" # the classifier does not name the variant; every BSD variant is allowed
+"Apache Software License" = "Apache-2.0"
+"Apache License 2.0" = "Apache-2.0"
+"ISC License (ISCL)" = "ISC"
+"Mozilla Public License 2.0 (MPL 2.0)" = "MPL-2.0"
+"Python Software Foundation License" = "PSF-2.0"
+
+# Explicit exceptions: dependencies allowed despite their license. Every entry cites an ADR.
+[[exceptions]]
+ecosystem = "toolchain"
+name = "nangate45"
+license = "LicenseRef-Nangate45"
+adr = "ADR-0007"
+reason = "Liberty files of the FreePDK45 Open Cell Library: redistribution allowed with the notice, but benchmarking against other libraries is prohibited and commercial use is not intended. LICENSE ships next to the files in the toolchain image."
