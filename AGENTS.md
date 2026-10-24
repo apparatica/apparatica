@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Apparatica — открытый тренажёр по RTL на SystemVerilog («LeetCode для цифровой логики»). Проект на стадии спецификации: кода пока нет.
+Apparatica — открытый тренажёр по RTL на SystemVerilog («LeetCode для цифровой логики»). Идёт фаза Ф0 «Фундамент»: есть каркас монорепо, функциональности пока нет.
 
 ## С чего начать
 - `specs/` — спецификация и план (что строим): `specs/README.md`. Перед задачей из плана прочитайте её строку в `specs/plan/roadmap.md` и требования, на которые она ссылается (`specs/01-…`, `02-…`).
@@ -9,6 +9,8 @@ Apparatica — открытый тренажёр по RTL на SystemVerilog («
 - Открытые вопросы — `specs/plan/open-questions.md`. Допущения живут в конфигурации, не в константах.
 
 ## Правила
+- Перед PR: `just check` (линтеры, типы, тесты, lock-файлы). Окружение — `docs/development.md`.
+- Ветки — `<тип>/<описание>` с ID задачи плана (`feat/t1.14-use-submission`), коммиты с `Signed-off-by` (DCO): `CONTRIBUTING.md`.
 - Contract-first, источник правды — код: Pydantic-схемы и роуты FastAPI → `just openapi` → `backend/openapi.json` (коммитится, CI проверяет актуальность) → TS-клиент. Фаза начинается с PR контракта (`T<фаза>.0`): схемы, роуты-заглушки, `openapi.json`, клиент, моки. Схемы SSE-событий и ошибок `problem+json` объявляйте явно через `responses=`. `specs/api/openapi.yaml` — черновик-вход, не поддерживается параллельно с кодом (specs/05 §0).
 - Ядро не знает SystemVerilog: всё SV-специфичное — в `judge/languages/systemverilog/` (ADR-0011).
 - Фронтенд: только токены из `tokens.css`, все состояния компонентов из `components.md`, все строки — через next-intl (`messages/ru.json`).

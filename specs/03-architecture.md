@@ -163,13 +163,14 @@ apparatica/
   toolchain/            Dockerfile образа тулчейна, apx_tb_pkg.sv, тесты образа
   problems/             пакеты задач, tags.yaml
   config/               difficulties.yaml, limits.yaml, providers.example.yaml
+  scripts/              служебные скрипты репозитория (сверка lock-файлов и т. п.)
   deploy/               compose.yaml, compose.dev.yaml, Caddyfile, .env.example
   tests/e2e/            Playwright
   tests/security/       вредоносные решения и ожидаемые вердикты
   .github/workflows/    CI
 ```
 
-Python — Poetry: у `backend`, `judge`, `worker` свои `pyproject.toml` и `poetry.lock`, `judge` подключается как path-зависимость (ADR-0001). JS — pnpm workspace (`web`, позже генерация клиента как пакет). Корневой `Makefile` (или `justfile`) с командами `up`, `test`, `lint`, `openapi`, `validate-problems`.
+Python — Poetry: у `backend`, `judge`, `worker` свои `pyproject.toml` и `poetry.lock`, `judge` подключается как path-зависимость (ADR-0001). JS — pnpm workspace (`web`, позже генерация клиента как пакет). Корневой `justfile` с командами `up`, `test`, `lint`, `openapi`, `validate-problems`.
 
 ## 7. Конфигурация и feature flags
 

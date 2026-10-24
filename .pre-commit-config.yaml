@@ -1,0 +1,71 @@
+# Python and JS hooks run tools from the project environments (`just install`),
+# so their versions come from poetry.lock and pnpm-lock.yaml.
+exclude: ^brief/|(^|/)LICENSE$
+
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v6.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: \.md$
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: [--fix=lf]
+      - id: check-yaml
+      - id: check-toml
+      - id: check-json
+      - id: check-merge-conflict
+      - id: check-added-large-files
+
+  - repo: local
+    hooks:
+      - id: ruff-check
+        name: ruff check
+        entry: poetry -P judge run ruff check --fix --force-exclude
+        language: system
+        types: [python]
+      - id: ruff-format
+        name: ruff format
+        entry: poetry -P judge run ruff format --force-exclude
+        language: system
+        types: [python]
+      - id: mypy-judge
+        name: mypy (judge)
+        entry: poetry -C judge run mypy
+        language: system
+        files: ^judge/
+        types: [python]
+        pass_filenames: false
+      - id: mypy-backend
+        name: mypy (backend)
+        entry: poetry -C backend run mypy
+        language: system
+        files: ^backend/
+        types: [python]
+        pass_filenames: false
+      - id: mypy-worker
+        name: mypy (worker)
+        entry: poetry -C worker run mypy
+        language: system
+        files: ^worker/
+        types: [python]
+        pass_filenames: false
+      - id: check-locks
+        name: check lock files
+        entry: python scripts/check_locks.py
+        language: python
+        files: (^|/)poetry\.lock$
+        pass_filenames: false
+      # JS tools run on the whole web/ package: their configs live there and resolve paths from it.
+      - id: eslint
+        name: eslint (web)
+        entry: pnpm -C web exec eslint --cache --fix .
+        language: system
+        files: ^web/
+        pass_filenames: false
+      - id: prettier
+        name: prettier (web)
+        entry: pnpm -C web exec prettier --write .
+        language: system
+        files: ^web/
+        pass_filenames: false

@@ -1,0 +1,20 @@
+target-version = "py313"
+line-length = 100
+extend-exclude = ["brief", "*.md"]
+
+[lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "N",   # pep8-naming
+    "UP",  # pyupgrade
+    "B",   # flake8-bugbear
+    "SIM", # flake8-simplify
+    "PT",  # flake8-pytest-style
+    "RUF", # ruff-specific
+]
+
+[lint.isort]
+known-first-party = ["judge", "apparatica", "apparatica_worker"]
