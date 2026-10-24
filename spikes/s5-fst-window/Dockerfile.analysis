@@ -1,0 +1,7 @@
+# Spike-only image: the toolchain plus fst2vcd (GTKWave) to inspect FST files.
+FROM apparatica-toolchain:dev
+USER root
+ARG DEBIAN_MIRROR=http://deb.debian.org/debian
+RUN sed -i "s#http://deb.debian.org/debian#${DEBIAN_MIRROR}#g" /etc/apt/sources.list.d/debian.sources \
+    && apt-get update && apt-get install -y --no-install-recommends gtkwave && rm -rf /var/lib/apt/lists/*
+USER sandbox
