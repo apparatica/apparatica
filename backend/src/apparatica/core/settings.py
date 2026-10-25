@@ -8,7 +8,7 @@ from functools import cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, PositiveFloat
+from pydantic import Field, PositiveFloat, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -29,6 +29,15 @@ class Settings(BaseSettings):
         default=30, description="In-process cache of feature flags (specs/03 §7)"
     )
     health_timeout_s: PositiveFloat = 2
+
+    # Object storage (ADR-0013): any S3 API, Garage in docker compose.
+    s3_endpoint_url: str | None = Field(
+        default=None, description="S3 API endpoint; unset means AWS itself"
+    )
+    s3_region: str = "garage"
+    s3_access_key_id: str | None = None
+    s3_secret_access_key: SecretStr | None = None
+    s3_bucket_packages: str = "packages"
 
 
 @cache

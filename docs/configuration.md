@@ -15,6 +15,10 @@
 | `APX_LOG_FORMAT` | `console` | `json` — одна JSON-запись на строку (production), `console` — читаемые строки |
 | `APX_FEATURE_FLAGS_TTL_S` | `30` | сколько секунд процесс кэширует feature flags |
 | `APX_HEALTH_TIMEOUT_S` | `2` | таймаут проверки БД в `GET /health` |
+| `APX_S3_ENDPOINT_URL` | — | адрес S3 API хранилища (Garage, ADR-0013); не задан — AWS |
+| `APX_S3_REGION` | `garage` | регион S3; Garage принимает тот, что задан в его конфигурации |
+| `APX_S3_ACCESS_KEY_ID`, `APX_S3_SECRET_ACCESS_KEY` | — | ключ доступа к бакетам |
+| `APX_S3_BUCKET_PACKAGES` | `packages` | бакет пакетов задач; в него пишет `apparatica-admin problems import` |
 
 Неизвестные переменные с префиксом игнорируются. Секреты (пароль БД в URL, позже ключи хранилища и OAuth) передаются только переменными окружения и в репозиторий не попадают.
 

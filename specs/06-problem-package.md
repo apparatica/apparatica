@@ -6,7 +6,7 @@
 
 ```
 problems/
-  tags.yaml                 # справочник тегов: slug, title, sort
+  tags.yaml                 # справочник тегов: slug, title; порядок в файле — порядок сортировки
   sync-fifo/
     problem.yaml            # манифест, схема — judge/schemas/problem.schema.json
     statement.md            # условие: Markdown + KaTeX + ```wavedrom```; позже statement.<lang>.md
@@ -225,12 +225,14 @@ always @(posedge clk) apx_tick();                       // счётчик так
 
 ## 6. Импорт в платформу
 
-`apparatica-admin problems import <path|git-ref>`:
-1. `judge validate` (в CI это уже сделано; импорт повторяет только схему и хэш).
+`apparatica-admin problems import [--publish] <path>...` (пакет или каталог пакетов; пакеты другой ревизии репозитория — из её checkout, например `git worktree`):
+1. `judge validate` (в CI это уже сделано; импорт повторяет только схему и хэш) и проверка справочников: `difficulty` есть в `config/difficulties.yaml`, теги — в `tags.yaml`.
 2. Для новой `(slug, version)`: упаковать, загрузить в S3 `packages/<slug>/<version>-<hash>.tar.zst`, создать `problem_versions`, сделать её текущей, если `--publish`.
-3. Для существующей `(slug, version)` с тем же хэшем — ничего; с другим — ошибка.
-4. Синхронизировать `tags.yaml`.
+3. Для существующей `(slug, version)` с тем же хэшем — ничего; с другим — ошибка. Ошибка и для версии старше импортированной, и для `number`, занятого другой задачей или отличного от номера задачи.
+4. Синхронизировать `tags.yaml`: добавить и обновить теги; отсутствующие в файле остаются (на них ссылаются старые версии).
 5. Поставить в очередь прогон эталонов на профиле по умолчанию для заполнения `reference_solutions.metrics` (Ф3).
+
+Импорт атомарен: при любой ошибке база не меняется.
 
 ## 7. Руководство автора
 

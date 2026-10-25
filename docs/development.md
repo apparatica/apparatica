@@ -119,10 +119,11 @@ brief/      исходные материалы заказчика (не ред�
 FastAPI-приложение (`backend/src/apparatica`, модульный монолит по specs/03 §3). Модули появляются вместе со своими задачами плана:
 
 - `core` — настройки, БД (SQLAlchemy async), ошибки `problem+json`, request id, логи, feature flags (таблица `feature_flags`) и эндпоинты `GET /api/v1/health` и `GET /api/v1/config`;
-- `problems` — таблицы `tags`, `problems`, `problem_versions`, `reference_solutions`;
-- `submissions` — таблицы `toolchain_profiles`, `submissions`, `stage_results`, `artifacts`.
+- `problems` — таблицы `tags`, `problems`, `problem_versions`, `reference_solutions`; импорт пакетов задач;
+- `submissions` — таблицы `toolchain_profiles`, `submissions`, `stage_results`, `artifacts`;
+- `admin` — CLI `apparatica-admin`.
 
-Модули зависят друг от друга в одну сторону: `submissions → problems → core`. Это контракт import-linter (`[tool.importlinter]` в `backend/pyproject.toml`).
+Модули зависят друг от друга в одну сторону: `admin → submissions → problems → core`. Это контракт import-linter (`[tool.importlinter]` в `backend/pyproject.toml`).
 
 ```sh
 poetry -C backend run apparatica serve --reload   # http://127.0.0.1:8000/api/v1/docs
@@ -151,11 +152,33 @@ Autogenerate нужна база на текущей ревизии. Резул�
 
 `poetry run alembic check` показывает, совпадает ли схема базы с моделями.
 
+### Импорт задач
+
+```sh
+poetry -C backend run apparatica-admin problems import ../problems             # новые версии
+poetry -C backend run apparatica-admin problems import --publish ../problems   # и сделать их текущими
+```
+
+Аргументы — пакеты или каталоги с пакетами, как у `judge validate`. Нужны Postgres и S3 (`APX_S3_*`, [configuration.md](configuration.md)).
+
+Что делает импорт (`apparatica.problems.importer`, specs/06 §6):
+1. **Проверяет пакеты.** Читает `problem.yaml` по модели судьи и считает `content_hash`. Тесты не прогоняются: это уже сделал `judge validate` в CI. Ещё проверяет, что `difficulty` есть в `config/difficulties.yaml`, а теги — в `tags.yaml`. Файл тегов ищется рядом с пакетами, другой путь задаётся через `--tags`.
+2. **Синхронизирует теги.** Записывает теги из файла, порядок в файле становится сортировкой. Теги, которых нет в файле, остаются: на них могут ссылаться старые версии.
+3. **Сравнивает каждый пакет с базой:**
+   - новая `(slug, version)` — пакет упаковывается и загружается в бакет `packages` под ключом `<slug>/<version>-<content_hash>.tar.zst`, создаются версия и её эталоны;
+   - та же версия с тем же хэшем — ничего не меняется;
+   - та же версия с другим хэшем — отказ: опубликованная версия неизменяема;
+   - отказ также, если версия старше уже импортированной или `number` занят другой задачей либо отличается от номера задачи в базе.
+4. **Публикует (с `--publish`).** Делает версию текущей и задачу опубликованной. Версию старше текущей опубликовать нельзя.
+
+Импорт атомарен: при любом отказе база не меняется. Он печатает все найденные отказы и завершается с кодом 1. Пакет загружается в хранилище до коммита, поэтому у версии в базе пакет всегда есть. Если коммит не прошёл, в бакете может остаться лишний объект; повторный импорт перезапишет его тем же содержимым.
+
 ### Тесты
 
 Тесты бэкенда (`backend/tests`) поднимают приложение через `TestClient`. Где нужна только связь с БД, вместо Postgres используется SQLite в памяти (`aiosqlite`).
 
-Тесты схемы и миграций (`test_db.py`, `test_cli.py`) работают с настоящим Postgres:
+Тесты схемы, миграций и импорта (`test_db.py`, `test_cli.py`, `test_problem_import.py`) работают с настоящим Postgres; S3 в тестах импорта эмулирует moto. Как устроен Postgres в тестах:
+
 - **Сервер.** Fixture `postgres` поднимает его через testcontainers один раз на сессию. Нужен Docker. Без Docker тесты пропускаются, а в CI (переменная `CI`) падают.
 - **Изоляция.** Миграции применяются один раз к базе-шаблону. Каждый тест получает свою копию (`CREATE DATABASE … TEMPLATE`).
 - **Образ.** По умолчанию `postgres:17-alpine`. Если Docker Hub недоступен, образ задаётся через `APX_TEST_POSTGRES_IMAGE`, например `mirror.gcr.io/library/postgres:17-alpine`.

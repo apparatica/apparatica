@@ -1,0 +1,10 @@
+# Tag catalogue (FR-CAT-05): `slug` goes into problem.yaml `tags`, `title` is shown in the
+# catalogue; the order of the file is the sort order. Imported by `apparatica-admin problems import`.
+- {slug: combinational, title: комбинационная логика}
+- {slug: sequential, title: последовательностная логика}
+- {slug: arithmetic, title: арифметика}
+- {slug: multiplexer, title: мультиплексоры}
+- {slug: counter, title: счётчики}
+- {slug: fsm, title: FSM}
+- {slug: memory, title: память}
+- {slug: fifo, title: FIFO}
