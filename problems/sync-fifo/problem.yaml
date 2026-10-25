@@ -1,0 +1,61 @@
+# yaml-language-server: $schema=../../judge/schemas/problem.schema.json
+schema: 1
+id: sync-fifo
+number: 5
+version: 1
+leaderboard_epoch: 1
+language: systemverilog
+kind: design
+title: Синхронный FIFO
+difficulty: medium
+tags: [sequential, memory, fifo]
+resource_class: light
+authors: [{name: "Apparatica"}]
+license: CC-BY-SA-4.0
+
+top: sync_fifo
+interface:
+  parameters:
+    - {name: WIDTH, type: int, default: 8, description: "Разрядность слова"}
+    - {name: DEPTH, type: int, default: 16, description: "Ёмкость в словах, степень двойки"}
+  ports:
+    - {name: clk, dir: input, width: "1", role: clock, description: "Общий тактовый сигнал"}
+    - {name: rst_n, dir: input, width: "1", role: reset, reset: {active: low, sync: true}, description: "Синхронный сброс, активный 0"}
+    - {name: push, dir: input, width: "1", description: "Записать wdata"}
+    - {name: wdata, dir: input, width: "WIDTH", description: "Записываемое слово"}
+    - {name: pop, dir: input, width: "1", description: "Удалить слово с вершины"}
+    - {name: rdata, dir: output, width: "WIDTH", description: "Слово на вершине очереди"}
+    - {name: full, dir: output, width: "1", description: "Очередь заполнена"}
+    - {name: empty, dir: output, width: "1", description: "Очередь пуста"}
+
+files:
+  statement: statement.md
+  template: template.sv
+
+testbenches:
+  - id: main
+    top: tb_top
+    sources: [tb/model.sv, tb/tb_top.sv]
+    groups: {public: 2, hidden: 2}
+
+stages:
+  precheck: {type: precheck}
+  lint: {type: lint}
+  sim_run: {type: sim, testbench: main, groups: [public], max_cycles: 20000}
+  sim_full: {type: sim, testbench: main, groups: [public, hidden], max_cycles: 20000}
+
+pipelines:
+  practice:
+    run: [precheck, lint, sim_run]
+    submit: [precheck, lint, sim_full]
+
+reference:
+  solutions:
+    - {file: reference/sync_fifo.sv, title: "Счётчик заполнения", explanation: reference/sync_fifo.md}
+
+mutants:
+  - {file: mutants/m01_full_off_by_one.sv, expect: wrong_answer, caught_by: [sim_full], note: "full при DEPTH − 1 словах"}
+  - {file: mutants/m02_simultaneous_count.sv, expect: wrong_answer, caught_by: [sim_full], note: "при одновременных push и pop счётчик растёт: ловят только скрытые тесты"}
+  - {file: mutants/m03_push_when_full.sv, expect: wrong_answer, caught_by: [sim_full], note: "запись в полную очередь затирает слово"}
+  - {file: mutants/m04_registered_rdata.sv, expect: wrong_answer, caught_by: [sim_full], note: "rdata запаздывает на такт"}
+  - {file: mutants/m05_initial_memory.sv, expect: forbidden_construct, caught_by: [precheck], note: "память обнуляется в initial"}

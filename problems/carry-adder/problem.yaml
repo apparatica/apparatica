@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=../../judge/schemas/problem.schema.json
+schema: 1
+id: carry-adder
+number: 3
+version: 1
+leaderboard_epoch: 1
+language: systemverilog
+kind: design
+title: Сумматор с переносом
+difficulty: easy
+tags: [combinational, arithmetic]
+resource_class: light
+authors: [{name: "Apparatica"}]
+license: CC-BY-SA-4.0
+
+top: carry_adder
+interface:
+  parameters:
+    - {name: WIDTH, type: int, default: 8, description: "Разрядность слагаемых"}
+  ports:
+    - {name: a, dir: input, width: "WIDTH", description: "Первое слагаемое"}
+    - {name: b, dir: input, width: "WIDTH", description: "Второе слагаемое"}
+    - {name: cin, dir: input, width: "1", description: "Входной перенос"}
+    - {name: sum, dir: output, width: "WIDTH", description: "Младшие WIDTH бит суммы"}
+    - {name: cout, dir: output, width: "1", description: "Выходной перенос"}
+
+files:
+  statement: statement.md
+  template: template.sv
+
+testbenches:
+  - id: main
+    top: tb_top
+    sources: [tb/model.sv, tb/tb_top.sv]
+    groups: {public: 2, hidden: 2}
+
+stages:
+  precheck: {type: precheck}
+  lint: {type: lint}
+  sim_run: {type: sim, testbench: main, groups: [public], max_cycles: 10000}
+  sim_full: {type: sim, testbench: main, groups: [public, hidden], max_cycles: 10000}
+
+pipelines:
+  practice:
+    run: [precheck, lint, sim_run]
+    submit: [precheck, lint, sim_full]
+
+reference:
+  solutions:
+    - {file: reference/carry_adder.sv, title: "Сложение с расширением на бит", explanation: reference/carry_adder.md}
+
+mutants:
+  - {file: mutants/m01_ignores_cin.sv, expect: wrong_answer, caught_by: [sim_full], note: "cin не учитывается"}
+  - {file: mutants/m02_no_cout.sv, expect: wrong_answer, caught_by: [sim_full], note: "перенос из старшего разряда теряется"}
+  - {file: mutants/m03_cout_generate_only.sv, expect: wrong_answer, caught_by: [sim_full], note: "cout = a[MSB] & b[MSB] без распространения переноса: ловят только скрытые тесты"}
+  - {file: mutants/m04_split_nibbles.sv, expect: wrong_answer, caught_by: [sim_full], note: "перенос между тетрадами не передаётся"}
+  - {file: mutants/m05_static_function.sv, expect: forbidden_construct, caught_by: [precheck], note: "функция без automatic"}

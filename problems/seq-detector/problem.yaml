@@ -1,0 +1,54 @@
+# yaml-language-server: $schema=../../judge/schemas/problem.schema.json
+schema: 1
+id: seq-detector
+number: 4
+version: 1
+leaderboard_epoch: 1
+language: systemverilog
+kind: design
+title: Детектор последовательности 1011
+difficulty: medium
+tags: [sequential, fsm]
+resource_class: light
+authors: [{name: "Apparatica"}]
+license: CC-BY-SA-4.0
+
+top: seq_detector
+interface:
+  ports:
+    - {name: clk, dir: input, width: "1", role: clock, description: "Тактовый сигнал"}
+    - {name: rst, dir: input, width: "1", role: reset, reset: {active: high, sync: true}, description: "Синхронный сброс, активный 1"}
+    - {name: din, dir: input, width: "1", description: "Последовательный вход, бит за такт"}
+    - {name: found, dir: output, width: "1", description: "1 в течение такта после приёма последнего бита 1011"}
+
+files:
+  statement: statement.md
+  template: template.sv
+
+testbenches:
+  - id: main
+    top: tb_top
+    sources: [tb/model.sv, tb/tb_top.sv]
+    groups: {public: 2, hidden: 2}
+
+stages:
+  precheck: {type: precheck}
+  lint: {type: lint}
+  sim_run: {type: sim, testbench: main, groups: [public], max_cycles: 10000}
+  sim_full: {type: sim, testbench: main, groups: [public, hidden], max_cycles: 10000}
+
+pipelines:
+  practice:
+    run: [precheck, lint, sim_run]
+    submit: [precheck, lint, sim_full]
+
+reference:
+  solutions:
+    - {file: reference/seq_detector.sv, title: "Автомат на четыре состояния", explanation: reference/seq_detector.md}
+
+mutants:
+  - {file: mutants/m01_no_overlap.sv, expect: wrong_answer, caught_by: [sim_full], note: "после срабатывания автомат начинает с нуля"}
+  - {file: mutants/m02_detects_1101.sv, expect: wrong_answer, caught_by: [sim_full], note: "биты последовательности в обратном порядке"}
+  - {file: mutants/m03_lost_suffix_10.sv, expect: wrong_answer, caught_by: [sim_full], note: "после 1010 автомат забывает суффикс 10: ловят только скрытые тесты"}
+  - {file: mutants/m04_mealy_output.sv, expect: wrong_answer, caught_by: [sim_full], note: "found комбинационный: на такт раньше"}
+  - {file: mutants/m05_wrong_port.sv, expect: compile_error, caught_by: [precheck], note: "выход назван match"}
