@@ -1,8 +1,10 @@
-"""`apparatica` command line: run the API and migrate the database."""
+"""`apparatica` command line: run the API, migrate the database, write the OpenAPI document."""
 
 import argparse
+import json
 import sys
 from collections.abc import Sequence
+from pathlib import Path
 
 import uvicorn
 from alembic import command
@@ -38,6 +40,26 @@ def _migrate(args: argparse.Namespace) -> int:
     return 0
 
 
+def openapi_document(config_dir: Path | None = None) -> str:
+    """The OpenAPI document of the API, as committed in backend/openapi.json (specs/05 §0)."""
+    from apparatica.main import create_app  # the app is needed only by this command
+
+    settings = get_settings()
+    if config_dir is not None:
+        settings = settings.model_copy(update={"config_dir": config_dir})
+    schema = create_app(settings).openapi()
+    return json.dumps(schema, ensure_ascii=False, indent=2) + "\n"
+
+
+def _openapi(args: argparse.Namespace) -> int:
+    document = openapi_document(args.config_dir)
+    if args.output is None:
+        sys.stdout.write(document)
+    else:
+        args.output.write_text(document, encoding="utf-8", newline="\n")
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="apparatica", description="Apparatica platform")
     commands = parser.add_subparsers(required=True, metavar="command")
@@ -56,6 +78,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     migrate = commands.add_parser("migrate", help="apply database migrations")
     migrate.add_argument("revision", nargs="?", default="head")
     migrate.set_defaults(handler=_migrate)
+
+    openapi = commands.add_parser("openapi", help="write the OpenAPI document of the API")
+    openapi.add_argument("--output", type=Path, help="file to write (default: stdout)")
+    openapi.add_argument("--config-dir", type=Path, help="directory of config/*.yaml")
+    openapi.set_defaults(handler=_openapi)
 
     args = parser.parse_args(argv)
     return int(args.handler(args))

@@ -21,7 +21,6 @@ SlugPath = Annotated[str, Path(pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$", max_length=6
 @router.get(
     "/tags",
     response_model=list[Tag],
-    responses=problem_responses(ErrorCode.INTERNAL),
     openapi_extra=PHASE_0,
 )
 async def list_tags(request: Request, session: Session) -> Response:
@@ -32,7 +31,7 @@ async def list_tags(request: Request, session: Session) -> Response:
 @router.get(
     "/problems",
     response_model=ProblemPage,
-    responses=problem_responses(ErrorCode.VALIDATION_ERROR, ErrorCode.INTERNAL),
+    responses=problem_responses(ErrorCode.VALIDATION_ERROR),
     openapi_extra=PHASE_0,
 )
 async def list_problems(
@@ -62,9 +61,7 @@ async def list_problems(
 @router.get(
     "/problems/{slug}",
     response_model=ProblemDetail,
-    responses=problem_responses(
-        ErrorCode.NOT_FOUND, ErrorCode.VALIDATION_ERROR, ErrorCode.INTERNAL
-    ),
+    responses=problem_responses(ErrorCode.NOT_FOUND, ErrorCode.VALIDATION_ERROR),
     openapi_extra=PHASE_0,
 )
 async def get_problem(request: Request, session: Session, slug: SlugPath) -> Response:
@@ -78,9 +75,7 @@ async def get_problem(request: Request, session: Session, slug: SlugPath) -> Res
 @router.get(
     "/problems/{slug}/versions/{version}",
     response_model=ProblemDetail,
-    responses=problem_responses(
-        ErrorCode.NOT_FOUND, ErrorCode.VALIDATION_ERROR, ErrorCode.INTERNAL
-    ),
+    responses=problem_responses(ErrorCode.NOT_FOUND, ErrorCode.VALIDATION_ERROR),
     openapi_extra=PHASE_0,
 )
 async def get_problem_version(

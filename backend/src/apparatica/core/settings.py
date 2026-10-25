@@ -8,7 +8,7 @@ from functools import cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, PositiveFloat, SecretStr
+from pydantic import Field, PositiveFloat, PositiveInt, SecretStr
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -38,6 +38,13 @@ class Settings(BaseSettings):
     s3_access_key_id: str | None = None
     s3_secret_access_key: SecretStr | None = None
     s3_bucket_packages: str = "packages"
+
+    # Job tokens (specs/07 §5.3): the API signs them, the ingestor checks them. Required in
+    # production; elsewhere an unset key means a random key of the process.
+    job_token_key: SecretStr | None = Field(default=None, min_length=32)
+    job_token_ttl_s: PositiveInt = Field(
+        default=86400, description="Lifetime of a job token: queue wait and every attempt"
+    )
 
 
 @cache

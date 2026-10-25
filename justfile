@@ -47,12 +47,19 @@ fmt:
     pnpm -C web format
 
 # Run strict type checks
-typecheck:
+typecheck: typecheck-py typecheck-js
+
+# Type-check Python (mypy, strict)
+typecheck-py:
     poetry -C judge run mypy
     poetry -C backend run mypy
     poetry -C worker run mypy
     poetry -C judge run mypy ../scripts
     poetry -C judge run mypy --platform linux ../toolchain/apx-run ../toolchain/tests
+
+# Type-check TypeScript (tsc, strict)
+typecheck-js:
+    pnpm -C web typecheck
 
 # Run all unit tests
 test: test-py
@@ -90,12 +97,22 @@ schemas:
     poetry -C judge run judge schema problem --output schemas/problem.schema.json
     poetry -C judge run judge schema tb-result --output schemas/tb-result.schema.json
 
+# Regenerate the API contract: backend/openapi.json from the code, then the TS client types
+# (specs/05 §0; a backend test and `just check-api` check that both are current)
+openapi:
+    poetry -C backend run apparatica openapi --output openapi.json --config-dir ../config
+    pnpm -C web api:generate
+
+# Check that the TS client types match backend/openapi.json
+check-api:
+    pnpm -C web api:check
+
 # Validate every problem package in the toolchain image, with the determinism check of CI
 validate-problems:
     poetry -C judge run judge validate --determinism ../problems
 
 # Everything CI runs (the toolchain image has its own workflow: toolchain-build, toolchain-test)
-check: check-locks check-licenses lint typecheck test
+check: check-locks check-licenses check-api lint typecheck test
 
 toolchain_image := "apparatica-toolchain:dev"
 # Base image override for networks without Docker Hub access; keep the digest from the Dockerfile,

@@ -65,12 +65,12 @@ def test_config_shows_flag_overrides(settings: Settings) -> None:
 
 def test_openapi(client: TestClient) -> None:
     schema = client.get("/api/v1/openapi.json").json()
-    assert schema["components"]["schemas"]["Problem"]["properties"]["code"]["$ref"] == (
+    assert schema["components"]["schemas"]["Error"]["properties"]["code"]["$ref"] == (
         "#/components/schemas/ErrorCode"
     )
     assert "ErrorCode" in schema["components"]["schemas"]
     config = schema["paths"]["/api/v1/config"]["get"]
     assert config["x-phase"] == 0
     assert config["responses"]["500"]["content"] == {
-        "application/problem+json": {"schema": {"$ref": "#/components/schemas/Problem"}}
+        "application/problem+json": {"schema": {"$ref": "#/components/schemas/Error"}}
     }

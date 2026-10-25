@@ -1,4 +1,4 @@
-"""`apparatica-admin` command line: platform administration (specs/06 §6, FR-ADM-01).
+"""`apparatica-admin` command line: platform administration (specs/06 §6, specs/09 §2, FR-ADM-01).
 
 Exit codes: 0 done, 1 refused (nothing changed), 2 usage error.
 """
@@ -20,6 +20,12 @@ from apparatica.problems.importer import (
     import_packages,
     load_tags,
     read_package,
+)
+from apparatica.submissions.profiles import (
+    ProfileRefusedError,
+    ProfileSpec,
+    add_profile,
+    tool_versions,
 )
 from judge.core.pack import PackError
 from judge.core.package import MANIFEST_NAME, ManifestError
@@ -98,6 +104,41 @@ def _import(args: argparse.Namespace) -> int:
     return 0
 
 
+def _add_profile(args: argparse.Namespace) -> int:
+    try:
+        spec = ProfileSpec(
+            id=args.id,
+            language=args.language,
+            image=args.image,
+            image_digest=args.digest,
+            tools=tool_versions(args.versions.read_text(encoding="utf-8")),
+            normalization_version=args.normalization_version,
+        )
+    except OSError as error:
+        print(f"FAIL {args.versions}: {error.strerror}")
+        return 1
+    except ProfileRefusedError as error:
+        print(f"FAIL {error}")
+        return 1
+    settings = get_settings()
+
+    async def run() -> str:
+        database = Database(settings.database_url)
+        try:
+            async with database.sessions.begin() as session:
+                return await add_profile(session, spec, default=args.default)
+        finally:
+            await database.dispose()
+
+    try:
+        outcome = asyncio.run(run())
+    except ProfileRefusedError as error:
+        print(f"FAIL {error}")
+        return 1
+    print(f"{outcome:<9} {spec.id}" + (", default" if args.default else ""))
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="apparatica-admin", description="Apparatica administration"
@@ -117,6 +158,29 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--tags", type=Path, help=f"tag catalogue (default: {TAGS_FILE} next to the packages)"
     )
     import_.set_defaults(handler=_import)
+
+    toolchain = commands.add_parser("toolchain", help="toolchain profiles (specs/09 §2)")
+    toolchain_commands = toolchain.add_subparsers(required=True, metavar="command")
+    add = toolchain_commands.add_parser(
+        "add", help="register a toolchain image as a profile; again with --default to switch"
+    )
+    add.add_argument("id", help="profile id, e.g. sv-2026.10.2")
+    add.add_argument("--language", default="systemverilog")
+    add.add_argument("--image", required=True, help="image name without the tag or digest")
+    add.add_argument("--digest", required=True, help="sha256:<hex> of the image")
+    add.add_argument(
+        "--versions", type=Path, required=True, help="toolchain/versions.lock of the image"
+    )
+    add.add_argument(
+        "--normalization-version",
+        type=int,
+        required=True,
+        help="AST hash normalization of the judge (n<version>: in precheck metrics)",
+    )
+    add.add_argument(
+        "--default", action="store_true", help="check new submissions of the language with it"
+    )
+    add.set_defaults(handler=_add_profile)
 
     args = parser.parse_args(argv)
     return int(args.handler(args))

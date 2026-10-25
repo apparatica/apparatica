@@ -1,0 +1,183 @@
+"""Creating and reading submissions (specs/07 §1).
+
+A submission is checked against the current version of a published problem with the default
+toolchain profile of its language and a fresh 63-bit seed: the triple makes a run reproducible
+(specs/04 §1). Quotas, the guest cookie and the captcha arrive in phase 1 (T1.7).
+"""
+
+import secrets
+import uuid
+from datetime import UTC, datetime
+
+from sqlalchemy import select
+from sqlalchemy.ext.asyncio import AsyncSession
+
+from apparatica.core.errors import ApiError, ErrorCode
+from apparatica.core.ids import uuid7
+from apparatica.core.platform import SolutionLimits
+from apparatica.problems.models import Problem, ProblemVersion
+from apparatica.submissions.models import Artifact, StageResult, ToolchainProfile
+from apparatica.submissions.models import Submission as SubmissionRow
+from apparatica.submissions.queue import Job, JobQueue
+from apparatica.submissions.schemas import (
+    Submission,
+    SubmissionArtifact,
+    SubmissionCreate,
+    SubmissionStage,
+)
+from apparatica.submissions.tokens import JobTokens
+from judge.core.stage import StageSummary
+from judge.core.verdict import VerdictDetail
+
+# The testbench result file holds the expected values of hidden tests (specs/07 §4.4).
+HIDDEN_ARTIFACT_KINDS = frozenset({"tb_result"})
+
+
+def check_size(code: str, limits: SolutionLimits) -> None:
+    size = len(code.encode("utf-8"))
+    lines = code.count("\n") + (0 if code.endswith("\n") else 1)
+    if size > limits.max_bytes or lines > limits.max_lines:
+        raise ApiError(
+            ErrorCode.CODE_TOO_LARGE,
+            f"The solution has {size} bytes and {lines} lines;"
+            f" the limits are {limits.max_bytes} bytes and {limits.max_lines} lines",
+            params={
+                "max_bytes": limits.max_bytes,
+                "max_lines": limits.max_lines,
+                "bytes": size,
+                "lines": lines,
+            },
+        )
+
+
+async def create_submission(
+    session: AsyncSession,
+    request: SubmissionCreate,
+    *,
+    limits: SolutionLimits,
+    tokens: JobTokens,
+    queue: JobQueue,
+) -> Submission:
+    check_size(request.code, limits)
+    row = await session.execute(
+        select(Problem.slug, ProblemVersion)
+        .join(ProblemVersion, ProblemVersion.id == Problem.current_version_id)
+        .where(Problem.slug == request.problem, Problem.is_published)
+    )
+    found = row.one_or_none()
+    if found is None:
+        raise ApiError(ErrorCode.NOT_FOUND, f"No published problem {request.problem!r}")
+    _, version = found
+    if request.version != version.version:
+        # Rejudge of older versions goes through the rejudge queue (phase 5), not this endpoint.
+        raise ApiError(
+            ErrorCode.PROBLEM_VERSION_OUTDATED,
+            f"Version {request.version} is not the current version {version.version}",
+            params={"current_version": version.version},
+        )
+    profile = await session.scalar(
+        select(ToolchainProfile.id).where(
+            ToolchainProfile.language == version.language, ToolchainProfile.is_default
+        )
+    )
+    if profile is None:
+        raise ApiError(
+            ErrorCode.JUDGE_UNAVAILABLE,
+            f"No default toolchain profile for {version.language!r}",
+        )
+
+    submission = SubmissionRow(
+        id=uuid7(),
+        problem_version_id=version.id,
+        kind=request.kind,
+        code=request.code,
+        seed=secrets.randbits(63),
+        toolchain_profile_id=profile,
+        queue_class=version.resource_class,
+    )
+    session.add(submission)
+    await session.commit()
+    # After the commit: a worker must find the submission it is given.
+    await queue.enqueue(
+        Job(
+            submission_id=submission.id,
+            queue=f"judge.{version.resource_class}",
+            token=tokens.issue(submission.id),
+        )
+    )
+    result = await get_submission(session, submission.id)
+    assert result is not None
+    return result
+
+
+async def get_submission(session: AsyncSession, submission_id: uuid.UUID) -> Submission | None:
+    row = await session.execute(
+        select(SubmissionRow, ProblemVersion, Problem.slug)
+        .join(ProblemVersion, ProblemVersion.id == SubmissionRow.problem_version_id)
+        .join(Problem, Problem.id == ProblemVersion.problem_id)
+        .where(SubmissionRow.id == submission_id)
+    )
+    found = row.one_or_none()
+    if found is None:
+        return None
+    submission, version, slug = found
+    stages = await session.scalars(
+        select(StageResult)
+        .where(StageResult.submission_id == submission_id)
+        .order_by(StageResult.ordinal)
+    )
+    artifacts = await session.scalars(
+        select(Artifact)
+        .where(
+            Artifact.submission_id == submission_id,
+            Artifact.kind.not_in(HIDDEN_ARTIFACT_KINDS),
+        )
+        .order_by(Artifact.created_at, Artifact.kind)
+    )
+    now = datetime.now(UTC)
+    return Submission(
+        id=submission.id,
+        problem=slug,
+        problem_title=version.title,
+        version=version.version,
+        kind=submission.kind,  # type: ignore[arg-type]  # checked by the table constraint
+        status=submission.status,  # type: ignore[arg-type]  # a submission_status value
+        code=submission.code,
+        seed=str(submission.seed),
+        toolchain_profile=submission.toolchain_profile_id,
+        queue_position=None,
+        created_at=submission.created_at,
+        started_at=submission.started_at,
+        finished_at=submission.finished_at,
+        verdict_detail=(
+            VerdictDetail.model_validate(submission.verdict_detail)
+            if submission.verdict_detail is not None
+            else None
+        ),
+        stages=[
+            SubmissionStage(
+                key=stage.stage_key,
+                type=stage.stage_type,
+                ordinal=stage.ordinal,
+                status=stage.status,  # type: ignore[arg-type]  # a stage_status value
+                failure_kind=stage.failure_kind,  # type: ignore[arg-type]  # table constraint
+                error_code=stage.error_code,
+                started_at=stage.started_at,
+                finished_at=stage.finished_at,
+                duration_ms=stage.duration_ms,
+                metrics_schema=stage.metrics_schema,
+                metrics=stage.metrics or {},
+                summary=StageSummary.model_validate(stage.summary or {}),
+            )
+            for stage in stages
+        ],
+        artifacts=[
+            SubmissionArtifact(
+                kind=artifact.kind,
+                stage=artifact.stage_key,
+                size_bytes=artifact.size_bytes,
+                expired=artifact.expires_at is not None and artifact.expires_at <= now,
+            )
+            for artifact in artifacts
+        ],
+    )

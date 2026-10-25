@@ -1,6 +1,5 @@
 """The problem catalogue API (specs/05 §3) on Postgres with the problems of the repository."""
 
-import asyncio
 import shutil
 from collections.abc import Iterator
 from pathlib import Path
@@ -9,25 +8,13 @@ from typing import Any
 import pytest
 from fastapi.testclient import TestClient
 
-from apparatica.core.db import Database
 from apparatica.core.settings import Settings
-from apparatica.core.storage import Storage
 from apparatica.main import create_app
-from apparatica.problems.importer import import_packages, load_tags, read_package
-from conftest import CONFIG_DIR, Postgres
+from conftest import CONFIG_DIR, PROBLEMS, Postgres, import_problems
 
-PROBLEMS = Path(__file__).parents[2] / "problems"
 PUBLIC = "public, max-age=60, stale-while-revalidate=300"
 IMMUTABLE = "public, max-age=31536000, immutable"
 PROBLEM = "application/problem+json"
-
-
-class NoStorage(Storage):
-    def __init__(self) -> None:
-        pass
-
-    def put(self, bucket: str, key: str, data: bytes, content_type: str) -> None:
-        pass
 
 
 def _edit(path: Path, old: str, new: str) -> None:
@@ -37,7 +24,9 @@ def _edit(path: Path, old: str, new: str) -> None:
 
 
 @pytest.fixture(scope="module")
-def catalogue(postgres: Postgres, tmp_path_factory: pytest.TempPathFactory) -> str:
+def catalogue(
+    postgres: Postgres, catalogue_template: str, tmp_path_factory: pytest.TempPathFactory
+) -> str:
     """The five problems published; counter-mod-n v2 published over v1; mux4 v2 imported but
     not published; a problem `draft` imported but never published."""
     root = tmp_path_factory.mktemp("problems")
@@ -53,31 +42,9 @@ def catalogue(postgres: Postgres, tmp_path_factory: pytest.TempPathFactory) -> s
         _edit(manifest, "number: 1\n" if name == "mux4" else "number: 2\n", f"number: {number}\n")
         _edit(manifest, "version: 1", f"version: {version}")
 
-    url = postgres.create_database(template=Postgres.MIGRATED)
-    tags = load_tags(PROBLEMS / "tags.yaml")
-    levels = ["easy", "medium", "hard"]
-
-    async def run() -> None:
-        database = Database(url)
-        try:
-            for packages, publish in (
-                ([read_package(p) for p in sorted(PROBLEMS.glob("*/")) if p.is_dir()], True),
-                ([read_package(root / "counter-mod-n-2" / "counter-mod-n")], True),
-                (
-                    [
-                        read_package(root / "mux4-2" / "mux4"),
-                        read_package(root / "draft-1" / "draft"),
-                    ],
-                    False,
-                ),
-            ):
-                await import_packages(
-                    database, NoStorage(), "packages", packages, tags, levels, publish=publish
-                )
-        finally:
-            await database.dispose()
-
-    asyncio.run(run())
+    url = postgres.create_database(template=catalogue_template)
+    import_problems(url, [root / "counter-mod-n-2" / "counter-mod-n"], publish=True)
+    import_problems(url, [root / "mux4-2" / "mux4", root / "draft-1" / "draft"], publish=False)
     return url
 
 

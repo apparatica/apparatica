@@ -12,11 +12,15 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from testcontainers.community.postgres import PostgresContainer
 
 from apparatica.cli import alembic_config
+from apparatica.core.db import Database
 from apparatica.core.flags import no_overrides
 from apparatica.core.settings import Settings
+from apparatica.core.storage import Storage
 from apparatica.main import create_app
+from apparatica.problems.importer import import_packages, load_tags, read_package
 
 CONFIG_DIR = Path(__file__).parents[2] / "config"
+PROBLEMS = Path(__file__).parents[2] / "problems"
 # Locally the image can come from a mirror (docs/development.md).
 POSTGRES_IMAGE = os.environ.get("APX_TEST_POSTGRES_IMAGE", "postgres:17-alpine")
 
@@ -48,8 +52,8 @@ class Postgres:
     def url(self, database: str) -> str:
         return self._url.set(database=database).render_as_string(hide_password=False)
 
-    def create_database(self, template: str | None = None) -> str:
-        name = next(self._names)
+    def create_database(self, template: str | None = None, name: str | None = None) -> str:
+        name = name or next(self._names)
         statement = f"CREATE DATABASE {name}" + (f" TEMPLATE {template}" if template else "")
         asyncio.run(self.execute(statement))
         return self.url(name)
@@ -84,3 +88,43 @@ def postgres() -> Iterator[Postgres]:
 def database_url(postgres: Postgres) -> str:
     """A fresh database with the schema of the head revision."""
     return postgres.create_database(template=Postgres.MIGRATED)
+
+
+class NoStorage(Storage):
+    """Object storage that keeps nothing: for tests that do not read packages back."""
+
+    def __init__(self) -> None:
+        pass
+
+    def put(self, bucket: str, key: str, data: bytes, content_type: str) -> None:
+        pass
+
+
+def import_problems(url: str, paths: list[Path], *, publish: bool) -> None:
+    async def run() -> None:
+        database = Database(url)
+        try:
+            await import_packages(
+                database,
+                NoStorage(),
+                "packages",
+                [read_package(path) for path in paths],
+                load_tags(PROBLEMS / "tags.yaml"),
+                ["easy", "medium", "hard"],
+                publish=publish,
+            )
+        finally:
+            await database.dispose()
+
+    asyncio.run(run())
+
+
+@pytest.fixture(scope="session")
+def catalogue_template(postgres: Postgres) -> str:
+    """Name of a template database: the schema and the problems of the repository, published."""
+    name = "catalogue"
+    url = postgres.create_database(template=Postgres.MIGRATED, name=name)
+    import_problems(
+        url, sorted(path.parent for path in PROBLEMS.glob("*/problem.yaml")), publish=True
+    )
+    return name

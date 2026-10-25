@@ -1,0 +1,2118 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "Apparatica API",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/api/v1/health": {
+      "get": {
+        "tags": [
+          "core"
+        ],
+        "summary": "Health",
+        "operationId": "health",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "A dependency is unavailable",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        },
+        "x-phase": 0
+      }
+    },
+    "/api/v1/config": {
+      "get": {
+        "tags": [
+          "core"
+        ],
+        "summary": "Config",
+        "operationId": "config",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConfigResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-phase": 0
+      }
+    },
+    "/api/v1/tags": {
+      "get": {
+        "tags": [
+          "problems"
+        ],
+        "summary": "List Tags",
+        "operationId": "list_tags",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/Tag"
+                  },
+                  "type": "array",
+                  "title": "Response List Tags"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-phase": 0
+      }
+    },
+    "/api/v1/problems": {
+      "get": {
+        "tags": [
+          "problems"
+        ],
+        "summary": "List Problems",
+        "operationId": "list_problems",
+        "parameters": [
+          {
+            "name": "difficulty",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Any of these levels",
+              "default": [],
+              "title": "Difficulty"
+            },
+            "description": "Any of these levels"
+          },
+          {
+            "name": "tag",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              },
+              "description": "Any of these tags",
+              "default": [],
+              "title": "Tag"
+            },
+            "description": "Any of these tags"
+          },
+          {
+            "name": "q",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 100
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "In the title or tags",
+              "title": "Q"
+            },
+            "description": "In the title or tags"
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "number",
+                "-number",
+                "difficulty",
+                "-difficulty"
+              ],
+              "type": "string",
+              "default": "number",
+              "title": "Sort"
+            }
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 12,
+              "title": "Per Page"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemPage"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-phase": 0
+      }
+    },
+    "/api/v1/problems/{slug}": {
+      "get": {
+        "tags": [
+          "problems"
+        ],
+        "summary": "Get Problem",
+        "description": "The current version of a published problem.",
+        "operationId": "get_problem",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+              "title": "Slug"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-phase": 0
+      }
+    },
+    "/api/v1/problems/{slug}/versions/{version}": {
+      "get": {
+        "tags": [
+          "problems"
+        ],
+        "summary": "Get Problem Version",
+        "description": "A version up to the current one; its data never changes, so it is cached for a year.",
+        "operationId": "get_problem_version",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+              "title": "Slug"
+            }
+          },
+          {
+            "name": "version",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "title": "Version"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemDetail"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-phase": 0
+      }
+    },
+    "/api/v1/submissions": {
+      "post": {
+        "tags": [
+          "submissions"
+        ],
+        "summary": "Create Submission",
+        "description": "A Run or a Submit of the current version of a problem; the check runs in the background.",
+        "operationId": "create_submission",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SubmissionCreate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Submission"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Content Too Large",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-phase": 0
+      }
+    },
+    "/api/v1/submissions/{id}": {
+      "get": {
+        "tags": [
+          "submissions"
+        ],
+        "summary": "Get Submission",
+        "description": "A submission with its stages and artifacts. Access by author arrives with guests (T1.7).",
+        "operationId": "get_submission",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Submission"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-phase": 0
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "AuthProvider": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "title"
+        ],
+        "title": "AuthProvider"
+      },
+      "ConfigResponse": {
+        "properties": {
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "features": {
+            "additionalProperties": {
+              "type": "boolean"
+            },
+            "type": "object",
+            "title": "Features"
+          },
+          "difficulties": {
+            "items": {
+              "$ref": "#/components/schemas/Difficulty"
+            },
+            "type": "array",
+            "title": "Difficulties"
+          },
+          "limits": {
+            "$ref": "#/components/schemas/Limits"
+          },
+          "auth_providers": {
+            "items": {
+              "$ref": "#/components/schemas/AuthProvider"
+            },
+            "type": "array",
+            "title": "Auth Providers"
+          }
+        },
+        "type": "object",
+        "required": [
+          "version",
+          "features",
+          "difficulties",
+          "limits",
+          "auth_providers"
+        ],
+        "title": "ConfigResponse",
+        "description": "What the frontend needs before anything else: features, levels, limits, login options."
+      },
+      "Diagnostic": {
+        "properties": {
+          "severity": {
+            "type": "string",
+            "enum": [
+              "error",
+              "warning",
+              "info"
+            ],
+            "title": "Severity"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code"
+          },
+          "file": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "File"
+          },
+          "line": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Line"
+          },
+          "col": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Col"
+          },
+          "end_line": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Line"
+          },
+          "end_col": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "End Col"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "severity",
+          "message"
+        ],
+        "title": "Diagnostic",
+        "description": "A tool message in the common format (ADR-0011): editor markers and console links."
+      },
+      "Difficulty": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "title": "Key"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "token": {
+            "type": "string",
+            "title": "Token",
+            "description": "Colour pair of the design tokens, e.g. e for --e/--es"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "key",
+          "title",
+          "token"
+        ],
+        "title": "Difficulty"
+      },
+      "DifficultyTotal": {
+        "properties": {
+          "difficulty": {
+            "type": "string",
+            "title": "Difficulty"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "Published problems of the level, whatever the filters"
+          }
+        },
+        "type": "object",
+        "required": [
+          "difficulty",
+          "total"
+        ],
+        "title": "DifficultyTotal"
+      },
+      "FirstFailure": {
+        "properties": {
+          "stage": {
+            "type": "string",
+            "title": "Stage"
+          },
+          "test": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Test"
+          },
+          "cycle": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cycle"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "stage"
+        ],
+        "title": "FirstFailure"
+      },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "enum": [
+              "ok",
+              "unavailable"
+            ],
+            "title": "Status"
+          },
+          "version": {
+            "type": "string",
+            "title": "Version"
+          },
+          "checks": {
+            "additionalProperties": {
+              "type": "string",
+              "enum": [
+                "ok",
+                "unavailable"
+              ]
+            },
+            "type": "object",
+            "title": "Checks"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "version",
+          "checks"
+        ],
+        "title": "HealthResponse"
+      },
+      "HiddenTests": {
+        "properties": {
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "passed": {
+            "type": "integer",
+            "title": "Passed"
+          },
+          "failed_index": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failed Index"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "total",
+          "passed"
+        ],
+        "title": "HiddenTests"
+      },
+      "Interface": {
+        "properties": {
+          "parameters": {
+            "items": {
+              "$ref": "#/components/schemas/Parameter"
+            },
+            "type": "array",
+            "title": "Parameters",
+            "default": []
+          },
+          "ports": {
+            "items": {
+              "$ref": "#/components/schemas/Port"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Ports"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "ports"
+        ],
+        "title": "Interface"
+      },
+      "Limits": {
+        "properties": {
+          "solution": {
+            "$ref": "#/components/schemas/SolutionLimits"
+          },
+          "quotas": {
+            "$ref": "#/components/schemas/Quotas"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "solution",
+          "quotas"
+        ],
+        "title": "Limits"
+      },
+      "Mismatch": {
+        "properties": {
+          "signal": {
+            "type": "string",
+            "title": "Signal"
+          },
+          "cycle": {
+            "type": "integer",
+            "title": "Cycle"
+          },
+          "expected": {
+            "type": "string",
+            "title": "Expected"
+          },
+          "actual": {
+            "type": "string",
+            "title": "Actual"
+          },
+          "hint": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Hint"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "signal",
+          "cycle",
+          "expected",
+          "actual"
+        ],
+        "title": "Mismatch"
+      },
+      "Parameter": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Za-z_][A-Za-z0-9_$]*$",
+            "title": "Name"
+          },
+          "type": {
+            "type": "string",
+            "enum": [
+              "int",
+              "int unsigned",
+              "bit",
+              "logic"
+            ],
+            "title": "Type"
+          },
+          "default": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "string"
+              }
+            ],
+            "title": "Default"
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "type",
+          "default"
+        ],
+        "title": "Parameter"
+      },
+      "PipelineInfo": {
+        "properties": {
+          "run": {
+            "items": {
+              "$ref": "#/components/schemas/PipelineStage"
+            },
+            "type": "array",
+            "title": "Run"
+          },
+          "submit": {
+            "items": {
+              "$ref": "#/components/schemas/PipelineStage"
+            },
+            "type": "array",
+            "title": "Submit"
+          }
+        },
+        "type": "object",
+        "required": [
+          "run",
+          "submit"
+        ],
+        "title": "PipelineInfo",
+        "description": "Stages of Run and Submit, in order, to draw the pipeline before the first check."
+      },
+      "PipelineStage": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key",
+            "examples": [
+              "sim"
+            ]
+          },
+          "type": {
+            "type": "string",
+            "title": "Type",
+            "examples": [
+              "sim"
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "type"
+        ],
+        "title": "PipelineStage"
+      },
+      "Port": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "pattern": "^[A-Za-z_][A-Za-z0-9_$]*$",
+            "title": "Name"
+          },
+          "dir": {
+            "type": "string",
+            "enum": [
+              "input",
+              "output",
+              "inout"
+            ],
+            "title": "Dir"
+          },
+          "width": {
+            "type": "string",
+            "title": "Width",
+            "description": "Expression of parameters, e.g. \"WIDTH\" or \"1\""
+          },
+          "signed": {
+            "type": "boolean",
+            "title": "Signed",
+            "default": false
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "data",
+              "clock",
+              "reset"
+            ],
+            "title": "Role",
+            "default": "data"
+          },
+          "reset": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ResetSpec"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Description"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "dir",
+          "width"
+        ],
+        "title": "Port"
+      },
+      "ProblemDetail": {
+        "properties": {
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "number": {
+            "type": "integer",
+            "title": "Number"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "current_version": {
+            "type": "integer",
+            "title": "Current Version",
+            "description": "The version that new submissions are checked on"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "difficulty": {
+            "type": "string",
+            "title": "Difficulty"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags"
+          },
+          "language": {
+            "type": "string",
+            "title": "Language",
+            "examples": [
+              "systemverilog"
+            ]
+          },
+          "resource_class": {
+            "type": "string",
+            "title": "Resource Class",
+            "description": "heavy: not for guests",
+            "examples": [
+              "light"
+            ]
+          },
+          "statement_md": {
+            "type": "string",
+            "title": "Statement Md"
+          },
+          "template": {
+            "type": "string",
+            "title": "Template"
+          },
+          "top": {
+            "type": "string",
+            "title": "Top",
+            "description": "Name of the module the solution defines"
+          },
+          "interface": {
+            "$ref": "#/components/schemas/Interface"
+          },
+          "pipeline": {
+            "$ref": "#/components/schemas/PipelineInfo"
+          },
+          "tests": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Tests",
+            "description": "Number of tests per group, e.g. public and hidden",
+            "examples": [
+              {
+                "public": 4
+              }
+            ]
+          },
+          "changelog": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Changelog",
+            "description": "What changed since the previous version"
+          },
+          "published_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Published At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "slug",
+          "number",
+          "version",
+          "current_version",
+          "title",
+          "difficulty",
+          "tags",
+          "language",
+          "resource_class",
+          "statement_md",
+          "template",
+          "top",
+          "interface",
+          "pipeline",
+          "tests",
+          "changelog",
+          "published_at"
+        ],
+        "title": "ProblemDetail"
+      },
+      "ProblemListItem": {
+        "properties": {
+          "slug": {
+            "type": "string",
+            "title": "Slug",
+            "examples": [
+              "sync-fifo"
+            ]
+          },
+          "number": {
+            "type": "integer",
+            "title": "Number"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "difficulty": {
+            "type": "string",
+            "title": "Difficulty",
+            "description": "Key of the difficulty levels of GET /config"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags",
+            "description": "Tag slugs, titles in GET /tags"
+          }
+        },
+        "type": "object",
+        "required": [
+          "slug",
+          "number",
+          "title",
+          "difficulty",
+          "tags"
+        ],
+        "title": "ProblemListItem"
+      },
+      "ProblemPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/ProblemListItem"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "per_page": {
+            "type": "integer",
+            "title": "Per Page"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "Problems that match the filters"
+          },
+          "progress": {
+            "items": {
+              "$ref": "#/components/schemas/DifficultyTotal"
+            },
+            "type": "array",
+            "title": "Progress",
+            "description": "Per level, in the order of the levels; solved counts arrive in phase 2"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "page",
+          "per_page",
+          "total",
+          "progress"
+        ],
+        "title": "ProblemPage"
+      },
+      "Quota": {
+        "properties": {
+          "checks_per_hour": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Checks Per Hour"
+          },
+          "concurrent": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Concurrent"
+          },
+          "heavy_per_day": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Heavy Per Day"
+          },
+          "waveforms_per_hour": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Waveforms Per Hour"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "checks_per_hour",
+          "concurrent",
+          "heavy_per_day",
+          "waveforms_per_hour"
+        ],
+        "title": "Quota"
+      },
+      "Quotas": {
+        "properties": {
+          "guest": {
+            "$ref": "#/components/schemas/Quota"
+          },
+          "user": {
+            "$ref": "#/components/schemas/Quota"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "guest",
+          "user"
+        ],
+        "title": "Quotas"
+      },
+      "ResetSpec": {
+        "properties": {
+          "active": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "low",
+                  "high"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Active"
+          },
+          "sync": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Sync"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "ResetSpec"
+      },
+      "SolutionLimits": {
+        "properties": {
+          "max_bytes": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Max Bytes"
+          },
+          "max_lines": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Max Lines"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "max_bytes",
+          "max_lines"
+        ],
+        "title": "SolutionLimits"
+      },
+      "StageSummary": {
+        "properties": {
+          "caption": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Caption",
+            "description": "Pipeline block caption"
+          },
+          "skip_reason": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "previous_failed",
+                  "not_in_pipeline",
+                  "cancelled"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Skip Reason"
+          },
+          "diagnostics": {
+            "items": {
+              "$ref": "#/components/schemas/Diagnostic"
+            },
+            "type": "array",
+            "title": "Diagnostics",
+            "default": []
+          },
+          "tests": {
+            "items": {
+              "$ref": "#/components/schemas/TestCase"
+            },
+            "type": "array",
+            "title": "Tests",
+            "default": []
+          },
+          "hidden_tests": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HiddenTests"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "StageSummary"
+      },
+      "Submission": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "problem": {
+            "type": "string",
+            "title": "Problem",
+            "description": "Slug of the problem"
+          },
+          "problem_title": {
+            "type": "string",
+            "title": "Problem Title"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "run",
+              "submit"
+            ],
+            "title": "Kind"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "accepted",
+              "accepted_with_warnings",
+              "wrong_answer",
+              "compile_error",
+              "limit_exceeded",
+              "forbidden_construct",
+              "cancelled",
+              "internal_error"
+            ],
+            "title": "Status"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "seed": {
+            "type": "string",
+            "title": "Seed",
+            "description": "64-bit seed as a decimal string",
+            "examples": [
+              "41917"
+            ]
+          },
+          "toolchain_profile": {
+            "type": "string",
+            "title": "Toolchain Profile",
+            "examples": [
+              "sv-2026.10.2"
+            ]
+          },
+          "queue_position": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Queue Position",
+            "description": "Position in the queue; from phase 1"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "verdict_detail": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VerdictDetail"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set with the final status"
+          },
+          "stages": {
+            "items": {
+              "$ref": "#/components/schemas/SubmissionStage"
+            },
+            "type": "array",
+            "title": "Stages",
+            "description": "In pipeline order"
+          },
+          "artifacts": {
+            "items": {
+              "$ref": "#/components/schemas/SubmissionArtifact"
+            },
+            "type": "array",
+            "title": "Artifacts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "problem",
+          "problem_title",
+          "version",
+          "kind",
+          "status",
+          "code",
+          "seed",
+          "toolchain_profile",
+          "queue_position",
+          "created_at",
+          "started_at",
+          "finished_at",
+          "verdict_detail",
+          "stages",
+          "artifacts"
+        ],
+        "title": "Submission"
+      },
+      "SubmissionArtifact": {
+        "properties": {
+          "kind": {
+            "type": "string",
+            "title": "Kind",
+            "examples": [
+              "log",
+              "fst"
+            ]
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage"
+          },
+          "size_bytes": {
+            "type": "integer",
+            "title": "Size Bytes"
+          },
+          "expired": {
+            "type": "boolean",
+            "title": "Expired",
+            "description": "Removed by the retention rules; FST can be recreated"
+          }
+        },
+        "type": "object",
+        "required": [
+          "kind",
+          "stage",
+          "size_bytes",
+          "expired"
+        ],
+        "title": "SubmissionArtifact"
+      },
+      "SubmissionCreate": {
+        "properties": {
+          "problem": {
+            "type": "string",
+            "maxLength": 64,
+            "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+            "title": "Problem",
+            "description": "Slug of the problem"
+          },
+          "version": {
+            "type": "integer",
+            "exclusiveMinimum": 0.0,
+            "title": "Version",
+            "description": "The current version, as the client shows it"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "run",
+              "submit"
+            ],
+            "title": "Kind"
+          },
+          "code": {
+            "type": "string",
+            "minLength": 1,
+            "title": "Code",
+            "description": "Size limits: GET /config, limits.solution (CODE_TOO_LARGE)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "problem",
+          "version",
+          "kind",
+          "code"
+        ],
+        "title": "SubmissionCreate"
+      },
+      "SubmissionStage": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key",
+            "examples": [
+              "sim_full"
+            ]
+          },
+          "type": {
+            "type": "string",
+            "title": "Type",
+            "examples": [
+              "sim"
+            ]
+          },
+          "ordinal": {
+            "type": "integer",
+            "title": "Ordinal"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "running",
+              "passed",
+              "warning",
+              "failed",
+              "skipped",
+              "cancelled",
+              "error"
+            ],
+            "title": "Status"
+          },
+          "failure_kind": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "forbidden",
+                  "compile",
+                  "wrong",
+                  "limit"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failure Kind"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code",
+            "description": "Platform failure of status=error"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "duration_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Ms"
+          },
+          "metrics_schema": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metrics Schema",
+            "examples": [
+              "sim/v1"
+            ]
+          },
+          "metrics": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metrics"
+          },
+          "summary": {
+            "$ref": "#/components/schemas/StageSummary"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "type",
+          "ordinal",
+          "status",
+          "failure_kind",
+          "error_code",
+          "started_at",
+          "finished_at",
+          "duration_ms",
+          "metrics_schema",
+          "metrics",
+          "summary"
+        ],
+        "title": "SubmissionStage"
+      },
+      "Tag": {
+        "properties": {
+          "slug": {
+            "type": "string",
+            "title": "Slug",
+            "examples": [
+              "fifo"
+            ]
+          },
+          "title": {
+            "type": "string",
+            "title": "Title",
+            "examples": [
+              "FIFO"
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "slug",
+          "title"
+        ],
+        "title": "Tag"
+      },
+      "TestCase": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "group": {
+            "type": "string",
+            "title": "Group"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "passed",
+              "failed",
+              "running",
+              "not_run"
+            ],
+            "title": "Status"
+          },
+          "duration_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Ms"
+          },
+          "cycle": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cycle",
+            "description": "Cycle of the first mismatch"
+          },
+          "mismatches": {
+            "items": {
+              "$ref": "#/components/schemas/Mismatch"
+            },
+            "type": "array",
+            "title": "Mismatches",
+            "default": []
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "name",
+          "group",
+          "status"
+        ],
+        "title": "TestCase"
+      },
+      "VerdictDetail": {
+        "properties": {
+          "first_failure": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/FirstFailure"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "time",
+                  "memory",
+                  "output",
+                  "fst",
+                  "cycles",
+                  "size"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limit"
+          },
+          "warnings": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Warnings",
+            "default": []
+          },
+          "error_codes": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Error Codes",
+            "default": []
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "title": "VerdictDetail"
+      },
+      "ErrorCode": {
+        "enum": [
+          "VALIDATION_ERROR",
+          "NOT_FOUND",
+          "METHOD_NOT_ALLOWED",
+          "UNAUTHENTICATED",
+          "FORBIDDEN",
+          "CSRF_FAILED",
+          "RATE_LIMITED",
+          "CAPTCHA_REQUIRED",
+          "CODE_TOO_LARGE",
+          "PROBLEM_VERSION_OUTDATED",
+          "HEAVY_NOT_ALLOWED",
+          "REFERENCE_LOCKED",
+          "SOLUTION_LOCKED",
+          "SUBMISSION_FINISHED",
+          "NOT_IMPLEMENTED",
+          "JUDGE_UNAVAILABLE",
+          "INTERNAL"
+        ],
+        "title": "ErrorCode",
+        "type": "string"
+      },
+      "FieldError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "title": "Loc",
+            "type": "array"
+          },
+          "msg": {
+            "title": "Msg",
+            "type": "string"
+          },
+          "type": {
+            "title": "Type",
+            "type": "string"
+          }
+        },
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "FieldError",
+        "type": "object"
+      },
+      "Error": {
+        "description": "An error response (`application/problem+json`).",
+        "properties": {
+          "type": {
+            "examples": [
+              "https://apparatica.app/errors/rate-limited"
+            ],
+            "title": "Type",
+            "type": "string"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "status": {
+            "title": "Status",
+            "type": "integer"
+          },
+          "code": {
+            "$ref": "#/components/schemas/ErrorCode"
+          },
+          "detail": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Detail"
+          },
+          "params": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Params"
+          },
+          "request_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "title": "Request Id"
+          },
+          "errors": {
+            "anyOf": [
+              {
+                "items": {
+                  "$ref": "#/components/schemas/FieldError"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "default": null,
+            "description": "With VALIDATION_ERROR",
+            "title": "Errors"
+          }
+        },
+        "required": [
+          "type",
+          "title",
+          "status",
+          "code"
+        ],
+        "title": "Error",
+        "type": "object"
+      }
+    }
+  }
+}

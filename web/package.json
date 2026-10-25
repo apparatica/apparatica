@@ -7,14 +7,21 @@
   "scripts": {
     "lint": "eslint --cache .",
     "format": "prettier --write .",
-    "format:check": "prettier --check ."
+    "format:check": "prettier --check .",
+    "typecheck": "tsc --noEmit",
+    "api:generate": "openapi-typescript ../backend/openapi.json --output src/lib/api/schema.d.ts",
+    "api:check": "openapi-typescript ../backend/openapi.json --output src/lib/api/schema.d.ts --check"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "eslint": "^10.13.0",
     "globals": "^17.13.0",
+    "openapi-typescript": "^7.13.0",
     "prettier": "^3.9.10",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.72.0"
+  },
+  "dependencies": {
+    "openapi-fetch": "^0.17.0"
   }
 }

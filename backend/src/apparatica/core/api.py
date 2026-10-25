@@ -7,7 +7,6 @@ import structlog
 from fastapi import APIRouter, Request, Response
 from pydantic import BaseModel
 
-from apparatica.core.errors import ErrorCode, problem_responses
 from apparatica.core.http import PRIVATE, cached_json
 from apparatica.core.platform import Difficulty, Limits
 
@@ -66,7 +65,6 @@ async def health(request: Request, response: Response) -> HealthResponse:
 @router.get(
     "/config",
     response_model=ConfigResponse,
-    responses=problem_responses(ErrorCode.INTERNAL),
     openapi_extra=PHASE_0,
 )
 async def config(request: Request) -> Response:

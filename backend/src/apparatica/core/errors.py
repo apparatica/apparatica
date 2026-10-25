@@ -17,6 +17,8 @@ from pydantic import BaseModel, ConfigDict, Field
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 PROBLEM_MEDIA_TYPE = "application/problem+json"
+# The error schema in OpenAPI components: `Problem` would read as a problem of the catalogue.
+ERROR_COMPONENT = "Error"
 TYPE_BASE = "https://apparatica.app/errors/"
 
 log = structlog.get_logger(__name__)
@@ -79,7 +81,7 @@ class FieldError(BaseModel):
 class Problem(BaseModel):
     """An error response (`application/problem+json`)."""
 
-    model_config = ConfigDict(json_schema_extra={"title": "Problem"})
+    model_config = ConfigDict(json_schema_extra={"title": ERROR_COMPONENT})
 
     type: str = Field(examples=["https://apparatica.app/errors/rate-limited"])
     title: str
@@ -136,7 +138,7 @@ def problem_response(
 
 def problem_responses(*codes: ErrorCode) -> dict[int | str, dict[str, Any]]:
     """`responses=` for a route: these errors as problem+json in the OpenAPI schema."""
-    schema = {"$ref": "#/components/schemas/Problem"}  # added to components by create_app
+    schema = {"$ref": f"#/components/schemas/{ERROR_COMPONENT}"}  # added by create_app
     return {
         int(STATUS[code]): {
             "description": STATUS[code].phrase,

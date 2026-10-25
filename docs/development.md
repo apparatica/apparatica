@@ -35,11 +35,13 @@ Poetry создаёт виртуальное окружение внутри к�
 | `just install` | ставит зависимости Python и JS (`install-py`, `install-js`), подключает git-хуки |
 | `just lint` | `lint-py` (ruff: линт и проверка форматирования), `lint-imports` (архитектурные контракты), `lint-js` (eslint и prettier `--check` в `web/`) |
 | `just fmt` | применяет ruff format, безопасные исправления ruff и prettier в `web/` |
-| `just typecheck` | mypy `--strict` в каждом Python-проекте, для `scripts/` и Python-кода `toolchain/` (с `--platform linux`) |
+| `just typecheck` | `typecheck-py` (mypy `--strict` в каждом Python-проекте, для `scripts/` и Python-кода `toolchain/` с `--platform linux`) и `typecheck-js` (`tsc` в `web/`) |
 | `just test` | `test-py`: pytest в каждом Python-проекте и тесты `scripts/` |
 | `just check-locks` | `poetry check --lock` в каждом проекте и сверка версий общих зависимостей между тремя `poetry.lock` |
 | `just check-licenses` | лицензии зависимостей Python (`check-licenses-py`) и JS (`check-licenses-js`) по политике |
-| `just check` | `check-locks`, `check-licenses`, `lint`, `typecheck`, `test` |
+| `just check` | `check-locks`, `check-licenses`, `check-api`, `lint`, `typecheck`, `test` |
+| `just openapi` | пересоздаёт контракт API: `backend/openapi.json` из кода и типы TS-клиента ([api.md](api.md)) |
+| `just check-api` | проверяет, что типы TS-клиента совпадают с `backend/openapi.json` |
 | `just validate-problems` | `judge validate` всех пакетов `problems/` в образе тулчейна (нужен Docker) |
 | `just schemas` | перегенерирует JSON Schema из моделей судьи: `problem.yaml` и записи протокола тестбенча (`judge/schemas/`) |
 | `just toolchain-build` | собирает образ тулчейна `apparatica-toolchain:dev` |
@@ -53,8 +55,8 @@ GitHub Actions, `.github/workflows/ci.yml`, на GitHub-hosted раннерах 
 
 | Job | Шаги |
 |---|---|
-| Python | `install-py`, `check-locks`, `lint-py`, `lint-imports`, `typecheck`, `test-py`, `check-licenses-py` |
-| JS | `install-js`, `lint-js`, `check-licenses-js` |
+| Python | `install-py`, `check-locks`, `lint-py`, `lint-imports`, `typecheck-py`, `test-py`, `check-licenses-py` |
+| JS | `install-js`, `lint-js`, `typecheck-js`, `check-api`, `check-licenses-js` |
 
 Образ тулчейна собирает и публикует отдельный workflow `.github/workflows/toolchain.yml` — при изменениях в `toolchain/` и в коде судьи, чьи тесты против образа он прогоняет; публикует только при изменении входов образа (подробности — [toolchain/README.md](../toolchain/README.md)).
 
@@ -121,14 +123,17 @@ FastAPI-приложение (`backend/src/apparatica`, модульный мо�
 
 - `core` — настройки, БД (SQLAlchemy async), ошибки `problem+json`, request id, логи, feature flags (таблица `feature_flags`) и эндпоинты `GET /api/v1/health` и `GET /api/v1/config`;
 - `problems` — таблицы `tags`, `problems`, `problem_versions`, `reference_solutions`; импорт пакетов задач; API каталога (`GET /api/v1/problems`, `/problems/{slug}`, `/problems/{slug}/versions/{version}`, `/tags`);
-- `submissions` — таблицы `toolchain_profiles`, `submissions`, `stage_results`, `artifacts`;
+- `submissions` — таблицы `toolchain_profiles`, `submissions`, `stage_results`, `artifacts`; API отправок (`POST /api/v1/submissions`, `GET /submissions/{id}`), токены заданий, профили тулчейна;
 - `admin` — CLI `apparatica-admin`.
+
+Контракт API (`backend/openapi.json`, TS-клиент) и правила его изменения — [api.md](api.md).
 
 Модули зависят друг от друга в одну сторону: `admin → submissions → problems → core`. Это контракт import-linter (`[tool.importlinter]` в `backend/pyproject.toml`).
 
 ```sh
 poetry -C backend run apparatica serve --reload   # http://127.0.0.1:8000/api/v1/docs
 poetry -C backend run apparatica migrate          # alembic upgrade head
+poetry -C backend run apparatica openapi          # документ OpenAPI в stdout (just openapi)
 ```
 
 Нужен Postgres 17+ по `APX_DATABASE_URL` (стенд docker compose — T0.19); без него API стартует, но `GET /health` отвечает 503. Настройки и файлы `config/` — [configuration.md](configuration.md).
@@ -181,14 +186,29 @@ poetry -C backend run apparatica-admin problems import --publish ../problems   #
 
 Импорт атомарен: при любом отказе база не меняется. Он печатает все найденные отказы и завершается с кодом 1. Пакет загружается в хранилище до коммита, поэтому у версии в базе пакет всегда есть. Если коммит не прошёл, в бакете может остаться лишний объект; повторный импорт перезапишет его тем же содержимым.
 
+### Профили тулчейна
+
+Отправка проверяется профилем тулчейна по умолчанию для языка задачи (specs/09 §2). Профиль регистрируется по опубликованному образу:
+
+```sh
+poetry -C backend run apparatica-admin toolchain add sv-2026.10.2 \
+  --image ghcr.io/<owner>/apparatica-toolchain --digest sha256:<digest> \
+  --versions ../toolchain/versions.lock --normalization-version 1 --default
+```
+
+- **Версии инструментов** берутся из ключей `*_VERSION` файла `versions.lock` того образа (`{"verilator": "5.052", …}`).
+- **`--normalization-version`** — версия нормализации AST-хэша судьи (`n<версия>:` в метриках `precheck`).
+- **Неизменяемость.** Профиль неизменяем, как тег образа. Повторный `add` с теми же данными ничего не меняет, с другими — отказ.
+- **По умолчанию.** `--default` делает профиль профилем по умолчанию для языка; у прежнего профиля по умолчанию флаг снимается. Повторный `add` с `--default` переключает профиль.
+
 ### Тесты
 
 Тесты бэкенда (`backend/tests`) поднимают приложение через `TestClient`. Где нужна только связь с БД, вместо Postgres используется SQLite в памяти (`aiosqlite`).
 
-Тесты схемы, миграций и импорта (`test_db.py`, `test_cli.py`, `test_problem_import.py`) работают с настоящим Postgres; S3 в тестах импорта эмулирует moto. Как устроен Postgres в тестах:
+Тесты схемы, миграций, импорта и API (`test_db.py`, `test_cli.py`, `test_problem_import.py`, `test_problems_api.py`, `test_submissions_api.py`, `test_job_tokens_and_profiles.py`) работают с настоящим Postgres; S3 в тестах импорта эмулирует moto. Как устроен Postgres в тестах:
 
 - **Сервер.** Fixture `postgres` поднимает его через testcontainers один раз на сессию. Нужен Docker. Без Docker тесты пропускаются, а в CI (переменная `CI`) падают.
-- **Изоляция.** Миграции применяются один раз к базе-шаблону. Каждый тест получает свою копию (`CREATE DATABASE … TEMPLATE`).
+- **Изоляция.** Миграции применяются один раз к базе-шаблону. Каждый тест получает свою копию (`CREATE DATABASE … TEMPLATE`). Для тестов API есть второй шаблон, `catalogue_template`, — с опубликованными задачами из `problems/`.
 - **Образ.** По умолчанию `postgres:17-alpine`. Если Docker Hub недоступен, образ задаётся через `APX_TEST_POSTGRES_IMAGE`, например `mirror.gcr.io/library/postgres:17-alpine`.
 
 ## Судья: CLI `judge`
@@ -221,7 +241,7 @@ poetry -C judge run judge schema tb-result                      # JSON Schema з
 
 Корень репозитория — pnpm workspace: в корне только `package.json` (версии pnpm и Node), `pnpm-workspace.yaml` и общий `pnpm-lock.yaml`. `pnpm install` в корне ставит зависимости всех пакетов. Зависимость добавляется в пакет: `pnpm -C web add <пакет>` (`-D` для инструментов).
 
-Инструменты и их настройки живут в пакете, который они проверяют. Для `web/`: eslint (`web/eslint.config.mjs`, typescript-eslint `strict`), prettier (`web/.prettierrc.json`) и строгий `web/tsconfig.json`. TypeScript закреплён на 6.0: typescript-eslint пока не поддерживает 7.x.
+Инструменты и их настройки живут в пакете, который они проверяют. Для `web/`: eslint (`web/eslint.config.mjs`, typescript-eslint `strict`), prettier (`web/.prettierrc.json`) и строгий `web/tsconfig.json` (`pnpm -C web typecheck`). Типизированный клиент API — `web/src/lib/api/` ([api.md](api.md)); сгенерированный `schema.d.ts` исключён из eslint и prettier. TypeScript закреплён на 6.0: typescript-eslint пока не поддерживает 7.x.
 
 ## Git-хуки
 
