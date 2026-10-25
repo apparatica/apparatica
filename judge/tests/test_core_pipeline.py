@@ -113,6 +113,30 @@ def test_follow_up_run() -> None:
     assert [e.text for e in sink.events if isinstance(e, events.LogEvent)] == ["kept"]
 
 
+def test_artifacts_go_to_the_artifact_sink_not_to_later_stages() -> None:
+    kept: list[tuple[str, str, bytes]] = []
+    problem = make_problem(
+        {
+            "a": {"type": "artifact", "code": "open('out.txt', 'w').write('fst')"},
+            "b": {"type": "script", "code": "import os; print(os.path.exists('from/a'))"},
+        },
+        run=["a", "b"],
+    )
+    sink = ListSink()
+    job = Job(problem, Path(), "run", seed=1, solution=b"")
+    with HostExecutor() as executor:
+        run_pipeline(
+            job,
+            FAKE,
+            executor,
+            sink,
+            RESOURCE_CLASSES,
+            on_artifact=lambda *item: kept.append(item),
+        )
+    assert kept == [("a", "out.txt", b"fst")]
+    assert [e.text for e in sink.events if isinstance(e, events.LogEvent)] == ["False"]
+
+
 def test_endless_follow_ups_are_an_error() -> None:
     results, _ = run({"a": {"type": "loop"}, "b": {"type": "script"}}, ["a", "b"])
     assert statuses(results) == [("a", "error"), ("b", "skipped")]

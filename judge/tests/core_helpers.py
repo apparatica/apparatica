@@ -118,11 +118,27 @@ class MissingProgramStage(ScriptStage):
         )
 
 
+class ArtifactStage(ScriptStage):
+    """Keeps out.txt for the user instead of passing it on, like the FST trace of `sim`."""
+
+    stage_type: ClassVar[str] = "artifact"
+
+    def interpret(self, ctx: StageContext, runs: Sequence[ExecResult]) -> StageOutcome | StagePlan:
+        return StageOutcome(status="passed", artifacts=dict(runs[-1].files))
+
+
 FAKE = LanguageModule(
     name="systemverilog",
     stages={
         s.stage_type: s
-        for s in (ScriptStage, RetryStage, LoopStage, CrashStage, MissingProgramStage)
+        for s in (
+            ScriptStage,
+            RetryStage,
+            LoopStage,
+            CrashStage,
+            MissingProgramStage,
+            ArtifactStage,
+        )
     },
 )
 

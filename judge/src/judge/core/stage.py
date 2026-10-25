@@ -76,7 +76,8 @@ class StageSummary(_Model):
 
 
 class StageOutcome(_Model):
-    """What `Stage.interpret` decides. `outputs` are files handed to the following stages."""
+    """What `Stage.interpret` decides. `outputs` are files handed to the following stages;
+    `artifacts` are files to keep for the user (FST trace, reports), not passed on."""
 
     status: Literal["passed", "warning", "failed", "error"]
     failure_kind: FailureKind | None = None
@@ -85,6 +86,7 @@ class StageOutcome(_Model):
     metrics: dict[str, Any] = {}
     summary: StageSummary = StageSummary()
     outputs: dict[str, bytes] = {}
+    artifacts: dict[str, bytes] = {}
 
     @model_validator(mode="after")
     def _consistent(self) -> Self:

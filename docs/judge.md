@@ -14,7 +14,7 @@
 | `judge.core.verdict` | `aggregate`: итоговый статус отправки по результатам этапов (specs/04 §3.3) |
 | `judge.core.registry` | языковые модули по ключу `language` через entry points |
 
-Ядро не импортирует `judge.languages` (контракт import-linter): языковой модуль регистрируется в `pyproject.toml` судьи в группе entry points `apparatica.judge.languages` и отдаёт `LanguageModule` — имя и плагины этапов по типу. Модуль `systemverilog` зарегистрирован, в нём этапы `precheck` и `lint` (ниже); `sim` появится в T0.9.
+Ядро не импортирует `judge.languages` (контракт import-linter): языковой модуль регистрируется в `pyproject.toml` судьи в группе entry points `apparatica.judge.languages` и отдаёт `LanguageModule` — имя и плагины этапов по типу. Модуль `systemverilog` зарегистрирован, в нём этапы `precheck`, `lint` и `sim` (ниже).
 
 ## Этап
 
@@ -36,6 +36,7 @@
 - После `failed` или `error` следующие этапы получают `skipped` с `skip_reason = previous_failed`. Отмена (`cancel`) прерывает текущую команду: этап получает `cancelled`, остальные — `skipped` с `skip_reason = cancelled`.
 - Сбой исполнителя (`ExecutorError`: нет Docker, контейнер пропал) — этап `error` с кодом `EXECUTOR_FAILED`; исключение в плагине — `error` с кодом `STAGE_CRASHED`; бесконечные повторные прогоны — `STAGE_RUNS_EXCEEDED`. Текст ошибки идёт в лог этапа (канал `sys`).
 - Превышение лимита вывода дополнительно даёт событие `truncated`.
+- `StageOutcome.outputs` передаются следующим этапам, `StageOutcome.artifacts` — файлы для пользователя (FST, отчёты): их получает колбэк `on_artifact(stage_key, name, data)` — CLI сохраняет их на диск, воркер загрузит в хранилище.
 
 Вердикт пайплайн не считает: это делает тот, кто владеет итоговым статусом, — CLI или ингестор — функцией `judge.core.verdict.aggregate`. Порядок: отмена, сбой платформы, первый `failed` по порядку этапов (`failure_kind` → статус), предупреждения, `accepted`. В `detail` — первый упавший этап и тест с тактом, вид лимита, этапы с предупреждениями, коды сбоев.
 
@@ -66,6 +67,15 @@
 
 Этап `lint` (`judge/languages/systemverilog/stages/lint.py`, specs/07 §2.2) берёт канонический `solution.sv` из `outputs` предыдущего этапа (`stages/common.py`: без `precheck` перед ним этап не запускается) и выполняет `verilator --lint-only` с SARIF-выводом в файл. `LintConfig.flags` — только опции предупреждений `-W…` (по умолчанию `-Wall -Wno-UNUSEDPARAM`), `-Wno-DECLFILENAME` и `-Wno-fatal` этап добавляет сам. Консольный вывод Verilator идёт в лог этапа как есть, а решение принимается по SARIF: ошибки → `failed`/`compile`, предупреждения → `warning` (или `failed` при `warnings_fail`), иначе `passed`. В `summary.diagnostics` — до 200 диагностик (первая строка сообщения, правило, позиция в `solution.sv`), метрики `lint/v1` считают все. Verilator 5.052 пишет невалидный SARIF при пустом списке правил; `parse_sarif` вставляет пропущенную запятую ровно в этом месте и разбирает снова (фикстуры `judge/tests/data/lint/` — настоящий вывод Verilator из образа).
 
+## SystemVerilog: `sim`
+
+Этап `sim` (`judge/languages/systemverilog/stages/sim.py`, specs/07 §2.3) собирает и запускает тестбенч задачи. `SimConfig`: `testbench` (id из `testbenches`), `groups`, `max_cycles`, `design` (`<stage>.<output>` — симулировать выход другого этапа, например нетлист, вместо решения), `trace` и окно `trace_before`/`trace_after` (по умолчанию 64/16 тактов), `build_jobs` (по умолчанию 1).
+
+1. План: исходники тестбенча из пакета (`pkg/…`, только внутри каталога пакета), канонический `solution.sv` (или `design.v`), две команды — `apx-verilate` с `apx_tb_pkg` первым и запуск `obj_dir/V<tb.top>` с сидом отправки, группами, новым nonce, лимитом тактов и случайной инициализацией.
+2. Фильтр строк: строки прогресса `@@apx` с nonce этого прогона становятся событиями `test`; скрытые тесты в них анонимны (`hidden-N`); служебная строка `$finish` из `apx_tb_pkg` скрыта.
+3. Итог по файлу результатов (`tbproto.parse_result`): упавший тест → `wrong`; `suite_abort` по `max_cycles` → `limit`/`cycles`; ошибка тестбенча → `error`/`TB_ERROR`; нет итога (симуляция упала) → `wrong`; нарушение протокола → `error`/`OUTPUT_INVALID`; сборка не прошла → `compile`; таймаут, вывод, память (код 137) → `limit`. `summary.tests` — открытые тесты с расхождениями и подсказками, `summary.hidden_tests` — счётчики скрытых, метрики `sim/v1`.
+4. Если упал открытый тест, `interpret` возвращает второй план: тот же бинарник, тот же сид, `+apx_trace_from/to` вокруг первого расхождения, в том же каталоге этапа. Совпало первое расхождение — FST уходит в `artifacts` (`trace.fst`, не больше `fst_mb`), иначе `metrics.trace = nondeterministic` и окно не показывается.
+
 ## События
 
 События — те же, что в стриме отправки воркера (specs/07 §4.1), без поля `attempt`: `stage_start`, `log` (`ch`: `out`, `err`, `sys`), `test`, `truncated`, `stage_end`, `done`. `ConsoleSink` печатает их для человека, `JsonlSink` пишет по событию в строке (`events.jsonl`), `FanoutSink` раздаёт нескольким приёмникам. Приёмник Valkey Stream — в воркере (Ф1).
@@ -80,4 +90,5 @@
 - `judge/tests/test_precheck_runner.py` — раннер в процессе (pyslang — dev-зависимость судьи той же версии, что в образе): корпус легальных решений и более 60 запрещённых и вредоносных случаев из S7, сообщения, позиции, интерфейс, лимиты. `judge/tests/test_precheck_stage.py` — план и разбор результата, включая недоверенный вывод.
 - `toolchain/tests/test_precheck.py` — этап в образе через `LocalDockerExecutor`; канонический текст собирается Verilator.
 - `judge/tests/test_lint_stage.py` — план и разбор SARIF lint; `toolchain/tests/test_lint.py` — пайплайн `precheck → lint` в образе через `run_pipeline`.
+- `judge/tests/test_sim_stage.py` — план, разбор результатов, окно трассы, анонимность скрытых тестов; `toolchain/tests/test_sim.py` — пайплайн `precheck → lint → sim` в образе на пакете-фикстуре `judge/tests/data/packages/counter` (принятое решение, падение открытого теста с FST, падение скрытого).
 - `toolchain/tests/test_executor.py` — `LocalDockerExecutor` против образа тулчейна: каналы, файлы, таймаут, лимит вывода, отмена, отсутствие выживших процессов. Запускается `just toolchain-test`.

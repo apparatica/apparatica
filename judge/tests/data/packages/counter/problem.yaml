@@ -1,0 +1,36 @@
+# Test fixture for the sim stage: a counter modulo 10 (not a catalogue problem).
+schema: 1
+id: counter
+number: 9001
+version: 1
+leaderboard_epoch: 1
+language: systemverilog
+kind: design
+title: Счётчик по модулю 10
+difficulty: easy
+tags: [counter]
+resource_class: light
+top: counter
+interface:
+  ports:
+    - {name: clk, dir: input, width: "1", role: clock}
+    - {name: rst, dir: input, width: "1", role: reset, reset: {active: high, sync: true}}
+    - {name: en, dir: input, width: "1"}
+    - {name: count, dir: output, width: "4"}
+files:
+  statement: statement.md
+  template: template.sv
+testbenches:
+  - id: main
+    top: tb_top
+    sources: [tb/tb_top.sv]
+    groups: {public: 2, hidden: 1}
+stages:
+  precheck: {type: precheck}
+  lint: {type: lint}
+  sim_run: {type: sim, testbench: main, groups: [public], max_cycles: 10000}
+  sim_full: {type: sim, testbench: main, groups: [public, hidden], max_cycles: 10000}
+pipelines:
+  practice:
+    run: [precheck, lint, sim_run]
+    submit: [precheck, lint, sim_full]

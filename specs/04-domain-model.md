@@ -159,7 +159,7 @@ PostgreSQL 17+. Первичные ключи — UUIDv7 (сортируемы �
 |---|---|
 | `precheck/v1` | `code_hash`, `module`, `ports_ok`, `state_bits`; с T0.7b — `ast_hash`, `normalization_version` |
 | `lint/v1` | `warnings`, `errors`, `rules: {CODE: count}` |
-| `sim/v1` | `tests_total`, `tests_passed`, `cycles`, `seed`, `first_failure: {test, cycle, signal}` |
+| `sim/v1` | `tests_total`, `tests_passed`, `cycles`, `seed`, `first_failure: {test, cycle, signal}` (скрытый тест — `hidden-N`), `trace` (`recorded`, `too_large`, `missing`, `nondeterministic`, `failed`), `trace_window: [from, to]` |
 | `synth/v1` | `critical_path_ns`, `fmax_mhz`, `area_um2`, `cells`, `flops`, `latches`, `logic_depth`, `liberty` |
 | `formal/v1` | `properties_total`, `proved`, `failed`, `unknown`, `depth` |
 

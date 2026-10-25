@@ -8,7 +8,7 @@ separately (`judge.core.verdict`) by whoever owns the final status.
 import threading
 import time
 import traceback
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -44,6 +44,9 @@ from judge.core.stage import (
 
 # Runs per stage: the first one plus follow-ups such as the trace window of `sim`.
 MAX_RUNS_PER_STAGE = 4
+
+# Receives the artifacts of a finished stage: (stage key, file name, content).
+ArtifactSink = Callable[[str, str, bytes], None]
 
 
 class PipelineConfigError(ValueError):
@@ -92,7 +95,9 @@ def run_pipeline(
     sink: EventSink,
     resource_classes: ResourceClasses,
     cancel: threading.Event | None = None,
+    on_artifact: ArtifactSink | None = None,
 ) -> list[StageResult]:
+    """Run the stages; `on_artifact` gets the files a stage keeps for the user (e.g. FST)."""
     cancel = cancel or threading.Event()
     planned = plan_stages(job.problem, job.kind, language)
     finished: dict[str, FinishedStage] = {}
@@ -124,7 +129,11 @@ def run_pipeline(
                 limits=stage_limits(job.problem, item.key, item.stage.stage_type, resource_classes),
                 previous=dict(finished),
             )
-            result, outputs = _run_stage(item.stage, ctx, executor, sink, cancel)
+            result, outcome = _run_stage(item.stage, ctx, executor, sink, cancel)
+            outputs = outcome.outputs if outcome else {}
+            if outcome is not None and on_artifact is not None:
+                for name, data in outcome.artifacts.items():
+                    on_artifact(item.key, name, data)
         finished[item.key] = FinishedStage(result, outputs)
         results.append(result)
         sink.emit(StageEndEvent(result=result))
@@ -143,7 +152,7 @@ def _run_stage(
     executor: Executor,
     sink: EventSink,
     cancel: threading.Event,
-) -> tuple[StageResult, Mapping[str, bytes]]:
+) -> tuple[StageResult, StageOutcome | None]:
     sink.emit(StageStartEvent(stage=ctx.key, stage_type=ctx.type, ordinal=ctx.ordinal))
     started_at, started = datetime.now(UTC), time.monotonic()
 
@@ -164,9 +173,9 @@ def _run_stage(
             summary=outcome.summary if outcome else StageSummary(),
         )
 
-    def error(code: str, message: str) -> tuple[StageResult, Mapping[str, bytes]]:
+    def error(code: str, message: str) -> tuple[StageResult, StageOutcome | None]:
         sink.emit(LogEvent(stage=ctx.key, ch="sys", text=message))
-        return finish(StageOutcome(status="error", error_code=code)), {}
+        return finish(StageOutcome(status="error", error_code=code)), None
 
     runs: list[ExecResult] = []
     try:
@@ -180,7 +189,7 @@ def _run_stage(
             runs.append(run)
             if run.cancelled:
                 sink.emit(LogEvent(stage=ctx.key, ch="sys", text="cancelled"))
-                return finish(None), {}
+                return finish(None), None
             if run.output_limited:
                 sink.emit(TruncatedEvent(stage=ctx.key, limit_kb=step.output_limit // 1024))
             step = stage.interpret(ctx, runs)
@@ -188,7 +197,7 @@ def _run_stage(
         return error("EXECUTOR_FAILED", str(exc))
     except Exception:  # a broken plugin must not take the pipeline down
         return error("STAGE_CRASHED", traceback.format_exc(limit=5))
-    return finish(step), step.outputs
+    return finish(step), step
 
 
 def _line_handler(stage_key: str, plan: StagePlan, sink: EventSink) -> OnLine:

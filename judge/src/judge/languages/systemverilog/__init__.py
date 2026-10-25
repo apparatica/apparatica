@@ -3,9 +3,9 @@
 from judge.core.registry import LanguageModule
 from judge.languages.systemverilog.stages.lint import LintStage
 from judge.languages.systemverilog.stages.precheck import PrecheckStage
+from judge.languages.systemverilog.stages.sim import SimStage
 
-# sim arrives with T0.9.
 LANGUAGE = LanguageModule(
     name="systemverilog",
-    stages={stage.stage_type: stage for stage in (PrecheckStage, LintStage)},
+    stages={stage.stage_type: stage for stage in (PrecheckStage, LintStage, SimStage)},
 )
