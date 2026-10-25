@@ -1,5 +1,5 @@
 """Feature flags (specs/03 §7): the known flags and their defaults are code; deployments override
-them, from T0.15 in the `feature_flags` table edited in SQLAdmin. Values are cached in process for
+them in the `feature_flags` table (edited in SQLAdmin from Ф5). Values are cached in process for
 `feature_flags_ttl_s` seconds; the frontend gets them from `GET /api/v1/config`.
 """
 
@@ -8,6 +8,10 @@ from collections.abc import Awaitable, Callable, Mapping
 from dataclasses import dataclass
 
 import structlog
+from sqlalchemy import select
+
+from apparatica.core.db import Database
+from apparatica.core.models import FeatureFlag
 
 log = structlog.get_logger(__name__)
 
@@ -35,6 +39,17 @@ Overrides = Callable[[], Awaitable[Mapping[str, bool]]]
 
 async def no_overrides() -> Mapping[str, bool]:
     return {}
+
+
+def database_overrides(database: Database) -> Overrides:
+    """Overrides from the `feature_flags` table; `rules` are not evaluated until there are users."""
+
+    async def load() -> Mapping[str, bool]:
+        async with database.sessions() as session:
+            rows = await session.execute(select(FeatureFlag.key, FeatureFlag.enabled))
+            return {key: enabled for key, enabled in rows}
+
+    return load
 
 
 class FeatureFlags:

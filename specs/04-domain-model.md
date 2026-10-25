@@ -83,6 +83,7 @@ PostgreSQL 17+. Первичные ключи — UUIDv7 (сортируемы �
 
 **`problems`**
 `id uuid pk`, `slug text unique`, `number int unique` (номер в каталоге), `current_version_id uuid null fk`, `is_published bool`, `created_at`.
+`current_version_id` может указывать только на версию этой же задачи. Это проверяет составной внешний ключ: пара `(id, current_version_id)` строки `problems` должна совпадать с парой `(problem_id, id)` какой-то строки `problem_versions`.
 
 **`problem_versions`**
 `id uuid pk`, `problem_id fk`, `version int`, `content_hash text` (sha256 пакета), `language text` (`systemverilog`), `kind text` (`design`), `title text`, `difficulty text` (ключ из конфига уровней), `tags text[]`, `statement_md text`, `template text`, `changelog text null`, `interface jsonb`, `manifest jsonb` (весь `problem.yaml`), `package_uri text` (ключ в S3), `resource_class text`, `leaderboard_epoch int`, `published_at`.
@@ -92,7 +93,8 @@ PostgreSQL 17+. Первичные ключи — UUIDv7 (сортируемы �
 `id uuid pk`, `problem_version_id fk`, `title text`, `code text`, `explanation_md text`, `metrics jsonb null` (заполняется после прогона эталона на профиле).
 
 **`toolchain_profiles`**
-`id text pk` (например `sv-2026.10`), `image text`, `image_digest text`, `tools jsonb` (версии), `liberty text`, `normalization_version int`, `is_default bool`, `created_at`.
+`id text pk` (например `sv-2026.10`), `language text` (инвариант 4), `image text`, `image_digest text`, `tools jsonb` (версии), `liberty text null` (с Ф3), `normalization_version int`, `is_default bool`, `created_at`.
+Профиль по умолчанию — не больше одного на язык (частичный уникальный индекс по `language` при `is_default`).
 
 **`submissions`**
 `id uuid pk`, `problem_version_id fk`, `guest_id uuid null`, `kind text` (`run`/`submit`), `code text` (как прислал пользователь), `code_hash text null` (sha256 канонического текста, ключ кэшей), `ast_hash text null`, `seed bigint`, `toolchain_profile_id fk`, `status submission_status`, `verdict_detail jsonb` (например `{limit: "output", first_failure: {stage, test, cycle}}`), `queue_class text`, `attempt int`, `created_at`, `started_at`, `finished_at`, `client_ip_hash text`.
@@ -100,7 +102,7 @@ PostgreSQL 17+. Первичные ключи — UUIDv7 (сортируемы �
 
 **`stage_results`**
 `id uuid pk`, `submission_id fk`, `stage_key text` (уникален в пайплайне: `lint`, `sim`, `synth`…), `stage_type text`, `ordinal int`, `status stage_status`, `failure_kind text null`, `started_at`, `finished_at`, `duration_ms int`, `metrics jsonb`, `metrics_schema text` (например `synth/v1`), `summary jsonb` (тесты, свойства, диагностики, причина пропуска), `error_code text null`.
-Уникальность `(submission_id, stage_key)` — ингестор делает upsert, повторная доставка идемпотентна.
+Уникальность `(submission_id, stage_key)` — ингестор делает upsert, повторная доставка идемпотентна. `failure_kind` задан тогда и только тогда, когда `status = failed` (§3.3). Результаты этапов и артефакты удаляются вместе с отправкой.
 
 **`artifacts`**
 `id uuid pk`, `submission_id fk`, `stage_key text null`, `kind text` (`log`, `events`, `fst`, `netlist_json`, `netlist_v`, `tb_result`, `synth_report`, `formal_trace`), `storage_key text`, `size_bytes bigint`, `sha256 text`, `expires_at timestamptz null`, `created_at`.

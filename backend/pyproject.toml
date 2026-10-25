@@ -19,6 +19,7 @@ dev = [
     "types-pyyaml (>=6.0)",
     "aiosqlite (>=0.21)",
     "httpx2 (>=2.16.0,<3.0.0)",
+    "testcontainers[postgres] (>=4.13,<5.0)",
 ]
 
 [tool.poetry]
@@ -53,3 +54,8 @@ name = "Backend core depends on no other backend module (specs/03 §3)"
 type = "forbidden"
 source_modules = ["apparatica.core"]
 forbidden_modules = ["apparatica.main", "apparatica.cli"]
+
+[[tool.importlinter.contracts]]
+name = "Backend modules depend on each other in one direction (specs/03 §3)"
+type = "layers"
+layers = ["apparatica.submissions", "apparatica.problems", "apparatica.core"]

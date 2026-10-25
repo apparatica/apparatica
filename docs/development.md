@@ -116,16 +116,49 @@ brief/      исходные материалы заказчика (не ред�
 
 ## Бэкенд: `apparatica`
 
-FastAPI-приложение (`backend/src/apparatica`, модульный монолит по specs/03 §3). Сейчас в нём только модуль `core`: настройки, БД (SQLAlchemy async), ошибки `problem+json`, request id, логи, feature flags и эндпоинты `GET /api/v1/health` и `GET /api/v1/config`. Остальные модули появляются вместе со своими задачами плана.
+FastAPI-приложение (`backend/src/apparatica`, модульный монолит по specs/03 §3). Модули появляются вместе со своими задачами плана:
+
+- `core` — настройки, БД (SQLAlchemy async), ошибки `problem+json`, request id, логи, feature flags (таблица `feature_flags`) и эндпоинты `GET /api/v1/health` и `GET /api/v1/config`;
+- `problems` — таблицы `tags`, `problems`, `problem_versions`, `reference_solutions`;
+- `submissions` — таблицы `toolchain_profiles`, `submissions`, `stage_results`, `artifacts`.
+
+Модули зависят друг от друга в одну сторону: `submissions → problems → core`. Это контракт import-linter (`[tool.importlinter]` в `backend/pyproject.toml`).
 
 ```sh
 poetry -C backend run apparatica serve --reload   # http://127.0.0.1:8000/api/v1/docs
 poetry -C backend run apparatica migrate          # alembic upgrade head
 ```
 
-Нужен Postgres по `APX_DATABASE_URL` (стенд docker compose — T0.19); без него API стартует, но `GET /health` отвечает 503. Настройки и файлы `config/` — [configuration.md](configuration.md). Миграции лежат в пакете (`apparatica/migrations`); новая ревизия — `poetry -C backend run alembic revision --autogenerate -m "..."` из каталога `backend` (там `alembic.ini`).
+Нужен Postgres 17+ по `APX_DATABASE_URL` (стенд docker compose — T0.19); без него API стартует, но `GET /health` отвечает 503. Настройки и файлы `config/` — [configuration.md](configuration.md).
 
-Тесты бэкенда (`backend/tests`) поднимают приложение через `TestClient`; где нужна только связь с БД, вместо Postgres — SQLite в памяти (`aiosqlite`). Интеграционные тесты с Postgres появятся с миграциями (T0.15).
+### База данных и миграции
+
+Схема — модели SQLAlchemy в `models.py` модулей. `apparatica.models` импортирует их все, и по нему Alembic видит полную схему. Схема соответствует specs/04 §4. Таблицы следующих фаз создаются их миграциями, заранее их не заводят.
+
+- **Ключи.** Первичные ключи — UUIDv7. Их выдаёт приложение (`default` модели) при flush; если id нужен раньше, задайте его явно (`id=uuid7()`).
+- **Имена ограничений.** Задаются соглашением в `apparatica.core.db` (`pk_`, `fk_`, `uq_`, `ix_`, `ck_`).
+- **Статусы.** Типы `submission_status` и `stage_status` — перечисления Postgres. Их значения берутся из ядра судьи (`judge.core.verdict`, `judge.core.stage`). Новый статус в судье требует миграции (`ALTER TYPE … ADD VALUE`); тест сверяет значения в БД с кодом.
+
+Миграции лежат в пакете (`apparatica/migrations/versions`). Новая ревизия создаётся из каталога `backend` (там `alembic.ini`):
+
+```sh
+APX_DATABASE_URL=… poetry run alembic revision --autogenerate --rev-id 0002 -m "..."
+```
+
+Autogenerate нужна база на текущей ревизии. Результат проверяется вручную, потому что Alembic сам не:
+- выносит в отдельный `create_foreign_key` взаимные ссылки таблиц (`problems.current_version_id`);
+- удаляет перечисления в `downgrade`.
+
+`poetry run alembic check` показывает, совпадает ли схема базы с моделями.
+
+### Тесты
+
+Тесты бэкенда (`backend/tests`) поднимают приложение через `TestClient`. Где нужна только связь с БД, вместо Postgres используется SQLite в памяти (`aiosqlite`).
+
+Тесты схемы и миграций (`test_db.py`, `test_cli.py`) работают с настоящим Postgres:
+- **Сервер.** Fixture `postgres` поднимает его через testcontainers один раз на сессию. Нужен Docker. Без Docker тесты пропускаются, а в CI (переменная `CI`) падают.
+- **Изоляция.** Миграции применяются один раз к базе-шаблону. Каждый тест получает свою копию (`CREATE DATABASE … TEMPLATE`).
+- **Образ.** По умолчанию `postgres:17-alpine`. Если Docker Hub недоступен, образ задаётся через `APX_TEST_POSTGRES_IMAGE`, например `mirror.gcr.io/library/postgres:17-alpine`.
 
 ## Судья: CLI `judge`
 

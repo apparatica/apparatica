@@ -11,11 +11,11 @@ from alembic.config import Config
 from apparatica.core.settings import get_settings
 
 
-def alembic_config() -> Config:
+def alembic_config(database_url: str | None = None) -> Config:
     """Migrations live in the package (`apparatica.migrations`): no alembic.ini is needed."""
     config = Config()
     config.set_main_option("script_location", "apparatica:migrations")
-    config.set_main_option("sqlalchemy.url", get_settings().database_url)
+    config.set_main_option("sqlalchemy.url", database_url or get_settings().database_url)
     return config
 
 
