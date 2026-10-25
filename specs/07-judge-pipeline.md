@@ -74,8 +74,8 @@ class Stage(Protocol):
 
 ### 2.2 `lint` — Verilator `--lint-only`
 
-- Флаги из конфига (по умолчанию `-Wall -Wno-DECLFILENAME -Wno-UNUSEDPARAM`), только канонический `solution.sv`.
-- Диагностики — через `--diagnostics-sarif` (структурированный вывод), а не разбор текста. Ошибки → `failed`, `failure_kind=compile`. Предупреждения → `warning` (решение не валится, если `warnings_fail: false`).
+- Только канонический `solution.sv` из `precheck`. Команда: `verilator --lint-only -Wno-fatal <flags> -Wno-DECLFILENAME --top-module <top> --diagnostics-sarif --diagnostics-sarif-output lint.sarif solution.sv`. `flags` — из конфига этапа, только опции предупреждений `-W…` (по умолчанию `-Wall -Wno-UNUSEDPARAM`); `-Wno-DECLFILENAME` добавляется всегда (файл всегда `solution.sv`), `-Wno-fatal` — чтобы предупреждения не меняли код выхода.
+- Диагностики — через `--diagnostics-sarif` (структурированный вывод), а не разбор текста. Ошибки → `failed`, `failure_kind=compile`. Предупреждения → `warning` (решение не валится, если `warnings_fail: false`). Метрики `lint/v1`: `warnings`, `errors`, `rules`. SARIF — недоверенный файл: лимит размера (превышение — `limit`/`output`), строгая схема нужных полей. Verilator 5.052 пишет SARIF без запятой после пустого списка `rules` (чистый прогон или только ошибки) — этап исправляет ровно это место перед разбором.
 - Диагностики → `summary.diagnostics[] = {severity, code, file, line, col, message}` → маркеры Monaco и ссылки в консоли.
 - Verible lint — опционально (`verible: true`), обязателен в индустриальном режиме.
 

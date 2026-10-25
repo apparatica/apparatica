@@ -1,0 +1,89 @@
+{
+    "$schema": "https://json.schemastore.org/sarif-2.1.0-rtm.5.json",
+    "version": "2.1.0",
+    "runs": [
+        {
+            "tool": {
+                "driver": {
+                    "name": "Verilator",
+                    "version": "5.052 2026-09-05 rev vUNKNOWN-built20261025",
+                    "informationUri": "https://verilator.org",
+                    "rules": [
+                        {
+                            "id": "UNUSEDSIGNAL",
+                            "helpUri": "https://verilator.org/warn/UNUSEDSIGNAL?v=5.052"
+                        },
+                        {
+                            "id": "WIDTHTRUNC",
+                            "helpUri": "https://verilator.org/warn/WIDTHTRUNC?v=5.052"
+                        }
+                    ]
+                }
+            },
+            "invocations": [
+                {
+                    "commandLine": "--lint-only -Wno-fatal -Wall -Wno-UNUSEDPARAM -Wno-DECLFILENAME --top-module top --diagnostics-sarif --diagnostics-sarif-output lint.sarif solution.sv",
+                    "executionSuccessful": true
+                }
+            ],
+            "results": [
+                {
+                    "level": "warning",
+                    "message": {
+                        "text": "Operator ASSIGNDLY expects 4 bits on the Assign RHS, but Assign RHS's VARREF 'a' generates 8 bits.\n... note: In instance 'top'\n... For warning description see https://verilator.org/warn/WIDTHTRUNC?v=5.052\n... Use \"/* verilator lint_off WIDTHTRUNC */\" and lint_on around source to disable this message.",
+                        "markdown": "```\n%Warning-WIDTHTRUNC: solution.sv:2:30: Operator ASSIGNDLY expects 4 bits on the Assign RHS, but Assign RHS's VARREF 'a' generates 8 bits.\n                                     : ... note: In instance 'top'\n    2 |   always_ff @(posedge clk) y <= a;\n      |                              ^~\n                     ... For warning description see https://verilator.org/warn/WIDTHTRUNC?v=5.052\n                     ... Use \"/* verilator lint_off WIDTHTRUNC */\" and lint_on around source to disable this message.\n\n```\n"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "file:///work/lint/warnings/solution.sv"
+                                },
+                                "region": {
+                                    "sourceLanguage": "systemverilog",
+                                    "startLine": 2,
+                                    "startColumn": 30,
+                                    "endColumn": 32,
+                                    "snippit": {
+                                        "text": "  always_ff @(posedge clk) y <= a;",
+                                        "markdown": "```\n    2 |   always_ff @(posedge clk) y <= a;\n      |                              ^~\n\n```\n"
+                                    }
+                                }
+                            }
+                        }
+                    ],
+                    "ruleId": "WIDTHTRUNC",
+                    "ruleIndex": 1
+                },
+                {
+                    "level": "warning",
+                    "message": {
+                        "text": "Bits of signal are not used: 'a'[7:4]\n... note: In instance 'top'\n... For warning description see https://verilator.org/warn/UNUSEDSIGNAL?v=5.052\n... Use \"/* verilator lint_off UNUSEDSIGNAL */\" and lint_on around source to disable this message.",
+                        "markdown": "```\n%Warning-UNUSEDSIGNAL: solution.sv:1:73: Bits of signal are not used: 'a'[7:4]\n                                       : ... note: In instance 'top'\n    1 | module top #(parameter int W = 8) (input logic clk, input logic [W-1:0] a, output logic [3:0] y);\n      |                                                                         ^\n                       ... For warning description see https://verilator.org/warn/UNUSEDSIGNAL?v=5.052\n                       ... Use \"/* verilator lint_off UNUSEDSIGNAL */\" and lint_on around source to disable this message.\n\n```\n"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "file:///work/lint/warnings/solution.sv"
+                                },
+                                "region": {
+                                    "sourceLanguage": "systemverilog",
+                                    "startLine": 1,
+                                    "startColumn": 73,
+                                    "endColumn": 74,
+                                    "snippit": {
+                                        "text": "module top #(parameter int W = 8) (input logic clk, input logic [W-1:0] a, output logic [3:0] y);",
+                                        "markdown": "```\n    1 | module top #(parameter int W = 8) (input logic clk, input logic [W-1:0] a, output logic [3:0] y);\n      |                                                                         ^\n\n```\n"
+                                    }
+                                }
+                            }
+                        }
+                    ],
+                    "ruleId": "UNUSEDSIGNAL",
+                    "ruleIndex": 0
+                }
+            ]
+        }
+    ]
+}

@@ -25,9 +25,9 @@ from judge.core.stage import (
     StagePlan,
     StageSummary,
 )
+from judge.languages.systemverilog.stages.common import SOLUTION
 
 RUNNER = "precheck_runner.py"
-SOLUTION = "solution.sv"
 CANONICAL = "canonical.sv"
 RESULT = "result.json"
 RESULT_LIMIT = 1 << 20

@@ -1,0 +1,26 @@
+{
+    "$schema": "https://json.schemastore.org/sarif-2.1.0-rtm.5.json",
+    "version": "2.1.0",
+    "runs": [
+        {
+            "tool": {
+                "driver": {
+                    "name": "Verilator",
+                    "version": "5.052 2026-09-05 rev vUNKNOWN-built20261025",
+                    "informationUri": "https://verilator.org",
+                    "rules": [
+
+                    ]
+                }
+            }            "invocations": [
+                {
+                    "commandLine": "--lint-only -Wno-fatal -Wall -Wno-UNUSEDPARAM -Wno-DECLFILENAME --top-module top --diagnostics-sarif --diagnostics-sarif-output lint.sarif solution.sv",
+                    "executionSuccessful": true
+                }
+            ],
+            "results": [
+
+            ]
+        }
+    ]
+}

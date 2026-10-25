@@ -14,7 +14,7 @@
 | `judge.core.verdict` | `aggregate`: итоговый статус отправки по результатам этапов (specs/04 §3.3) |
 | `judge.core.registry` | языковые модули по ключу `language` через entry points |
 
-Ядро не импортирует `judge.languages` (контракт import-linter): языковой модуль регистрируется в `pyproject.toml` судьи в группе entry points `apparatica.judge.languages` и отдаёт `LanguageModule` — имя и плагины этапов по типу. Модуль `systemverilog` зарегистрирован, в нём этап `precheck` (ниже); `lint` и `sim` появятся в T0.8 и T0.9.
+Ядро не импортирует `judge.languages` (контракт import-linter): языковой модуль регистрируется в `pyproject.toml` судьи в группе entry points `apparatica.judge.languages` и отдаёт `LanguageModule` — имя и плагины этапов по типу. Модуль `systemverilog` зарегистрирован, в нём этапы `precheck` и `lint` (ниже); `sim` появится в T0.9.
 
 ## Этап
 
@@ -62,6 +62,10 @@
 
 Белый список видов узлов и таблица пояснений для частых запрещённых конструкций — в раннере; имена видов проверяются при загрузке модуля (`SyntaxKind.__members__[name]`), поэтому опечатка или вид, исчезнувший в новой версии slang, — ошибка импорта, а не пропущенное правило. Лимиты — поля `PrecheckConfig` (`stages.<key>` в `problem.yaml`), по умолчанию из NFR-LIM-01.
 
+## SystemVerilog: `lint`
+
+Этап `lint` (`judge/languages/systemverilog/stages/lint.py`, specs/07 §2.2) берёт канонический `solution.sv` из `outputs` предыдущего этапа (`stages/common.py`: без `precheck` перед ним этап не запускается) и выполняет `verilator --lint-only` с SARIF-выводом в файл. `LintConfig.flags` — только опции предупреждений `-W…` (по умолчанию `-Wall -Wno-UNUSEDPARAM`), `-Wno-DECLFILENAME` и `-Wno-fatal` этап добавляет сам. Консольный вывод Verilator идёт в лог этапа как есть, а решение принимается по SARIF: ошибки → `failed`/`compile`, предупреждения → `warning` (или `failed` при `warnings_fail`), иначе `passed`. В `summary.diagnostics` — до 200 диагностик (первая строка сообщения, правило, позиция в `solution.sv`), метрики `lint/v1` считают все. Verilator 5.052 пишет невалидный SARIF при пустом списке правил; `parse_sarif` вставляет пропущенную запятую ровно в этом месте и разбирает снова (фикстуры `judge/tests/data/lint/` — настоящий вывод Verilator из образа).
+
 ## События
 
 События — те же, что в стриме отправки воркера (specs/07 §4.1), без поля `attempt`: `stage_start`, `log` (`ch`: `out`, `err`, `sys`), `test`, `truncated`, `stage_end`, `done`. `ConsoleSink` печатает их для человека, `JsonlSink` пишет по событию в строке (`events.jsonl`), `FanoutSink` раздаёт нескольким приёмникам. Приёмник Valkey Stream — в воркере (Ф1).
@@ -75,4 +79,5 @@
 - `judge/tests/test_core_*.py` — пайплайн с фейковыми этапами (команды — однострочники Python через `HostExecutor`), исполнитель на хосте, вердикт, лимиты, реестр, события. Фейковые этапы — `judge/tests/core_helpers.py`.
 - `judge/tests/test_precheck_runner.py` — раннер в процессе (pyslang — dev-зависимость судьи той же версии, что в образе): корпус легальных решений и более 60 запрещённых и вредоносных случаев из S7, сообщения, позиции, интерфейс, лимиты. `judge/tests/test_precheck_stage.py` — план и разбор результата, включая недоверенный вывод.
 - `toolchain/tests/test_precheck.py` — этап в образе через `LocalDockerExecutor`; канонический текст собирается Verilator.
+- `judge/tests/test_lint_stage.py` — план и разбор SARIF lint; `toolchain/tests/test_lint.py` — пайплайн `precheck → lint` в образе через `run_pipeline`.
 - `toolchain/tests/test_executor.py` — `LocalDockerExecutor` против образа тулчейна: каналы, файлы, таймаут, лимит вывода, отмена, отсутствие выживших процессов. Запускается `just toolchain-test`.

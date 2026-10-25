@@ -1,0 +1,58 @@
+{
+    "$schema": "https://json.schemastore.org/sarif-2.1.0-rtm.5.json",
+    "version": "2.1.0",
+    "runs": [
+        {
+            "tool": {
+                "driver": {
+                    "name": "Verilator",
+                    "version": "5.052 2026-09-05 rev vUNKNOWN-built20261025",
+                    "informationUri": "https://verilator.org",
+                    "rules": [
+
+                    ]
+                }
+            }            "invocations": [
+                {
+                    "commandLine": "--lint-only -Wno-fatal -Wall -Wno-UNUSEDPARAM -Wno-DECLFILENAME --top-module top --diagnostics-sarif --diagnostics-sarif-output lint.sarif solution.sv",
+                    "executionSuccessful": false
+                }
+            ],
+            "results": [
+                {
+                    "level": "error",
+                    "message": {
+                        "text": "Can't find definition of variable: 'undefined_thing'\n... See the manual at https://verilator.org/verilator_doc.html?v=5.052 for more assistance.",
+                        "markdown": "```\n%Error: solution.sv:2:18: Can't find definition of variable: 'undefined_thing'\n    2 |   assign y = a & undefined_thing;\n      |                  ^~~~~~~~~~~~~~~\n        ... See the manual at https://verilator.org/verilator_doc.html?v=5.052 for more assistance.\n\n```\n"
+                    },
+                    "locations": [
+                        {
+                            "physicalLocation": {
+                                "artifactLocation": {
+                                    "uri": "file:///work/lint/error/solution.sv"
+                                },
+                                "region": {
+                                    "sourceLanguage": "systemverilog",
+                                    "startLine": 2,
+                                    "startColumn": 18,
+                                    "endColumn": 33,
+                                    "snippit": {
+                                        "text": "  assign y = a & undefined_thing;",
+                                        "markdown": "```\n    2 |   assign y = a & undefined_thing;\n      |                  ^~~~~~~~~~~~~~~\n\n```\n"
+                                    }
+                                }
+                            }
+                        }
+                    ]
+                },
+                {
+                    "level": "error",
+                    "message": {
+                        "text": "Exiting due to 1 error(s)",
+                        "markdown": "```\n%Error: Exiting due to 1 error(s)\n\n```\n"
+                    }
+                }
+            ]
+        }
+    ]
+}
