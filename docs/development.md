@@ -36,7 +36,8 @@ Poetry создаёт виртуальное окружение внутри к�
 | `just lint` | `lint-py` (ruff: линт и проверка форматирования), `lint-imports` (архитектурные контракты), `lint-js` (eslint и prettier `--check` в `web/`) |
 | `just fmt` | применяет ruff format, безопасные исправления ruff и prettier в `web/` |
 | `just typecheck` | `typecheck-py` (mypy `--strict` в каждом Python-проекте, для `scripts/` и Python-кода `toolchain/` с `--platform linux`) и `typecheck-js` (`tsc` в `web/`) |
-| `just test` | `test-py`: pytest в каждом Python-проекте и тесты `scripts/` |
+| `just test` | `test-py` (pytest в каждом Python-проекте и тесты `scripts/`) и `test-js` (Vitest в `web/`) |
+| `just build-js` | production-сборка фронтенда (`next build`) |
 | `just check-locks` | `poetry check --lock` в каждом проекте и сверка версий общих зависимостей между тремя `poetry.lock` |
 | `just check-licenses` | лицензии зависимостей Python (`check-licenses-py`) и JS (`check-licenses-js`) по политике |
 | `just check` | `check-locks`, `check-licenses`, `check-api`, `lint`, `typecheck`, `test` |
@@ -56,7 +57,7 @@ GitHub Actions, `.github/workflows/ci.yml`, на GitHub-hosted раннерах 
 | Job | Шаги |
 |---|---|
 | Python | `install-py`, `check-locks`, `lint-py`, `lint-imports`, `typecheck-py`, `test-py`, `check-licenses-py` |
-| JS | `install-js`, `lint-js`, `typecheck-js`, `check-api`, `check-licenses-js` |
+| JS | `install-js`, `lint-js`, `typecheck-js`, `check-api`, `test-js`, `build-js`, `check-licenses-js` |
 
 Образ тулчейна собирает и публикует отдельный workflow `.github/workflows/toolchain.yml` — при изменениях в `toolchain/` и в коде судьи, чьи тесты против образа он прогоняет; публикует только при изменении входов образа (подробности — [toolchain/README.md](../toolchain/README.md)).
 
@@ -93,7 +94,7 @@ import-linter проверяет границу ядра и языковых м�
 judge/      пакет судьи и CLI (Poetry, пакет judge); judge/schemas/ — сгенерированные JSON Schema; ядро — docs/judge.md
 backend/    FastAPI-приложение и ингестор (Poetry, пакет apparatica)
 worker/     воркер и оркестратор песочницы (Poetry, пакет apparatica_worker)
-web/        фронтенд (пакет pnpm workspace; каркас Next.js — T0.20)
+web/        фронтенд: Next.js-приложение (frontend.md)
 .github/    CI (GitHub Actions)
 toolchain/  образ тулчейна песочницы: Dockerfile, versions.lock, apx-run, apx-verilate, apx_tb_pkg, тесты образа
 config/     конфигурация: классы ресурсов судьи (resource-classes.yaml)
@@ -241,7 +242,7 @@ poetry -C judge run judge schema tb-result                      # JSON Schema з
 
 Корень репозитория — pnpm workspace: в корне только `package.json` (версии pnpm и Node), `pnpm-workspace.yaml` и общий `pnpm-lock.yaml`. `pnpm install` в корне ставит зависимости всех пакетов. Зависимость добавляется в пакет: `pnpm -C web add <пакет>` (`-D` для инструментов).
 
-Инструменты и их настройки живут в пакете, который они проверяют. Для `web/`: eslint (`web/eslint.config.mjs`, typescript-eslint `strict`), prettier (`web/.prettierrc.json`) и строгий `web/tsconfig.json` (`pnpm -C web typecheck`). Типизированный клиент API — `web/src/lib/api/` ([api.md](api.md)); сгенерированный `schema.d.ts` исключён из eslint и prettier. TypeScript закреплён на 6.0: typescript-eslint пока не поддерживает 7.x.
+Фронтенд — Next.js-приложение в `web/`, его устройство описано в [frontend.md](frontend.md). Инструменты и их настройки живут в пакете, который они проверяют. Для `web/`: eslint (`web/eslint.config.mjs`: правила Next.js `core-web-vitals` и typescript-eslint `strict`), Vitest (`web/vitest.config.mts`), prettier (`web/.prettierrc.json`) и строгий `web/tsconfig.json` (`pnpm -C web typecheck`). Типизированный клиент API — `web/src/lib/api/` ([api.md](api.md)); сгенерированный `schema.d.ts` исключён из eslint и prettier. Скрипты сборки зависимостей pnpm 11 не запускает; пакеты, чьи скрипты сознательно пропущены, перечислены в `allowBuilds` файла `pnpm-workspace.yaml`. Новый пакет со скриптом остановит `pnpm install`, и решение о нём нужно записать туда же. TypeScript закреплён на 6.0: typescript-eslint пока не поддерживает 7.x.
 
 ## Git-хуки
 

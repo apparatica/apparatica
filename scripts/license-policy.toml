@@ -28,6 +28,8 @@ allowed = [
     "GPL-3.0-or-later",
     "AGPL-3.0-only",
     "AGPL-3.0-or-later",
+    # Fonts: may be bundled and served with any software, the font itself stays under its license
+    "OFL-1.1",
     # Data
     "CC0-1.0",
     "CC-BY-3.0",

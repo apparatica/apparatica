@@ -15,6 +15,7 @@ concurrency:
 
 env:
   POETRY_VERSION: "2.3.2"
+  NEXT_TELEMETRY_DISABLED: "1"
 
 jobs:
   python:
@@ -59,4 +60,6 @@ jobs:
       - run: just lint-js
       - run: just typecheck-js
       - run: just check-api
+      - run: just test-js
+      - run: just build-js
       - run: just check-licenses-js

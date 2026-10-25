@@ -1,0 +1,31 @@
+{
+  "meta": {
+    "title": "Apparatica",
+    "description": "Открытый тренажёр по RTL на SystemVerilog: задачи, проверка в браузере, рейтинги решений."
+  },
+  "shell": {
+    "brand": "Apparatica",
+    "breadcrumbs": "Путь",
+    "sections": "Разделы",
+    "nav": {
+      "problems": "Задачи"
+    },
+    "theme": {
+      "label": "Тема: {theme}",
+      "system": "системная",
+      "light": "светлая",
+      "dark": "тёмная"
+    }
+  },
+  "problems": {
+    "title": "Задачи",
+    "placeholder": "Каталог задач появится здесь в одной из следующих версий."
+  },
+  "errors": {
+    "notFound": {
+      "title": "Страница не найдена",
+      "description": "Такой страницы нет или она переехала.",
+      "toProblems": "К задачам"
+    }
+  }
+}

@@ -1,2 +1,9 @@
 packages:
   - web
+
+# Dependency build scripts stay off (pnpm 11 default). These ship prebuilt native binaries as
+# optional dependencies; their install scripts only verify them.
+allowBuilds:
+  "@parcel/watcher": false
+  "@swc/core": false
+  unrs-resolver: false

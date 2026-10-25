@@ -1,0 +1,109 @@
+/* Tailwind 4 with the theme of the design handoff (brief/apparatica-handoff/design/tailwind.theme.ts)
+   as @theme. Every colour is a token of tokens.css: the default palette is removed, so a colour
+   that is not a token does not exist as a utility. The dark theme is the same variables under
+   data-theme="dark" on <html>; `dark:` variants are not needed. */
+@import "tailwindcss";
+@import "../styles/tokens.css";
+
+@theme {
+  --color-*: initial;
+  --font-*: initial;
+  --text-*: initial;
+  --shadow-*: initial;
+  --radius-*: initial;
+
+  /* Colours: bg-sf text-mu border-bc | bg-ac text-acx | bg-oks text-ok | text-kw */
+  --color-bg: var(--bg);
+  --color-sf: var(--sf);
+  --color-sf2: var(--sf2);
+  --color-ed: var(--ed);
+  --color-bd: var(--bd);
+  --color-bc: var(--bc);
+  --color-tx: var(--tx);
+  --color-mu: var(--mu);
+  --color-ac: var(--ac);
+  --color-acx: var(--acx);
+  --color-acs: var(--acs);
+  --color-ok: var(--ok);
+  --color-oks: var(--oks);
+  --color-er: var(--er);
+  --color-ers: var(--ers);
+  --color-wn: var(--wn);
+  --color-wns: var(--wns);
+  --color-in: var(--in);
+  --color-ins: var(--ins);
+  --color-e: var(--e);
+  --color-es: var(--es);
+  --color-m: var(--m);
+  --color-ms: var(--ms);
+  --color-h: var(--h);
+  --color-hs: var(--hs);
+  --color-h1: var(--h1);
+  --color-h2: var(--h2);
+  --color-h3: var(--h3);
+  --color-h4: var(--h4);
+  --color-kw: var(--kw);
+  --color-ty: var(--ty);
+  --color-nm: var(--nm);
+  --color-cm: var(--cm);
+  --color-fn: var(--fn);
+
+  /* Semantic names of shadcn/ui components, mapped to the tokens (components.md). */
+  --color-background: var(--sf);
+  --color-foreground: var(--tx);
+  --color-card: var(--sf);
+  --color-card-foreground: var(--tx);
+  --color-popover: var(--sf);
+  --color-popover-foreground: var(--tx);
+  --color-primary: var(--ac);
+  --color-primary-foreground: var(--acx);
+  --color-secondary: var(--sf2);
+  --color-secondary-foreground: var(--tx);
+  --color-muted: var(--sf2);
+  --color-muted-foreground: var(--mu);
+  --color-accent: var(--acs);
+  --color-accent-foreground: var(--ac);
+  --color-destructive: var(--er);
+  --color-border: var(--bd);
+  --color-input: var(--bc);
+  --color-ring: var(--ac);
+
+  --font-sans: var(--sans);
+  --font-mono: var(--mono);
+
+  --radius-sm: 2px;
+  --radius: 3px;
+  --radius-md: 3px;
+  --radius-lg: 4px;
+
+  /* Type scale. Heading sizes are text-title-*: text-h1 … text-h4 are the heat map colours. */
+  --text-display: 34px;
+  --text-display--line-height: 42px;
+  --text-display--font-weight: 600;
+  --text-display--letter-spacing: -0.02em;
+  --text-title-1: 22px;
+  --text-title-1--line-height: 30px;
+  --text-title-1--font-weight: 600;
+  --text-title-1--letter-spacing: -0.01em;
+  --text-title-2: 17px;
+  --text-title-2--line-height: 26px;
+  --text-title-2--font-weight: 600;
+  --text-statement: 13.5px;
+  --text-statement--line-height: 22px;
+  --text-body: 13px;
+  --text-body--line-height: 20px;
+  --text-caption: 12px;
+  --text-caption--line-height: 17px;
+  --text-label: 10.5px;
+  --text-label--line-height: 14px;
+  --text-label--letter-spacing: 0.08em;
+  --text-code: 12.5px;
+  --text-code--line-height: 19px;
+  --text-metric: 26px;
+  --text-metric--line-height: 34px;
+  --text-metric--font-weight: 500;
+  --text-metric--letter-spacing: -0.02em;
+
+  --shadow-window: 0 16px 48px var(--sh);
+  --shadow-pop: 0 8px 24px var(--sh);
+}

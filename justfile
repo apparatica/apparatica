@@ -62,7 +62,7 @@ typecheck-js:
     pnpm -C web typecheck
 
 # Run all unit tests
-test: test-py
+test: test-py test-js
 
 # Run Python unit tests, including tests of repository scripts
 test-py:
@@ -70,6 +70,14 @@ test-py:
     poetry -C backend run pytest
     poetry -C worker run pytest
     poetry -C judge run pytest ../scripts
+
+# Run frontend tests (Vitest, MSW)
+test-js:
+    pnpm -C web test
+
+# Build the frontend for production (next build)
+build-js:
+    pnpm -C web build
 
 # Check that lock files match pyproject.toml and agree on shared versions
 check-locks:

@@ -11,7 +11,8 @@ export type ApiError = Schemas["Error"];
 export type ErrorCode = Schemas["ErrorCode"];
 
 /** Paths of the schema start with /api/v1, so `baseUrl` is the origin of the API (empty: the
- * same origin as the site). */
+ * same origin as the site). `fetch` is looked up at each call, not when the client is created,
+ * so that a fetch patched later (Next.js caching, MSW in tests) is the one used. */
 export function createApiClient(options: ClientOptions = {}): Client<paths> {
-  return createClient<paths>(options);
+  return createClient<paths>({ fetch: (request) => globalThis.fetch(request), ...options });
 }
