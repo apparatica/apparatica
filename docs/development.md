@@ -40,6 +40,7 @@ Poetry создаёт виртуальное окружение внутри к�
 | `just check-locks` | `poetry check --lock` в каждом проекте и сверка версий общих зависимостей между тремя `poetry.lock` |
 | `just check-licenses` | лицензии зависимостей Python (`check-licenses-py`) и JS (`check-licenses-js`) по политике |
 | `just check` | `check-locks`, `check-licenses`, `lint`, `typecheck`, `test` |
+| `just validate-problems` | `judge validate` всех пакетов `problems/` в образе тулчейна (нужен Docker) |
 | `just schemas` | перегенерирует JSON Schema из моделей судьи: `problem.yaml` и записи протокола тестбенча (`judge/schemas/`) |
 | `just toolchain-build` | собирает образ тулчейна `apparatica-toolchain:dev` |
 | `just toolchain-test` | тесты образа: pytest на хосте, команды через `docker exec` в контейнере с ограничениями песочницы |

@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=../../judge/schemas/problem.schema.json
+schema: 1
+id: mux4
+number: 1
+version: 1
+leaderboard_epoch: 1
+language: systemverilog
+kind: design
+title: Мультиплексор 4:1
+difficulty: easy
+tags: [combinational, multiplexer]
+resource_class: light
+authors: [{name: "Apparatica"}]
+license: CC-BY-SA-4.0
+
+top: mux4
+interface:
+  parameters:
+    - {name: WIDTH, type: int, default: 8, description: "Разрядность данных"}
+  ports:
+    - {name: sel, dir: input, width: "2", description: "Номер выбираемого входа"}
+    - {name: d0, dir: input, width: "WIDTH", description: "Вход 0"}
+    - {name: d1, dir: input, width: "WIDTH", description: "Вход 1"}
+    - {name: d2, dir: input, width: "WIDTH", description: "Вход 2"}
+    - {name: d3, dir: input, width: "WIDTH", description: "Вход 3"}
+    - {name: y, dir: output, width: "WIDTH", description: "Выбранный вход"}
+
+files:
+  statement: statement.md
+  template: template.sv
+
+testbenches:
+  - id: main
+    top: tb_top
+    sources: [tb/model.sv, tb/tb_top.sv]
+    groups: {public: 2, hidden: 2}
+
+stages:
+  precheck: {type: precheck}
+  lint: {type: lint}
+  sim_run: {type: sim, testbench: main, groups: [public], max_cycles: 10000}
+  sim_full: {type: sim, testbench: main, groups: [public, hidden], max_cycles: 10000}
+
+pipelines:
+  practice:
+    run: [precheck, lint, sim_run]
+    submit: [precheck, lint, sim_full]
+
+reference:
+  solutions:
+    - {file: reference/mux4.sv, title: "case по sel", explanation: reference/mux4.md}
+
+mutants:
+  - {file: mutants/m01_swapped_inputs.sv, expect: wrong_answer, caught_by: [sim_full], note: "входы 2 и 3 перепутаны"}
+  - {file: mutants/m02_incomplete_case.sv, expect: wrong_answer, caught_by: [sim_full], note: "нет ветки sel = 3: y держит прошлое значение"}
+  - {file: mutants/m03_msb_from_d0.sv, expect: wrong_answer, caught_by: [sim_full], note: "старший бит всегда из d0: ловят только скрытые тесты"}
+  - {file: mutants/m04_narrow_output.sv, expect: compile_error, caught_by: [precheck], note: "выход на бит уже интерфейса"}

@@ -1,8 +1,13 @@
 # Задачи
 
-Пакеты задач Apparatica: условие, шаблон, тестбенчи, эталоны и мутанты. Формат пакета — [specs/06-problem-package.md](../specs/06-problem-package.md). Первые демо-задачи появятся в T0.11, руководство автора — в `docs/problem-authoring.md`.
+Пакеты задач Apparatica: условие, шаблон, тестбенчи, эталоны и мутанты. Как написать задачу — [руководство автора](../docs/problem-authoring.md), формат пакета — [specs/06-problem-package.md](../specs/06-problem-package.md).
 
-Проверка манифестов: `poetry -C judge run judge validate --schema-only ../problems`. Подсказки и проверку в редакторе даёт JSON Schema — первая строка `problem.yaml` для расширения YAML (yaml-language-server):
+| № | Задача | Что проверяет |
+|---|---|---|
+| 1 | [mux4](mux4) — мультиплексор 4:1 | комбинационная схема, полный `case` |
+| 2 | [counter-mod-n](counter-mod-n) — счётчик по модулю N | регистр со сбросом и разрешением, комбинационный выход переноса |
+
+Проверка всех задач: `just validate-problems` (нужны Docker и образ тулчейна); только манифестов: `poetry -C judge run judge validate --schema-only ../problems`. Подсказки и проверку в редакторе даёт JSON Schema — первая строка `problem.yaml` для расширения YAML (yaml-language-server):
 
 ```yaml
 # yaml-language-server: $schema=../../judge/schemas/problem.schema.json

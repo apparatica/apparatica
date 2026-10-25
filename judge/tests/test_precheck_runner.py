@@ -169,6 +169,7 @@ def test_forbidden_system_task_location() -> None:
     [
         (body("initial y = 8'h1;"), "не синтезируется"),
         (body("assign #5 y = a;"), "задержки # не синтезируются"),
+        (body("always_ff @(posedge clk) y <= #1 a;"), "в присваивании (<= #1"),
         (body("bind top helper h();"), "один модуль"),
     ],
 )

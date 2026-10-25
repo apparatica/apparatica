@@ -114,6 +114,7 @@ FORBIDDEN_EXPLANATIONS: dict[syntax.SyntaxKind, str] = {
         ("FinalBlock", f"блок final {_NOT_SYNTHESIZABLE}"),
         ("AlwaysLatchBlock", "always_latch запрещён: защёлки не допускаются"),
         ("DelayControl", "задержки # не синтезируются"),
+        ("TimingControlExpression", "задержки и события в присваивании (<= #1 …) не синтезируются"),
         ("ParallelBlockStatement", f"fork/join {_NOT_SYNTHESIZABLE}"),
         ("WaitStatement", f"wait {_NOT_SYNTHESIZABLE}"),
         ("ForeverStatement LoopStatement DoWhileStatement",

@@ -90,6 +90,10 @@ schemas:
     poetry -C judge run judge schema problem --output schemas/problem.schema.json
     poetry -C judge run judge schema tb-result --output schemas/tb-result.schema.json
 
+# Validate every problem package: schema, references and mutants in the toolchain image
+validate-problems:
+    poetry -C judge run judge validate ../problems
+
 # Everything CI runs (the toolchain image has its own workflow: toolchain-build, toolchain-test)
 check: check-locks check-licenses lint typecheck test
 

@@ -1,0 +1,57 @@
+# yaml-language-server: $schema=../../judge/schemas/problem.schema.json
+schema: 1
+id: counter-mod-n
+number: 2
+version: 1
+leaderboard_epoch: 1
+language: systemverilog
+kind: design
+title: Счётчик по модулю N
+difficulty: easy
+tags: [sequential, counter]
+resource_class: light
+authors: [{name: "Apparatica"}]
+license: CC-BY-SA-4.0
+
+top: counter_mod_n
+interface:
+  parameters:
+    - {name: N, type: int, default: 10, description: "Модуль счёта, N ≥ 2"}
+  ports:
+    - {name: clk, dir: input, width: "1", role: clock, description: "Тактовый сигнал"}
+    - {name: rst, dir: input, width: "1", role: reset, reset: {active: high, sync: true}, description: "Синхронный сброс, активный 1"}
+    - {name: en, dir: input, width: "1", description: "Разрешение счёта"}
+    - {name: count, dir: output, width: "$clog2(N)", description: "Текущее значение, от 0 до N − 1"}
+    - {name: wrap, dir: output, width: "1", description: "1, если на следующем фронте счётчик перейдёт из N − 1 в 0"}
+
+files:
+  statement: statement.md
+  template: template.sv
+
+testbenches:
+  - id: main
+    top: tb_top
+    sources: [tb/model.sv, tb/tb_top.sv]
+    groups: {public: 2, hidden: 2}
+
+stages:
+  precheck: {type: precheck}
+  lint: {type: lint}
+  sim_run: {type: sim, testbench: main, groups: [public], max_cycles: 10000}
+  sim_full: {type: sim, testbench: main, groups: [public, hidden], max_cycles: 10000}
+
+pipelines:
+  practice:
+    run: [precheck, lint, sim_run]
+    submit: [precheck, lint, sim_full]
+
+reference:
+  solutions:
+    - {file: reference/counter_mod_n.sv, title: "Счётчик со сравнением", explanation: reference/counter_mod_n.md}
+
+mutants:
+  - {file: mutants/m01_wraps_at_n.sv, expect: wrong_answer, caught_by: [sim_full], note: "переход в 0 после N, а не после N − 1"}
+  - {file: mutants/m02_wrap_without_en.sv, expect: wrong_answer, caught_by: [sim_full], note: "wrap не учитывает en: ловят только скрытые тесты"}
+  - {file: mutants/m03_registered_wrap.sv, expect: wrong_answer, caught_by: [sim_full], note: "wrap запаздывает на такт"}
+  - {file: mutants/m04_reset_needs_en.sv, expect: wrong_answer, caught_by: [sim_full], note: "сброс срабатывает только при en = 1"}
+  - {file: mutants/m05_delay.sv, expect: forbidden_construct, caught_by: [precheck], note: "задержка # в присваивании"}
