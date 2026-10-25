@@ -1,0 +1,97 @@
+name: Problems
+
+# judge validate of the problem packages in the toolchain image (FR-PKG-05, specs/09 §4.1):
+# changed packages on a pull request; every package when the judge, the image or the resource
+# classes change, on a schedule and on demand — the regression of references, mutants and
+# determinism.
+on:
+  push:
+    branches: [master]
+    paths:
+      - problems/**
+      - judge/src/**
+      - judge/poetry.lock
+      - toolchain/**
+      - config/resource-classes.yaml
+      - scripts/changed_problems.py
+      - .github/workflows/problems.yml
+  pull_request:
+    paths:
+      - problems/**
+      - judge/src/**
+      - judge/poetry.lock
+      - toolchain/**
+      - config/resource-classes.yaml
+      - scripts/changed_problems.py
+      - .github/workflows/problems.yml
+  schedule:
+    - cron: "17 3 * * 1" # weekly: base image packages and the runner change underneath
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: problems-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  POETRY_VERSION: "2.3.2"
+
+jobs:
+  validate:
+    name: Validate packages
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0 # to diff the change against its base
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+        with:
+          python-version: "3.13"
+
+      - name: Select packages
+        id: select
+        env:
+          EVENT: ${{ github.event_name }}
+          BASE: ${{ github.event_name == 'pull_request' && github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          # A new branch pushes with an all-zero `before`: nothing to diff against.
+          if { [ "$EVENT" = pull_request ] || [ "$EVENT" = push ]; } \
+              && [ -n "$BASE" ] && [ "$BASE" != 0000000000000000000000000000000000000000 ]; then
+            packages=$(python scripts/changed_problems.py "$BASE")
+          else
+            packages=$(python scripts/changed_problems.py --all)
+          fi
+          echo "$packages"
+          echo "packages=$(echo $packages)" >> "$GITHUB_OUTPUT"
+
+      - name: Install judge
+        if: steps.select.outputs.packages != ''
+        run: |
+          pipx install "poetry==${POETRY_VERSION}"
+          poetry -C judge install --only main
+
+      # The image of this revision: a change of toolchain/ is validated with the image it makes.
+      # The layer cache is shared with the toolchain workflow.
+      - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
+        if: steps.select.outputs.packages != ''
+      - name: Build toolchain image
+        if: steps.select.outputs.packages != ''
+        uses: docker/build-push-action@c3c9e263c25d99ce0380d002d59b67737d91b0dc # v7.4.0
+        with:
+          context: toolchain
+          load: true
+          tags: apparatica-toolchain:dev
+          cache-from: type=gha,scope=toolchain
+
+      - name: judge validate
+        if: steps.select.outputs.packages != ''
+        env:
+          PACKAGES: ${{ steps.select.outputs.packages }}
+        run: |
+          paths=""
+          for package in $PACKAGES; do paths="$paths ../$package"; done
+          # shellcheck disable=SC2086 # one argument per package
+          poetry -C judge run judge validate --determinism $paths

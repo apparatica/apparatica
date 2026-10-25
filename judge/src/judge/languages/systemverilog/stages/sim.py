@@ -209,6 +209,10 @@ class SimStage:
     def interpret(self, ctx: StageContext, runs: Sequence[ExecResult]) -> StageOutcome | StagePlan:
         assert isinstance(ctx.config, SimConfig)
         outcome, result = self._outcome(ctx, runs[0])
+        if RESULT in runs[0].files:
+            # Kept for the determinism check and for authors; it holds hidden test values, so it
+            # is never shown to users of a run with hidden groups (specs/07 §4.4).
+            outcome = outcome.model_copy(update={"artifacts": {RESULT: runs[0].files[RESULT]}})
         window = self._trace_window(ctx, outcome, result)
         if window is None:
             return outcome
@@ -371,7 +375,7 @@ class SimStage:
         window: tuple[int, int],
     ) -> StageOutcome:
         status: Literal["recorded", "too_large", "missing", "nondeterministic", "failed"]
-        artifacts: dict[str, bytes] = {}
+        artifacts = dict(outcome.artifacts)
         try:
             traced = tbproto.parse_result(trace_run.files.get(RESULT, b""), max_bytes=RESULT_LIMIT)
         except tbproto.ProtocolError:

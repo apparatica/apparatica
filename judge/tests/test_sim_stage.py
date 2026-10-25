@@ -210,6 +210,7 @@ def test_passed() -> None:
     assert hidden is not None
     assert (hidden.total, hidden.passed, hidden.failed_index) == (1, 1, None)
     assert outcome.summary.caption == "пройдено 3 из 3"
+    assert outcome.artifacts == {"tb_result.jsonl": PASSED}  # for the determinism check
 
 
 def test_open_failure_asks_for_a_trace_window() -> None:
@@ -227,7 +228,7 @@ def test_open_failure_asks_for_a_trace_window() -> None:
 def test_open_failure_with_recorded_trace() -> None:
     outcome = outcome_of(context(), run_with(OPEN_FAIL), run_with(OPEN_FAIL, trace=b"FST"))
     assert (outcome.status, outcome.failure_kind) == ("failed", "wrong")
-    assert outcome.artifacts == {"trace.fst": b"FST"}
+    assert outcome.artifacts == {"tb_result.jsonl": OPEN_FAIL, "trace.fst": b"FST"}
     assert outcome.metrics["trace"] == "recorded"
     assert outcome.metrics["trace_window"] == [0, 34]
     assert outcome.metrics["first_failure"] == {"test": "t2", "cycle": 18, "signal": "count"}
@@ -240,7 +241,7 @@ def test_trace_must_reproduce_the_mismatch() -> None:
     moved = OPEN_FAIL.replace(b'"cycle": 18', b'"cycle": 19')
     outcome = outcome_of(context(), run_with(OPEN_FAIL), run_with(moved, trace=b"FST"))
     assert outcome.metrics["trace"] == "nondeterministic"
-    assert outcome.artifacts == {}
+    assert set(outcome.artifacts) == {"tb_result.jsonl"}  # no trace
     assert outcome.failure_kind == "wrong"  # the verdict of the first run stands
 
 
@@ -256,7 +257,7 @@ def test_trace_must_reproduce_the_mismatch() -> None:
 def test_trace_problems_keep_the_verdict(trace_run: ExecResult, status: str) -> None:
     outcome = outcome_of(context(), run_with(OPEN_FAIL), trace_run)
     assert (outcome.failure_kind, outcome.metrics["trace"]) == ("wrong", status)
-    assert outcome.artifacts == {}
+    assert set(outcome.artifacts) == {"tb_result.jsonl"}
 
 
 def test_no_trace_when_disabled_or_for_a_netlist() -> None:

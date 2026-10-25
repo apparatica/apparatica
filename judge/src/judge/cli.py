@@ -127,6 +127,7 @@ def _validate(args: argparse.Namespace) -> int:
         _executor_factory(args, classes),
         classes,
         seeds=args.seeds,
+        determinism=args.determinism,
         on_check=_print_check,
         sink_factory=(lambda title: ConsoleSink()) if args.verbose else None,
     )
@@ -258,6 +259,11 @@ def _parser() -> argparse.ArgumentParser:
         type=int,
         default=DEFAULT_SEEDS,
         help=f"seeds per reference solution (default {DEFAULT_SEEDS})",
+    )
+    validate.add_argument(
+        "--determinism",
+        action="store_true",
+        help="repeat the first reference run with its seed; results must match byte for byte",
     )
     validate.add_argument("-v", "--verbose", action="store_true", help="print the stage consoles")
     _executor_options(validate)

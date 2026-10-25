@@ -11,6 +11,7 @@ from core_helpers import RESOURCE_CLASSES
 from pydantic import BaseModel, ConfigDict
 
 from judge.core.executor import HostExecutor
+from judge.core.package import Problem, load_manifest
 from judge.core.registry import LanguageModule
 from judge.core.stage import (
     Command,
@@ -44,18 +45,25 @@ class MarkerStage:
 
     def plan(self, ctx: StageContext) -> StagePlan:
         assert isinstance(ctx.config, MarkerConfig)
-        code = f"import sys; sys.exit({ctx.config.catches!r} in open('solution.sv').read())"
+        # Artifacts: result.bin is random for solutions marked RANDOM, trace.fst always is.
+        code = (
+            "import os, sys; text = open('solution.sv').read(); "
+            "open('result.bin', 'wb').write(os.urandom(8) if 'RANDOM' in text else b'same'); "
+            "open('trace.fst', 'wb').write(os.urandom(8)); "
+            f"sys.exit({ctx.config.catches!r} in text)"
+        )
         return StagePlan(
             commands=(Command((sys.executable, "-c", code)),),
             timeout_s=10,
             output_limit=1 << 16,
             inputs={"solution.sv": ctx.solution},
+            collect=("result.bin", "trace.fst"),
         )
 
     def interpret(self, ctx: StageContext, runs: Sequence[ExecResult]) -> StageOutcome | StagePlan:
         assert isinstance(ctx.config, MarkerConfig)
         if runs[-1].ok:
-            return StageOutcome(status="passed")
+            return StageOutcome(status="passed", artifacts=dict(runs[-1].files))
         caption = f"нашёл {ctx.config.catches}"
         return StageOutcome(
             status="failed",
@@ -115,11 +123,12 @@ def write_package(root: Path, **changes: object) -> Path:
     return package
 
 
-def validate(package: Path, seeds: int = 2) -> list[Check]:
+def validate(package: Path, seeds: int = 2, determinism: bool = False) -> list[Check]:
     validator = PackageValidator(
         lambda problem: HostExecutor(),
         RESOURCE_CLASSES,
         seeds=seeds,
+        determinism=determinism,
         language_lookup=lambda name: FAKE,
     )
     return validator.validate(package)
@@ -195,6 +204,33 @@ def test_failing_reference_on_every_seed(tmp_path: Path) -> None:
     assert failed[0].endswith("wrong_answer: этап late — нашёл WRONG")
 
 
+def test_determinism_of_a_stable_reference(tmp_path: Path) -> None:
+    # trace.fst differs between the runs and is ignored, result.bin is equal.
+    checks = validate(write_package(tmp_path), determinism=True)
+    assert failures(checks) == []
+    assert [c.what for c in checks if c.what.startswith("детерминизм")] == [
+        f"детерминизм reference/demo.sv, сид {validation_seeds(_problem(tmp_path), 1)[0]}"
+    ]
+
+
+def test_determinism_catches_a_changing_artifact(tmp_path: Path) -> None:
+    package = write_package(tmp_path)
+    (package / "reference" / "demo.sv").write_text("RANDOM\n", encoding="utf-8")
+    failed = failures(validate(package, determinism=True))
+    assert len(failed) == 1
+    assert failed[0].endswith("второй прогон отличается: артефакт check/result.bin")
+
+
+def test_no_determinism_check_by_default(tmp_path: Path) -> None:
+    package = write_package(tmp_path)
+    (package / "reference" / "demo.sv").write_text("RANDOM\n", encoding="utf-8")
+    assert failures(validate(package)) == []
+
+
+def _problem(tmp_path: Path) -> Problem:
+    return load_manifest(tmp_path / "demo")
+
+
 def test_reference_is_required(tmp_path: Path) -> None:
     package = write_package(tmp_path, reference=None)
     assert failures(validate(package)) == ["эталоны: нет эталонного решения (reference.solutions)"]
@@ -248,8 +284,6 @@ def test_caught_in_time(stage: str | None, caught_by: list[str], ok: bool) -> No
 
 
 def test_validation_seeds(tmp_path: Path) -> None:
-    from judge.core.package import load_manifest
-
     problem = load_manifest(write_package(tmp_path))
     seeds = validation_seeds(problem, 3)
     assert seeds == validation_seeds(problem, 3)

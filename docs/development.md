@@ -58,6 +58,8 @@ GitHub Actions, `.github/workflows/ci.yml`, на GitHub-hosted раннерах 
 
 Образ тулчейна собирает и публикует отдельный workflow `.github/workflows/toolchain.yml` — при изменениях в `toolchain/` и в коде судьи, чьи тесты против образа он прогоняет; публикует только при изменении входов образа (подробности — [toolchain/README.md](../toolchain/README.md)).
 
+Задачи проверяет workflow `.github/workflows/problems.yml`: `judge validate --determinism` в образе тулчейна, собранном из той же ревизии (кэш слоёв общий с `toolchain.yml`). Какие пакеты проверять, решает `scripts/changed_problems.py`: на pull request и push — изменённые пакеты `problems/<id>/`; если изменились судья (`judge/src`, `judge/poetry.lock`), образ (`toolchain/`), классы ресурсов или сам workflow — все пакеты (регрессия эталонов, мутантов и детерминизма). Раз в неделю и вручную (`workflow_dispatch`) проверяются все пакеты. Локально то же самое — `just validate-problems`. Чтобы PR с невалидным пакетом нельзя было слить, job `Validate packages` нужно сделать обязательной проверкой в настройках защиты ветки `master`.
+
 Python 3.13 и Poetry (версия в `POETRY_VERSION` workflow) ставятся в job'е, виртуальные окружения кэшируются по хэшу `poetry.lock`; Node 24 и pnpm — из `packageManager`, кэш pnpm-store. Сторонние actions закреплены по SHA коммита, версия — в комментарии. Unit-тесты TS добавятся в JS job вместе с Vitest (T0.20).
 
 ## Архитектурные контракты

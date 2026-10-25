@@ -10,7 +10,9 @@ The checks run the package through the same pipelines as submissions:
 6. every reference solution is `accepted` by the submit pipeline on several seeds — this also
    checks the number of tests per group: the sim stage fails a run whose groups do not match
    `testbenches[].groups`;
-7. every mutant gets its `expect` verdict, from a stage in `caught_by` or an earlier one.
+7. every mutant gets its `expect` verdict, from a stage in `caught_by` or an earlier one;
+8. with `determinism`, the first reference run is repeated with the same seed: stage results and
+   artifacts must match byte for byte (FST excepted: its header holds the date).
 
 Seeds are derived from `id@version`, so a run is reproducible with `judge run --seed`.
 """
@@ -33,6 +35,7 @@ from judge.core.verdict import Verdict, aggregate
 
 DEFAULT_SEEDS = 3
 ExecutorFactory = Callable[[Problem], AbstractContextManager[Executor]]
+Artifacts = dict[str, bytes]  # "<stage>/<name>" -> content
 
 
 @dataclass(frozen=True)
@@ -85,6 +88,7 @@ class PackageValidator:
         resource_classes: ResourceClasses,
         *,
         seeds: int = DEFAULT_SEEDS,
+        determinism: bool = False,
         on_check: Callable[[Check], None] | None = None,
         sink_factory: Callable[[str], EventSink] | None = None,
         language_lookup: Callable[[str], LanguageModule] = get_language,
@@ -92,6 +96,7 @@ class PackageValidator:
         self.executor_factory = executor_factory
         self.resource_classes = resource_classes
         self.seeds = seeds
+        self.determinism = determinism
         self.on_check = on_check or (lambda check: None)
         self.sink_factory = sink_factory or (lambda title: _NullSink())
         self.language_lookup = language_lookup
@@ -139,11 +144,27 @@ class PackageValidator:
     def _run(
         self, language: LanguageModule, job: Job, title: str
     ) -> tuple[list[StageResult], Verdict]:
+        results, verdict, _ = self._run_keeping(language, job, title)
+        return results, verdict
+
+    def _run_keeping(
+        self, language: LanguageModule, job: Job, title: str
+    ) -> tuple[list[StageResult], Verdict, Artifacts]:
+        artifacts: Artifacts = {}
+
+        def keep(stage: str, name: str, data: bytes) -> None:
+            artifacts[f"{stage}/{name}"] = data
+
         with self.executor_factory(job.problem) as executor:
             results = run_pipeline(
-                job, language, executor, self.sink_factory(title), self.resource_classes
+                job,
+                language,
+                executor,
+                self.sink_factory(title),
+                self.resource_classes,
+                on_artifact=keep,
             )
-        return results, aggregate(results)
+        return results, aggregate(results), artifacts
 
     def _job(
         self,
@@ -189,14 +210,22 @@ class PackageValidator:
             yield Check("fail", "эталоны", "нет эталонного решения (reference.solutions)")
             return
         for solution in solutions:
-            for seed in validation_seeds(problem, self.seeds):
+            for index, seed in enumerate(validation_seeds(problem, self.seeds)):
                 what = f"эталон {solution.file}, сид {seed}"
                 job = self._job(package_dir, problem, solution.file, seed)
-                results, verdict = self._run(language, job, what)
-                if verdict.status == "accepted":
-                    yield Check("ok", what)
-                else:
+                results, verdict, artifacts = self._run_keeping(language, job, what)
+                if verdict.status != "accepted":
                     yield Check("fail", what, describe(results, verdict))
+                    continue
+                yield Check("ok", what)
+                if self.determinism and index == 0:
+                    title = f"детерминизм {solution.file}, сид {seed}"
+                    again, _, again_artifacts = self._run_keeping(language, job, title)
+                    difference = _difference((results, artifacts), (again, again_artifacts))
+                    if difference is None:
+                        yield Check("ok", title)
+                    else:
+                        yield Check("fail", title, f"второй прогон отличается: {difference}")
 
     def _mutants(
         self, package_dir: Path, problem: Problem, language: LanguageModule
@@ -224,6 +253,32 @@ class PackageValidator:
                 yield Check("fail", what, detail)
                 continue
             yield Check("ok", what, f"{verdict.status}, этап {stage}")
+
+
+# Varies between identical runs: wall clock, and the FST header holds the date (ADR-0004).
+_TIMING_FIELDS = {"started_at", "duration_ms"}
+_UNSTABLE_ARTIFACTS = (".fst",)
+
+
+def _difference(
+    first: tuple[Sequence[StageResult], Artifacts], second: tuple[Sequence[StageResult], Artifacts]
+) -> str | None:
+    """Where two runs of the same job differ: a stage result or an artifact, byte for byte."""
+    (results_a, artifacts_a), (results_b, artifacts_b) = first, second
+    if [r.key for r in results_a] != [r.key for r in results_b]:
+        return "набор этапов"
+    for a, b in zip(results_a, results_b, strict=True):
+        if a.model_dump(exclude=_TIMING_FIELDS) != b.model_dump(exclude=_TIMING_FIELDS):
+            return f"результат этапа {a.key}"
+    names = sorted(
+        name
+        for name in artifacts_a.keys() | artifacts_b.keys()
+        if not name.endswith(_UNSTABLE_ARTIFACTS)
+    )
+    for name in names:
+        if artifacts_a.get(name) != artifacts_b.get(name):
+            return f"артефакт {name}"
+    return None
 
 
 def _caught_in_time(stage: str | None, caught_by: Sequence[str], order: Sequence[str]) -> bool:

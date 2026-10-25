@@ -105,4 +105,4 @@ def test_hidden_failure_is_not_traced_and_stays_anonymous() -> None:
     assert (hidden.total, hidden.passed, hidden.failed_index) == (1, 0, 1)
     assert sim.metrics["first_failure"]["test"] == "hidden-1"
     assert "trace" not in sim.metrics
-    assert run.artifacts == {}
+    assert list(run.artifacts) == [("sim_full", "tb_result.jsonl")]  # no trace for hidden tests
