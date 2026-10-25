@@ -47,7 +47,8 @@ RFC 9457 `application/problem+json`:
 | Код | HTTP | Когда |
 |---|---|---|
 | `VALIDATION_ERROR` | 422 | неверные параметры (поле `errors[]`) |
-| `NOT_FOUND` | 404 | задача, версия, отправка, решение, пользователь |
+| `NOT_FOUND` | 404 | задача, версия, отправка, решение, пользователь; неизвестный путь |
+| `METHOD_NOT_ALLOWED` | 405 | метод не поддерживается путём |
 | `UNAUTHENTICATED` | 401 | нужен вход |
 | `FORBIDDEN` | 403 | нет прав |
 | `CSRF_FAILED` | 403 | нет или неверный CSRF-токен |
@@ -59,6 +60,7 @@ RFC 9457 `application/problem+json`:
 | `REFERENCE_LOCKED` | 403 | эталон закрыт до своего Accepted |
 | `SOLUTION_LOCKED` | 403 | код решения закрыт политикой видимости |
 | `SUBMISSION_FINISHED` | 409 | отмена завершённой отправки |
+| `NOT_IMPLEMENTED` | 501 | эндпоинт объявлен в PR контракта, но ещё не реализован (§0) |
 | `JUDGE_UNAVAILABLE` | 503 | очередь недоступна |
 | `INTERNAL` | 500 | `request_id` для поддержки |
 

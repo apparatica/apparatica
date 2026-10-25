@@ -1,0 +1,16 @@
+# Solution size and check quotas (specs/02 NFR-LIM-01/08, specs/07 §3; decision ОВ-11).
+# Served to the frontend by GET /api/v1/config; enforced by the API from T1.x.
+solution:
+  max_bytes: 65536
+  max_lines: 2000
+quotas:
+  guest:
+    checks_per_hour: 10
+    concurrent: 1
+    heavy_per_day: 0          # heavy problems are not available to guests
+    waveforms_per_hour: 5
+  user:
+    checks_per_hour: 60
+    concurrent: 2
+    heavy_per_day: 20
+    waveforms_per_hour: 20

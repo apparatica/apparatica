@@ -5,7 +5,10 @@ description = "Apparatica backend: FastAPI application and results ingestor"
 license = "AGPL-3.0-or-later"
 readme = "README.md"
 requires-python = ">=3.13,<3.14"
-dependencies = ["apparatica-judge"]
+dependencies = ["apparatica-judge", "fastapi (>=0.120)", "uvicorn (>=0.38)", "pydantic-settings (>=2.11)", "sqlalchemy[asyncio] (>=2.0.44)", "asyncpg (>=0.30)", "alembic (>=1.17)", "structlog (>=25.4)", "pyyaml (>=6.0.2)"]
+
+[project.scripts]
+apparatica = "apparatica.cli:main"
 
 [dependency-groups]
 dev = [
@@ -13,6 +16,9 @@ dev = [
     "pytest>=8.4",
     "ruff>=0.14",
     "import-linter>=2.3",
+    "types-pyyaml (>=6.0)",
+    "aiosqlite (>=0.21)",
+    "httpx2 (>=2.16.0,<3.0.0)",
 ]
 
 [tool.poetry]
@@ -41,3 +47,9 @@ name = "Backend does not depend on judge language modules (ADR-0011)"
 type = "forbidden"
 source_modules = ["apparatica"]
 forbidden_modules = ["judge.languages"]
+
+[[tool.importlinter.contracts]]
+name = "Backend core depends on no other backend module (specs/03 §3)"
+type = "forbidden"
+source_modules = ["apparatica.core"]
+forbidden_modules = ["apparatica.main", "apparatica.cli"]

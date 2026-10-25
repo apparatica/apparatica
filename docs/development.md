@@ -70,6 +70,7 @@ import-linter проверяет границу ядра и языковых м�
 |---|---|
 | `judge` | `judge.core` не импортирует `judge.languages` |
 | `backend` | `apparatica` не импортирует `judge.languages` ни напрямую, ни через другие модули `judge` |
+| `backend` | `apparatica.core` не импортирует остальные модули бэкенда (specs/03 §3; пока — `apparatica.main` и `apparatica.cli`) |
 
 Языковые модули подключаются к ядру через entry points реестра (`judge.core.registry`), поэтому исключений в контрактах нет. Новые границы (например, между модулями бэкенда) добавляются в те же секции.
 
@@ -112,6 +113,19 @@ brief/      исходные материалы заказчика (не ред�
 - ruff — общий `ruff.toml` в корне (Python 3.13, длина строки 100); Markdown и `brief/` исключены; кириллица разрешена в `allowed-confusables` (сообщения и тексты по-русски), длинные строки — в таблицах случаев тестов `precheck`;
 - mypy — `[tool.mypy]` в `pyproject.toml` каждого проекта, `strict = true`;
 - pytest — `[tool.pytest.ini_options]` там же.
+
+## Бэкенд: `apparatica`
+
+FastAPI-приложение (`backend/src/apparatica`, модульный монолит по specs/03 §3). Сейчас в нём только модуль `core`: настройки, БД (SQLAlchemy async), ошибки `problem+json`, request id, логи, feature flags и эндпоинты `GET /api/v1/health` и `GET /api/v1/config`. Остальные модули появляются вместе со своими задачами плана.
+
+```sh
+poetry -C backend run apparatica serve --reload   # http://127.0.0.1:8000/api/v1/docs
+poetry -C backend run apparatica migrate          # alembic upgrade head
+```
+
+Нужен Postgres по `APX_DATABASE_URL` (стенд docker compose — T0.19); без него API стартует, но `GET /health` отвечает 503. Настройки и файлы `config/` — [configuration.md](configuration.md). Миграции лежат в пакете (`apparatica/migrations`); новая ревизия — `poetry -C backend run alembic revision --autogenerate -m "..."` из каталога `backend` (там `alembic.ini`).
+
+Тесты бэкенда (`backend/tests`) поднимают приложение через `TestClient`; где нужна только связь с БД, вместо Postgres — SQLite в памяти (`aiosqlite`). Интеграционные тесты с Postgres появятся с миграциями (T0.15).
 
 ## Судья: CLI `judge`
 

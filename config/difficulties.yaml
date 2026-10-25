@@ -1,0 +1,6 @@
+# Difficulty levels (FR-CAT-05): the key goes into problem.yaml `difficulty`; the order is the
+# catalogue sort order; `token` names the colour pair of the design tokens (--e / --es, ...).
+# Served to the frontend by GET /api/v1/config.
+- {key: easy, title: Easy, token: e}
+- {key: medium, title: Medium, token: m}
+- {key: hard, title: Hard, token: h}
