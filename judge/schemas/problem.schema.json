@@ -1,0 +1,760 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$defs": {
+    "Author": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "github": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Github"
+        }
+      },
+      "required": [
+        "name"
+      ],
+      "title": "Author",
+      "type": "object"
+    },
+    "Files": {
+      "additionalProperties": false,
+      "properties": {
+        "statement": {
+          "title": "Statement",
+          "type": "string"
+        },
+        "template": {
+          "title": "Template",
+          "type": "string"
+        },
+        "statement_i18n": {
+          "additionalProperties": {
+            "type": "string"
+          },
+          "default": {},
+          "description": "Language -> statement file",
+          "title": "Statement I18N",
+          "type": "object"
+        }
+      },
+      "required": [
+        "statement",
+        "template"
+      ],
+      "title": "Files",
+      "type": "object"
+    },
+    "Interface": {
+      "additionalProperties": false,
+      "properties": {
+        "parameters": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/Parameter"
+          },
+          "title": "Parameters",
+          "type": "array"
+        },
+        "ports": {
+          "items": {
+            "$ref": "#/$defs/Port"
+          },
+          "minItems": 1,
+          "title": "Ports",
+          "type": "array"
+        }
+      },
+      "required": [
+        "ports"
+      ],
+      "title": "Interface",
+      "type": "object"
+    },
+    "Leaderboard": {
+      "additionalProperties": false,
+      "properties": {
+        "formula_version": {
+          "exclusiveMinimum": 0,
+          "title": "Formula Version",
+          "type": "integer"
+        },
+        "order": {
+          "items": {
+            "$ref": "#/$defs/LeaderboardKey"
+          },
+          "minItems": 1,
+          "title": "Order",
+          "type": "array"
+        }
+      },
+      "required": [
+        "formula_version",
+        "order"
+      ],
+      "title": "Leaderboard",
+      "type": "object"
+    },
+    "LeaderboardKey": {
+      "additionalProperties": false,
+      "properties": {
+        "metric": {
+          "description": "<stage_key>.<metric>",
+          "pattern": "^[a-z_]+\\.[a-z0-9_]+$",
+          "title": "Metric",
+          "type": "string"
+        },
+        "dir": {
+          "enum": [
+            "asc",
+            "desc"
+          ],
+          "title": "Dir",
+          "type": "string"
+        }
+      },
+      "required": [
+        "metric",
+        "dir"
+      ],
+      "title": "LeaderboardKey",
+      "type": "object"
+    },
+    "Limits": {
+      "additionalProperties": false,
+      "properties": {
+        "stage_timeout_s": {
+          "additionalProperties": {
+            "exclusiveMinimum": 0,
+            "type": "number"
+          },
+          "default": {},
+          "title": "Stage Timeout S",
+          "type": "object"
+        },
+        "memory_mb": {
+          "anyOf": [
+            {
+              "minimum": 128,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Memory Mb"
+        },
+        "output_kb": {
+          "anyOf": [
+            {
+              "minimum": 16,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Output Kb"
+        },
+        "fst_mb": {
+          "anyOf": [
+            {
+              "exclusiveMinimum": 0,
+              "type": "integer"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Fst Mb"
+        }
+      },
+      "title": "Limits",
+      "type": "object"
+    },
+    "Mutant": {
+      "additionalProperties": false,
+      "properties": {
+        "file": {
+          "title": "File",
+          "type": "string"
+        },
+        "expect": {
+          "enum": [
+            "wrong_answer",
+            "compile_error",
+            "forbidden_construct",
+            "limit_exceeded"
+          ],
+          "title": "Expect",
+          "type": "string"
+        },
+        "caught_by": {
+          "default": [],
+          "items": {
+            "type": "string"
+          },
+          "title": "Caught By",
+          "type": "array"
+        },
+        "note": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Note"
+        }
+      },
+      "required": [
+        "file",
+        "expect"
+      ],
+      "title": "Mutant",
+      "type": "object"
+    },
+    "Parameter": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_$]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "int",
+            "int unsigned",
+            "bit",
+            "logic"
+          ],
+          "title": "Type",
+          "type": "string"
+        },
+        "default": {
+          "anyOf": [
+            {
+              "type": "integer"
+            },
+            {
+              "type": "string"
+            }
+          ],
+          "title": "Default"
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        }
+      },
+      "required": [
+        "name",
+        "type",
+        "default"
+      ],
+      "title": "Parameter",
+      "type": "object"
+    },
+    "Pipeline": {
+      "additionalProperties": false,
+      "properties": {
+        "run": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Run",
+          "type": "array"
+        },
+        "submit": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Submit",
+          "type": "array"
+        }
+      },
+      "required": [
+        "run",
+        "submit"
+      ],
+      "title": "Pipeline",
+      "type": "object"
+    },
+    "Pipelines": {
+      "additionalProperties": false,
+      "properties": {
+        "practice": {
+          "$ref": "#/$defs/Pipeline"
+        },
+        "industrial": {
+          "anyOf": [
+            {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Industrial mode (phase 7)",
+          "title": "Industrial"
+        }
+      },
+      "required": [
+        "practice"
+      ],
+      "title": "Pipelines",
+      "type": "object"
+    },
+    "Port": {
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_$]*$",
+          "title": "Name",
+          "type": "string"
+        },
+        "dir": {
+          "enum": [
+            "input",
+            "output",
+            "inout"
+          ],
+          "title": "Dir",
+          "type": "string"
+        },
+        "width": {
+          "description": "Expression of parameters, e.g. \"WIDTH\" or \"1\"",
+          "title": "Width",
+          "type": "string"
+        },
+        "signed": {
+          "default": false,
+          "title": "Signed",
+          "type": "boolean"
+        },
+        "role": {
+          "default": "data",
+          "enum": [
+            "data",
+            "clock",
+            "reset"
+          ],
+          "title": "Role",
+          "type": "string"
+        },
+        "reset": {
+          "anyOf": [
+            {
+              "$ref": "#/$defs/ResetSpec"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null
+        },
+        "description": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Description"
+        }
+      },
+      "required": [
+        "name",
+        "dir",
+        "width"
+      ],
+      "title": "Port",
+      "type": "object"
+    },
+    "Reference": {
+      "additionalProperties": false,
+      "properties": {
+        "visibility": {
+          "anyOf": [
+            {
+              "enum": [
+                "after_accepted",
+                "public",
+                "hidden"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Visibility"
+        },
+        "solutions": {
+          "default": [],
+          "items": {
+            "$ref": "#/$defs/ReferenceSolution"
+          },
+          "title": "Solutions",
+          "type": "array"
+        }
+      },
+      "title": "Reference",
+      "type": "object"
+    },
+    "ReferenceSolution": {
+      "additionalProperties": false,
+      "properties": {
+        "file": {
+          "title": "File",
+          "type": "string"
+        },
+        "title": {
+          "title": "Title",
+          "type": "string"
+        },
+        "explanation": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Explanation"
+        }
+      },
+      "required": [
+        "file",
+        "title"
+      ],
+      "title": "ReferenceSolution",
+      "type": "object"
+    },
+    "ResetSpec": {
+      "additionalProperties": false,
+      "properties": {
+        "active": {
+          "anyOf": [
+            {
+              "enum": [
+                "low",
+                "high"
+              ],
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Active"
+        },
+        "sync": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Sync"
+        }
+      },
+      "title": "ResetSpec",
+      "type": "object"
+    },
+    "StageConfig": {
+      "additionalProperties": true,
+      "description": "`type` picks the stage plugin of the language module; the plugin validates the rest.",
+      "properties": {
+        "type": {
+          "title": "Type",
+          "type": "string"
+        }
+      },
+      "required": [
+        "type"
+      ],
+      "title": "StageConfig",
+      "type": "object"
+    },
+    "Testbench": {
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "title": "Id",
+          "type": "string"
+        },
+        "top": {
+          "pattern": "^[A-Za-z_][A-Za-z0-9_$]*$",
+          "title": "Top",
+          "type": "string"
+        },
+        "sources": {
+          "items": {
+            "type": "string"
+          },
+          "minItems": 1,
+          "title": "Sources",
+          "type": "array"
+        },
+        "groups": {
+          "additionalProperties": {
+            "minimum": 0,
+            "type": "integer"
+          },
+          "description": "Group -> expected number of tests",
+          "title": "Groups",
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "top",
+        "sources",
+        "groups"
+      ],
+      "title": "Testbench",
+      "type": "object"
+    }
+  },
+  "$id": "https://apparatica.app/schemas/problem/1.json",
+  "additionalProperties": false,
+  "description": "The `problem.yaml` manifest.",
+  "properties": {
+    "schema": {
+      "const": 1,
+      "title": "Schema",
+      "type": "integer"
+    },
+    "id": {
+      "maxLength": 64,
+      "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+      "title": "Id",
+      "type": "string"
+    },
+    "number": {
+      "exclusiveMinimum": 0,
+      "title": "Number",
+      "type": "integer"
+    },
+    "version": {
+      "exclusiveMinimum": 0,
+      "title": "Version",
+      "type": "integer"
+    },
+    "changelog": {
+      "anyOf": [
+        {
+          "maxLength": 2000,
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "What changed since the previous version",
+      "title": "Changelog"
+    },
+    "leaderboard_epoch": {
+      "exclusiveMinimum": 0,
+      "title": "Leaderboard Epoch",
+      "type": "integer"
+    },
+    "language": {
+      "const": "systemverilog",
+      "title": "Language",
+      "type": "string"
+    },
+    "kind": {
+      "const": "design",
+      "title": "Kind",
+      "type": "string"
+    },
+    "title": {
+      "maxLength": 120,
+      "minLength": 1,
+      "title": "Title",
+      "type": "string"
+    },
+    "title_i18n": {
+      "additionalProperties": {
+        "type": "string"
+      },
+      "default": {},
+      "title": "Title I18N",
+      "type": "object"
+    },
+    "difficulty": {
+      "description": "Key of config/difficulties.yaml",
+      "title": "Difficulty",
+      "type": "string"
+    },
+    "tags": {
+      "items": {
+        "type": "string"
+      },
+      "minItems": 1,
+      "title": "Tags",
+      "type": "array",
+      "uniqueItems": true
+    },
+    "resource_class": {
+      "enum": [
+        "light",
+        "heavy"
+      ],
+      "title": "Resource Class",
+      "type": "string"
+    },
+    "authors": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Author"
+      },
+      "title": "Authors",
+      "type": "array"
+    },
+    "license": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "title": "License"
+    },
+    "top": {
+      "pattern": "^[A-Za-z_][A-Za-z0-9_$]*$",
+      "title": "Top",
+      "type": "string"
+    },
+    "interface": {
+      "$ref": "#/$defs/Interface"
+    },
+    "files": {
+      "$ref": "#/$defs/Files"
+    },
+    "testbenches": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Testbench"
+      },
+      "title": "Testbenches",
+      "type": "array"
+    },
+    "stages": {
+      "additionalProperties": {
+        "$ref": "#/$defs/StageConfig"
+      },
+      "title": "Stages",
+      "type": "object"
+    },
+    "pipelines": {
+      "$ref": "#/$defs/Pipelines"
+    },
+    "limits": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Limits"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "leaderboard": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Leaderboard"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "reference": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/Reference"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null
+    },
+    "mutants": {
+      "default": [],
+      "items": {
+        "$ref": "#/$defs/Mutant"
+      },
+      "title": "Mutants",
+      "type": "array"
+    }
+  },
+  "required": [
+    "schema",
+    "id",
+    "number",
+    "version",
+    "leaderboard_epoch",
+    "language",
+    "kind",
+    "title",
+    "difficulty",
+    "tags",
+    "resource_class",
+    "top",
+    "interface",
+    "files",
+    "stages",
+    "pipelines"
+  ],
+  "title": "Apparatica problem manifest (problem.yaml)",
+  "type": "object"
+}

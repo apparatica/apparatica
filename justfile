@@ -84,6 +84,10 @@ check-licenses-py:
 check-licenses-js:
     pnpm licenses list --json -r | {{ python }} scripts/check_licenses.py js -
 
+# Regenerate generated contracts: the JSON Schema of problem.yaml (a test checks it is current)
+schemas:
+    poetry -C judge run judge schema --output schemas/problem.schema.json
+
 # Everything CI runs (the toolchain image has its own workflow: toolchain-build, toolchain-test)
 check: check-locks check-licenses lint typecheck test
 

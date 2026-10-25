@@ -14,7 +14,7 @@
 | [03-architecture.md](03-architecture.md) | архитектура C4: контекст, контейнеры, компоненты; структура монорепо |
 | [04-domain-model.md](04-domain-model.md) | доменная модель, вердикты и статусы, схема БД по фазам |
 | [05-api.md](05-api.md) + [api/openapi.yaml](api/openapi.yaml) | контракт HTTP API, SSE-события, коды ошибок |
-| [06-problem-package.md](06-problem-package.md) + [schemas/](schemas/) | пакет задачи, JSON Schema `problem.yaml`, протокол результатов тестбенча |
+| [06-problem-package.md](06-problem-package.md) + [schemas/](schemas/) | пакет задачи (схема `problem.yaml` генерируется из кода судьи — `judge/schemas/`), протокол результатов тестбенча |
 | [07-judge-pipeline.md](07-judge-pipeline.md) | пайплайн проверки, этапы, стриминг логов, песочница |
 | [08-screens.md](08-screens.md) | экраны и состояния, сверка с макетами |
 | [09-operations.md](09-operations.md) | эксплуатация, тестирование платформы, юридический минимум |

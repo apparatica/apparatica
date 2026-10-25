@@ -2,4 +2,10 @@
 
 Пакеты задач Apparatica: условие, шаблон, тестбенчи, эталоны и мутанты. Формат пакета — [specs/06-problem-package.md](../specs/06-problem-package.md). Первые демо-задачи появятся в T0.11, руководство автора — в `docs/problem-authoring.md`.
 
+Проверка манифестов: `poetry -C judge run judge validate --schema-only ../problems`. Подсказки и проверку в редакторе даёт JSON Schema — первая строка `problem.yaml` для расширения YAML (yaml-language-server):
+
+```yaml
+# yaml-language-server: $schema=../../judge/schemas/problem.schema.json
+```
+
 Содержимое каталога (тексты, тестбенчи, эталоны) распространяется под [CC BY-SA 4.0](LICENSE): задачи можно копировать, переводить и использовать в курсах, в том числе платных, с указанием авторов и под той же лицензией ([ADR-0012](../docs/adr/0012-licensing.md)).

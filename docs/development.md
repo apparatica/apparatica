@@ -40,6 +40,7 @@ Poetry создаёт виртуальное окружение внутри к�
 | `just check-locks` | `poetry check --lock` в каждом проекте и сверка версий общих зависимостей между тремя `poetry.lock` |
 | `just check-licenses` | лицензии зависимостей Python (`check-licenses-py`) и JS (`check-licenses-js`) по политике |
 | `just check` | `check-locks`, `check-licenses`, `lint`, `typecheck`, `test` |
+| `just schemas` | перегенерирует JSON Schema `problem.yaml` из моделей судьи (`judge/schemas/problem.schema.json`) |
 | `just toolchain-build` | собирает образ тулчейна `apparatica-toolchain:dev` |
 | `just toolchain-test` | тесты образа: pytest на хосте, команды через `docker exec` в контейнере с ограничениями песочницы |
 
@@ -82,7 +83,7 @@ import-linter проверяет границу ядра и языковых м�
 ## Структура репозитория
 
 ```
-judge/      пакет судьи и CLI (Poetry, пакет judge)
+judge/      пакет судьи и CLI (Poetry, пакет judge); judge/schemas/ — сгенерированные JSON Schema
 backend/    FastAPI-приложение и ингестор (Poetry, пакет apparatica)
 worker/     воркер и оркестратор песочницы (Poetry, пакет apparatica_worker)
 web/        фронтенд (пакет pnpm workspace; каркас Next.js — T0.20)
@@ -107,6 +108,19 @@ brief/      исходные материалы заказчика (не ред�
 - ruff — общий `ruff.toml` в корне (Python 3.13, длина строки 100); Markdown и `brief/` исключены;
 - mypy — `[tool.mypy]` в `pyproject.toml` каждого проекта, `strict = true`;
 - pytest — `[tool.pytest.ini_options]` там же.
+
+## Судья: CLI `judge`
+
+`judge` ставится вместе с окружением `judge` (`just install`) и запускается через Poetry:
+
+```sh
+poetry -C judge run judge validate --schema-only ../problems   # каталог пакетов или один пакет
+poetry -C judge run judge schema                                # JSON Schema problem.yaml в stdout
+```
+
+`validate --schema-only` проверяет `problem.yaml` каждого пакета: структуру и типы полей, перекрёстные ссылки на этапы, совпадение `id` с именем каталога. Все ошибки выводятся сразу, с путём к полю (`interface.ports[0].dir: Input should be 'input', 'output' or 'inout'`); код выхода 1, если хоть один пакет невалиден. Полная проверка (эталоны, мутанты, число тестов, условие) появится в T0.10.
+
+Модель манифеста — `judge/src/judge/core/package.py` (Pydantic, строгие типы, неизвестные поля запрещены). JSON Schema генерируется из неё: после правки модели выполните `just schemas` и закоммитьте `judge/schemas/problem.schema.json` — тест `test_committed_json_schema_is_up_to_date` падает, если файл устарел. YAML читается безопасным загрузчиком, повторяющиеся ключи — ошибка.
 
 ## JS
 

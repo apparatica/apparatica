@@ -8,7 +8,7 @@
 
 ## PKG — пакет задачи и CLI судьи
 
-**FR-PKG-01** · Ф0 · Манифест `problem.yaml` валидируется по JSON Schema (`schemas/problem.schema.json`) и Pydantic-модели судьи.
+**FR-PKG-01** · Ф0 · Манифест `problem.yaml` валидируется Pydantic-моделью судьи (`judge.core.package`) — источником правды схемы; JSON Schema для редакторов и документации генерируется из неё (`judge/schemas/problem.schema.json`, CI проверяет актуальность).
 - Given пакет с ошибкой в `problem.yaml` (неизвестное поле, неверный тип), When `judge validate`, Then команда завершается с кодом ≠ 0 и указывает путь к полю и причину.
 
 **FR-PKG-02** · Ф0 · `judge validate` прогоняет эталоны и мутантов.

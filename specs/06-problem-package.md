@@ -8,7 +8,7 @@
 problems/
   tags.yaml                 # справочник тегов: slug, title, sort
   sync-fifo/
-    problem.yaml            # манифест, схема — schemas/problem.schema.json
+    problem.yaml            # манифест, схема — judge/schemas/problem.schema.json
     statement.md            # условие: Markdown + KaTeX + ```wavedrom```; позже statement.<lang>.md
     template.sv             # стартовый код с интерфейсом модуля
     tb/
@@ -31,7 +31,7 @@ problems/
 
 ## 2. `problem.yaml`
 
-Полная схема — [schemas/problem.schema.json](schemas/problem.schema.json). Пример:
+Источник правды — Pydantic-модели `judge.core.package`; JSON Schema генерируется из них (`just schemas` → [judge/schemas/problem.schema.json](../judge/schemas/problem.schema.json)) и не правится вручную. Перекрёстные правила (этапы из `pipelines`, `limits`, `leaderboard`, `mutants.caught_by` объявлены в `stages`; имена портов, параметров, тегов и тестбенчей уникальны) проверяет только модель. Пример:
 
 ```yaml
 schema: 1

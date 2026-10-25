@@ -1,0 +1,75 @@
+schema: 1
+id: sync-fifo
+number: 17
+version: 3
+changelog: "Добавлен тест на одновременные push и pop при полном FIFO"   # что изменилось относительно прошлой версии
+leaderboard_epoch: 2          # увеличить, если результаты прошлых версий несравнимы
+language: systemverilog
+kind: design
+title: Синхронный FIFO
+difficulty: medium            # ключ из config/difficulties.yaml
+tags: [fifo, memory, pointers]
+resource_class: light         # light | heavy → имя очереди judge.light / judge.heavy
+authors: [{name: "Автор", github: "author"}]
+license: CC-BY-SA-4.0
+
+top: sync_fifo
+interface:
+  parameters:
+    - {name: WIDTH, type: int, default: 8}
+    - {name: DEPTH, type: int, default: 16}
+  ports:
+    - {name: clk,   dir: input,  width: "1",     role: clock, description: "Общий тактовый сигнал"}
+    - {name: rst_n, dir: input,  width: "1",     role: reset, reset: {active: low, sync: true}, description: "Синхронный сброс, активный 0"}
+    - {name: push,  dir: input,  width: "1",     description: "Записать wdata"}
+    - {name: wdata, dir: input,  width: "WIDTH", description: "Записываемое слово"}
+    - {name: pop,   dir: input,  width: "1",     description: "Удалить слово с вершины"}
+    - {name: rdata, dir: output, width: "WIDTH", description: "Слово на вершине очереди"}
+    - {name: full,  dir: output, width: "1",     description: "Очередь заполнена"}
+    - {name: empty, dir: output, width: "1",     description: "Очередь пуста"}
+
+files:
+  statement: statement.md
+  template: template.sv
+
+testbenches:
+  - id: main
+    top: tb_top
+    sources: [tb/model.sv, tb/tests.sv, tb/tb_top.sv]
+    groups: {public: 12, hidden: 20}   # ожидаемое число тестов, проверяется validate
+
+stages:
+  precheck: {type: precheck}
+  lint:     {type: lint, flags: ["-Wall"], warnings_fail: false}
+  sim_run:  {type: sim, testbench: main, groups: [public], max_cycles: 200000}
+  sim_full: {type: sim, testbench: main, groups: [public, hidden], max_cycles: 500000}
+  synth:    {type: synth, params: {WIDTH: 8, DEPTH: 16}, clock_period_ns: 2.0, forbid_latches: true}
+  netlist_sim: {type: sim, testbench: main, groups: [public, hidden], design: synth.netlist_generic}
+  formal:   {type: formal, sources: [formal/props.sv], sby: formal/props.sby, depth: 20}
+
+pipelines:
+  practice:
+    run:    [precheck, lint, sim_run]
+    submit: [precheck, lint, sim_full, synth, netlist_sim, formal]
+
+limits:                        # переопределяют значения класса ресурсов
+  stage_timeout_s: {sim_run: 20, sim_full: 40, synth: 60, formal: 120}
+  memory_mb: 2048
+  output_kb: 1024
+  fst_mb: 16
+
+leaderboard:
+  formula_version: 1
+  order:                       # лексикографически; последняя ступень всегда — время отправки
+    - {metric: synth.critical_path_ns, dir: asc}
+    - {metric: synth.area_um2, dir: asc}
+
+reference:
+  visibility: after_accepted   # after_accepted | public | hidden; по умолчанию — из конфига платформы
+  solutions:
+    - {file: reference/sync_fifo.sv, title: "Счётчик заполнения", explanation: reference/sync_fifo.md}
+
+mutants:
+  - {file: mutants/m01_full_off_by_one.sv, expect: wrong_answer, caught_by: [sim_full], note: "full при DEPTH-1"}
+  - {file: mutants/m02_no_reset_count.sv, expect: wrong_answer}
+  - {file: mutants/m03_latch.sv, expect: compile_error, caught_by: [synth]}
