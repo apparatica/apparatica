@@ -309,6 +309,7 @@ def test_main_writes_result_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
     (tmp_path / "solution.sv").write_text(body("assign y = a; // ok"), encoding="utf-8")
     assert runner.main(["runner", "job.json", "solution.sv"]) == 0
     result = json.loads((tmp_path / "result.json").read_text(encoding="utf-8"))
+    assert result.pop("ast_hash").startswith("n1:")
     assert result == {"v": 1, "findings": [], "module": "top", "ports_ok": True, "state_bits": 17}
     assert "// ok" not in (tmp_path / "canonical.sv").read_text(encoding="utf-8")
 

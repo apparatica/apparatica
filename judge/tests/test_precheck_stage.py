@@ -1,5 +1,6 @@
 import hashlib
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -90,8 +91,11 @@ def test_passing_solution(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> No
     canonical = outcome.outputs["solution.sv"]
     assert outcome.status == "passed"
     assert b"pass through" not in canonical
+    ast_hash = outcome.metrics.pop("ast_hash")
+    assert re.fullmatch(r"n1:[0-9a-f]{64}", ast_hash)
     assert outcome.metrics == {
         "code_hash": hashlib.sha256(canonical).hexdigest(),
+        "normalization_version": 1,
         "module": "top",
         "ports_ok": True,
         "state_bits": 17,
@@ -145,7 +149,10 @@ def fake_run(exit_code: int | None = 0, **files: bytes) -> ExecResult:
     return ExecResult((CommandResult(("python3",), exit_code, 0.1),), "", files=files)
 
 
-VALID = json.dumps({"v": 1, "findings": [], "module": "top", "ports_ok": True, "state_bits": 1})
+HASH = "n1:" + "0" * 64
+VALID = json.dumps(
+    {"v": 1, "findings": [], "module": "top", "ports_ok": True, "state_bits": 1, "ast_hash": HASH}
+)
 
 
 @pytest.mark.parametrize(
@@ -161,6 +168,8 @@ VALID = json.dumps({"v": 1, "findings": [], "module": "top", "ports_ok": True, "
         (fake_run(0, **{"result.json": VALID.encode()}), "error", "OUTPUT_INVALID"),  # no canonical
         (fake_run(0, **{"result.json": VALID.replace("true", "false").encode(), "canonical.sv": b"x"}), "error", "OUTPUT_INVALID"),
         (fake_run(0, **{"result.json": VALID.replace('"findings": []', '"findings": [{"category": "x"}]').encode()}), "error", "OUTPUT_INVALID"),
+        (fake_run(0, **{"result.json": VALID.replace(HASH, "n1:x").encode(), "canonical.sv": b"x"}), "error", "OUTPUT_INVALID"),
+        (fake_run(0, **{"result.json": VALID.replace(f'"{HASH}"', "null").encode(), "canonical.sv": b"x"}), "error", "OUTPUT_INVALID"),
     ],
 )  # fmt: skip
 def test_untrusted_runner_output(run: ExecResult, status: str, detail: str) -> None:

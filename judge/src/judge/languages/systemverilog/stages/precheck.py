@@ -3,7 +3,8 @@
 The check itself parses untrusted code, so it runs in the sandbox (`sandbox/precheck_runner.py`,
 uploaded with the job). This side prepares the job from the problem interface and interprets the
 runner's files as untrusted. The canonical text becomes `solution.sv` of all later stages and its
-sha256 is the `code_hash` of build and result caches.
+sha256 is the `code_hash` of build and result caches. The normalized AST hash (specs/07 §6) comes
+from the runner: it needs the syntax tree, and the tree of untrusted code is built only there.
 """
 
 import hashlib
@@ -12,7 +13,15 @@ from collections.abc import Sequence
 from importlib import resources
 from typing import Annotated, ClassVar, Literal
 
-from pydantic import BaseModel, ConfigDict, Field, NonNegativeInt, PositiveInt, ValidationError
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    NonNegativeInt,
+    PositiveInt,
+    StringConstraints,
+    ValidationError,
+)
 
 from judge.core.stage import (
     Command,
@@ -32,6 +41,8 @@ CANONICAL = "canonical.sv"
 RESULT = "result.json"
 RESULT_LIMIT = 1 << 20
 OOM_KILLED = 137  # SIGKILL: the memory limit of the sandbox
+# n<normalization version>:<sha256>
+AstHash = Annotated[str, StringConstraints(pattern=r"^n[1-9][0-9]{0,3}:[0-9a-f]{64}$")]
 
 
 class PrecheckConfig(BaseModel):
@@ -65,12 +76,15 @@ class RunnerResult(_Untrusted):
     module: str | None
     ports_ok: bool | None
     state_bits: NonNegativeInt | None
+    ast_hash: AstHash | None
 
 
 class PrecheckMetrics(BaseModel):
-    """`precheck/v1` (specs/04 §5); the AST hash joins it with T0.7b."""
+    """`precheck/v1` (specs/04 §5)."""
 
     code_hash: str
+    ast_hash: str
+    normalization_version: int
     module: str
     ports_ok: bool
     state_bits: int
@@ -138,10 +152,17 @@ class PrecheckStage:
         if result.findings:
             return _rejected(result.findings)
         canonical = run.files.get(CANONICAL)
-        if canonical is None or result.module is None or result.ports_ok is not True:
+        if (
+            canonical is None
+            or result.module is None
+            or result.ports_ok is not True
+            or result.ast_hash is None
+        ):
             return StageOutcome(status="error", error_code="OUTPUT_INVALID")
         metrics = PrecheckMetrics(
             code_hash=hashlib.sha256(canonical).hexdigest(),
+            ast_hash=result.ast_hash,
+            normalization_version=int(result.ast_hash[1 : result.ast_hash.index(":")]),
             module=result.module,
             ports_ok=result.ports_ok,
             state_bits=result.state_bits or 0,

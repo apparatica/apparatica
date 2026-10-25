@@ -7,11 +7,13 @@ solution and `job.json`, runs `python3 precheck_runner.py job.json solution.sv`,
 Steps, each stops the check if it finds something: size limits; preprocessor tokens (lexer, before
 parsing, so no directive is ever executed); syntax; canonical text without comments; whitelist of
 syntax kinds and rules on top of it; elaboration with resource limits; state size; interface.
+A solution that passes gets the normalized AST hash (specs/07 §6).
 """
 
+import hashlib
 import json
 import sys
-from collections.abc import Iterable
+from collections.abc import Iterable, Sequence
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any
@@ -21,6 +23,8 @@ from pyslang import ast, parsing, syntax
 
 RESULT_VERSION = 1
 SOURCE_NAME = "solution.sv"
+# Bump on any change of normalize_tokens: hashes of different versions are never compared.
+NORMALIZATION_VERSION = 1
 
 TK = parsing.TokenKind
 SK = syntax.SyntaxKind
@@ -160,6 +164,7 @@ class Result:
     module: str | None = None
     ports_ok: bool | None = None
     state_bits: int | None = None
+    ast_hash: str | None = None
     canonical: str | None = None
 
     def to_json(self) -> dict[str, Any]:
@@ -169,6 +174,7 @@ class Result:
             "module": self.module,
             "ports_ok": self.ports_ok,
             "state_bits": self.state_bits,
+            "ast_hash": self.ast_hash,
         }
 
 
@@ -460,6 +466,52 @@ def check_interface(
     return findings
 
 
+_RADIX = {"b": 2, "o": 8, "d": 10, "h": 16}
+
+
+def _based_literal(base: str, digits: str) -> str:
+    """`'d10`, `'ha`, `'b1010` -> `'ha`; digits with x, z or ? stay as written (lower case)."""
+    signed = "s" if "s" in base.lower() else ""
+    radix = _RADIX[base.lower()[-1]]
+    clean = digits.replace("_", "").lower()
+    try:
+        return f"'{signed}h{int(clean, radix):x}"
+    except ValueError:
+        return f"'{signed}{base.lower()[-1]}{clean}"
+
+
+def normalize_tokens(tokens: Sequence[parsing.Token], keep: set[str]) -> list[str]:
+    """The token stream of specs/07 §6: no trivia; identifiers outside `keep` renamed to `_1`,
+    `_2`, ... in order of first appearance; based literals folded to hex, so `8'd255`, `8'hFF`
+    and `8'b1111_1111` are one literal; unsized decimals as written."""
+    renamed: dict[str, str] = {}
+    parts: list[str] = []
+    index = 0
+    while index < len(tokens):
+        token = tokens[index]
+        kind = token.kind
+        if kind == TK.EndOfFile:
+            break
+        if kind == TK.IntegerBase and index + 1 < len(tokens):
+            parts.append(_based_literal(token.rawText, tokens[index + 1].rawText))
+            index += 2
+            continue
+        text = token.valueText or token.rawText
+        if kind == TK.Identifier and text not in keep:
+            text = renamed.setdefault(text, f"_{len(renamed) + 1}")
+        parts.append(f"{kind.name}:{text}")
+        index += 1
+    return parts
+
+
+def ast_hash(tokens: Sequence[parsing.Token], job: Job) -> str:
+    """Normalized AST hash: groups identical solutions on the leaderboard and helps moderators
+    (FR-LB-04, ADR-0006). Never a cache key: caches use code_hash of the canonical text."""
+    keep = {job.top, *(p["name"] for p in job.ports), *(p["name"] for p in job.parameters)}
+    stream = "\x00".join(normalize_tokens(tokens, keep)).encode()
+    return f"n{NORMALIZATION_VERSION}:{hashlib.sha256(stream).hexdigest()}"
+
+
 def precheck(code: str, job: Job) -> Result:
     result = Result()
     result.findings = check_size(code, job.limits) or scan_directives(code)
@@ -470,8 +522,11 @@ def precheck(code: str, job: Job) -> Result:
     result.findings = [_diagnostic(sm, d) for d in tree.diagnostics if d.isError()]
     if result.findings:
         return result
-    result.canonical = canonical_text(code, _tokens(tree.root))
+    tokens = _tokens(tree.root)  # one traversal for the canonical text and the hash
+    result.canonical = canonical_text(code, tokens)
     result.findings = check_syntax(tree, job.top) or elaborate(tree, job, result)
+    if not result.findings:
+        result.ast_hash = ast_hash(tokens, job)
     return result
 
 
