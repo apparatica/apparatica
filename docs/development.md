@@ -70,7 +70,8 @@ import-linter проверяет границу ядра и языковых м�
 |---|---|
 | `judge` | `judge.core` не импортирует `judge.languages` |
 | `backend` | `apparatica` не импортирует `judge.languages` ни напрямую, ни через другие модули `judge` |
-| `backend` | `apparatica.core` не импортирует остальные модули бэкенда (specs/03 §3; пока — `apparatica.main` и `apparatica.cli`) |
+| `backend` | `apparatica.core` не импортирует остальные модули бэкенда (specs/03 §3) |
+| `backend` | модули зависят друг от друга в одну сторону: `admin → submissions → problems → core` |
 
 Языковые модули подключаются к ядру через entry points реестра (`judge.core.registry`), поэтому исключений в контрактах нет. Новые границы (например, между модулями бэкенда) добавляются в те же секции.
 
@@ -119,7 +120,7 @@ brief/      исходные материалы заказчика (не ред�
 FastAPI-приложение (`backend/src/apparatica`, модульный монолит по specs/03 §3). Модули появляются вместе со своими задачами плана:
 
 - `core` — настройки, БД (SQLAlchemy async), ошибки `problem+json`, request id, логи, feature flags (таблица `feature_flags`) и эндпоинты `GET /api/v1/health` и `GET /api/v1/config`;
-- `problems` — таблицы `tags`, `problems`, `problem_versions`, `reference_solutions`; импорт пакетов задач;
+- `problems` — таблицы `tags`, `problems`, `problem_versions`, `reference_solutions`; импорт пакетов задач; API каталога (`GET /api/v1/problems`, `/problems/{slug}`, `/problems/{slug}/versions/{version}`, `/tags`);
 - `submissions` — таблицы `toolchain_profiles`, `submissions`, `stage_results`, `artifacts`;
 - `admin` — CLI `apparatica-admin`.
 
@@ -131,6 +132,13 @@ poetry -C backend run apparatica migrate          # alembic upgrade head
 ```
 
 Нужен Postgres 17+ по `APX_DATABASE_URL` (стенд docker compose — T0.19); без него API стартует, но `GET /health` отвечает 503. Настройки и файлы `config/` — [configuration.md](configuration.md).
+
+### API каталога задач
+
+- **Видимость.** В каталоге — опубликованные задачи с их текущими версиями. `GET /problems/{slug}/versions/{version}` отдаёт версии до текущей включительно: на старые ссылаются отправки. Версия новее текущей (импортирована без `--publish`) и неопубликованная задача — `404 NOT_FOUND`.
+- **Фильтры `GET /problems`.** Несколько значений `difficulty` или `tag` — «любое из», фильтры разных видов складываются. `q` ищет подстроку без учёта регистра в названии, слаге и подписи тега. `sort`: `number`, `difficulty` (порядок `config/difficulties.yaml`, затем номер), с `-` — по убыванию. Страницы — `page`, `per_page` (по умолчанию 12, максимум 100).
+- **Сводка `progress`.** Число опубликованных задач каждого уровня, без учёта фильтров. Решённые появятся с пользователями (Ф2), процент принятых — с проверками (Ф1).
+- **Кэш.** Каталог, задача и теги — `public, max-age=60, stale-while-revalidate=300` с `ETag`. Версия задачи неизменяема — `public, max-age=31536000, immutable`.
 
 ### База данных и миграции
 

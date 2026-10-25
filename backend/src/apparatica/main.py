@@ -16,6 +16,7 @@ from apparatica.core.logging import configure_logging
 from apparatica.core.platform import load_platform_config
 from apparatica.core.requests import RequestContextMiddleware
 from apparatica.core.settings import Settings, get_settings
+from apparatica.problems import api as problems_api
 
 API_PREFIX = "/api/v1"
 VERSION = version("apparatica-backend")
@@ -55,6 +56,7 @@ def create_app(
     install_error_handlers(app)
     app.add_middleware(RequestContextMiddleware)
     app.include_router(core_api.router, prefix=API_PREFIX)
+    app.include_router(problems_api.router, prefix=API_PREFIX)
 
     def openapi() -> dict[str, Any]:
         """The generated schema plus the Problem component that error responses refer to."""

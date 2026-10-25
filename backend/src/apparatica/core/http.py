@@ -7,6 +7,7 @@ from pydantic import BaseModel
 
 PUBLIC = "public, max-age=60, stale-while-revalidate=300"
 PRIVATE = "private, no-store"
+IMMUTABLE = "public, max-age=31536000, immutable"  # data of a problem version never changes
 
 
 def cached_json(request: Request, body: BaseModel, cache_control: str = PUBLIC) -> Response:
