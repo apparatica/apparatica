@@ -253,6 +253,12 @@ class SimStage:
             return StageOutcome(status="error", error_code="OUTPUT_INVALID"), None
         if result.abort is not None and result.abort.reason == "tb_error":
             return StageOutcome(status="error", error_code="TB_ERROR"), result
+        mismatch = _group_count_mismatch(ctx, result)
+        if mismatch is not None:
+            summary = StageSummary(caption=mismatch)
+            return StageOutcome(
+                status="error", error_code="TB_GROUPS_MISMATCH", summary=summary
+            ), result
         summary, metrics = self._report(ctx, result)
         failed = any(test.status == "failed" for test in result.tests)
         if failed:
@@ -386,6 +392,23 @@ class SimStage:
         if status == "recorded":
             metrics["trace_window"] = list(window)
         return outcome.model_copy(update={"metrics": metrics, "artifacts": artifacts})
+
+
+def _group_count_mismatch(ctx: StageContext, result: tbproto.TbResult) -> str | None:
+    """A finished suite lists every test of the selected groups (failed, passed or skipped): their
+    numbers must match testbenches[].groups. A mismatch is a problem bug (FR-PKG-03), caught by
+    `judge validate` on the reference solutions."""
+    assert isinstance(ctx.config, SimConfig)
+    if result.end is None:
+        return None
+    declared = _testbench(ctx, ctx.config).groups
+    for group in ctx.config.groups:
+        actual = sum(test.group == group for test in result.tests)
+        expected = declared.get(group)
+        if actual != expected:
+            in_manifest = "группа не объявлена" if expected is None else str(expected)
+            return f"в группе {group} тестов: {actual}, в problem.yaml: {in_manifest}"
+    return None
 
 
 def _key(mismatch: tbproto.Mismatch | None) -> tuple[str, int, str] | None:

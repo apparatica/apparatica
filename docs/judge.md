@@ -75,7 +75,7 @@
 
 1. План: исходники тестбенча из пакета (`pkg/…`, только внутри каталога пакета), канонический `solution.sv` (или `design.v`), две команды — `apx-verilate` с `apx_tb_pkg` первым и запуск `obj_dir/V<tb.top>` с сидом отправки, группами, новым nonce, лимитом тактов и случайной инициализацией.
 2. Фильтр строк: строки прогресса `@@apx` с nonce этого прогона становятся событиями `test`; скрытые тесты в них анонимны (`hidden-N`); служебная строка `$finish` из `apx_tb_pkg` скрыта.
-3. Итог по файлу результатов (`tbproto.parse_result`): упавший тест → `wrong`; `suite_abort` по `max_cycles` → `limit`/`cycles`; ошибка тестбенча → `error`/`TB_ERROR`; нет итога (симуляция упала) → `wrong`; нарушение протокола → `error`/`OUTPUT_INVALID`; сборка не прошла → `compile`; таймаут, вывод, память (код 137) → `limit`. `summary.tests` — открытые тесты с расхождениями и подсказками, `summary.hidden_tests` — счётчики скрытых, метрики `sim/v1`.
+3. Итог по файлу результатов (`tbproto.parse_result`): упавший тест → `wrong`; `suite_abort` по `max_cycles` → `limit`/`cycles`; ошибка тестбенча → `error`/`TB_ERROR`; число тестов в группе не совпало с `testbenches[].groups` → `error`/`TB_GROUPS_MISMATCH`; нет итога (симуляция упала) → `wrong`; нарушение протокола → `error`/`OUTPUT_INVALID`; сборка не прошла → `compile`; таймаут, вывод, память (код 137) → `limit`. `summary.tests` — открытые тесты с расхождениями и подсказками, `summary.hidden_tests` — счётчики скрытых, метрики `sim/v1`.
 4. Если упал открытый тест, `interpret` возвращает второй план: тот же бинарник, тот же сид, `+apx_trace_from/to` вокруг первого расхождения, в том же каталоге этапа. Совпало первое расхождение — FST уходит в `artifacts` (`trace.fst`, не больше `fst_mb`), иначе `metrics.trace = nondeterministic` и окно не показывается.
 
 ## События
@@ -86,11 +86,22 @@
 
 `config/resource-classes.yaml` задаёт для каждого класса ресурсов (`light`, `heavy`; NFR-LIM) CPU, память, число процессов, лимит вывода, размер FST, таймауты этапов по типу, таймаут по умолчанию и верхнюю границу таймаута. `limits` в `problem.yaml` переопределяют память, вывод, FST и таймауты по ключу этапа; таймаут выше границы класса — ошибка. `sandbox_limits` даёт лимиты контейнера, `stage_limits` — лимиты этапа (`ctx.limits`).
 
+## CLI: validate, run, pack, new
+
+`judge/src/judge/cli.py` собирает исполнитель (`LocalDockerExecutor` с лимитами класса ресурсов задачи или `HostExecutor` с `--no-docker`) и вызывает части ядра:
+
+- **`validate`** — `judge.core.validate.PackageValidator`. Первые три проверки останавливают проверку пакета: схема `problem.yaml`; языковой модуль, плагины и конфиги этапов, лимиты класса ресурсов; файлы манифеста существуют внутри пакета. Дальше: условие в UTF-8 (рендер — с T1.10, строка `--`); шаблон проходит этапы `LanguageModule.template_checks` (для SV — `precheck`), запущенные через `Job.stages`; каждый эталон — `accepted` на `--seeds` сидах (по умолчанию 3); каждый мутант — вердикт `expect` на первом сиде от этапа из `caught_by` или более раннего в `submit` (FR-PKG-02). Каждый прогон — отдельный контейнер, как у настоящей отправки. Сиды — первые 8 байт `sha256("<id>@<version>#<n>")`, сдвинутые до 63 бит.
+- **Число тестов в группах** проверяет сам этап `sim`: в законченном прогоне (`suite_end`) тесты каждой выбранной группы, включая пропущенные, должны совпасть с `testbenches[].groups`, иначе `error` с `TB_GROUPS_MISMATCH` и подписью вида «в группе hidden тестов: 1, в problem.yaml: 2». Неверное число ловит прогон эталона в `validate`.
+- **`run`** — `run_pipeline` с `ConsoleSink` и `JsonlSink`, артефакты через `on_artifact` в `out/<stage>/`, вердикт — `aggregate`, строка причины — `validate.describe`.
+- **`pack`** — `judge.core.pack`: файлы пакета по пути (без файлов и каталогов на `.` и `__pycache__`, символические ссылки — ошибка), `content_hash` — sha256 списка в формате `sha256sum`, архив — PAX tar с mode 0644, mtime 0 и без имён владельцев, сжатый zstd (уровень 19): одинаковые файлы дают одинаковые байты.
+- **`new`** — `judge.core.scaffold`: копия `LanguageModule.package_template` с подстановкой `__slug__`, `__top__` (slug через `_`, с префиксом `m_`, если начинается с цифры) и `__number__` (следующий номер среди пакетов каталога). Шаблон SV — `judge/languages/systemverilog/package_template/`: регистр с синхронным сбросом, модель, тестбенч на `apx_tb_pkg` (2 открытых теста и 1 скрытый), эталон и три мутанта, один из которых ловят только скрытые тесты; пакет проходит `judge validate` как есть.
+
 ## Тесты
 
 - `judge/tests/test_core_*.py` — пайплайн с фейковыми этапами (команды — однострочники Python через `HostExecutor`), исполнитель на хосте, вердикт, лимиты, реестр, события. Фейковые этапы — `judge/tests/core_helpers.py`.
 - `judge/tests/test_precheck_runner.py` — раннер в процессе (pyslang — dev-зависимость судьи той же версии, что в образе): корпус легальных решений и более 60 запрещённых и вредоносных случаев из S7, сообщения, позиции, интерфейс, лимиты. `judge/tests/test_precheck_stage.py` — план и разбор результата, включая недоверенный вывод.
 - `toolchain/tests/test_precheck.py` — этап в образе через `LocalDockerExecutor`; канонический текст собирается Verilator.
 - `judge/tests/test_lint_stage.py` — план и разбор SARIF lint; `toolchain/tests/test_lint.py` — пайплайн `precheck → lint` в образе через `run_pipeline`.
+- `judge/tests/test_validate.py` — проверки `validate` на фиктивном языке (этап решает по метке в решении, команды — на хосте); `test_pack.py`, `test_scaffold.py`, `test_cli.py` — `pack`, `new` и CLI без Docker; `toolchain/tests/test_cli.py` — `new → validate → run` в образе, включая сломанный пакет, воспроизведение падения по сиду и мутант, которого ловят только скрытые тесты.
 - `judge/tests/test_sim_stage.py` — план, разбор результатов, окно трассы, анонимность скрытых тестов; `toolchain/tests/test_sim.py` — пайплайн `precheck → lint → sim` в образе на пакете-фикстуре `judge/tests/data/packages/counter` (принятое решение, падение открытого теста с FST, падение скрытого).
 - `toolchain/tests/test_executor.py` — `LocalDockerExecutor` против образа тулчейна: каналы, файлы, таймаут, лимит вывода, отмена, отсутствие выживших процессов. Запускается `just toolchain-test`.

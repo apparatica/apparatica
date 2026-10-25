@@ -5,8 +5,10 @@ from pathlib import Path
 import pytest
 
 from judge.cli import main
+from judge.core.pack import content_hash, package_files, unpack
 
 DATA = Path(__file__).parent / "data"
+RESOURCE_CLASSES = Path(__file__).parents[2] / "config" / "resource-classes.yaml"
 
 
 @pytest.fixture
@@ -41,9 +43,42 @@ def test_validate_missing_package(tmp_path: Path, capsys: pytest.CaptureFixture[
     assert "cannot read" in capsys.readouterr().out
 
 
-def test_full_validation_is_not_implemented_yet(capsys: pytest.CaptureFixture[str]) -> None:
-    assert main(["validate", str(DATA / "sync-fifo")]) == 2
-    assert "--schema-only" in capsys.readouterr().err
+def test_full_validation_stops_at_schema_errors(
+    problems: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # The broken package fails before anything runs; sync-fifo has no reference files.
+    assert main(["validate", "--resource-classes", str(RESOURCE_CLASSES), str(problems)]) == 1
+    out = capsys.readouterr().out
+    assert "FAIL схема problem.yaml — interface.ports[0].dir" in out
+    assert "невалидных пакетов: 2 из 2" in out
+
+
+def test_validate_needs_resource_classes(
+    problems: Path, monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.chdir(problems)
+    monkeypatch.delenv("JUDGE_RESOURCE_CLASSES", raising=False)
+    assert main(["validate", str(problems / "sync-fifo")]) == 2
+    assert "config/resource-classes.yaml" in capsys.readouterr().err
+
+
+def test_new_and_pack(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    assert main(["new", "demo-reg", "--dir", str(tmp_path)]) == 0
+    package = tmp_path / "demo-reg"
+    assert (package / "reference" / "demo_reg.sv").is_file()
+    capsys.readouterr()
+    archive = tmp_path / "demo.tar.zst"
+    assert main(["pack", str(package), "--output", str(archive)]) == 0
+    out = capsys.readouterr().out
+    assert f"content_hash {content_hash(package_files(package))}" in out
+    assert unpack(archive.read_bytes()) == package_files(package)
+    assert main(["new", "demo-reg", "--dir", str(tmp_path)]) == 2  # exists
+
+
+def test_run_reports_a_missing_solution(capsys: pytest.CaptureFixture[str]) -> None:
+    args = ["run", str(DATA / "sync-fifo"), "--solution", "missing.sv"]
+    assert main(args) == 2
+    assert "missing.sv" in capsys.readouterr().err
 
 
 def test_schema_prints_json_schema(capsysbinary: pytest.CaptureFixture[bytes]) -> None:

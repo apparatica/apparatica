@@ -8,7 +8,7 @@ separately (`judge.core.verdict`) by whoever owns the final status.
 import threading
 import time
 import traceback
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
@@ -60,6 +60,8 @@ class Job:
     kind: SubmissionKind
     seed: int
     solution: bytes
+    # Stage keys to run instead of pipelines.practice.<kind>, e.g. only the checks of a template.
+    stages: tuple[str, ...] | None = None
 
 
 @dataclass(frozen=True)
@@ -69,9 +71,15 @@ class _Planned:
     config: BaseModel
 
 
-def plan_stages(problem: Problem, kind: SubmissionKind, language: LanguageModule) -> list[_Planned]:
+def plan_stages(
+    problem: Problem,
+    kind: SubmissionKind,
+    language: LanguageModule,
+    keys: Sequence[str] | None = None,
+) -> list[_Planned]:
     """Resolve stage plugins and validate their configs before anything runs."""
-    keys = getattr(problem.pipelines.practice, kind)
+    if keys is None:
+        keys = getattr(problem.pipelines.practice, kind)
     planned = []
     for key in keys:
         raw = problem.stages[key]
@@ -99,7 +107,7 @@ def run_pipeline(
 ) -> list[StageResult]:
     """Run the stages; `on_artifact` gets the files a stage keeps for the user (e.g. FST)."""
     cancel = cancel or threading.Event()
-    planned = plan_stages(job.problem, job.kind, language)
+    planned = plan_stages(job.problem, job.kind, language, job.stages)
     finished: dict[str, FinishedStage] = {}
     results: list[StageResult] = []
     skip: SkipReason | None = None

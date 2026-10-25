@@ -8,6 +8,7 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 from functools import cache
 from importlib.metadata import entry_points
+from importlib.resources.abc import Traversable
 
 from judge.core.stage import Stage
 
@@ -18,6 +19,11 @@ ENTRY_POINT_GROUP = "apparatica.judge.languages"
 class LanguageModule:
     name: str
     stages: Mapping[str, type[Stage]]  # stage type -> plugin class
+    # Stage types that `judge validate` runs on the starter template (it must pass them).
+    template_checks: tuple[str, ...] = ()
+    # Files of a new package for `judge new`: __slug__, __top__ and __number__ are substituted
+    # in file names and contents.
+    package_template: Traversable | None = None
 
 
 class UnknownLanguageError(LookupError):

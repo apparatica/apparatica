@@ -115,12 +115,22 @@ brief/      исходные материалы заказчика (не ред�
 `judge` ставится вместе с окружением `judge` (`just install`) и запускается через Poetry:
 
 ```sh
-poetry -C judge run judge validate --schema-only ../problems   # каталог пакетов или один пакет
+poetry -C judge run judge new my-task --dir ../problems          # пакет из шаблона
+poetry -C judge run judge validate ../problems/my-task          # полная проверка пакета (Docker)
+poetry -C judge run judge validate --schema-only ../problems    # только problem.yaml, без Docker
+poetry -C judge run judge run ../problems/my-task --solution x.sv --kind submit --seed 41917
+poetry -C judge run judge pack ../problems/my-task              # my-task-1.tar.zst и content_hash
 poetry -C judge run judge schema                                # JSON Schema problem.yaml в stdout
 poetry -C judge run judge schema tb-result                      # JSON Schema записи протокола тестбенча
 ```
 
-`validate --schema-only` проверяет `problem.yaml` каждого пакета: структуру и типы полей, перекрёстные ссылки на этапы, совпадение `id` с именем каталога. Все ошибки выводятся сразу, с путём к полю (`interface.ports[0].dir: Input should be 'input', 'output' or 'inout'`); код выхода 1, если хоть один пакет невалиден. Полная проверка (эталоны, мутанты, число тестов, условие) появится в T0.10.
+Этапы выполняются в контейнере образа тулчейна с ограничениями песочницы: нужен Docker и собранный образ (`just toolchain-build`, или `--image`/`JUDGE_TOOLCHAIN_IMAGE` с опубликованным профилем). `--no-docker` запускает инструменты на хосте — только для доверенного кода и если инструменты установлены. Лимиты берутся из `config/resource-classes.yaml` репозитория, в котором лежит пакет.
+
+- `validate` печатает по строке на проверку (`ok`, `FAIL` с причиной, `--` — пропущено) и итог; код выхода 1, если хоть один пакет невалиден, 2 — ошибка окружения. Сиды эталонов видны в строках и детерминированы по `id@version`: упавший прогон повторяется через `judge run --seed`. `-v` показывает консоль этапов, `--seeds N` задаёт число сидов.
+- `validate --schema-only` проверяет только `problem.yaml`: структуру и типы полей, перекрёстные ссылки на этапы, совпадение `id` с именем каталога, с путём к полю в каждой ошибке (`interface.ports[0].dir: Input should be 'input', 'output' or 'inout'`).
+- `run` печатает консоль, как на сайте, и вердикт; в `--out` (по умолчанию `./out`) — `events.jsonl`, `result.json` и артефакты этапов, например окно трассы `sim_run/trace.fst`. Код выхода 0 при `accepted`/`accepted_with_warnings`, 1 при другом вердикте.
+
+Что проверяет `validate` и как устроены `pack` и `new` — в [judge.md](judge.md).
 
 Модель манифеста — `judge/src/judge/core/package.py` (Pydantic, строгие типы, неизвестные поля запрещены). JSON Schema генерируется из неё: после правки модели выполните `just schemas` и закоммитьте `judge/schemas/problem.schema.json` — тест `test_committed_json_schema_is_up_to_date` падает, если файл устарел. YAML читается безопасным загрузчиком, повторяющиеся ключи — ошибка.
 

@@ -276,6 +276,29 @@ def test_hidden_failure() -> None:
     assert outcome.summary.caption == "упал скрытый тест 1, такт 30"
 
 
+def test_group_counts_must_match_the_manifest() -> None:
+    # counter declares public: 2, hidden: 1; this run has one public test.
+    data = jsonl(
+        START,
+        started("t1", 0), ended("t1", "passed", 0, 7),
+        started("h1", 7, "hidden"), ended("h1", "passed", 7, 40),
+        rec("suite_end", passed=2, failed=0, not_run=0, cycles=40),
+    )  # fmt: skip
+    outcome = outcome_of(context(), run_with(data))
+    assert (outcome.status, outcome.error_code) == ("error", "TB_GROUPS_MISMATCH")
+    assert outcome.summary.caption == "в группе public тестов: 1, в problem.yaml: 2"
+
+
+def test_skipped_tests_count_for_their_groups() -> None:
+    # OPEN_FAIL skips h1 after t2 fails: the hidden group is still complete.
+    assert outcome_of(context(trace=False), run_with(OPEN_FAIL)).failure_kind == "wrong"
+
+
+def test_group_counts_are_not_checked_for_an_unfinished_run() -> None:
+    data = jsonl(START, started("t1", 0), rec("suite_abort", reason="max_cycles", cycle=10_001))
+    assert outcome_of(context(), run_with(data)).limit == "cycles"
+
+
 def test_cycle_limit() -> None:
     data = jsonl(START, started("t1", 0), rec("suite_abort", reason="max_cycles", cycle=10_001))
     outcome = outcome_of(context(), run_with(data))

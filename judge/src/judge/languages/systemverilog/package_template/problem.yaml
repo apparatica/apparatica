@@ -1,0 +1,55 @@
+# Пакет создан `judge new`: замените условие, интерфейс, тестбенч, эталон и мутантов своей задачей.
+# Формат пакета — specs/06; проверка — `judge validate <путь к пакету>`.
+schema: 1
+id: __slug__
+number: __number__
+version: 1
+leaderboard_epoch: 1
+language: systemverilog
+kind: design
+title: Регистр с синхронным сбросом
+difficulty: easy
+tags: [register]
+resource_class: light
+license: CC-BY-SA-4.0
+
+top: __top__
+interface:
+  parameters:
+    - {name: WIDTH, type: int, default: 8, description: "Разрядность данных"}
+  ports:
+    - {name: clk, dir: input, width: "1", role: clock, description: "Тактовый сигнал"}
+    - {name: rst_n, dir: input, width: "1", role: reset, reset: {active: low, sync: true}, description: "Синхронный сброс, активный 0"}
+    - {name: en, dir: input, width: "1", description: "Разрешение записи"}
+    - {name: d, dir: input, width: "WIDTH", description: "Записываемое слово"}
+    - {name: q, dir: output, width: "WIDTH", description: "Хранимое слово"}
+
+files:
+  statement: statement.md
+  template: template.sv
+
+testbenches:
+  - id: main
+    top: tb_top
+    sources: [tb/model.sv, tb/tb_top.sv]
+    groups: {public: 2, hidden: 1}
+
+stages:
+  precheck: {type: precheck}
+  lint: {type: lint}
+  sim_run: {type: sim, testbench: main, groups: [public], max_cycles: 10000}
+  sim_full: {type: sim, testbench: main, groups: [public, hidden], max_cycles: 10000}
+
+pipelines:
+  practice:
+    run: [precheck, lint, sim_run]
+    submit: [precheck, lint, sim_full]
+
+reference:
+  solutions:
+    - {file: reference/__top__.sv, title: "Регистр", explanation: reference/__top__.md}
+
+mutants:
+  - {file: mutants/m01_reset_value.sv, expect: wrong_answer, note: "сброс записывает единицы"}
+  - {file: mutants/m02_ignores_en.sv, expect: wrong_answer, caught_by: [sim_full], note: "запись без en: ловят только скрытые тесты"}
+  - {file: mutants/m03_initial.sv, expect: forbidden_construct, caught_by: [precheck], note: "initial вместо сброса"}
