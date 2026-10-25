@@ -1,5 +1,6 @@
 # syntax=docker/dockerfile:1
-# Sandbox toolchain image, profile 1: Verilator, Z3, pyslang, Verible, apx-run (ADR-0003, specs/07 §5).
+# Sandbox toolchain image, profile 1: Verilator, Z3, pyslang, Verible, apx-run, apx_tb_pkg
+# (ADR-0003, specs/07 §5).
 # Tool versions live in versions.lock. Build and test: `just toolchain-build`, `just toolchain-test`.
 
 ARG BASE_IMAGE=debian:trixie-slim@sha256:62bd423aeee912639ca8ee681c2b762cb3e25137e0a92b20be455898a9f034ad
@@ -82,6 +83,11 @@ ENV PATH=/opt/apx/bin:/opt/apx/venv/bin:/opt/verilator/bin:/opt/verible/bin:/usr
 # Prebuilt Verilator runtime (ADR-0003): read-only in the image, linked by apx-verilate.
 RUN --mount=type=bind,source=apx-verilate,target=/tmp/apx-verilate \
     sh /tmp/apx-verilate/build-runtime.sh
+
+# Testbench library (specs/06 §3.2), compiled first by the sim stage. After the runtime: editing it
+# does not rebuild the runtime layer.
+RUN --mount=type=bind,source=sv,target=/tmp/sv \
+    install -D -m 0644 /tmp/sv/apx_tb_pkg.sv /opt/apx/sv/apx_tb_pkg.sv
 
 RUN useradd --uid 10001 --user-group --home-dir /work --no-create-home --shell /usr/sbin/nologin sandbox \
     && mkdir /work && chown sandbox:sandbox /work

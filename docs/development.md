@@ -40,7 +40,7 @@ Poetry создаёт виртуальное окружение внутри к�
 | `just check-locks` | `poetry check --lock` в каждом проекте и сверка версий общих зависимостей между тремя `poetry.lock` |
 | `just check-licenses` | лицензии зависимостей Python (`check-licenses-py`) и JS (`check-licenses-js`) по политике |
 | `just check` | `check-locks`, `check-licenses`, `lint`, `typecheck`, `test` |
-| `just schemas` | перегенерирует JSON Schema `problem.yaml` из моделей судьи (`judge/schemas/problem.schema.json`) |
+| `just schemas` | перегенерирует JSON Schema из моделей судьи: `problem.yaml` и записи протокола тестбенча (`judge/schemas/`) |
 | `just toolchain-build` | собирает образ тулчейна `apparatica-toolchain:dev` |
 | `just toolchain-test` | тесты образа: pytest на хосте, команды через `docker exec` в контейнере с ограничениями песочницы |
 
@@ -116,11 +116,14 @@ brief/      исходные материалы заказчика (не ред�
 ```sh
 poetry -C judge run judge validate --schema-only ../problems   # каталог пакетов или один пакет
 poetry -C judge run judge schema                                # JSON Schema problem.yaml в stdout
+poetry -C judge run judge schema tb-result                      # JSON Schema записи протокола тестбенча
 ```
 
 `validate --schema-only` проверяет `problem.yaml` каждого пакета: структуру и типы полей, перекрёстные ссылки на этапы, совпадение `id` с именем каталога. Все ошибки выводятся сразу, с путём к полю (`interface.ports[0].dir: Input should be 'input', 'output' or 'inout'`); код выхода 1, если хоть один пакет невалиден. Полная проверка (эталоны, мутанты, число тестов, условие) появится в T0.10.
 
 Модель манифеста — `judge/src/judge/core/package.py` (Pydantic, строгие типы, неизвестные поля запрещены). JSON Schema генерируется из неё: после правки модели выполните `just schemas` и закоммитьте `judge/schemas/problem.schema.json` — тест `test_committed_json_schema_is_up_to_date` падает, если файл устарел. YAML читается безопасным загрузчиком, повторяющиеся ключи — ошибка.
+
+Протокол результатов тестбенча (specs/06 §3.3) разбирает `judge/src/judge/languages/systemverilog/tbproto.py`: `parse_result` — файл результатов с лимитом размера, проверкой схемы и порядка записей (нарушение — `ProtocolError`, этап получит `OUTPUT_INVALID`), `split_progress` — строки прогресса `@@apx:<nonce>` в выводе симуляции. Модели записей — источник правды, схема `judge/schemas/tb-result.schema.json` генерируется `just schemas` и проверяется тестом так же, как схема манифеста. Сторона тестбенча — библиотека `toolchain/sv/apx_tb_pkg.sv` в образе тулчейна; совместимость обеих сторон проверяют тесты образа (`toolchain/tests/test_apx_tb_pkg.py`).
 
 ## JS
 

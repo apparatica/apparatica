@@ -6,11 +6,9 @@ import time
 
 import pytest
 
-from sandbox import SANDBOX_UID, Sandbox, output
+from sandbox import SANDBOX_UID, SIM_FLAGS, Sandbox, output
 
 ERR_MARK = b"\x1e"
-# The `sim` stage flags that apx-verilate does not add (specs/07 §2.3).
-SIM_FLAGS = ["--x-assign", "unique", "--x-initial", "unique", "-Wno-fatal", "-Wno-lint", "-j", "2"]
 
 COUNTER = """\
 module top (input logic clk, input logic rst, output logic [3:0] count);

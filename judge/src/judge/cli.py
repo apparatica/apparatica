@@ -7,6 +7,9 @@ from collections.abc import Sequence
 from pathlib import Path
 
 from judge.core.package import MANIFEST_NAME, ManifestError, load_manifest, manifest_json_schema
+from judge.languages.systemverilog.tbproto import tb_result_json_schema
+
+SCHEMAS = {"problem": manifest_json_schema, "tb-result": tb_result_json_schema}
 
 
 def _packages(paths: list[Path]) -> list[Path]:
@@ -45,7 +48,7 @@ def _validate(args: argparse.Namespace) -> int:
 
 def _schema(args: argparse.Namespace) -> int:
     # Bytes, not text: the result must not depend on the console encoding or shell newlines.
-    data = manifest_json_schema().encode("utf-8")
+    data = SCHEMAS[args.name]().encode("utf-8")
     if args.output is None:
         sys.stdout.buffer.write(data)
     else:
@@ -67,7 +70,14 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     validate.set_defaults(handler=_validate)
 
-    schema = commands.add_parser("schema", help="print the JSON Schema of problem.yaml")
+    schema = commands.add_parser("schema", help="print a JSON Schema generated from the models")
+    schema.add_argument(
+        "name",
+        nargs="?",
+        default="problem",
+        choices=SCHEMAS,
+        help="problem: problem.yaml (default); tb-result: a record of the testbench result file",
+    )
     schema.add_argument("--output", type=Path, help="write to a file instead of stdout")
     schema.set_defaults(handler=_schema)
 

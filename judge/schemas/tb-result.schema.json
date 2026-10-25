@@ -1,0 +1,382 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://apparatica.app/schemas/tb-result/1.json",
+  "title": "Apparatica testbench result record (one JSON Lines record of apx_tb_pkg)",
+  "$defs": {
+    "Mismatch": {
+      "additionalProperties": false,
+      "properties": {
+        "v": {
+          "const": 1,
+          "title": "V",
+          "type": "integer"
+        },
+        "event": {
+          "const": "mismatch",
+          "title": "Event",
+          "type": "string"
+        },
+        "test": {
+          "minLength": 1,
+          "title": "Test",
+          "type": "string"
+        },
+        "cycle": {
+          "minimum": 0,
+          "title": "Cycle",
+          "type": "integer"
+        },
+        "time_ps": {
+          "minimum": 0,
+          "title": "Time Ps",
+          "type": "integer"
+        },
+        "signal": {
+          "minLength": 1,
+          "title": "Signal",
+          "type": "string"
+        },
+        "expected": {
+          "pattern": "^[1-9][0-9]*'h[0-9a-f]+$",
+          "title": "Expected",
+          "type": "string"
+        },
+        "actual": {
+          "pattern": "^[1-9][0-9]*'h[0-9a-f]+$",
+          "title": "Actual",
+          "type": "string"
+        },
+        "hint": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Shown up to 500 characters",
+          "title": "Hint"
+        }
+      },
+      "required": [
+        "v",
+        "event",
+        "test",
+        "cycle",
+        "time_ps",
+        "signal",
+        "expected",
+        "actual"
+      ],
+      "title": "Mismatch",
+      "type": "object"
+    },
+    "SuiteAbort": {
+      "additionalProperties": false,
+      "description": "The run stopped early: the cycle limit (`max_cycles`) or a testbench bug (`tb_error`).",
+      "properties": {
+        "v": {
+          "const": 1,
+          "title": "V",
+          "type": "integer"
+        },
+        "event": {
+          "const": "suite_abort",
+          "title": "Event",
+          "type": "string"
+        },
+        "reason": {
+          "enum": [
+            "max_cycles",
+            "tb_error"
+          ],
+          "title": "Reason",
+          "type": "string"
+        },
+        "cycle": {
+          "minimum": 0,
+          "title": "Cycle",
+          "type": "integer"
+        },
+        "message": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "title": "Message"
+        }
+      },
+      "required": [
+        "v",
+        "event",
+        "reason",
+        "cycle"
+      ],
+      "title": "SuiteAbort",
+      "type": "object"
+    },
+    "SuiteEnd": {
+      "additionalProperties": false,
+      "properties": {
+        "v": {
+          "const": 1,
+          "title": "V",
+          "type": "integer"
+        },
+        "event": {
+          "const": "suite_end",
+          "title": "Event",
+          "type": "string"
+        },
+        "passed": {
+          "minimum": 0,
+          "title": "Passed",
+          "type": "integer"
+        },
+        "failed": {
+          "minimum": 0,
+          "title": "Failed",
+          "type": "integer"
+        },
+        "not_run": {
+          "minimum": 0,
+          "title": "Not Run",
+          "type": "integer"
+        },
+        "cycles": {
+          "minimum": 0,
+          "title": "Cycles",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "v",
+        "event",
+        "passed",
+        "failed",
+        "not_run",
+        "cycles"
+      ],
+      "title": "SuiteEnd",
+      "type": "object"
+    },
+    "SuiteStart": {
+      "additionalProperties": false,
+      "properties": {
+        "v": {
+          "const": 1,
+          "title": "V",
+          "type": "integer"
+        },
+        "event": {
+          "const": "suite_start",
+          "title": "Event",
+          "type": "string"
+        },
+        "seed": {
+          "exclusiveMaximum": 18446744073709551616,
+          "minimum": 0,
+          "title": "Seed",
+          "type": "integer"
+        },
+        "groups": {
+          "anyOf": [
+            {
+              "items": {
+                "minLength": 1,
+                "type": "string"
+              },
+              "type": "array"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "description": "Selected groups; null: all groups",
+          "title": "Groups"
+        }
+      },
+      "required": [
+        "v",
+        "event",
+        "seed",
+        "groups"
+      ],
+      "title": "SuiteStart",
+      "type": "object"
+    },
+    "TestEnd": {
+      "additionalProperties": false,
+      "properties": {
+        "v": {
+          "const": 1,
+          "title": "V",
+          "type": "integer"
+        },
+        "event": {
+          "const": "test_end",
+          "title": "Event",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "status": {
+          "enum": [
+            "passed",
+            "failed"
+          ],
+          "title": "Status",
+          "type": "string"
+        },
+        "cycles": {
+          "minimum": 0,
+          "title": "Cycles",
+          "type": "integer"
+        },
+        "cycle": {
+          "minimum": 0,
+          "title": "Cycle",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "v",
+        "event",
+        "id",
+        "status",
+        "cycles",
+        "cycle"
+      ],
+      "title": "TestEnd",
+      "type": "object"
+    },
+    "TestSkip": {
+      "additionalProperties": false,
+      "description": "A test not run because an earlier test failed.",
+      "properties": {
+        "v": {
+          "const": 1,
+          "title": "V",
+          "type": "integer"
+        },
+        "event": {
+          "const": "test_skip",
+          "title": "Event",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "group": {
+          "minLength": 1,
+          "title": "Group",
+          "type": "string"
+        }
+      },
+      "required": [
+        "v",
+        "event",
+        "id",
+        "name",
+        "group"
+      ],
+      "title": "TestSkip",
+      "type": "object"
+    },
+    "TestStart": {
+      "additionalProperties": false,
+      "properties": {
+        "v": {
+          "const": 1,
+          "title": "V",
+          "type": "integer"
+        },
+        "event": {
+          "const": "test_start",
+          "title": "Event",
+          "type": "string"
+        },
+        "id": {
+          "minLength": 1,
+          "title": "Id",
+          "type": "string"
+        },
+        "name": {
+          "title": "Name",
+          "type": "string"
+        },
+        "group": {
+          "minLength": 1,
+          "title": "Group",
+          "type": "string"
+        },
+        "cycle": {
+          "minimum": 0,
+          "title": "Cycle",
+          "type": "integer"
+        }
+      },
+      "required": [
+        "v",
+        "event",
+        "id",
+        "name",
+        "group",
+        "cycle"
+      ],
+      "title": "TestStart",
+      "type": "object"
+    }
+  },
+  "discriminator": {
+    "mapping": {
+      "mismatch": "#/$defs/Mismatch",
+      "suite_abort": "#/$defs/SuiteAbort",
+      "suite_end": "#/$defs/SuiteEnd",
+      "suite_start": "#/$defs/SuiteStart",
+      "test_end": "#/$defs/TestEnd",
+      "test_skip": "#/$defs/TestSkip",
+      "test_start": "#/$defs/TestStart"
+    },
+    "propertyName": "event"
+  },
+  "oneOf": [
+    {
+      "$ref": "#/$defs/SuiteStart"
+    },
+    {
+      "$ref": "#/$defs/TestStart"
+    },
+    {
+      "$ref": "#/$defs/Mismatch"
+    },
+    {
+      "$ref": "#/$defs/TestEnd"
+    },
+    {
+      "$ref": "#/$defs/TestSkip"
+    },
+    {
+      "$ref": "#/$defs/SuiteEnd"
+    },
+    {
+      "$ref": "#/$defs/SuiteAbort"
+    }
+  ]
+}

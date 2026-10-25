@@ -54,6 +54,13 @@ def test_schema_prints_json_schema(capsysbinary: pytest.CaptureFixture[bytes]) -
     assert "schema" in schema["required"]
 
 
+def test_schema_of_tb_result(capsysbinary: pytest.CaptureFixture[bytes]) -> None:
+    assert main(["schema", "tb-result"]) == 0
+    schema = json.loads(capsysbinary.readouterr().out.decode("utf-8"))
+    assert schema["$id"] == "https://apparatica.app/schemas/tb-result/1.json"
+    assert "suite_start" in schema["discriminator"]["mapping"]
+
+
 def test_schema_output_file(tmp_path: Path) -> None:
     target = tmp_path / "problem.schema.json"
     assert main(["schema", "--output", str(target)]) == 0

@@ -24,6 +24,17 @@ SANDBOX_FLAGS = [
     "--cpus=2",
 ]
 
+# The `sim` stage flags that apx-verilate does not add (specs/07 §2.3).
+SIM_FLAGS = [
+    "--timescale", "1ps/1ps",
+    "--x-assign", "unique",
+    "--x-initial", "unique",
+    "-Wno-fatal",
+    "-Wno-lint",
+    "-j", "2",
+]  # fmt: skip
+APX_TB_PKG = "/opt/apx/sv/apx_tb_pkg.sv"
+
 Result = subprocess.CompletedProcess[bytes]
 
 
