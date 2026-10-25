@@ -106,10 +106,11 @@ def test_output_limit_reports_truncation() -> None:
 
 
 def test_follow_up_run() -> None:
-    results, sink = run({"a": {"type": "retry", "code": "raise SystemExit(1)"}}, ["a"])
+    code = "open('left.txt', 'w').write('kept'); raise SystemExit(1)"
+    results, sink = run({"a": {"type": "retry", "code": code}}, ["a"])
     assert statuses(results) == [("a", "passed")]
     assert results[0].metrics == {"runs": 2}
-    assert [e.text for e in sink.events if isinstance(e, events.LogEvent)] == ["second"]
+    assert [e.text for e in sink.events if isinstance(e, events.LogEvent)] == ["kept"]
 
 
 def test_endless_follow_ups_are_an_error() -> None:

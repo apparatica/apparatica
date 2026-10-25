@@ -21,6 +21,7 @@ dev = [
     "ruff>=0.14",
     "import-linter>=2.3",
     "types-pyyaml>=6.0",
+    "pyslang (==12.0.0)",
 ]
 
 [tool.poetry]

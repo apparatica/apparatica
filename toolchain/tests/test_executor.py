@@ -93,6 +93,16 @@ def test_cancellation(executor: LocalDockerExecutor) -> None:
     assert result.cancelled
 
 
+def test_stage_directory_is_fresh_unless_reused(executor: LocalDockerExecutor) -> None:
+    run(executor, "dir", sh("echo x > left.txt"))
+    fresh, _ = run(executor, "dir", sh("true"), collect=("left.txt",))
+    assert fresh.files == {}
+    run(executor, "dir", sh("echo x > left.txt"))
+    plan = StagePlan(commands=(sh("true"),), timeout_s=30, output_limit=1024, collect=("left.txt",))
+    reused = executor.run("dir", plan, lambda *_: None, threading.Event(), reuse_dir=True)
+    assert reused.files == {"left.txt": b"x\n"}
+
+
 def test_no_process_survives_a_stage(executor: LocalDockerExecutor) -> None:
     run(executor, "leave", sh("sleep 300 > /dev/null 2>&1 &"))
     # PID 1 is the container's own; anything else from the previous stage must be gone.

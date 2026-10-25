@@ -174,7 +174,9 @@ def _run_stage(
         while isinstance(step, StagePlan):
             if len(runs) == MAX_RUNS_PER_STAGE:
                 return error("STAGE_RUNS_EXCEEDED", f"more than {MAX_RUNS_PER_STAGE} runs")
-            run = executor.run(ctx.key, step, _line_handler(ctx.key, step, sink), cancel)
+            on_line = _line_handler(ctx.key, step, sink)
+            # Follow-up runs work on what the first one left (e.g. the built simulator).
+            run = executor.run(ctx.key, step, on_line, cancel, reuse_dir=bool(runs))
             runs.append(run)
             if run.cancelled:
                 sink.emit(LogEvent(stage=ctx.key, ch="sys", text="cancelled"))

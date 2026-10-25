@@ -20,7 +20,7 @@ StageStatus = Literal[
     "pending", "running", "passed", "warning", "failed", "skipped", "cancelled", "error"
 ]
 FailureKind = Literal["forbidden", "compile", "wrong", "limit"]
-LimitKind = Literal["time", "memory", "output", "fst", "cycles"]
+LimitKind = Literal["time", "memory", "output", "fst", "cycles", "size"]
 SkipReason = Literal["previous_failed", "not_in_pipeline", "cancelled"]
 SubmissionKind = Literal["run", "submit"]
 Channel = Literal["out", "err", "sys"]

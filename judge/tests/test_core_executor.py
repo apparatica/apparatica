@@ -110,6 +110,15 @@ def test_stage_directory_is_fresh(tmp_path: Path) -> None:
     assert "[]" in result.output
 
 
+def test_follow_up_run_reuses_the_directory(tmp_path: Path) -> None:
+    with HostExecutor(tmp_path) as executor:
+        first = plan(python("open('left.txt', 'w').write('x')"))
+        executor.run("s", first, lambda *_: None, threading.Event())
+        again = plan(python("pass"), collect=("left.txt",))
+        result = executor.run("s", again, lambda *_: None, threading.Event(), reuse_dir=True)
+    assert result.files == {"left.txt": b"x"}
+
+
 def test_utf8_output_and_crlf() -> None:
     code = "import sys; sys.stdout.buffer.write('тест\\r\\n'.encode())"
     _, lines = run(plan(python(code)))

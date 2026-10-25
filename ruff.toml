@@ -17,3 +17,12 @@ select = [
     "PT",  # flake8-pytest-style
     "RUF", # ruff-specific
 ]
+# Messages and docs are in Russian: Cyrillic letters are text here, not homoglyphs of Latin ones.
+allowed-confusables = [
+    "а", "б", "в", "г", "е", "з", "к", "м", "н", "о", "п", "р", "с", "т", "у", "х", "ч", "ь",
+    "А", "В", "Г", "Е", "З", "К", "М", "Н", "О", "П", "Р", "С", "Т", "У", "Х", "Ь",
+]
+
+[lint.per-file-ignores]
+# Tables of solutions under test: one case per line reads better than wrapped code.
+"judge/tests/test_precheck_*.py" = ["E501"]

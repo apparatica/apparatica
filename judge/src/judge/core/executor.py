@@ -51,8 +51,17 @@ class Executor(Protocol):
     ) -> None: ...
 
     def run(
-        self, stage_key: str, plan: StagePlan, on_line: OnLine, cancel: threading.Event
-    ) -> ExecResult: ...
+        self,
+        stage_key: str,
+        plan: StagePlan,
+        on_line: OnLine,
+        cancel: threading.Event,
+        *,
+        reuse_dir: bool = False,
+    ) -> ExecResult:
+        """Run a plan in the stage directory: fresh, or as the previous run of this stage left it
+        (`reuse_dir`, for follow-up runs that need its files, e.g. the built simulator)."""
+        ...
 
 
 def check_relative(path: str) -> PurePosixPath:
@@ -219,12 +228,18 @@ class HostExecutor:
             self._tmp.cleanup()
 
     def run(
-        self, stage_key: str, plan: StagePlan, on_line: OnLine, cancel: threading.Event
+        self,
+        stage_key: str,
+        plan: StagePlan,
+        on_line: OnLine,
+        cancel: threading.Event,
+        *,
+        reuse_dir: bool = False,
     ) -> ExecResult:
         workdir = self.root / check_relative(stage_key)
-        if workdir.exists():
+        if workdir.exists() and not reuse_dir:
             shutil.rmtree(workdir)
-        workdir.mkdir(parents=True)
+        workdir.mkdir(parents=True, exist_ok=True)
         for name, content in plan.inputs.items():
             target = workdir / check_relative(name)
             target.parent.mkdir(parents=True, exist_ok=True)
@@ -333,10 +348,17 @@ class LocalDockerExecutor:
         subprocess.run(["docker", "rm", "-f", self.container], capture_output=True, check=False)
 
     def run(
-        self, stage_key: str, plan: StagePlan, on_line: OnLine, cancel: threading.Event
+        self,
+        stage_key: str,
+        plan: StagePlan,
+        on_line: OnLine,
+        cancel: threading.Event,
+        *,
+        reuse_dir: bool = False,
     ) -> ExecResult:
         workdir = f"/work/{check_relative(stage_key)}"
-        self._exec(["mkdir", workdir], f"create {workdir}")
+        prepare = 'mkdir -p "$1"' if reuse_dir else 'rm -rf "$1" && mkdir "$1"'
+        self._exec(["sh", "-c", prepare, "sh", workdir], f"prepare {workdir}")
         self._put(workdir, plan)
 
         def run_one(

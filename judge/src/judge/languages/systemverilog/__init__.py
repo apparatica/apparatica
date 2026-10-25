@@ -1,6 +1,10 @@
 """SystemVerilog language module (ADR-0011), registered as the `systemverilog` entry point."""
 
 from judge.core.registry import LanguageModule
+from judge.languages.systemverilog.stages.precheck import PrecheckStage
 
-# Stage plugins arrive with T0.7a (precheck), T0.8 (lint) and T0.9 (sim).
-LANGUAGE = LanguageModule(name="systemverilog", stages={})
+# lint and sim arrive with T0.8 and T0.9.
+LANGUAGE = LanguageModule(
+    name="systemverilog",
+    stages={stage.stage_type: stage for stage in (PrecheckStage,)},
+)

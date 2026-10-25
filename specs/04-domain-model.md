@@ -43,7 +43,7 @@ erDiagram
 | `accepted_with_warnings` | Предупреждения линта / Принято с замечаниями | все обязательные этапы пройдены, у линта или формала `warning` (решение принято). Подпись зависит от источника: только линт — «Предупреждения линта», иначе «Принято с замечаниями» |
 | `wrong_answer` | Неверный ответ | упал тест или нарушено свойство |
 | `compile_error` | Ошибка компиляции | slang/Verilator не собрали решение, **или** решение не синтезируется / содержит запрещённые синтезом конструкции (латчи при `forbid_latches`); этап-источник виден в конвейере (решение ОВ-9) |
-| `limit_exceeded` | Превышен лимит | время, память, объём вывода, размер трассы; вид — в `verdict_detail.limit` |
+| `limit_exceeded` | Превышен лимит | время, память, объём вывода, размер трассы, размер решения; вид — в `verdict_detail.limit` (`time`, `memory`, `output`, `fst`, `cycles`, `size`) |
 | `forbidden_construct` | Запрещённая конструкция | статическая проверка нашла запрещённое |
 | `cancelled` | Отменено | пользователем или новым Run |
 | `internal_error` | Внутренняя ошибка | сбой платформы; отправка не засчитывается и не расходует лимит |
@@ -157,7 +157,7 @@ PostgreSQL 17+. Первичные ключи — UUIDv7 (сортируемы �
 
 | `metrics_schema` | Поля |
 |---|---|
-| `precheck/v1` | `ast_hash`, `normalization_version`, `module`, `ports_ok` |
+| `precheck/v1` | `code_hash`, `module`, `ports_ok`, `state_bits`; с T0.7b — `ast_hash`, `normalization_version` |
 | `lint/v1` | `warnings`, `errors`, `rules: {CODE: count}` |
 | `sim/v1` | `tests_total`, `tests_passed`, `cycles`, `seed`, `first_failure: {test, cycle, signal}` |
 | `synth/v1` | `critical_path_ns`, `fmax_mhz`, `area_um2`, `cells`, `flops`, `latches`, `logic_depth`, `liberty` |

@@ -89,7 +89,9 @@ class RetryStage(ScriptStage):
 
     def interpret(self, ctx: StageContext, runs: Sequence[ExecResult]) -> StageOutcome | StagePlan:
         if len(runs) == 1 and not runs[0].ok:
-            return StagePlan(commands=(python("print('second')"),), timeout_s=5, output_limit=1024)
+            # The second run sees what the first one left in the stage directory.
+            again = python("print(open('left.txt').read())")
+            return StagePlan(commands=(again,), timeout_s=5, output_limit=1024)
         return StageOutcome(status="passed", metrics={"runs": len(runs)})
 
 
