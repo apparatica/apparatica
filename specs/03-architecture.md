@@ -106,12 +106,13 @@ backend/src/apparatica/
 ```
 judge/src/judge/
   core/
-    pipeline.py      исполнение списка этапов, ранняя остановка, агрегирование вердикта
+    pipeline.py      исполнение списка этапов, ранняя остановка, отмена
+    verdict.py       агрегирование вердикта (вызывают CLI и ингестор)
     stage.py         протокол Stage, StageContext, StagePlan, StageOutcome
     executor.py      Executor: LocalDocker, Sandbox (gVisor), Host
     events.py        EventSink: консоль, файл JSONL, Redis Stream
     package.py       загрузка и валидация problem.yaml (Pydantic, сверка с JSON Schema)
-    limits.py        лимиты вывода и времени
+    limits.py        лимиты песочницы и этапов: классы ресурсов (config/resource-classes.yaml) и переопределения задачи
     registry.py      языковые модули по ключу language
   languages/
     systemverilog/
@@ -162,7 +163,7 @@ apparatica/
   web/                  Next.js (pnpm)
   toolchain/            Dockerfile образа тулчейна, apx_tb_pkg.sv, тесты образа
   problems/             пакеты задач, tags.yaml
-  config/               difficulties.yaml, limits.yaml, providers.example.yaml
+  config/               difficulties.yaml, limits.yaml, resource-classes.yaml, providers.example.yaml
   scripts/              служебные скрипты репозитория (сверка lock-файлов и т. п.)
   deploy/               compose.yaml, compose.dev.yaml, Caddyfile, .env.example
   tests/e2e/            Playwright

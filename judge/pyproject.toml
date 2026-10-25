@@ -10,6 +10,10 @@ dependencies = ["pydantic>=2.12", "pyyaml>=6.0.2"]
 [project.scripts]
 judge = "judge.cli:main"
 
+# Language modules for judge.core.registry (ADR-0011).
+[project.entry-points."apparatica.judge.languages"]
+systemverilog = "judge.languages.systemverilog:LANGUAGE"
+
 [dependency-groups]
 dev = [
     "mypy>=1.18",

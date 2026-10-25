@@ -55,7 +55,7 @@ GitHub Actions, `.github/workflows/ci.yml`, на GitHub-hosted раннерах 
 | Python | `install-py`, `check-locks`, `lint-py`, `lint-imports`, `typecheck`, `test-py`, `check-licenses-py` |
 | JS | `install-js`, `lint-js`, `check-licenses-js` |
 
-Образ тулчейна собирает и публикует отдельный workflow `.github/workflows/toolchain.yml` — при изменениях в `toolchain/` (подробности — [toolchain/README.md](../toolchain/README.md)).
+Образ тулчейна собирает и публикует отдельный workflow `.github/workflows/toolchain.yml` — при изменениях в `toolchain/` и в коде судьи, чьи тесты против образа он прогоняет; публикует только при изменении входов образа (подробности — [toolchain/README.md](../toolchain/README.md)).
 
 Python 3.13 и Poetry (версия в `POETRY_VERSION` workflow) ставятся в job'е, виртуальные окружения кэшируются по хэшу `poetry.lock`; Node 24 и pnpm — из `packageManager`, кэш pnpm-store. Сторонние actions закреплены по SHA коммита, версия — в комментарии. Unit-тесты TS добавятся в JS job вместе с Vitest (T0.20).
 
@@ -83,12 +83,13 @@ import-linter проверяет границу ядра и языковых м�
 ## Структура репозитория
 
 ```
-judge/      пакет судьи и CLI (Poetry, пакет judge); judge/schemas/ — сгенерированные JSON Schema
+judge/      пакет судьи и CLI (Poetry, пакет judge); judge/schemas/ — сгенерированные JSON Schema; ядро — docs/judge.md
 backend/    FastAPI-приложение и ингестор (Poetry, пакет apparatica)
 worker/     воркер и оркестратор песочницы (Poetry, пакет apparatica_worker)
 web/        фронтенд (пакет pnpm workspace; каркас Next.js — T0.20)
 .github/    CI (GitHub Actions)
-toolchain/  образ тулчейна песочницы: Dockerfile, versions.lock, apx-run, apx-verilate, тесты образа
+toolchain/  образ тулчейна песочницы: Dockerfile, versions.lock, apx-run, apx-verilate, apx_tb_pkg, тесты образа
+config/     конфигурация: классы ресурсов судьи (resource-classes.yaml)
 problems/   пакеты задач, CC BY-SA 4.0
 scripts/    служебные скрипты: сверка lock-файлов и лицензий, политика лицензий
 docs/       проектная документация

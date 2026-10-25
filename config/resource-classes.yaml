@@ -1,0 +1,21 @@
+# Sandbox and stage limits per resource class (specs/02 NFR-LIM, specs/07 §5.1).
+# problem.yaml `resource_class` picks a class; its `limits` override memory, output, FST and stage
+# timeouts (by stage key), never above max_stage_timeout_s. Timeouts are keyed by stage type.
+light:
+  cpus: 2
+  memory_mb: 2048
+  pids: 256
+  output_kb: 1024
+  fst_mb: 16
+  stage_timeout_s: {precheck: 10, lint: 10, sim: 30, synth: 60, formal: 120}
+  default_stage_timeout_s: 30
+  max_stage_timeout_s: 300
+heavy:
+  cpus: 4
+  memory_mb: 8192
+  pids: 256
+  output_kb: 4096
+  fst_mb: 64
+  stage_timeout_s: {precheck: 10, lint: 30, sim: 300, synth: 600, formal: 1800}
+  default_stage_timeout_s: 300
+  max_stage_timeout_s: 1800

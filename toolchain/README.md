@@ -69,10 +69,10 @@ TOOLCHAIN_BASE_IMAGE=mirror.gcr.io/library/debian@sha256:<digest из Dockerfile
 TOOLCHAIN_DEBIAN_MIRROR=http://mirror.yandex.ru/debian
 ```
 
-Тесты образа (`tests/`) запускаются pytest на хосте из окружения `judge` (нужен Docker). Фикстура поднимает один контейнер с ограничениями песочницы specs/07 §5.1 (`tests/sandbox.py`) и выполняет каждую команду через `docker exec` — так же, как оркестратор выполняет этапы; инструменты тестирования в образ не попадают. Тесты проверяют версии, ограничения песочницы, сборку и симуляцию с FST-трассой, использование предсобранного рантайма, рандомизацию через Z3, pyslang, Verible и `apx-run`, в том числе под `docker exec -t`, и протокол `apx_tb_pkg`. Другой тег образа — через `TOOLCHAIN_IMAGE`.
+Тесты образа (`tests/`) запускаются pytest на хосте из окружения `judge` (нужен Docker). Фикстура поднимает один контейнер с ограничениями песочницы specs/07 §5.1 (`tests/sandbox.py`) и выполняет каждую команду через `docker exec` — так же, как оркестратор выполняет этапы; инструменты тестирования в образ не попадают. Тесты проверяют версии, ограничения песочницы, сборку и симуляцию с FST-трассой, использование предсобранного рантайма, рандомизацию через Z3, pyslang, Verible и `apx-run`, в том числе под `docker exec -t`, протокол `apx_tb_pkg` и исполнитель судьи `LocalDockerExecutor` (`tests/test_executor.py`). Другой тег образа — через `TOOLCHAIN_IMAGE`.
 
 ## Публикация
 
-Workflow `.github/workflows/toolchain.yml` при изменениях в `toolchain/` собирает образ и прогоняет его тесты; на push в `master` публикует `ghcr.io/apparatica/toolchain:<TOOLCHAIN_PROFILE>` и `:sha-<коммит>`. Тег профиля неизменяем: если он уже опубликован, CI падает с просьбой увеличить `TOOLCHAIN_PROFILE`, в том числе на pull request.
+Workflow `.github/workflows/toolchain.yml` при изменениях в `toolchain/` или в коде судьи (`judge/src/`, `judge/poetry.lock`) собирает образ и прогоняет его тесты — они проверяют и судью против образа. Новый профиль нужен только при изменении входов образа: `Dockerfile`, `versions.lock`, `apx-run/`, `apx-verilate/`, `sv/`. Тогда на push в `master` CI публикует `ghcr.io/apparatica/toolchain:<TOOLCHAIN_PROFILE>` и `:sha-<коммит>`; тег профиля неизменяем: если он уже опубликован, CI падает с просьбой увеличить `TOOLCHAIN_PROFILE`, в том числе на pull request. Изменения тестов и документации образа ничего не публикуют.
 
 Образ собирается только для `linux/amd64`.

@@ -41,7 +41,7 @@ sequenceDiagram
 
 ```python
 class Stage(Protocol):
-    type: ClassVar[str]                        # "lint", "sim", ...
+    stage_type: ClassVar[str]                  # "lint", "sim", ... (`type` в stages.<key>)
     config_model: ClassVar[type[BaseModel]]    # валидирует stages.<key> из problem.yaml
     metrics_schema: ClassVar[str]              # "sim/v1"
 
