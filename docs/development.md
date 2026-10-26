@@ -242,7 +242,7 @@ APX_QUEUE_URL=redis://ingest:<пароль>@localhost:6379/0 APX_JOB_TOKEN_KEY=<
   APX_CONFIG_DIR=../config poetry -C backend run apparatica ingest
 ```
 
-Переносит результаты проверок из `judge:results` в Postgres до Ctrl+C или SIGTERM ([architecture.md](architecture.md#ingest)). Ключ токенов должен совпадать с ключом API, иначе ингестор отбросит все результаты; на стенде он задан в `deploy/compose.yaml` (`APX_JOB_TOKEN_KEY`), пароль пользователя — `VALKEY_QUEUE_INGEST_PASSWORD`.
+Переносит результаты проверок из `judge:results` в Postgres до Ctrl+C или SIGTERM, а если он лидер — запускает watchdog и удаление истёкших артефактов (тогда нужны и `APX_S3_*` с ключом `ingest`) ([architecture.md](architecture.md#ingest)). Ключ токенов должен совпадать с ключом API, иначе ингестор отбросит все результаты; на стенде он задан в `deploy/compose.yaml` (`APX_JOB_TOKEN_KEY`), пароль пользователя — `VALKEY_QUEUE_INGEST_PASSWORD`.
 
 Тесты воркера, которым нужны Docker и образ тулчейна (`-m image`: песочница, оркестратор), запускает `just toolchain-test`; под gVisor — с `JUDGE_SANDBOX_RUNTIME=runsc`. Остальные (`just test`) работают с Valkey в контейнере и S3 через moto.
 

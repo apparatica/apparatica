@@ -7,7 +7,7 @@ from core_helpers import RESOURCE_CLASSES, make_problem
 from pydantic import ValidationError
 
 from judge.core import events, stage
-from judge.core.limits import sandbox_limits, stage_limits
+from judge.core.limits import CHECK_OVERHEAD_S, check_timeout_s, sandbox_limits, stage_limits
 from judge.core.registry import UnknownLanguageError, get_language
 from judge.core.verdict import aggregate
 
@@ -101,6 +101,17 @@ def test_problem_overrides_limits() -> None:
     limits = stage_limits(problem, "sim_full", "sim", RESOURCE_CLASSES)
     assert (limits.timeout_s, limits.output_bytes, limits.fst_bytes) == (40, 64 << 10, 2 << 20)
     assert sandbox_limits(problem, RESOURCE_CLASSES).memory_mb == 1024
+
+
+def test_check_timeout_sums_the_stages_of_the_pipeline() -> None:
+    problem = make_problem(
+        {"lint": {"type": "lint"}, "sim": {"type": "sim"}, "synth": {"type": "synth"}},
+        run=["lint", "sim"],
+        submit=["lint", "sim", "synth"],
+        limits={"stage_timeout_s": {"sim": 45}},
+    )
+    assert check_timeout_s(problem, "run", RESOURCE_CLASSES) == 10 + 45 + CHECK_OVERHEAD_S
+    assert check_timeout_s(problem, "submit", RESOURCE_CLASSES) == 10 + 45 + 60 + CHECK_OVERHEAD_S
 
 
 def test_timeout_override_is_bounded_by_the_class() -> None:

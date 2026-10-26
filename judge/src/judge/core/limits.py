@@ -3,11 +3,18 @@ overridden by `limits` of problem.yaml (specs/06 §2)."""
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field, PositiveFloat, PositiveInt, model_validator
 
 from judge.core.package import Problem
+
+if TYPE_CHECKING:  # judge.core.stage imports this module
+    from judge.core.stage import SubmissionKind
+
+# Platform overhead of a check on top of its stage timeouts: sandbox, package, artifacts.
+CHECK_OVERHEAD_S = 30
 
 
 class ResourceClass(BaseModel):
@@ -86,3 +93,13 @@ def stage_limits(
             f"of resource class {problem.resource_class}"
         )
     return StageLimits(timeout, output_kb * 1024, fst_mb * 1024 * 1024)
+
+
+def check_timeout_s(problem: Problem, kind: "SubmissionKind", classes: ResourceClasses) -> float:
+    """The total limit of one attempt (specs/07 §3): the stage timeouts of the pipeline of `kind`
+    plus the overhead. The watchdog of the ingestor waits for it."""
+    keys = getattr(problem.pipelines.practice, kind)
+    stages = sum(
+        stage_limits(problem, key, problem.stages[key].type, classes).timeout_s for key in keys
+    )
+    return stages + CHECK_OVERHEAD_S

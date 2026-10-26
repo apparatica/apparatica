@@ -1,6 +1,7 @@
 import asyncio
 
 import pytest
+from alembic.script import ScriptDirectory
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
@@ -31,7 +32,7 @@ def test_migrate_creates_the_schema(postgres: Postgres, monkeypatch: pytest.Monk
             await engine.dispose()
 
     revision, tables = asyncio.run(state())
-    assert revision == "0001"
+    assert revision == ScriptDirectory.from_config(alembic_config(url)).get_current_head()
     assert {"problems", "submissions", "feature_flags"} <= tables
 
 

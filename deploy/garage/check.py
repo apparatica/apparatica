@@ -88,9 +88,12 @@ def main() -> int:
         "worker writes artifacts", lambda: worker.put_object(Bucket="artifacts", Key=key, Body=body)
     )
     check("ingest reads artifacts", lambda: ingest.get_object(Bucket="artifacts", Key=key))
+    expired = f"check/{uuid.uuid4()}.fst"
+    worker.put_object(Bucket="artifacts", Key=expired, Body=body)
+    check("ingest deletes artifacts", lambda: ingest.delete_object(Bucket="artifacts", Key=expired))
     check(
-        "ingest cannot write artifacts",
-        lambda: denied(lambda: ingest.put_object(Bucket="artifacts", Key=key, Body=body)),
+        "ingest cannot read packages",
+        lambda: denied(lambda: ingest.get_object(Bucket="packages", Key=key)),
     )
     check(
         "api cannot write artifacts",

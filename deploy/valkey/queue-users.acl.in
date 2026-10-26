@@ -10,5 +10,6 @@ user api on >@API_PASSWORD@ ~dramatiq ~dramatiq:* ~queue:* +@all -@dangerous
 # worker: takes checks from the queues, removes their positions, holds leases and counts attempts,
 # writes the events of its checks and their results (it reads neither stream).
 user worker on >@WORKER_PASSWORD@ ~dramatiq ~dramatiq:* %W~queue:* ~lease:* ~attempts:* %W~sub:* %W~judge:results +@all -@dangerous
-# ingest: reads the results through its consumer group, writes `finalized` to the event streams.
-user ingest on >@INGEST_PASSWORD@ ~judge:results %W~sub:* +@all -@dangerous
+# ingest: reads the results through its consumer group, writes `finalized` to the event streams;
+# its leader holds leader:ingest, and the watchdog looks whether a worker holds a check.
+user ingest on >@INGEST_PASSWORD@ ~judge:results %W~sub:* ~leader:ingest %R~lease:* +@all -@dangerous

@@ -150,6 +150,24 @@ services:
       retries: 30
     restart: unless-stopped
 
+  # Results of the checks to the database, the watchdog, retention (docs/architecture.md#ingest).
+  ingest:
+    <<: *api-image
+    command: ["apparatica", "ingest"]
+    environment:
+      <<: *api-env
+      APX_QUEUE_URL: redis://ingest:${VALKEY_QUEUE_INGEST_PASSWORD:-d68eaacfa776d6c2f16ba2aa081bcee9}@valkey-queue:6379/0
+      APX_S3_ACCESS_KEY_ID: ${S3_INGEST_KEY_ID:-GK4032d71ff405a5010bc4fade}
+      APX_S3_SECRET_ACCESS_KEY: ${S3_INGEST_KEY_SECRET:-83880593275b8ccdee7eabf3eea0e5a9e7ee64ee0da5f3fa5bc3d56f301a2a34}
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      garage-setup:
+        condition: service_completed_successfully
+      valkey-queue:
+        condition: service_healthy
+    restart: unless-stopped
+
   web:
     image: apparatica-web:local
     build:

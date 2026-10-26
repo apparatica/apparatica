@@ -20,9 +20,11 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, get_args
 
 import structlog
+from redis.exceptions import ConnectionError as RedisConnectionError
+from redis.exceptions import TimeoutError as RedisTimeoutError
 from sqlalchemy import delete
 from sqlalchemy.dialects.postgresql import insert
-from sqlalchemy.exc import DataError, IntegrityError
+from sqlalchemy.exc import DataError, DBAPIError, IntegrityError, InterfaceError, OperationalError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from apparatica.core.db import Database
@@ -63,6 +65,13 @@ _STAGE_COLUMNS = (
 )
 
 
+def transient(error: BaseException) -> bool:
+    """The database or Valkey is unreachable: try again later, drop nothing."""
+    if isinstance(error, DBAPIError):
+        return isinstance(error, OperationalError | InterfaceError) or error.connection_invalidated
+    return isinstance(error, OSError | RedisConnectionError | RedisTimeoutError)
+
+
 class InvalidRecordError(Exception):
     """The record cannot be applied and never will be: it is dropped."""
 
@@ -95,7 +104,7 @@ class Ingestor:
             raise InvalidRecordError("no such submission")
         final = isinstance(record, DoneRecord | AttemptFailedRecord)
         if submission.status in FINAL_STATUSES:
-            return _finalized(submission) if final else None
+            return finalized(submission) if final else None
         if record.attempt < submission.attempt:
             log.info(
                 "record of an earlier attempt dropped",
@@ -126,20 +135,17 @@ class Ingestor:
                 await _upsert_stages(session, submission.id, record.results)
                 await self._store_artifacts(session, submission, record)
                 verdict = (
-                    aggregate(record.results) if record.results else _internal_error(EMPTY_PIPELINE)
+                    aggregate(record.results) if record.results else internal_error(EMPTY_PIPELINE)
                 )
             case AttemptFailedRecord():
-                verdict = _internal_error(record.error_code)
-        submission.status = verdict.status
-        submission.verdict_detail = verdict.detail.model_dump(mode="json")
-        submission.finished_at = now
+                verdict = internal_error(record.error_code)
         log.info(
             "check finalized",
             submission_id=str(submission.id),
             attempt=record.attempt,
             status=verdict.status,
         )
-        return _finalized(submission)
+        return finalize(submission, verdict, now)
 
     async def _store_artifacts(
         self, session: AsyncSession, submission: Submission, record: DoneRecord
@@ -218,11 +224,19 @@ def _kind(submission: Submission) -> SubmissionKind:
     return "submit" if submission.kind == "submit" else "run"
 
 
-def _internal_error(code: str) -> Verdict:
+def internal_error(code: str) -> Verdict:
     return Verdict(status="internal_error", detail=VerdictDetail(error_codes=[code]))
 
 
-def _finalized(submission: Submission) -> FinalizedEvent:
+def finalize(submission: Submission, verdict: Verdict, now: datetime) -> FinalizedEvent:
+    """The final status of a submission (only the ingestor sets it) and its event."""
+    submission.status = verdict.status
+    submission.verdict_detail = verdict.detail.model_dump(mode="json")
+    submission.finished_at = now
+    return finalized(submission)
+
+
+def finalized(submission: Submission) -> FinalizedEvent:
     return FinalizedEvent(
         status=submission.status,  # type: ignore[arg-type]  # a final status, checked by the caller
         verdict_detail=VerdictDetail.model_validate(submission.verdict_detail or {}),

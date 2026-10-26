@@ -205,6 +205,8 @@ def test_the_ingestor_reads_results_and_writes_finalized(server: tuple[str, str]
     client.xdel(RESULTS_STREAM, entry_id)
     client.xadd("sub:1", {"e": "{}"})
     client.expire("sub:1", 600)
+    client.set("leader:ingest", "ingest-acl", nx=True, px=30000)  # the leader of the instances
+    client.exists("lease:1")  # the watchdog: does a worker hold the check
 
 
 @pytest.mark.parametrize(
@@ -219,7 +221,7 @@ def test_the_ingestor_reads_results_and_writes_finalized(server: tuple[str, str]
         ("api", lambda r: r.incr("attempts:1")),
         ("api", lambda r: r.xadd("judge:results", {"r": "{}"})),  # a forged result
         ("ingest", lambda r: r.xrange("sub:1")),  # writes finalized, reads no events
-        ("ingest", lambda r: r.get("lease:1")),
+        ("ingest", lambda r: r.set("lease:1", "x")),  # reads leases, holds none
         ("ingest", lambda r: r.xadd("dramatiq:judge.light", {"x": "1"})),
         ("default", lambda r: r.get("queue:judge.light")),
     ],

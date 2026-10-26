@@ -36,9 +36,10 @@ just down          # остановить; данные в томах остаю
 |---|---|
 | `caddy` | proxy: `localhost` — сайт и API (`/api` без буферизации, для SSE), `s3.localhost` и `waveview.web.localhost` — Garage; заголовки безопасности. Только HTTP: TLS — со staging (T1.23) |
 | `api` | FastAPI (`backend/Dockerfile`) |
+| `ingest` | `apparatica ingest` из того же образа: результаты проверок в Postgres, `finalized`, watchdog, сроки хранения артефактов. С ключом хранилища `ingest` и пользователем Valkey `ingest` |
 | `web` | Next.js, standalone-сервер (`web/Dockerfile`) |
 | `postgres` | PostgreSQL 17, локаль `builtin C.UTF-8` (регистр символов — средствами PostgreSQL, поиск по кириллице не зависит от ОС образа) |
-| `valkey-queue` | очереди и стримы: AOF, без вытеснения. Пользователи и их ключи — `deploy/valkey/queue-users.acl.in` ([security.md](security.md#права-компонентов)); пароли — `VALKEY_QUEUE_API_PASSWORD`, `VALKEY_QUEUE_WORKER_PASSWORD`, `VALKEY_QUEUE_INGEST_PASSWORD`. API ставит в него проверки как `api`; воркера на стенде пока нет (T1.21), поэтому отправки остаются в очереди |
+| `valkey-queue` | очереди и стримы: AOF, без вытеснения. Пользователи и их ключи — `deploy/valkey/queue-users.acl.in` ([security.md](security.md#права-компонентов)); пароли — `VALKEY_QUEUE_API_PASSWORD`, `VALKEY_QUEUE_WORKER_PASSWORD`, `VALKEY_QUEUE_INGEST_PASSWORD`. API ставит в него проверки как `api`, ингестор читает результаты как `ingest`; воркера на стенде пока нет (T1.21), поэтому отправки остаются в очереди |
 | `valkey-cache` | кэш и rate limit: без сохранения на диск, LRU. Используется с Ф1 |
 | `garage` | S3-хранилище (ADR-0013), один узел |
 | `garage-setup` | одноразовый: раскладка узла, бакеты, ключи компонентов и их права, сайт `waveview`, CORS, правила жизненного цикла (`deploy/garage/setup.py`) |
@@ -55,6 +56,8 @@ just down          # остановить; данные в томах остаю
 `garage-setup` создаёт бакеты `packages`, `artifacts`, `build-cache`, `waveview` и импортирует ключи `api`, `worker`, `ingest` с правами по ADR-0013. CORS бакета `artifacts` разрешает GET и HEAD с сайта и с `waveview`, по одному правилу на origin. Правила жизненного цикла:
 - незавершённые multipart-загрузки удаляются через сутки во всех бакетах;
 - `build-cache` очищается через сутки.
+
+Сроки хранения остальных артефактов соблюдает ингестор по `artifacts.expires_at` ([architecture.md](architecture.md#ingest)), поэтому у ключа `ingest` есть право `write` на `artifacts`: в Garage удаление объекта входит в него.
 
 Что проверено и какие у Garage особенности — в ADR-0013 («Проверка в T0.19»).
 

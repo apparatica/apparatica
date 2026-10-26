@@ -20,15 +20,15 @@ import boto3
 from botocore.config import Config
 
 BUCKETS = ("packages", "artifacts", "build-cache", "waveview")
-# Who may do what (ADR-0013); the worker and the ingestor arrive in phase 1.
+# Who may do what (ADR-0013). The ingestor deletes expired artifacts: in Garage that is `write`.
 PERMISSIONS: dict[str, dict[str, set[str]]] = {
     "api": {"packages": {"read", "write"}, "artifacts": {"read"}},
     "worker": {"packages": {"read"}, "artifacts": {"write"}, "build-cache": {"read", "write"}},
-    "ingest": {"artifacts": {"read"}},
+    "ingest": {"artifacts": {"read", "write"}},
 }
 # Retention (specs/07 §4.4): compiled simulations live a day. Incomplete uploads go everywhere.
-# Other retention of artifacts needs rules by kind, which key prefixes cannot express yet: the
-# periodic task of the ingestor (phase 1) applies it (ADR-0013).
+# Other retention of artifacts needs rules by kind, which key prefixes cannot express: the
+# periodic task of the ingestor applies it by artifacts.expires_at (ADR-0013).
 EXPIRATION_DAYS = {"build-cache": 1}
 ABORT_UPLOADS_DAYS = 1
 SETUP_KEY = "apparatica-setup"

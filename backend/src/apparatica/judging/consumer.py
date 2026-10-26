@@ -4,6 +4,8 @@ An entry is acknowledged and deleted after its record was applied or dropped. A 
 database or of Valkey leaves it pending: the consumer reads its own pending entries before new
 ones, and takes over the entries that another consumer left idle (it died). After a record ended
 a check, `finalized` goes to the submission stream, whose TTL is then shortened.
+
+Next to the consumer, the leading instance runs the periodic tasks (`housekeeping`).
 """
 
 import asyncio
@@ -16,38 +18,27 @@ from typing import Any
 import redis.asyncio
 import structlog
 from pydantic import ValidationError
-from redis.exceptions import ConnectionError as RedisConnectionError
 from redis.exceptions import ResponseError
-from redis.exceptions import TimeoutError as RedisTimeoutError
-from sqlalchemy.exc import DBAPIError, InterfaceError, OperationalError
 
 from apparatica.core.db import Database
 from apparatica.core.settings import Settings
-from apparatica.judging.ingest import Ingestor, InvalidRecordError
+from apparatica.core.storage import Storage
+from apparatica.judging.housekeeping import ArtifactPurge, Housekeeping, Periodic, Watchdog
+from apparatica.judging.ingest import Ingestor, InvalidRecordError, transient
+from apparatica.judging.leader import Leadership
+from apparatica.judging.publish import publish_finalized
 from apparatica.judging.retention import load_retention
-from apparatica.submissions.events import FinalizedEvent
 from apparatica.submissions.tokens import JobTokens
-from judge.core.jobs import (
-    RESULT_RECORD,
-    RESULTS_STREAM,
-    RESULTS_STREAM_FIELD,
-    SUBMISSION_STREAM_FIELD,
-    SUBMISSION_STREAM_FINAL_TTL_S,
-    SUBMISSION_STREAM_MAXLEN,
-    submission_stream_key,
-)
+from judge.core.jobs import RESULT_RECORD, RESULTS_STREAM, RESULTS_STREAM_FIELD
+from judge.core.limits import load_resource_classes
 
 log = structlog.get_logger(__name__)
 
 GROUP = "ingest"
+RESOURCE_CLASSES_FILE = "resource-classes.yaml"
+WATCHDOG_EVERY_S = 30  # periodic tasks of the leader
+PURGE_EVERY_S = 600
 Entry = tuple[bytes, dict[bytes, bytes] | None]  # a deleted entry still pending has no fields
-
-
-def transient(error: BaseException) -> bool:
-    """The database or Valkey is unreachable: the entry is retried, not dropped."""
-    if isinstance(error, DBAPIError):
-        return isinstance(error, OperationalError | InterfaceError) or error.connection_invalidated
-    return isinstance(error, OSError | RedisConnectionError | RedisTimeoutError)
 
 
 class ResultsConsumer:
@@ -142,20 +133,8 @@ class ResultsConsumer:
             log.exception("result failed", entry=entry, submission_id=str(record.submission_id))
         else:
             if finalized is not None:
-                await self._publish(record.submission_id, finalized)
+                await publish_finalized(self._valkey, record.submission_id, finalized)
         await self._ack(entry_id)
-
-    async def _publish(self, submission_id: Any, event: FinalizedEvent) -> None:
-        key = submission_stream_key(submission_id)
-        async with self._valkey.pipeline(transaction=False) as pipe:
-            pipe.xadd(
-                key,
-                {SUBMISSION_STREAM_FIELD: event.model_dump_json()},
-                maxlen=SUBMISSION_STREAM_MAXLEN,
-                approximate=True,
-            )
-            pipe.expire(key, SUBMISSION_STREAM_FINAL_TTL_S)
-            await pipe.execute()
 
     async def _ack(self, entry_id: bytes) -> None:
         async with self._valkey.pipeline(transaction=False) as pipe:
@@ -177,13 +156,24 @@ async def run_ingest(settings: Settings, stop: asyncio.Event) -> None:
         raise RuntimeError("APX_QUEUE_URL is required by the ingestor")
     tokens = job_tokens(settings)
     retention = load_retention(settings.config_dir)
+    classes = load_resource_classes(settings.config_dir / RESOURCE_CLASSES_FILE)
     database = Database(settings.database_url)
     valkey = redis.asyncio.Redis.from_url(
         settings.queue_url, socket_timeout=10, socket_connect_timeout=5
     )
     name = settings.ingest_consumer or f"{socket.gethostname()}:{os.getpid()}"
+    watchdog = Watchdog(database, valkey, classes, settings.watchdog_grace_s)
+    purge = ArtifactPurge(database, Storage(settings), settings.s3_bucket_artifacts)
+    tasks = [
+        Periodic("watchdog", WATCHDOG_EVERY_S, watchdog),
+        Periodic("retention", PURGE_EVERY_S, purge),
+    ]
+    consumer = ResultsConsumer(valkey, Ingestor(database, tokens, retention), name)
+    housekeeping = Housekeeping(Leadership(valkey, name), tasks)
     try:
-        await ResultsConsumer(valkey, Ingestor(database, tokens, retention), name).run(stop)
+        async with asyncio.TaskGroup() as group:  # a failure of one stops the other
+            group.create_task(consumer.run(stop))
+            group.create_task(housekeeping.run(stop))
     finally:
         await valkey.aclose()
         await database.dispose()

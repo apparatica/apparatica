@@ -38,6 +38,7 @@ class Settings(BaseSettings):
     s3_access_key_id: str | None = None
     s3_secret_access_key: SecretStr | None = None
     s3_bucket_packages: str = "packages"
+    s3_bucket_artifacts: str = "artifacts"
 
     # valkey-queue (ADR-0002): the Dramatiq broker, queue positions. Required in production; unset
     # elsewhere means no workers: a submission stays queued.
@@ -53,6 +54,10 @@ class Settings(BaseSettings):
     # The ingestor (`apparatica ingest`, ADR-0009): its consumer in the group of judge:results.
     ingest_consumer: str | None = Field(
         default=None, description="Consumer name; unset means <hostname>:<pid>"
+    )
+    watchdog_grace_s: PositiveFloat = Field(
+        default=300,
+        description="The watchdog waits this long beyond the limits of every attempt",
     )
 
 

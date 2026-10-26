@@ -122,7 +122,15 @@ class StageResult(Base):
 
 class Artifact(Base):
     __tablename__ = "artifacts"
-    __table_args__ = (CheckConstraint("size_bytes >= 0", name="size_bytes_non_negative"),)
+    __table_args__ = (
+        CheckConstraint("size_bytes >= 0", name="size_bytes_non_negative"),
+        # What the retention task of the ingestor has yet to delete.
+        Index(
+            "ix_artifacts_expires_at_unpurged",
+            "expires_at",
+            postgresql_where=text("expires_at IS NOT NULL AND purged_at IS NULL"),
+        ),
+    )
 
     id: Mapped[uuid.UUID] = uuid_pk()
     submission_id: Mapped[uuid.UUID] = mapped_column(
@@ -134,4 +142,5 @@ class Artifact(Base):
     size_bytes: Mapped[int] = mapped_column(BigInteger)
     sha256: Mapped[str]
     expires_at: Mapped[datetime | None]
+    purged_at: Mapped[datetime | None]  # the file was deleted when it expired; the row stays
     created_at: Mapped[datetime] = created_at()

@@ -136,7 +136,7 @@ compose := "docker compose -f deploy/compose.yaml -f deploy/compose.dev.yaml"
 # (http://localhost:8080; docs/stand.md). `up --wait` fails on finished one-shot services, so it
 # waits for the long-running ones, and the import runs in the foreground with its exit code.
 up:
-    {{ compose }} up -d --build --wait caddy valkey-queue valkey-cache
+    {{ compose }} up -d --build --wait caddy valkey-queue valkey-cache ingest
     {{ compose }} run --rm demo-problems
 
 # Stop the stand; the data volumes stay (remove them with: docker compose ... down -v)
