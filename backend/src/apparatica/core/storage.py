@@ -1,10 +1,11 @@
 """Object storage through the S3 API (ADR-0013): Garage in docker compose, any S3 elsewhere.
 
 Buckets are separate per kind of data because Garage grants keys per bucket; the API writes
-`packages` (problem import), the ingestor deletes expired `artifacts`. Calls are blocking: async
-code runs them in a thread.
+`packages` (problem import) and reads event journals from `artifacts`, the ingestor deletes
+expired `artifacts`. Calls are blocking: async code runs them in a thread.
 """
 
+from functools import cached_property
 from typing import TYPE_CHECKING
 
 import boto3
@@ -18,8 +19,15 @@ if TYPE_CHECKING:
 
 class Storage:
     def __init__(self, settings: Settings) -> None:
+        self._settings = settings
+
+    @cached_property
+    def _client(self) -> "S3Client":
+        """Made on first use: without keys botocore looks for credentials, also on the network
+        (instance metadata), and a process that never touches the storage must not wait for it."""
+        settings = self._settings
         secret = settings.s3_secret_access_key
-        self._client: S3Client = boto3.client(
+        return boto3.client(
             "s3",
             endpoint_url=settings.s3_endpoint_url,
             region_name=settings.s3_region,
@@ -36,6 +44,9 @@ class Storage:
 
     def put(self, bucket: str, key: str, data: bytes, content_type: str) -> None:
         self._client.put_object(Bucket=bucket, Key=key, Body=data, ContentType=content_type)
+
+    def get(self, bucket: str, key: str) -> bytes:
+        return self._client.get_object(Bucket=bucket, Key=key)["Body"].read()
 
     def delete(self, bucket: str, key: str) -> None:
         """Deleting a missing object succeeds: retried deletes are harmless."""

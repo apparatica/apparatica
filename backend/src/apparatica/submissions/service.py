@@ -20,6 +20,7 @@ from apparatica.core.errors import ApiError, ErrorCode
 from apparatica.core.ids import uuid7
 from apparatica.core.platform import SolutionLimits
 from apparatica.problems.models import Problem, ProblemVersion
+from apparatica.submissions.live import Watched
 from apparatica.submissions.models import Artifact, StageResult, ToolchainProfile
 from apparatica.submissions.models import Submission as SubmissionRow
 from apparatica.submissions.queue import Job, JobQueue, QueueUnavailableError
@@ -34,12 +35,13 @@ from apparatica.submissions.schemas import (
 from apparatica.submissions.tokens import JobTokens
 from judge.core.jobs import JudgeJob, queue_name
 from judge.core.stage import StageSummary
-from judge.core.verdict import VerdictDetail
+from judge.core.verdict import SubmissionStatus, VerdictDetail
 
 # Kinds a user may download; the testbench result file with the expected values of hidden tests
 # is not one of them (specs/07 §4.4).
 DOWNLOADABLE_ARTIFACT_KINDS: tuple[str, ...] = get_args(ArtifactKind)
 QUEUE_UNAVAILABLE = "QUEUE_UNAVAILABLE"  # error code of a submission that was never queued
+FINAL_STATUSES = frozenset(get_args(SubmissionStatus))
 
 
 def check_size(code: str, limits: SolutionLimits) -> None:
@@ -215,4 +217,30 @@ async def get_submission(
             )
             for artifact in artifacts
         ],
+    )
+
+
+async def watch_submission(session: AsyncSession, submission_id: uuid.UUID) -> Watched | None:
+    """What the event stream of a submission needs (specs/07 §4.2)."""
+    submission = await session.get(SubmissionRow, submission_id)
+    if submission is None:
+        return None
+    journal = await session.scalar(
+        select(Artifact.storage_key)
+        .where(
+            Artifact.submission_id == submission_id,
+            Artifact.kind == "events",
+            Artifact.purged_at.is_(None),
+        )
+        .order_by(Artifact.created_at.desc(), Artifact.storage_key.desc())
+        .limit(1)
+    )
+    return Watched(
+        id=submission.id,
+        status=submission.status,
+        final=submission.status in FINAL_STATUSES,
+        queue=queue_name(submission.queue_class),
+        verdict_detail=submission.verdict_detail,
+        finished_at=submission.finished_at,
+        journal=journal,
     )

@@ -53,7 +53,7 @@ Verilator превращает решение в C++ и исполняет ег�
 
 | Компонент | Postgres | Хранилище | Valkey (`valkey-queue`) | Docker |
 |---|---|---|---|---|
-| `api` | да | `packages` — запись; `artifacts` — presigned URL | пользователь `api`: очереди Dramatiq, позиции в очереди | нет |
+| `api` | да | `packages` — запись; `artifacts` — presigned URL, чтение журналов событий | пользователь `api`: очереди Dramatiq, позиции в очереди, чтение (без записи) `sub:*` | нет |
 | `worker` | нет | `packages` — чтение; `artifacts`, `build-cache` — запись | пользователь `worker`: очереди Dramatiq, снятие позиций, `lease:*`, `attempts:*`, запись (без чтения) в `sub:*` и `judge:results` | нет, только через `apx-sandboxd` |
 | `ingest` | да | `artifacts` — чтение и удаление истёкших файлов (в Garage это право `write`) | пользователь `ingest`: `judge:results` (группа `ingest`), запись (без чтения) в `sub:*`, `leader:ingest`, чтение `lease:*` | нет |
 | `apx-sandboxd` | нет | нет | нет | да |

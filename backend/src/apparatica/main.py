@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from importlib.metadata import version
 from typing import Any
 
+import redis.asyncio
 from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
 
@@ -24,9 +25,11 @@ from apparatica.core.logging import configure_logging
 from apparatica.core.platform import load_platform_config
 from apparatica.core.requests import RequestContextMiddleware
 from apparatica.core.settings import Settings, get_settings
+from apparatica.core.storage import Storage
 from apparatica.problems import api as problems_api
 from apparatica.submissions import api as submissions_api
 from apparatica.submissions.queue import DramatiqQueue, JobQueue, NoQueue
+from apparatica.submissions.streams import StreamHub
 from apparatica.submissions.tokens import JobTokens
 
 API_PREFIX = "/api/v1"
@@ -46,12 +49,20 @@ def create_app(
     job_tokens = JobTokens(_job_token_key(settings), ttl_s=settings.job_token_ttl_s)
     database = Database(settings.database_url)  # connects on first use
     queue = job_queue or _job_queue(settings)  # connects on first use
+    # One reader of the submission streams for the process (specs/07 §4.2); none without Valkey.
+    hub = (
+        StreamHub(redis.asyncio.Redis.from_url(settings.queue_url))
+        if settings.queue_url is not None
+        else None
+    )
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         try:
             yield
         finally:
+            if hub is not None:
+                await hub.close()
             await queue.close()
             await database.dispose()
 
@@ -73,6 +84,8 @@ def create_app(
         flag_overrides or database_overrides(database), ttl_s=settings.feature_flags_ttl_s
     )
     app.state.job_tokens = job_tokens
+    app.state.stream_hub = hub
+    app.state.storage = Storage(settings)  # the event journals of finished checks
     app.state.job_queue = queue
     install_error_handlers(app)
     app.add_middleware(RequestContextMiddleware)

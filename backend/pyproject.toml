@@ -5,7 +5,7 @@ description = "Apparatica backend: FastAPI application and results ingestor"
 license = "AGPL-3.0-or-later"
 readme = "README.md"
 requires-python = ">=3.13,<3.14"
-dependencies = ["apparatica-judge", "fastapi (>=0.120)", "uvicorn (>=0.38)", "pydantic-settings (>=2.11)", "sqlalchemy[asyncio] (>=2.0.44)", "asyncpg (>=0.30)", "alembic (>=1.17)", "structlog (>=25.4)", "pyyaml (>=6.0.2)", "boto3 (>=1.40,<2.0)", "dramatiq[redis] (>=2.2,<3)"]
+dependencies = ["apparatica-judge", "fastapi (>=0.120)", "uvicorn (>=0.38)", "pydantic-settings (>=2.11)", "sqlalchemy[asyncio] (>=2.0.44)", "asyncpg (>=0.30)", "alembic (>=1.17)", "structlog (>=25.4)", "pyyaml (>=6.0.2)", "boto3 (>=1.40,<2.0)", "dramatiq[redis] (>=2.2,<3)", "zstandard (>=0.23)"]
 
 [project.scripts]
 apparatica = "apparatica.cli:main"

@@ -13,6 +13,7 @@ from apparatica.core.errors import ApiError, ErrorCode, problem_responses
 from apparatica.core.http import PRIVATE, EventStreamResponse
 from apparatica.submissions import service
 from apparatica.submissions.events import SubmissionEvent
+from apparatica.submissions.live import archived_events, live_events
 from apparatica.submissions.schemas import (
     ArtifactKind,
     Submission,
@@ -22,6 +23,7 @@ from apparatica.submissions.schemas import (
     SubmissionPage,
     WaveformRequest,
 )
+from judge.core.jobs import submission_stream_key
 from judge.core.package import Slug
 
 router = APIRouter(tags=["submissions"])
@@ -115,12 +117,14 @@ async def get_submission(
             " `id:` the stream entry id. `: keepalive` comments every 15 s.",
         },
         **problem_responses(
-            ErrorCode.NOT_FOUND, ErrorCode.VALIDATION_ERROR, ErrorCode.NOT_IMPLEMENTED
+            ErrorCode.NOT_FOUND, ErrorCode.VALIDATION_ERROR, ErrorCode.JUDGE_UNAVAILABLE
         ),
     },
     openapi_extra=PHASE_1,
 )
 async def stream_submission_events(
+    request: Request,
+    session: Session,
     id: uuid.UUID,
     from_: Annotated[
         EventId | None, Query(alias="from", description="Continue after this event id")
@@ -135,8 +139,22 @@ async def stream_submission_events(
     ] = None,
 ) -> EventStreamResponse:
     """The live log and progress of a check (specs/07 §4); after the stream expires, the same
-    events from the archive. The status is final only with the `finalized` event."""
-    not_implemented("T1.5")
+    events from the archive. The status is final only with the `finalized` event. While the check
+    waits, `queue` events carry its position; they have no `id:`."""
+    watched = await service.watch_submission(session, id)
+    if watched is None:
+        raise ApiError(ErrorCode.NOT_FOUND, f"No submission {id}")
+    after = last_event_id or from_ or "0-0"
+    state = request.app.state
+    hub = state.stream_hub
+    if watched.final and (hub is None or not await hub.exists(submission_stream_key(id))):
+        body = archived_events(watched, after, state.storage, state.settings.s3_bucket_artifacts)
+    elif hub is None:
+        raise ApiError(ErrorCode.JUDGE_UNAVAILABLE, "The streams of checks are unavailable")
+    else:
+        body = live_events(watched, after, hub, state.job_queue)
+    # No proxy buffering: events must reach the browser as they come (specs/07 §4.2).
+    return EventStreamResponse(body, headers={"Cache-Control": PRIVATE, "X-Accel-Buffering": "no"})
 
 
 @router.post(

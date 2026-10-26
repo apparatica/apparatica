@@ -167,7 +167,8 @@ export interface paths {
         /**
          * Stream Submission Events
          * @description The live log and progress of a check (specs/07 §4); after the stream expires, the same
-         *     events from the archive. The status is final only with the `finalized` event.
+         *     events from the archive. The status is final only with the `finalized` event. While the check
+         *     waits, `queue` events carry its position; they have no `id:`.
          */
         get: operations["stream_submission_events"];
         put?: never;
@@ -1835,8 +1836,8 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Error"];
                 };
             };
-            /** @description Not Implemented */
-            501: {
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

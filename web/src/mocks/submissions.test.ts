@@ -69,7 +69,8 @@ it("streams the events of the check up to finalized and resumes after Last-Event
   const response = await events(path);
   expect(response.headers.get("Content-Type")).toBe("text/event-stream");
   const frames = parse(await response.text());
-  expect(frames.map((frame) => frame.id)).toEqual(recorded.map((item) => item.id));
+  const ids = recorded.map((item) => (item.event.type === "queue" ? undefined : item.id));
+  expect(frames.map((frame) => frame.id)).toEqual(ids);
   expect(frames.map((frame) => frame.event)).toEqual(recorded.map((item) => item.event.type));
   expect(frames.at(-1)?.data).toMatchObject({ type: "finalized", status: "accepted" });
 

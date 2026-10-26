@@ -188,8 +188,10 @@ function quota(): Schemas["QuotaStatus"] {
   };
 }
 
+/** As the API sends it: a `queue` event is not stored in the stream, so it has no `id:`. */
 function format({ id, event }: StreamEvent): string {
-  return `id: ${id}\nevent: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`;
+  const head = event.type === "queue" ? "" : `id: ${id}\n`;
+  return `${head}event: ${event.type}\ndata: ${JSON.stringify(event)}\n\n`;
 }
 
 /** The events after `after`, each when it is due; ends after `finalized`. */
@@ -279,7 +281,11 @@ export function eventsHandler(settings: { dropAfter?: number } = {}) {
     const after =
       request.headers.get("Last-Event-ID") ?? new URL(request.url).searchParams.get("from");
     return new HttpResponse(eventStream(check, after, settings.dropAfter), {
-      headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache" },
+      headers: {
+        "Content-Type": "text/event-stream",
+        "Cache-Control": "private, no-store",
+        "X-Accel-Buffering": "no",
+      },
     });
   });
 }

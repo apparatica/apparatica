@@ -207,6 +207,8 @@ def test_the_ingestor_reads_results_and_writes_finalized(server: tuple[str, str]
     client.expire("sub:1", 600)
     client.set("leader:ingest", "ingest-acl", nx=True, px=30000)  # the leader of the instances
     client.exists("lease:1")  # the watchdog: does a worker hold the check
+    # The SSE endpoint of the API reads what the ingestor and the worker wrote.
+    assert redis.Redis.from_url(api_url).xrange("sub:1")
 
 
 @pytest.mark.parametrize(
@@ -220,6 +222,7 @@ def test_the_ingestor_reads_results_and_writes_finalized(server: tuple[str, str]
         ("api", lambda r: r.set("lease:1", "x")),
         ("api", lambda r: r.incr("attempts:1")),
         ("api", lambda r: r.xadd("judge:results", {"r": "{}"})),  # a forged result
+        ("api", lambda r: r.xadd("sub:1", {"e": "{}"})),  # reads the events, writes none
         ("ingest", lambda r: r.xrange("sub:1")),  # writes finalized, reads no events
         ("ingest", lambda r: r.set("lease:1", "x")),  # reads leases, holds none
         ("ingest", lambda r: r.xadd("dramatiq:judge.light", {"x": "1"})),
@@ -234,6 +237,7 @@ def test_the_ingestor_reads_results_and_writes_finalized(server: tuple[str, str]
         "lease",
         "attempts",
         "results",
+        "api-events",
         "ingest-events",
         "ingest-lease",
         "ingest-queue",

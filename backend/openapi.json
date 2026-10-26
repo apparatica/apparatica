@@ -685,7 +685,7 @@
           "submissions"
         ],
         "summary": "Stream Submission Events",
-        "description": "The live log and progress of a check (specs/07 §4); after the stream expires, the same\nevents from the archive. The status is final only with the `finalized` event.",
+        "description": "The live log and progress of a check (specs/07 §4); after the stream expires, the same\nevents from the archive. The status is final only with the `finalized` event. While the check\nwaits, `queue` events carry its position; they have no `id:`.",
         "operationId": "stream_submission_events",
         "parameters": [
           {
@@ -778,8 +778,8 @@
               }
             }
           },
-          "501": {
-            "description": "Not Implemented",
+          "503": {
+            "description": "Service Unavailable",
             "content": {
               "application/problem+json": {
                 "schema": {
