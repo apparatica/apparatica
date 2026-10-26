@@ -13,6 +13,8 @@ from pydantic import SecretStr
 
 from apparatica.auth.guests import GuestCookies
 from apparatica.captcha import api as captcha_api
+from apparatica.captcha.altcha import Altcha
+from apparatica.captcha.service import Captcha
 from apparatica.core import api as core_api
 from apparatica.core.db import Database
 from apparatica.core.errors import (
@@ -59,6 +61,12 @@ def create_app(
         secure=settings.cookie_secure,
     )
     addresses = ClientAddresses(_secret(settings, settings.ip_hash_salt, "APX_IP_HASH_SALT"))
+    captcha_rules = platform.rate_limits.captcha
+    altcha = Altcha(
+        _secret(settings, settings.captcha_key, "APX_CAPTCHA_KEY"),
+        max_number=captcha_rules.max_number,
+        expires_s=captcha_rules.expires_s,
+    )
     database = Database(settings.database_url)  # connects on first use
     queue = job_queue or _job_queue(settings)  # connects on first use
     if settings.cache_url is None and settings.environment == "production":
@@ -106,6 +114,7 @@ def create_app(
     app.state.client_addresses = addresses
     app.state.rate_limiter = limiter
     app.state.quotas = Quotas(platform.limits.quotas.guest, limiter, platform.rate_limits)
+    app.state.captcha = Captcha(altcha, limiter, captcha_rules, app.state.flags)
     install_error_handlers(app)
     app.add_middleware(RequestContextMiddleware)
     # Every operation may fail with INTERNAL; the routes declare their other errors.

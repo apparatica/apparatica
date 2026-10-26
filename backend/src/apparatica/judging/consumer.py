@@ -25,7 +25,14 @@ from apparatica.core.db import Database
 from apparatica.core.settings import Settings
 from apparatica.core.storage import Storage
 from apparatica.judging.cancels import CancelWatcher
-from apparatica.judging.housekeeping import ArtifactPurge, Housekeeping, Periodic, Watchdog
+from apparatica.judging.housekeeping import (
+    AddressPurge,
+    ArtifactPurge,
+    GuestPurge,
+    Housekeeping,
+    Periodic,
+    Watchdog,
+)
 from apparatica.judging.ingest import Ingestor, InvalidRecordError, transient
 from apparatica.judging.leader import Leadership
 from apparatica.judging.publish import publish_finalized
@@ -165,11 +172,15 @@ async def run_ingest(settings: Settings, stop: asyncio.Event) -> None:
     )
     name = settings.ingest_consumer or f"{socket.gethostname()}:{os.getpid()}"
     watchdog = Watchdog(database, valkey, classes, settings.watchdog_grace_s)
-    purge = ArtifactPurge(database, Storage(settings), settings.s3_bucket_artifacts)
+    storage, bucket = Storage(settings), settings.s3_bucket_artifacts
     tasks = [
         Periodic("watchdog", WATCHDOG_EVERY_S, watchdog),
-        Periodic("retention", PURGE_EVERY_S, purge),
+        Periodic("retention", PURGE_EVERY_S, ArtifactPurge(database, storage, bucket)),
+        Periodic("addresses", PURGE_EVERY_S, AddressPurge(database, retention.client_ip_hash_days)),
     ]
+    if retention.guest_submissions_days is not None:
+        guests = GuestPurge(database, storage, bucket, retention.guest_submissions_days)
+        tasks.append(Periodic("guests", PURGE_EVERY_S, guests))
     ingestor = Ingestor(database, tokens, retention)
     consumer = ResultsConsumer(valkey, ingestor, name)
     housekeeping = Housekeeping(Leadership(valkey, name), tasks)

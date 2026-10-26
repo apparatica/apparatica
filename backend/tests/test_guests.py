@@ -391,7 +391,12 @@ def test_rate_limits_of_requests(database_url: str, queue: RecordingQueue, tmp_p
     (tmp_path / "rate-limits.yaml").write_text(
         "requests_per_ip: {limit: 3, window_s: 60}\n"
         "requests_per_author: {limit: 2, window_s: 60}\n"
-        "checks_per_ip: {limit: 1, window_s: 3600}\n",
+        "checks_per_ip: {limit: 1, window_s: 3600}\n"
+        "captcha:\n"
+        "  per_guest: {limit: 3, window_s: 60}\n"
+        "  per_ip: {limit: 10, window_s: 60}\n"
+        "  max_number: 1000\n"
+        "  expires_s: 600\n",
         encoding="utf-8",
     )
     with app_client(database_url, queue, tmp_path, cookie_secure=False) as client:

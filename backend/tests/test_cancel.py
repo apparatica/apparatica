@@ -14,7 +14,10 @@ from test_housekeeping import set_state, status
 from test_ingest import LINT, common, ingestor, new_submission, run
 from test_submissions_api import CODE, PROFILE, RecordingQueue
 
+from apparatica.captcha.altcha import Altcha
+from apparatica.captcha.service import Captcha
 from apparatica.core.db import Database
+from apparatica.core.flags import FeatureFlags
 from apparatica.core.platform import Quota, SolutionLimits, load_platform_config
 from apparatica.core.ratelimit import RateLimiter
 from apparatica.core.settings import Settings
@@ -76,7 +79,13 @@ def test_a_new_run_preempts_the_unfinished_runs_of_its_author(database_url: str)
     queue = RecordingQueue()
     # Enough concurrent checks for a guest: a Submit and a Run of another problem stay unfinished.
     quota = Quota(checks_per_hour=10, concurrent=3, heavy_per_day=0, waveforms_per_hour=5)
-    quotas = Quotas(quota, RateLimiter.connect(None), load_platform_config(CONFIG_DIR).rate_limits)
+    rules = load_platform_config(CONFIG_DIR).rate_limits
+    limiter = RateLimiter.connect(None)
+    quotas = Quotas(quota, limiter, rules)
+    # Five checks of one guest within a minute: more than the captcha allows.
+    frequent = rules.captcha.model_copy(update={"per_guest": rules.checks_per_ip})
+    altcha = Altcha(b"c" * 32, max_number=1000, expires_s=600)
+    captcha = Captcha(altcha, limiter, frequent, FeatureFlags())
 
     async def scenario(database: Database) -> list[uuid.UUID]:
         async def create(kind: str, author: uuid.UUID, problem: str = "mux4") -> uuid.UUID:
@@ -91,6 +100,7 @@ def test_a_new_run_preempts_the_unfinished_runs_of_its_author(database_url: str)
                     tokens=JobTokens(b"k" * 32, ttl_s=60),
                     queue=queue,
                     quotas=quotas,
+                    captcha=captcha,
                     author=Author(guest_id=author, address=None),
                 )
             return created.id

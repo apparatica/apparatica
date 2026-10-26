@@ -14,7 +14,6 @@ ID = "0192d1a2-7c00-7000-8000-000000000001"
     [
         ("GET", f"/api/v1/submissions/{ID}/artifacts/fst?stage=sim_run", None),
         ("POST", f"/api/v1/submissions/{ID}/waveform", {"scope": "full_test", "test": "t7"}),
-        ("GET", "/api/v1/captcha/challenge", None),
     ],
 )
 def test_stubs_are_not_implemented(client: TestClient, method: str, path: str, body: Any) -> None:

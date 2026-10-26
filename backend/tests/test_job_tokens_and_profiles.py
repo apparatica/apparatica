@@ -62,6 +62,7 @@ def test_production_needs_keys_a_queue_and_a_cache() -> None:
         ("APX_JOB_TOKEN_KEY", {"job_token_key": SecretStr("s" * 32)}),
         ("APX_GUEST_COOKIE_KEY", {"guest_cookie_key": SecretStr("g" * 32)}),
         ("APX_IP_HASH_SALT", {"ip_hash_salt": SecretStr("i" * 32)}),
+        ("APX_CAPTCHA_KEY", {"captcha_key": SecretStr("c" * 32)}),
         ("APX_QUEUE_URL", {"queue_url": "redis://valkey-queue:6379/0"}),
         ("APX_CACHE_URL", {"cache_url": "redis://valkey-cache:6379/0"}),
     ]

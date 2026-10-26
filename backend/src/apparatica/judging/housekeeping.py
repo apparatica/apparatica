@@ -5,6 +5,10 @@
   It never requeues: the broker requeues the message of a dead worker.
 - **Retention** — the files of expired artifacts are deleted from the `artifacts` bucket; the
   rows stay (`purged_at`), so a submission still lists an expired trace.
+- **Guests** — finished guest submissions older than `guest_submissions_days` are deleted with
+  their rows and the files of their artifacts (decision ОВ-13).
+- **Addresses** — the salted hashes of client addresses older than `client_ip_hash_days` are
+  cleared (NFR-PRIV-01).
 """
 
 import asyncio
@@ -19,7 +23,7 @@ import redis.asyncio
 import structlog
 from botocore.exceptions import BotoCoreError, ClientError
 from pydantic import ValidationError
-from sqlalchemy import func, select, update
+from sqlalchemy import CursorResult, delete, func, select, update
 
 from apparatica.core.db import Database
 from apparatica.core.storage import Storage
@@ -138,6 +142,77 @@ class ArtifactPurge:
                 )
             log.info("expired artifacts deleted", count=len(purged))
         return len(purged)
+
+
+@dataclass
+class GuestPurge:
+    database: Database
+    storage: Storage
+    bucket: str
+    days: int
+    batch: int = 200
+    clock: Clock = field(default=_now)
+
+    async def __call__(self) -> int:
+        """Deletes a batch of old guest submissions; returns how many. A submission whose file
+        cannot be deleted stays until the next run."""
+        cutoff = self.clock() - timedelta(days=self.days)
+        async with self.database.sessions() as session:
+            ids = list(
+                await session.scalars(
+                    select(Submission.id)
+                    .where(
+                        Submission.guest_id.is_not(None),  # phase 2: and no user
+                        Submission.created_at < cutoff,
+                        Submission.status.not_in(("queued", "running")),  # the ingestor's
+                    )
+                    .order_by(Submission.created_at)
+                    .limit(self.batch)
+                )
+            )
+            files = (
+                await session.execute(
+                    select(Artifact.submission_id, Artifact.storage_key).where(
+                        Artifact.submission_id.in_(ids), Artifact.purged_at.is_(None)
+                    )
+                )
+            ).all()
+        kept: set[uuid.UUID] = set()
+        for submission_id, key in files:
+            if submission_id in kept:
+                continue
+            try:
+                await asyncio.to_thread(self.storage.delete, self.bucket, key)
+            except (BotoCoreError, ClientError) as error:  # the next run tries again
+                log.warning("guest artifact not deleted", key=key, error=str(error))
+                kept.add(submission_id)
+        deleted = [submission_id for submission_id in ids if submission_id not in kept]
+        if deleted:
+            async with self.database.sessions.begin() as session:  # stages, artifacts: cascade
+                await session.execute(delete(Submission).where(Submission.id.in_(deleted)))
+            log.info("guest submissions deleted", count=len(deleted))
+        return len(deleted)
+
+
+@dataclass
+class AddressPurge:
+    database: Database
+    days: int
+    clock: Clock = field(default=_now)
+
+    async def __call__(self) -> int:
+        """Clears the old hashes of client addresses; returns how many."""
+        cutoff = self.clock() - timedelta(days=self.days)
+        async with self.database.sessions.begin() as session:
+            result = await session.execute(
+                update(Submission)
+                .where(Submission.client_ip_hash.is_not(None), Submission.created_at < cutoff)
+                .values(client_ip_hash=None)
+            )
+        cleared = result.rowcount if isinstance(result, CursorResult) else 0
+        if cleared:
+            log.info("address hashes cleared", count=cleared)
+        return cleared
 
 
 @dataclass

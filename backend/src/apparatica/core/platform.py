@@ -57,10 +57,20 @@ class Window(_Model):
     window_s: PositiveInt
 
 
+class CaptchaRules(_Model):
+    """When a guest check needs a solved ALTCHA challenge (FR-GST-05), and its work."""
+
+    per_guest: Window
+    per_ip: Window
+    max_number: Annotated[int, Field(ge=1000, le=10_000_000)]
+    expires_s: PositiveInt
+
+
 class RateLimits(_Model):
     requests_per_ip: Window
     requests_per_author: Window
     checks_per_ip: Window
+    captcha: CaptchaRules
 
 
 class PlatformConfig(_Model):

@@ -105,6 +105,9 @@ class Quotas:
                 limit=quota.concurrent,
             )
 
+    async def admit_address(self, author: Author) -> None:
+        """Count one check of the address of the author, or raise when its window is full. Comes
+        last: it spends what the other checks would leave unspent."""
         if author.address is not None:
             window = self._rate_limits.checks_per_ip
             retry = await self._limiter.hit(window, "checks:ip", author.address)

@@ -78,6 +78,7 @@ async def create_submission(
         tokens=state.job_tokens,
         queue=state.job_queue,
         quotas=state.quotas,
+        captcha=state.captcha,
         author=author,
     )
     if guest is None:

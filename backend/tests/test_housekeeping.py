@@ -1,5 +1,5 @@
-"""Periodic tasks of the leading ingestor: the leader lock, the watchdog, retention of artifacts
-(ADR-0009, specs/07 §3, §4.4)."""
+"""Periodic tasks of the leading ingestor: the leader lock, the watchdog, retention of artifacts,
+guest submissions and address hashes (ADR-0009, specs/07 §3, §4.4, ОВ-13, NFR-PRIV-01)."""
 
 import asyncio
 import json
@@ -11,8 +11,9 @@ from typing import TYPE_CHECKING, Any, cast
 import boto3
 import pytest
 import redis.asyncio
+from botocore.exceptions import ClientError
 from moto import mock_aws
-from sqlalchemy import select, update
+from sqlalchemy import func, select, update
 from test_ingest import NOW, new_submission, run
 
 from apparatica.core.db import Database
@@ -21,13 +22,15 @@ from apparatica.core.settings import Settings
 from apparatica.core.storage import Storage
 from apparatica.judging.housekeeping import (
     WATCHDOG_TIMEOUT,
+    AddressPurge,
     ArtifactPurge,
+    GuestPurge,
     Housekeeping,
     Periodic,
     Watchdog,
 )
 from apparatica.judging.leader import LEADER_KEY, Leadership
-from apparatica.submissions.models import Artifact, Submission
+from apparatica.submissions.models import Artifact, StageResult, Submission
 from conftest import CONFIG_DIR, Postgres
 from judge.core.jobs import ATTEMPT_MAX, lease_key, submission_stream_key
 from judge.core.limits import CHECK_OVERHEAD_S, load_resource_classes
@@ -164,6 +167,95 @@ def test_expired_files_are_deleted_and_their_rows_kept(database_url: str, tmp_pa
                 "kept": None,
                 "purged": NOW - timedelta(hours=1),
             }
+
+    run(database_url, scenario)
+
+
+class FlakyStorage(Storage):
+    """Fails to delete the key "broken"."""
+
+    def delete(self, bucket: str, key: str) -> None:
+        if key == "broken":
+            raise ClientError({"Error": {"Code": "InternalError"}}, "DeleteObject")
+        super().delete(bucket, key)
+
+
+def test_old_guest_submissions_are_deleted_with_their_files(database_url: str) -> None:
+    async def scenario(database: Database) -> None:
+        old = NOW - timedelta(days=14, seconds=1)
+        submissions: dict[str, uuid.UUID] = {}
+        for name, created_at, state in [
+            ("old", old, "accepted"),
+            ("old-broken", old, "wrong_answer"),
+            ("old-running", old, "running"),  # the ingestor finishes it first
+            ("recent", NOW - timedelta(days=13), "accepted"),
+            ("no-guest", old, "accepted"),  # not a guest submission
+        ]:
+            submission = await new_submission(database)
+            values: dict[str, Any] = {"created_at": created_at, "status": state}
+            if name == "no-guest":
+                values["guest_id"] = None
+            await set_state(database, submission, **values)
+            submissions[name] = submission
+        files = {"log": "old", "fst": "old-purged", "events": "broken"}
+        async with database.sessions.begin() as session:
+            session.add(
+                StageResult(
+                    submission_id=submissions["old"],
+                    stage_key="lint",
+                    stage_type="lint",
+                    ordinal=1,
+                    status="passed",
+                )
+            )
+            for kind, key in files.items():
+                owner = "old-broken" if key == "broken" else "old"
+                session.add(
+                    Artifact(
+                        id=uuid7(),
+                        submission_id=submissions[owner],
+                        kind=kind,
+                        storage_key=key,
+                        size_bytes=1,
+                        sha256="0" * 64,
+                        purged_at=NOW if key == "old-purged" else None,
+                    )
+                )
+        with mock_aws():
+            settings = Settings(environment="test", s3_region="us-east-1")
+            s3: S3Client = boto3.client("s3", region_name="us-east-1")
+            s3.create_bucket(Bucket="artifacts")
+            for key in ("old", "broken", "other"):
+                s3.put_object(Bucket="artifacts", Key=key, Body=b"x")
+            purge = GuestPurge(
+                database, FlakyStorage(settings), "artifacts", days=14, clock=lambda: NOW
+            )
+            assert await purge() == 1
+            assert await purge() == 0  # "old-broken" waits for its file
+            left = [o["Key"] for o in s3.list_objects_v2(Bucket="artifacts").get("Contents", [])]
+        assert sorted(left) == ["broken", "other"]
+        async with database.sessions() as session:
+            ids = set(await session.scalars(select(Submission.id)))
+            assert ids == {submissions[name] for name in submissions if name != "old"}
+            assert await session.scalar(select(func.count()).select_from(StageResult)) == 0
+            keys = list(await session.scalars(select(Artifact.storage_key)))
+            assert keys == ["broken"]
+
+    run(database_url, scenario)
+
+
+def test_old_address_hashes_are_cleared(database_url: str) -> None:
+    async def scenario(database: Database) -> None:
+        ages = {"old": timedelta(days=30, seconds=1), "recent": timedelta(days=29)}
+        for name, age in ages.items():
+            submission = await new_submission(database)
+            await set_state(database, submission, created_at=NOW - age, client_ip_hash=name)
+        purge = AddressPurge(database, days=30, clock=lambda: NOW)
+        assert await purge() == 1
+        assert await purge() == 0
+        async with database.sessions() as session:
+            hashes = list(await session.scalars(select(Submission.client_ip_hash)))
+            assert sorted(hashes, key=lambda value: value or "") == [None, "recent"]
 
     run(database_url, scenario)
 

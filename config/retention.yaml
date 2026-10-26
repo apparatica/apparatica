@@ -1,5 +1,7 @@
-# How long the artifacts of a check are kept, in days, by submission kind (specs/07 §4.4);
-# null keeps them. The ingestor sets artifacts.expires_at when it stores a check.
+# How long the ingestor keeps the data of checks, in days.
+#
+# Artifacts by submission kind (specs/07 §4.4); null keeps them. The ingestor sets
+# artifacts.expires_at when it stores a check.
 # tb_result holds the expected values of hidden tests: it is never offered to the user and is
 # kept with the logs, for failure analysis and moderation.
 run:
@@ -12,3 +14,8 @@ submit:
   events: null
   fst: 7
   tb_result: null
+# Finished guest submissions are deleted with their artifacts (decision ОВ-13); drafts and the
+# local history stay in the browser.
+guest_submissions_days: 14
+# The salted hashes of client addresses are cleared from submissions (NFR-PRIV-01).
+client_ip_hash_days: 30

@@ -75,7 +75,7 @@ PR контракта Ф1 (T1.0) объявил эндпоинты Ф1. Пока
 | `POST /submissions/{id}/cancel` | `202` без тела; итог приходит событием `finalized` со статусом `cancelled`. Завершённая отправка — `409 SUBMISSION_FINISHED`, нет Valkey — `503 JUDGE_UNAVAILABLE`. Как работает — [architecture.md](architecture.md#отмена) | работает (T1.6) |
 | `GET /submissions/{id}/artifacts/{kind}?stage=` | `302` на presigned URL файла; истёкший файл — `404` | T1.2b |
 | `POST /submissions/{id}/waveform` | `202` с артефактом FST в состоянии `pending`, см. ниже | T1.17 |
-| `GET /captcha/challenge` | задача ALTCHA `CaptchaChallenge` | T1.7b |
+| `GET /captcha/challenge` | задача ALTCHA `CaptchaChallenge`, см. [капча](#капча) | работает (T1.7b) |
 
 Что изменилось в эндпоинтах Ф0:
 
@@ -137,7 +137,8 @@ data: {"type":"stage_start","stage":"lint","stage_type":"lint","ordinal":1,"atte
 1. Тяжёлая задача (`resource_class: heavy`): гостю — `403 HEAVY_NOT_ALLOWED`; квота тяжёлых в сутки появится у пользователей.
 2. Проверок в час — скользящее окно за последние 60 минут. Считаются отправки гостя в Postgres, кроме `internal_error`: сбой платформы попытку не тратит.
 3. Одновременных проверок — отправки гостя в `queued` и `running`. Незавершённый Run той же задачи не считается, если новая отправка — Run: новый Run его вытесняет (FR-JDG-10).
-4. Проверок с одного адреса в час (`checks_per_ip`, ниже) — на случай гостя, который сбрасывает cookie.
+4. Капча, если она нужна ([ниже](#капча)).
+5. Проверок с одного адреса в час (`checks_per_ip`, ниже) — на случай гостя, который сбрасывает cookie.
 
 Отправки одного гостя создаются по очереди: проверка квот и запись идут в одной транзакции под advisory lock гостя, поэтому два параллельных запроса не займут одну последнюю попытку. Остаток квот (`QuotaStatus`) приходит в ответах `POST` и `GET /submissions`. Квота волн (`waveforms`) — скользящее окно в `valkey-cache`; расходовать её будет `POST /submissions/{id}/waveform` (T1.17).
 
@@ -154,6 +155,18 @@ data: {"type":"stage_start","stage":"lint","stage_type":"lint","ordinal":1,"atte
 | `waveforms` | пересоздания волн в час | да |
 
 Если `retry_after_s` есть, тот же срок в секундах приходит в заголовке `Retry-After`.
+
+**Срок хранения.** Завершённые гостевые отправки удаляются через 14 дней вместе с артефактами (ОВ-13), хэш адреса в отправке обнуляется через 30 дней (NFR-PRIV-01); сроки — в `config/retention.yaml`, удаляет ингестор ([architecture.md](architecture.md#ingest)). Черновики и история гостя остаются в браузере.
+
+### Капча
+
+ALTCHA (FR-GST-05, ADR-0010): задача proof-of-work без сторонних сервисов и cookie. Код — `apparatica.captcha`.
+
+**Когда нужна.** С флагом `captcha` — перед каждой проверкой гостя. Без флага — когда гость или адрес уже отправили `captcha.per_guest` / `captcha.per_ip` проверок за окно (по умолчанию 3 и 10 за минуту, `config/rate-limits.yaml`). Окна — скользящие, в `valkey-cache`, как rate limit: при недоступном кэше капча не требуется. Пока окно заполнено, капчу просит каждая следующая проверка. Если капча не нужна, поле `captcha` не проверяется.
+
+**Протокол.** На `POST /submissions` без нужной капчи — `428 CAPTCHA_REQUIRED` с `params.challenge_url` (`/api/v1/captcha/challenge`) и `params.reason`: `always` (флаг), `frequent` (частые проверки), `invalid` (решение неверное, истёкшее или уже использованное). Клиент берёт задачу `GET /captcha/challenge`, виджет ALTCHA находит число и отдаёт решение — base64 JSON `{algorithm, challenge, number, salt, signature}`; клиент повторяет отправку с ним в поле `captcha`.
+
+**Задача.** `challenge = sha256(salt + number)` в hex для случайного `number ≤ maxnumber` (`captcha.max_number`, 100 000 — доли секунды в браузере); соль заканчивается на `?expires=<unix time>` (`captcha.expires_s`, 10 минут); `signature` — HMAC-SHA256 задачи ключом `APX_CAPTCHA_KEY`. Сервер не хранит выданные задачи: решение проверяется по подписи, хэшу и сроку. Повтор закрыт окном `captcha:used:<signature>` в `valkey-cache` на срок задачи: решение принимается один раз.
 
 ## Клиент во фронтенде
 

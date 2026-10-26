@@ -3,7 +3,8 @@
 A submission is checked against the current version of a published problem with the default
 toolchain profile of its language and a fresh 63-bit seed: the triple makes a run reproducible
 (specs/04 §1). A submission belongs to its author, a guest until accounts arrive (phase 2): other
-callers get NOT_FOUND, as if it did not exist. Quotas are checked before it is stored (`quotas`).
+callers get NOT_FOUND, as if it did not exist. Before it is stored come the quotas of the author
+(`quotas`), the captcha (`apparatica.captcha.service`), then the checks of the address.
 
 The submission is committed before it is queued, so that a worker finds what it is given. A queue
 that cannot be reached fails the submission with `internal_error`: it would otherwise wait forever.
@@ -20,6 +21,7 @@ from fastapi.exceptions import RequestValidationError
 from sqlalchemy import select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from apparatica.captcha.service import Captcha
 from apparatica.core.errors import ApiError, ErrorCode
 from apparatica.core.ids import uuid7
 from apparatica.core.platform import SolutionLimits
@@ -77,6 +79,7 @@ async def create_submission(
     tokens: JobTokens,
     queue: JobQueue,
     quotas: Quotas,
+    captcha: Captcha,
     author: Author,
 ) -> SubmissionCreated:
     check_size(request.code, limits)
@@ -113,6 +116,8 @@ async def create_submission(
         problem_id=version.problem_id,
         resource_class=version.resource_class,
     )
+    await captcha.check(author.guest_id, author.address, request.captcha)
+    await quotas.admit_address(author)
 
     submission = SubmissionRow(
         id=uuid7(),
@@ -127,6 +132,7 @@ async def create_submission(
     )
     session.add(submission)
     await session.commit()
+    await captcha.count(author.guest_id, author.address)
     job = JudgeJob(
         submission_id=submission.id,
         token=tokens.issue(submission.id),

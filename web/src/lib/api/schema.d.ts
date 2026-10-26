@@ -252,7 +252,8 @@ export interface paths {
         };
         /**
          * Get Captcha Challenge
-         * @description A new challenge for the next submission after CAPTCHA_REQUIRED.
+         * @description A new challenge for the next submission after CAPTCHA_REQUIRED; valid once, for the time
+         *     in `?expires=` of its salt.
          */
         get: operations["get_captcha_challenge"];
         put?: never;
@@ -2076,15 +2077,6 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Not Implemented */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };

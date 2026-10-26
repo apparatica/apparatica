@@ -55,11 +55,14 @@ class Settings(BaseSettings):
     # means counters in the memory of the process.
     cache_url: str | None = Field(default=None, description="redis:// URL of valkey-cache")
 
-    # Guests (ADR-0010): the signed cookie `ap_guest` and the salted hash of client addresses
-    # (NFR-PRIV-01). Required in production; elsewhere an unset key means a random key of the
-    # process: its guests are forgotten on restart.
+    # Guests (ADR-0010): the signed cookie `ap_guest`, the salted hash of client addresses
+    # (NFR-PRIV-01) and the captcha. Required in production; elsewhere an unset key means a random
+    # key of the process: its guests are forgotten on restart.
     guest_cookie_key: SecretStr | None = Field(default=None, min_length=32)
     ip_hash_salt: SecretStr | None = Field(default=None, min_length=32)
+    captcha_key: SecretStr | None = Field(
+        default=None, min_length=32, description="HMAC key of ALTCHA challenges"
+    )
     cookie_secure: bool = Field(
         default=True, description="Secure cookies; off only for a stand served over plain HTTP"
     )

@@ -1,4 +1,5 @@
-"""How long the artifacts of a check are kept (specs/07 §4.4): `config/retention.yaml`."""
+"""How long the data of checks is kept: `config/retention.yaml` — artifacts (specs/07 §4.4),
+guest submissions (decision ОВ-13), hashes of client addresses (NFR-PRIV-01)."""
 
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -30,6 +31,8 @@ class KindRetention(_Model):
 class Retention(_Model):
     run: KindRetention
     submit: KindRetention
+    guest_submissions_days: Days
+    client_ip_hash_days: Annotated[int, Field(gt=0)]
 
     def expires_at(
         self, submission: SubmissionKind, artifact: ArtifactKind, stored: datetime

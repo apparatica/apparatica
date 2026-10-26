@@ -1090,7 +1090,7 @@
           "captcha"
         ],
         "summary": "Get Captcha Challenge",
-        "description": "A new challenge for the next submission after CAPTCHA_REQUIRED.",
+        "description": "A new challenge for the next submission after CAPTCHA_REQUIRED; valid once, for the time\nin `?expires=` of its salt.",
         "operationId": "get_captcha_challenge",
         "responses": {
           "200": {
@@ -1105,16 +1105,6 @@
           },
           "500": {
             "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "501": {
-            "description": "Not Implemented",
             "content": {
               "application/problem+json": {
                 "schema": {
