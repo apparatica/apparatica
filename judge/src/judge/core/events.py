@@ -30,6 +30,15 @@ class LogEvent(_Event):
     text: str
 
 
+class HeartbeatEvent(_Event):
+    """A sign of life of a silent step (C++ build, ABC, SAT): the stage still runs."""
+
+    type: Literal["heartbeat"] = "heartbeat"
+    stage: str
+    elapsed_ms: int
+    note: str | None = None
+
+
 class TestEvent(_Event):
     type: Literal["test"] = "test"
     stage: str
@@ -52,7 +61,13 @@ class DoneEvent(_Event):
 
 
 type Event = Annotated[
-    StageStartEvent | LogEvent | TestEvent | TruncatedEvent | StageEndEvent | DoneEvent,
+    StageStartEvent
+    | LogEvent
+    | HeartbeatEvent
+    | TestEvent
+    | TruncatedEvent
+    | StageEndEvent
+    | DoneEvent,
     Field(discriminator="type"),
 ]
 EVENT: TypeAdapter[Event] = TypeAdapter(Event)
@@ -89,6 +104,9 @@ class ConsoleSink:
                 self._write(f"# {event.text}")
             case LogEvent():
                 self._write(event.text)
+            case HeartbeatEvent():
+                note = f" · {event.note}" if event.note else ""
+                self._write(f"# {event.stage}: {event.elapsed_ms / 1000:.0f} s{note}")
             case TestEvent():
                 self._write(f"test {event.test.id} ({event.test.name}): {event.test.status}")
             case TruncatedEvent():

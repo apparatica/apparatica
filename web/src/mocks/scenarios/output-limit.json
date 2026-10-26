@@ -1,0 +1,505 @@
+{
+  "name": "output-limit",
+  "submission": {
+    "id": "01a17757-3f68-7ab3-84a4-3c31874a09a4",
+    "problem": "sync-fifo",
+    "problem_title": "Синхронный FIFO",
+    "version": 1,
+    "kind": "run",
+    "status": "limit_exceeded",
+    "verdict_detail": {
+      "first_failure": {
+        "stage": "sim_run",
+        "test": null,
+        "cycle": null
+      },
+      "limit": "output",
+      "warnings": [],
+      "error_codes": []
+    },
+    "created_at": "2026-10-26T08:32:49+00:00",
+    "finished_at": "2026-10-26T08:33:08.826000+00:00",
+    "code": "module sync_fifo #(\n  parameter int WIDTH = 8,\n  parameter int DEPTH = 16\n) (\n  input  logic             clk,\n  input  logic             rst_n,\n  input  logic             push,\n  input  logic [WIDTH-1:0] wdata,\n  input  logic             pop,\n  output logic [WIDTH-1:0] rdata,\n  output logic             full,\n  output logic             empty\n);\n  localparam int AW = $clog2(DEPTH);\n\n  logic [WIDTH-1:0] mem [DEPTH];\n  logic [AW-1:0] wptr, rptr;\n  logic [AW:0] count;\n\n  wire do_push = push && !full;\n  wire do_pop = pop && !empty;\n\n  assign full = count == (AW + 1)'(DEPTH);\n  assign empty = count == '0;\n  assign rdata = mem[rptr];\n\n  always_ff @(posedge clk) begin\n    if (do_push) mem[wptr] <= wdata;\n    if (!rst_n) begin\n      wptr <= '0;\n      rptr <= '0;\n      count <= '0;\n    end else begin\n      if (do_push) wptr <= wptr + 1'b1;\n      if (do_pop) rptr <= rptr + 1'b1;\n      count <= count + (AW + 1)'(do_push) - (AW + 1)'(do_pop);\n    end\n  end\n  always_ff @(posedge clk)\n    for (int i = 0; i < 1000; i++) $display(\"count=%0d\", count);\nendmodule\n",
+    "seed": "20261026",
+    "toolchain_profile": "sv-dev",
+    "queue_position": null,
+    "eta_s": null,
+    "started_at": "2026-10-26T08:32:50.799738+00:00",
+    "stages": [
+      {
+        "key": "precheck",
+        "type": "precheck",
+        "ordinal": 0,
+        "status": "passed",
+        "failure_kind": null,
+        "error_code": null,
+        "started_at": "2026-10-26T08:32:50.799738Z",
+        "duration_ms": 1967,
+        "metrics_schema": "precheck/v1",
+        "metrics": {
+          "code_hash": "8b54c757ae49a3462ead76da3bd1ff3cec743f40051195db292625885111d7db",
+          "ast_hash": "n1:88a4b4b13b36b7e24a37216e89751896c85e66ee055269d2181b7ae5ecf79b35",
+          "normalization_version": 1,
+          "module": "sync_fifo",
+          "ports_ok": true,
+          "state_bits": 197
+        },
+        "summary": {
+          "caption": null,
+          "skip_reason": null,
+          "diagnostics": [],
+          "tests": [],
+          "hidden_tests": null
+        },
+        "finished_at": "2026-10-26T08:32:52.766738+00:00"
+      },
+      {
+        "key": "lint",
+        "type": "lint",
+        "ordinal": 1,
+        "status": "passed",
+        "failure_kind": null,
+        "error_code": null,
+        "started_at": "2026-10-26T08:32:52.766749Z",
+        "duration_ms": 1487,
+        "metrics_schema": "lint/v1",
+        "metrics": {
+          "warnings": 0,
+          "errors": 0,
+          "rules": {}
+        },
+        "summary": {
+          "caption": null,
+          "skip_reason": null,
+          "diagnostics": [],
+          "tests": [],
+          "hidden_tests": null
+        },
+        "finished_at": "2026-10-26T08:32:54.253749+00:00"
+      },
+      {
+        "key": "sim_run",
+        "type": "sim",
+        "ordinal": 2,
+        "status": "failed",
+        "failure_kind": "limit",
+        "error_code": null,
+        "started_at": "2026-10-26T08:32:54.254106Z",
+        "duration_ms": 14227,
+        "metrics_schema": "sim/v1",
+        "metrics": {},
+        "summary": {
+          "caption": null,
+          "skip_reason": null,
+          "diagnostics": [],
+          "tests": [],
+          "hidden_tests": null
+        },
+        "finished_at": "2026-10-26T08:33:08.481106+00:00"
+      }
+    ],
+    "artifacts": [
+      {
+        "kind": "log",
+        "stage": "precheck",
+        "state": "ready",
+        "size_bytes": 0,
+        "waveform": null
+      },
+      {
+        "kind": "log",
+        "stage": "lint",
+        "state": "ready",
+        "size_bytes": 304,
+        "waveform": null
+      },
+      {
+        "kind": "log",
+        "stage": "sim_run",
+        "state": "ready",
+        "size_bytes": 16112,
+        "waveform": null
+      },
+      {
+        "kind": "events",
+        "stage": null,
+        "state": "ready",
+        "size_bytes": 23361,
+        "waveform": null
+      }
+    ]
+  },
+  "events": [
+    {
+      "id": "1793003569000-0",
+      "event": {
+        "type": "queue",
+        "position": 2,
+        "eta_s": 4
+      }
+    },
+    {
+      "id": "1793003569600-0",
+      "event": {
+        "type": "queue",
+        "position": 1,
+        "eta_s": 2
+      }
+    },
+    {
+      "id": "1793003571025-0",
+      "event": {
+        "type": "stage_start",
+        "stage": "precheck",
+        "stage_type": "precheck",
+        "ordinal": 0,
+        "attempt": 1
+      }
+    },
+    {
+      "id": "1793003572025-0",
+      "event": {
+        "type": "heartbeat",
+        "stage": "precheck",
+        "elapsed_ms": 1000,
+        "note": null,
+        "attempt": 1
+      }
+    },
+    {
+      "id": "1793003572992-0",
+      "event": {
+        "type": "stage_end",
+        "result": {
+          "key": "precheck",
+          "type": "precheck",
+          "ordinal": 0,
+          "status": "passed",
+          "failure_kind": null,
+          "limit": null,
+          "error_code": null,
+          "started_at": "2026-10-26T08:32:50.799738Z",
+          "duration_ms": 1967,
+          "metrics_schema": "precheck/v1",
+          "metrics": {
+            "code_hash": "8b54c757ae49a3462ead76da3bd1ff3cec743f40051195db292625885111d7db",
+            "ast_hash": "n1:88a4b4b13b36b7e24a37216e89751896c85e66ee055269d2181b7ae5ecf79b35",
+            "normalization_version": 1,
+            "module": "sync_fifo",
+            "ports_ok": true,
+            "state_bits": 197
+          },
+          "cached": false,
+          "summary": {
+            "caption": null,
+            "skip_reason": null,
+            "diagnostics": [],
+            "tests": [],
+            "hidden_tests": null
+          }
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "id": "1793003572992-1",
+      "event": {
+        "type": "stage_start",
+        "stage": "lint",
+        "stage_type": "lint",
+        "ordinal": 1,
+        "attempt": 1
+      }
+    },
+    {
+      "id": "1793003573924-0",
+      "event": {
+        "type": "log",
+        "stage": "lint",
+        "ch": "out",
+        "text": "- V e r i l a t i o n   R e p o r t: Verilator 5.052 2026-09-05 rev vUNKNOWN-built20261025\n- Verilator: Built from 0.031 MB sources in 2 modules, into 0.023 MB in 3 C++ files needing 0.000 MB\n- Verilator: Walltime 0.010 s (elab=0.001, cvt=0.004, bld=0.000); cpu 0.010 s on 1 threads; allocated 17.375 MB\n",
+        "attempt": 1
+      }
+    },
+    {
+      "id": "1793003574480-0",
+      "event": {
+        "type": "stage_end",
+        "result": {
+          "key": "lint",
+          "type": "lint",
+          "ordinal": 1,
+          "status": "passed",
+          "failure_kind": null,
+          "limit": null,
+          "error_code": null,
+          "started_at": "2026-10-26T08:32:52.766749Z",
+          "duration_ms": 1487,
+          "metrics_schema": "lint/v1",
+          "metrics": {
+            "warnings": 0,
+            "errors": 0,
+            "rules": {}
+          },
+          "cached": false,
+          "summary": {
+            "caption": null,
+            "skip_reason": null,
+            "diagnostics": [],
+            "tests": [],
+            "hidden_tests": null
+          }
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "id": "1793003574480-1",
+      "event": {
+        "type": "stage_start",
+        "stage": "sim_run",
+        "stage_type": "sim",
+        "ordinal": 2,
+        "attempt": 1
+      }
+    },
+    {
+      "id": "1793003575480-0",
+      "event": {
+        "type": "heartbeat",
+        "stage": "sim_run",
+        "elapsed_ms": 1000,
+        "note": null,
+        "attempt": 1
+      }
+    },
+    {
+      "id": "1793003576480-0",
+      "event": {
+        "type": "heartbeat",
+        "stage": "sim_run",
+        "elapsed_ms": 2000,
+        "note": null,
+        "attempt": 1
+      }
+    },
+    {
+      "id": "1793003577480-0",
+      "event": {
+        "type": "heartbeat",
+        "stage": "sim_run",
+        "elapsed_ms": 3000,
+        "note": null,
+        "attempt": 1
+      }
+    },
+    {
+      "id": "1793003578480-0",
+      "event": {
+        "type": "heartbeat",
+        "stage": "sim_run",
+        "elapsed_ms": 4000,
+        "note": null,
+        "attempt": 1
+      }
+    },
+    {
+      "id": "1793003579480-0",
+      "event": {
+        "type": "heartbeat",
+        "stage": "sim_run",
+        "elapsed_ms": 5000,
+        "note": null,
+        "attempt": 1
+      }
+    },
+    {
+      "id": "1793003580480-0",
+      "event": {
+        "type": "heartbeat",
+        "stage": "sim_run",
+        "elapsed_ms": 6000,
+        "note": null,
+        "attempt": 1
+      }
+    },
+    {
+      "id": "1793003581480-0",
+      "event": {
+        "type": "heartbeat",
+        "stage": "sim_run",
+        "elapsed_ms": 7000,
+        "note": null,
+        "attempt": 1
+      }
+    },
+    {
+      "id": "1793003582480-0",
+      "event": {
+        "type": "heartbeat",
+        "stage": "sim_run",
+        "elapsed_ms": 8000,
+        "note": null,
+        "attempt": 1
+      }
+    },
+    {
+      "id": "1793003583480-0",
+      "event": {
+        "type": "heartbeat",
+        "stage": "sim_run",
+        "elapsed_ms": 9000,
+        "note": null,
+        "attempt": 1
+      }
+    },
+    {
+      "id": "1793003584480-0",
+      "event": {
+        "type": "heartbeat",
+        "stage": "sim_run",
+        "elapsed_ms": 10000,
+        "note": null,
+        "attempt": 1
+      }
+    },
+    {
+      "id": "1793003585480-0",
+      "event": {
+        "type": "heartbeat",
+        "stage": "sim_run",
+        "elapsed_ms": 11000,
+        "note": null,
+        "attempt": 1
+      }
+    },
+    {
+      "id": "1793003586480-0",
+      "event": {
+        "type": "heartbeat",
+        "stage": "sim_run",
+        "elapsed_ms": 12000,
+        "note": null,
+        "attempt": 1
+      }
+    },
+    {
+      "id": "1793003587480-0",
+      "event": {
+        "type": "heartbeat",
+        "stage": "sim_run",
+        "elapsed_ms": 13000,
+        "note": null,
+        "attempt": 1
+      }
+    },
+    {
+      "id": "1793003587747-0",
+      "event": {
+        "type": "log",
+        "stage": "sim_run",
+        "ch": "out",
+        "text": "count=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\n",
+        "attempt": 1
+      }
+    },
+    {
+      "id": "1793003587765-0",
+      "event": {
+        "type": "log",
+        "stage": "sim_run",
+        "ch": "out",
+        "text": "count=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\ncount=20\n",
+        "attempt": 1
+      }
+    },
+    {
+      "id": "1793003587765-1",
+      "event": {
+        "type": "test",
+        "stage": "sim_run",
+        "test": {
+          "id": "t1",
+          "name": "запись и чтение по порядку",
+          "group": "public",
+          "status": "running",
+          "duration_ms": null,
+          "cycle": null,
+          "mismatches": []
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "id": "1793003587765-2",
+      "event": {
+        "type": "log",
+        "stage": "sim_run",
+        "ch": "out",
+        "text": "count=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\ncount=0\n",
+        "attempt": 1
+      }
+    },
+    {
+      "id": "1793003588706-0",
+      "event": {
+        "type": "truncated",
+        "stage": "sim_run",
+        "limit_kb": 16,
+        "attempt": 1
+      }
+    },
+    {
+      "id": "1793003588706-1",
+      "event": {
+        "type": "stage_end",
+        "result": {
+          "key": "sim_run",
+          "type": "sim",
+          "ordinal": 2,
+          "status": "failed",
+          "failure_kind": "limit",
+          "limit": "output",
+          "error_code": null,
+          "started_at": "2026-10-26T08:32:54.254106Z",
+          "duration_ms": 14227,
+          "metrics_schema": "sim/v1",
+          "metrics": {},
+          "cached": false,
+          "summary": {
+            "caption": null,
+            "skip_reason": null,
+            "diagnostics": [],
+            "tests": [],
+            "hidden_tests": null
+          }
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "id": "1793003588706-2",
+      "event": {
+        "type": "done",
+        "attempt": 1
+      }
+    },
+    {
+      "id": "1793003588826-0",
+      "event": {
+        "type": "finalized",
+        "status": "limit_exceeded",
+        "verdict_detail": {
+          "first_failure": {
+            "stage": "sim_run",
+            "test": null,
+            "cycle": null
+          },
+          "limit": "output",
+          "warnings": [],
+          "error_codes": []
+        }
+      }
+    }
+  ]
+}

@@ -96,11 +96,13 @@ def test_a_submission_is_queued(api: TestClient, queue: RecordingQueue) -> None:
         "code": CODE,
         "toolchain_profile": "sv-2026.10.2",
         "queue_position": None,
+        "eta_s": None,
         "started_at": None,
         "finished_at": None,
         "verdict_detail": None,
         "stages": [],
         "artifacts": [],
+        "quota": None,
     }
 
     [job] = queue.jobs
@@ -111,7 +113,7 @@ def test_a_submission_is_queued(api: TestClient, queue: RecordingQueue) -> None:
     stored = api.get(f"/api/v1/submissions/{body['id']}")
     assert stored.status_code == 200
     assert stored.headers["cache-control"] == "private, no-store"
-    assert stored.json() == body
+    assert stored.json() == {key: body[key] for key in body if key != "quota"}
     # Every submission has its own seed.
     assert submit(api).json()["seed"] != body["seed"]
 
@@ -273,7 +275,8 @@ def test_a_finished_submission(api: TestClient, database_url: str) -> None:
     assert sim["summary"]["hidden_tests"] == {"total": 2, "passed": 1, "failed_index": 1}
     assert sim["summary"]["tests"] == []
     # The testbench result file holds hidden expected values: never listed (specs/07 §4.4).
-    assert [(a["kind"], a["expired"]) for a in body["artifacts"]] == [
-        ("fst", True),
-        ("log", False),
+    common = {"stage": "sim_full", "size_bytes": 100, "waveform": None}
+    assert body["artifacts"] == [
+        {"kind": "fst", "state": "expired", **common},
+        {"kind": "log", "state": "ready", **common},
     ]

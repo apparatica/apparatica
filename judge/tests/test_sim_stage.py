@@ -348,6 +348,8 @@ def test_progress_lines_hide_hidden_tests() -> None:
     shown, test = progress(started("t1", 0))
     assert shown is None
     assert (test.id, test.name, test.status) == ("t1", "тест t1", "running")
+    _, test = progress(ended("t1", "passed", 0, 9))
+    assert (test.id, test.name, test.group, test.status) == ("t1", "тест t1", "public", "passed")
     _, test = progress(started("h1", 9, "hidden"))
     assert (test.id, test.name, test.group) == ("hidden-1", "", "hidden")
     _, test = progress(ended("h1", "failed", 9, 20))

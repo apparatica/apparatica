@@ -12,6 +12,8 @@ const config: NextConfig = {
   // that dependencies of the pnpm workspace are included.
   output: "standalone",
   outputFileTracingRoot: path.join(import.meta.dirname, ".."),
+  // `next dev` must not write AGENTS.md: the instructions for agents live in the repository root.
+  agentRules: false,
 };
 
 export default withNextIntl(config);

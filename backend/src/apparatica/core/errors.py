@@ -129,7 +129,7 @@ def problem_response(
     )
     headers = {"X-Request-ID": request_id} if request_id else None
     return JSONResponse(
-        body.model_dump(mode="json", exclude_none=True),
+        body.model_dump(mode="json"),  # every field, null when unset: as the TS client types it
         status_code=status,
         media_type=PROBLEM_MEDIA_TYPE,
         headers=headers,

@@ -115,6 +115,14 @@ openapi:
 check-api:
     pnpm -C web api:check
 
+# Record the submission scenarios of the mocks (all or the named) in the toolchain image
+record-scenarios *names:
+    poetry -C judge run python ../scripts/record_scenarios.py {{ names }}
+
+# Run the frontend on the mock API, without the backend (http://localhost:3000; docs/frontend.md)
+dev-mocks $NEXT_PUBLIC_API_MOCKING="enabled":
+    pnpm -C web dev
+
 # Validate every problem package in the toolchain image, with the determinism check of CI
 validate-problems:
     poetry -C judge run judge validate --determinism ../problems

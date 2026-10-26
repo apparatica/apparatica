@@ -1,4 +1,4 @@
-"""Request and response schemas of submissions (specs/05 §3, phase 0).
+"""Request and response schemas of submissions (specs/05 §3, phases 0 and 1).
 
 Stage summaries and verdict details are the models of the judge core: the API stores and shows
 what the worker reports and the ingestor aggregates.
@@ -36,6 +36,11 @@ class SubmissionCreate(BaseModel):
     code: str = Field(
         min_length=1, description="Size limits: GET /config, limits.solution (CODE_TOO_LARGE)"
     )
+    captcha: str | None = Field(
+        default=None,
+        max_length=4096,
+        description="Solved ALTCHA challenge (GET /captcha/challenge) after CAPTCHA_REQUIRED",
+    )
 
     @field_validator("code")
     @classmethod
@@ -65,27 +70,90 @@ class SubmissionStage(BaseModel):
     summary: StageSummary
 
 
+# Artifacts a user can download (specs/07 §4.4); the testbench result file is never offered.
+ArtifactKind = Literal["log", "events", "fst"]
+ArtifactState = Literal["ready", "expired", "pending", "failed"]
+WaveformScope = Literal["failure_window", "full_test"]
+
+
+class Waveform(BaseModel):
+    """What an FST trace covers (ADR-0004)."""
+
+    test: str = Field(description="Id of the traced test", examples=["t7"])
+    scope: WaveformScope
+    from_cycle: int
+    to_cycle: int
+    cursor_cycle: int | None = Field(description="Cycle of the first mismatch")
+
+
 class SubmissionArtifact(BaseModel):
-    kind: str = Field(examples=["log", "fst"])
+    kind: ArtifactKind
     stage: str | None
-    size_bytes: int
-    expired: bool = Field(description="Removed by the retention rules; FST can be recreated")
+    state: ArtifactState = Field(
+        description="expired: removed by the retention rules (an FST can be recreated);"
+        " pending, failed: a recreated FST (POST /submissions/{id}/waveform)"
+    )
+    size_bytes: int | None = Field(description="Null until the file exists")
+    waveform: Waveform | None = Field(description="With kind=fst")
 
 
-class Submission(BaseModel):
+class WaveformRequest(BaseModel):
+    scope: WaveformScope = Field(
+        default="failure_window",
+        description="full_test: the whole test, for signed-in users only (FR-WAV-05)",
+    )
+    test: str | None = Field(
+        default=None, description="Test id for full_test; the failed test by default"
+    )
+
+
+class QuotaWindow(BaseModel):
+    limit: int = Field(description="Per hour")
+    remaining: int
+    reset_at: datetime | None = Field(
+        description="When one more becomes available; null while any are left"
+    )
+
+
+class QuotaStatus(BaseModel):
+    """What is left of the quotas of the current guest or user (specs/07 §3)."""
+
+    checks: QuotaWindow
+    waveforms: QuotaWindow = Field(description="Recreated and full-test waveforms")
+
+
+class SubmissionSummary(BaseModel):
     id: uuid.UUID
     problem: str = Field(description="Slug of the problem")
     problem_title: str
     version: int
     kind: SubmissionKind
     status: SubmissionStatus
+    verdict_detail: VerdictDetail | None = Field(description="Set with the final status")
+    created_at: datetime
+    finished_at: datetime | None
+
+
+class Submission(SubmissionSummary):
     code: str
     seed: str = Field(description="64-bit seed as a decimal string", examples=["41917"])
     toolchain_profile: str = Field(examples=["sv-2026.10.2"])
-    queue_position: int | None = Field(description="Position in the queue; from phase 1")
-    created_at: datetime
+    queue_position: int | None = Field(description="Position in the queue while queued")
+    eta_s: int | None = Field(description="Estimated wait in the queue, seconds")
     started_at: datetime | None
-    finished_at: datetime | None
-    verdict_detail: VerdictDetail | None = Field(description="Set with the final status")
     stages: list[SubmissionStage] = Field(description="In pipeline order")
     artifacts: list[SubmissionArtifact]
+
+
+class SubmissionCreated(Submission):
+    quota: QuotaStatus | None = Field(
+        description="After this submission; null while quotas are off"
+    )
+
+
+class SubmissionPage(BaseModel):
+    """Own submissions, newest first."""
+
+    items: list[SubmissionSummary]
+    next_cursor: str | None = Field(description="Pass as cursor for the next page")
+    quota: QuotaStatus | None = Field(description="Null while quotas are off")

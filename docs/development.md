@@ -43,6 +43,8 @@ Poetry создаёт виртуальное окружение внутри к�
 | `just check` | `check-locks`, `check-licenses`, `check-api`, `lint`, `typecheck`, `test` |
 | `just openapi` | пересоздаёт контракт API: `backend/openapi.json` из кода и типы TS-клиента ([api.md](api.md)) |
 | `just check-api` | проверяет, что типы TS-клиента совпадают с `backend/openapi.json` |
+| `just dev-mocks` | фронтенд на моках API, без бэкенда: http://localhost:3000 ([frontend.md](frontend.md#моки-для-разработки)) |
+| `just record-scenarios` | записывает сценарии проверок для моков реальными прогонами в образе тулчейна (нужен Docker) |
 | `just up`, `just down`, `just logs` | стенд в docker compose: все сервисы и демо-задачи на http://localhost:8080 ([stand.md](stand.md)) |
 | `just stand-check` | проверка хранилища запущенного стенда |
 | `just validate-problems` | `judge validate` всех пакетов `problems/` в образе тулчейна (нужен Docker) |

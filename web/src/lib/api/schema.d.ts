@@ -119,11 +119,16 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        /**
+         * List Submissions
+         * @description Own submissions (the guest by cookie) and the quotas left.
+         */
+        get: operations["list_submissions"];
         put?: never;
         /**
          * Create Submission
          * @description A Run or a Submit of the current version of a problem; the check runs in the background.
+         *     CAPTCHA_REQUIRED: solve GET /captcha/challenge and repeat with `captcha`.
          */
         post: operations["create_submission"];
         delete?: never;
@@ -152,6 +157,108 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/submissions/{id}/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Stream Submission Events
+         * @description The live log and progress of a check (specs/07 §4); after the stream expires, the same
+         *     events from the archive. The status is final only with the `finalized` event.
+         */
+        get: operations["stream_submission_events"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/submissions/{id}/cancel": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Cancel Submission
+         * @description Cancel a queued or running check; the result comes as `finalized` with `cancelled`.
+         */
+        post: operations["cancel_submission"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/submissions/{id}/artifacts/{kind}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Artifact
+         * @description Download an artifact of a submission; NOT_FOUND also when it has expired.
+         */
+        get: operations["get_artifact"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/submissions/{id}/waveform": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request Waveform
+         * @description Recreate an expired FST or record a whole test with the seed of the submission
+         *     (FR-WAV-05); the FST artifact is pending until GET /submissions/{id} shows it ready.
+         */
+        post: operations["request_waveform"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/captcha/challenge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Captcha Challenge
+         * @description A new challenge for the next submission after CAPTCHA_REQUIRED.
+         */
+        get: operations["get_captcha_challenge"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -162,6 +269,34 @@ export interface components {
             key: string;
             /** Title */
             title: string;
+        };
+        /**
+         * CaptchaChallenge
+         * @description An ALTCHA challenge: the widget finds the number and sends the solution as `captcha`.
+         */
+        CaptchaChallenge: {
+            /**
+             * Algorithm
+             * @constant
+             */
+            algorithm: "SHA-256";
+            /**
+             * Challenge
+             * @description Hash to find, hex
+             */
+            challenge: string;
+            /**
+             * Maxnumber
+             * @description Upper bound of the number to find
+             */
+            maxnumber: number;
+            /** Salt */
+            salt: string;
+            /**
+             * Signature
+             * @description HMAC of the challenge by the server, hex
+             */
+            signature: string;
         };
         /**
          * ConfigResponse
@@ -227,6 +362,39 @@ export interface components {
              */
             total: number;
         };
+        /**
+         * DoneEvent
+         * @description The pipeline of the attempt is over; the status comes with `finalized`.
+         */
+        DoneEvent: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "done";
+            /**
+             * Attempt
+             * @description Attempt of the check; a new attempt resets the results
+             */
+            attempt: number;
+        };
+        /**
+         * FinalizedEvent
+         * @description The final status, from the ingestor after it is stored: the last event of the stream.
+         */
+        FinalizedEvent: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "finalized";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "accepted" | "accepted_with_warnings" | "wrong_answer" | "compile_error" | "limit_exceeded" | "forbidden_construct" | "cancelled" | "internal_error";
+            verdict_detail: components["schemas"]["VerdictDetail"];
+        };
         /** FirstFailure */
         FirstFailure: {
             /** Stage */
@@ -249,6 +417,28 @@ export interface components {
             checks: {
                 [key: string]: "ok" | "unavailable";
             };
+        };
+        /**
+         * HeartbeatEvent
+         * @description Once a second on a silent step.
+         */
+        HeartbeatEvent: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "heartbeat";
+            /** Stage */
+            stage: string;
+            /** Elapsed Ms */
+            elapsed_ms: number;
+            /** Note */
+            note: string | null;
+            /**
+             * Attempt
+             * @description Attempt of the check; a new attempt resets the results
+             */
+            attempt: number;
         };
         /** HiddenTests */
         HiddenTests: {
@@ -273,6 +463,31 @@ export interface components {
         Limits: {
             solution: components["schemas"]["SolutionLimits"];
             quotas: components["schemas"]["Quotas"];
+        };
+        /**
+         * LogEvent
+         * @description Console text: whole lines, each with its newline, glued for ~75 ms or up to 8 KB.
+         */
+        LogEvent: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "log";
+            /** Stage */
+            stage: string;
+            /**
+             * Ch
+             * @enum {string}
+             */
+            ch: "out" | "err" | "sys";
+            /** Text */
+            text: string;
+            /**
+             * Attempt
+             * @description Attempt of the check; a new attempt resets the results
+             */
+            attempt: number;
         };
         /** Mismatch */
         Mismatch: {
@@ -456,6 +671,24 @@ export interface components {
              */
             progress: components["schemas"]["DifficultyTotal"][];
         };
+        /**
+         * QueueEvent
+         * @description Position in the queue, from the API while the submission waits.
+         */
+        QueueEvent: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "queue";
+            /** Position */
+            position: number;
+            /**
+             * Eta S
+             * @description Estimated wait in seconds
+             */
+            eta_s: number | null;
+        };
         /** Quota */
         Quota: {
             /** Checks Per Hour */
@@ -466,6 +699,30 @@ export interface components {
             heavy_per_day: number;
             /** Waveforms Per Hour */
             waveforms_per_hour: number;
+        };
+        /**
+         * QuotaStatus
+         * @description What is left of the quotas of the current guest or user (specs/07 §3).
+         */
+        QuotaStatus: {
+            checks: components["schemas"]["QuotaWindow"];
+            /** @description Recreated and full-test waveforms */
+            waveforms: components["schemas"]["QuotaWindow"];
+        };
+        /** QuotaWindow */
+        QuotaWindow: {
+            /**
+             * Limit
+             * @description Per hour
+             */
+            limit: number;
+            /** Remaining */
+            remaining: number;
+            /**
+             * Reset At
+             * @description When one more becomes available; null while any are left
+             */
+            reset_at: string | null;
         };
         /** Quotas */
         Quotas: {
@@ -485,6 +742,90 @@ export interface components {
             max_bytes: number;
             /** Max Lines */
             max_lines: number;
+        };
+        /**
+         * StageEndEvent
+         * @description A finished stage: its partial results are final.
+         */
+        StageEndEvent: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "stage_end";
+            result: components["schemas"]["StageResult"];
+            /**
+             * Attempt
+             * @description Attempt of the check; a new attempt resets the results
+             */
+            attempt: number;
+        };
+        /**
+         * StageResult
+         * @description A finished stage as the worker reports it (`stage_results`, specs/04 §4).
+         */
+        StageResult: {
+            /** Key */
+            key: string;
+            /** Type */
+            type: string;
+            /** Ordinal */
+            ordinal: number;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "running" | "passed" | "warning" | "failed" | "skipped" | "cancelled" | "error";
+            /** Failure Kind */
+            failure_kind?: ("forbidden" | "compile" | "wrong" | "limit") | null;
+            /** Limit */
+            limit?: ("time" | "memory" | "output" | "fst" | "cycles" | "size") | null;
+            /** Error Code */
+            error_code?: string | null;
+            /** Started At */
+            started_at?: string | null;
+            /** Duration Ms */
+            duration_ms?: number | null;
+            /** Metrics Schema */
+            metrics_schema?: string | null;
+            /**
+             * Metrics
+             * @default {}
+             */
+            metrics: {
+                [key: string]: unknown;
+            };
+            /**
+             * Cached
+             * @default false
+             */
+            cached: boolean;
+            /**
+             * @default {
+             *       "diagnostics": [],
+             *       "tests": []
+             *     }
+             */
+            summary: components["schemas"]["StageSummary"];
+        };
+        /** StageStartEvent */
+        StageStartEvent: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "stage_start";
+            /** Stage */
+            stage: string;
+            /** Stage Type */
+            stage_type: string;
+            /** Ordinal */
+            ordinal: number;
+            /**
+             * Attempt
+             * @description Attempt of the check; a new attempt resets the results
+             */
+            attempt: number;
         };
         /** StageSummary */
         StageSummary: {
@@ -533,6 +874,15 @@ export interface components {
              * @enum {string}
              */
             status: "queued" | "running" | "accepted" | "accepted_with_warnings" | "wrong_answer" | "compile_error" | "limit_exceeded" | "forbidden_construct" | "cancelled" | "internal_error";
+            /** @description Set with the final status */
+            verdict_detail: components["schemas"]["VerdictDetail"] | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Finished At */
+            finished_at: string | null;
             /** Code */
             code: string;
             /**
@@ -548,20 +898,16 @@ export interface components {
             toolchain_profile: string;
             /**
              * Queue Position
-             * @description Position in the queue; from phase 1
+             * @description Position in the queue while queued
              */
             queue_position: number | null;
             /**
-             * Created At
-             * Format: date-time
+             * Eta S
+             * @description Estimated wait in the queue, seconds
              */
-            created_at: string;
+            eta_s: number | null;
             /** Started At */
             started_at: string | null;
-            /** Finished At */
-            finished_at: string | null;
-            /** @description Set with the final status */
-            verdict_detail: components["schemas"]["VerdictDetail"] | null;
             /**
              * Stages
              * @description In pipeline order
@@ -574,19 +920,24 @@ export interface components {
         SubmissionArtifact: {
             /**
              * Kind
-             * @example log
-             * @example fst
+             * @enum {string}
              */
-            kind: string;
+            kind: "log" | "events" | "fst";
             /** Stage */
             stage: string | null;
-            /** Size Bytes */
-            size_bytes: number;
             /**
-             * Expired
-             * @description Removed by the retention rules; FST can be recreated
+             * State
+             * @description expired: removed by the retention rules (an FST can be recreated); pending, failed: a recreated FST (POST /submissions/{id}/waveform)
+             * @enum {string}
              */
-            expired: boolean;
+            state: "ready" | "expired" | "pending" | "failed";
+            /**
+             * Size Bytes
+             * @description Null until the file exists
+             */
+            size_bytes: number | null;
+            /** @description With kind=fst */
+            waveform: components["schemas"]["Waveform"] | null;
         };
         /** SubmissionCreate */
         SubmissionCreate: {
@@ -610,6 +961,101 @@ export interface components {
              * @description Size limits: GET /config, limits.solution (CODE_TOO_LARGE)
              */
             code: string;
+            /**
+             * Captcha
+             * @description Solved ALTCHA challenge (GET /captcha/challenge) after CAPTCHA_REQUIRED
+             */
+            captcha?: string | null;
+        };
+        /** SubmissionCreated */
+        SubmissionCreated: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Problem
+             * @description Slug of the problem
+             */
+            problem: string;
+            /** Problem Title */
+            problem_title: string;
+            /** Version */
+            version: number;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "run" | "submit";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "running" | "accepted" | "accepted_with_warnings" | "wrong_answer" | "compile_error" | "limit_exceeded" | "forbidden_construct" | "cancelled" | "internal_error";
+            /** @description Set with the final status */
+            verdict_detail: components["schemas"]["VerdictDetail"] | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Finished At */
+            finished_at: string | null;
+            /** Code */
+            code: string;
+            /**
+             * Seed
+             * @description 64-bit seed as a decimal string
+             * @example 41917
+             */
+            seed: string;
+            /**
+             * Toolchain Profile
+             * @example sv-2026.10.2
+             */
+            toolchain_profile: string;
+            /**
+             * Queue Position
+             * @description Position in the queue while queued
+             */
+            queue_position: number | null;
+            /**
+             * Eta S
+             * @description Estimated wait in the queue, seconds
+             */
+            eta_s: number | null;
+            /** Started At */
+            started_at: string | null;
+            /**
+             * Stages
+             * @description In pipeline order
+             */
+            stages: components["schemas"]["SubmissionStage"][];
+            /** Artifacts */
+            artifacts: components["schemas"]["SubmissionArtifact"][];
+            /** @description After this submission; null while quotas are off */
+            quota: components["schemas"]["QuotaStatus"] | null;
+        };
+        /**
+         * SubmissionEvent
+         * @description An event of the submission stream; the final status comes only with `finalized`.
+         */
+        SubmissionEvent: components["schemas"]["QueueEvent"] | components["schemas"]["StageStartEvent"] | components["schemas"]["LogEvent"] | components["schemas"]["HeartbeatEvent"] | components["schemas"]["TestEvent"] | components["schemas"]["TruncatedEvent"] | components["schemas"]["StageEndEvent"] | components["schemas"]["DoneEvent"] | components["schemas"]["FinalizedEvent"];
+        /**
+         * SubmissionPage
+         * @description Own submissions, newest first.
+         */
+        SubmissionPage: {
+            /** Items */
+            items: components["schemas"]["SubmissionSummary"][];
+            /**
+             * Next Cursor
+             * @description Pass as cursor for the next page
+             */
+            next_cursor: string | null;
+            /** @description Null while quotas are off */
+            quota: components["schemas"]["QuotaStatus"] | null;
         };
         /** SubmissionStage */
         SubmissionStage: {
@@ -654,6 +1100,42 @@ export interface components {
             };
             summary: components["schemas"]["StageSummary"];
         };
+        /** SubmissionSummary */
+        SubmissionSummary: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Problem
+             * @description Slug of the problem
+             */
+            problem: string;
+            /** Problem Title */
+            problem_title: string;
+            /** Version */
+            version: number;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "run" | "submit";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "running" | "accepted" | "accepted_with_warnings" | "wrong_answer" | "compile_error" | "limit_exceeded" | "forbidden_construct" | "cancelled" | "internal_error";
+            /** @description Set with the final status */
+            verdict_detail: components["schemas"]["VerdictDetail"] | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Finished At */
+            finished_at: string | null;
+        };
         /** Tag */
         Tag: {
             /**
@@ -693,6 +1175,45 @@ export interface components {
              */
             mismatches: components["schemas"]["Mismatch"][];
         };
+        /**
+         * TestEvent
+         * @description A test started or finished: the client replaces the test with this id.
+         */
+        TestEvent: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "test";
+            /** Stage */
+            stage: string;
+            test: components["schemas"]["TestCase"];
+            /**
+             * Attempt
+             * @description Attempt of the check; a new attempt resets the results
+             */
+            attempt: number;
+        };
+        /**
+         * TruncatedEvent
+         * @description The stage output hit the limit: the stage was stopped.
+         */
+        TruncatedEvent: {
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "truncated";
+            /** Stage */
+            stage: string;
+            /** Limit Kb */
+            limit_kb: number;
+            /**
+             * Attempt
+             * @description Attempt of the check; a new attempt resets the results
+             */
+            attempt: number;
+        };
         /** VerdictDetail */
         VerdictDetail: {
             first_failure?: components["schemas"]["FirstFailure"] | null;
@@ -708,6 +1229,47 @@ export interface components {
              * @default []
              */
             error_codes: string[];
+        };
+        /**
+         * Waveform
+         * @description What an FST trace covers (ADR-0004).
+         */
+        Waveform: {
+            /**
+             * Test
+             * @description Id of the traced test
+             * @example t7
+             */
+            test: string;
+            /**
+             * Scope
+             * @enum {string}
+             */
+            scope: "failure_window" | "full_test";
+            /** From Cycle */
+            from_cycle: number;
+            /** To Cycle */
+            to_cycle: number;
+            /**
+             * Cursor Cycle
+             * @description Cycle of the first mismatch
+             */
+            cursor_cycle: number | null;
+        };
+        /** WaveformRequest */
+        WaveformRequest: {
+            /**
+             * Scope
+             * @description full_test: the whole test, for signed-in users only (FR-WAV-05)
+             * @default failure_window
+             * @enum {string}
+             */
+            scope: "failure_window" | "full_test";
+            /**
+             * Test
+             * @description Test id for full_test; the failed test by default
+             */
+            test?: string | null;
         };
         /**
          * ErrorCode
@@ -1014,6 +1576,58 @@ export interface operations {
             };
         };
     };
+    list_submissions: {
+        parameters: {
+            query?: {
+                /** @description Slug of a problem */
+                problem?: string | null;
+                cursor?: string | null;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubmissionPage"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
     create_submission: {
         parameters: {
             query?: never;
@@ -1033,7 +1647,16 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["Submission"];
+                    "application/json": components["schemas"]["SubmissionCreated"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
                 };
             };
             /** @description Not Found */
@@ -1065,6 +1688,24 @@ export interface operations {
             };
             /** @description Unprocessable Content */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Precondition Required */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1132,6 +1773,314 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    stream_submission_events: {
+        parameters: {
+            query?: {
+                /** @description Continue after this event id */
+                from?: string | null;
+            };
+            header?: {
+                /** @description Set by EventSource on reconnect */
+                "Last-Event-ID"?: string | null;
+            };
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Server-Sent Events: `data:` is a SubmissionEvent, `event:` its type, `id:` the stream entry id. `: keepalive` comments every 15 s. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/event-stream": components["schemas"]["SubmissionEvent"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    cancel_submission: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Cancellation requested */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    get_artifact: {
+        parameters: {
+            query?: {
+                /** @description Key of the stage */
+                stage?: string | null;
+            };
+            header?: never;
+            path: {
+                id: string;
+                kind: "log" | "events" | "fst";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Redirect to a presigned URL of the file (attachment) */
+            302: {
+                headers: {
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    request_waveform: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["WaveformRequest"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SubmissionArtifact"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    get_captcha_challenge: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaptchaChallenge"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
                 headers: {
                     [name: string]: unknown;
                 };

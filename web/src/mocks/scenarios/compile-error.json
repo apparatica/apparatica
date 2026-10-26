@@ -1,0 +1,275 @@
+{
+  "name": "compile-error",
+  "submission": {
+    "id": "01a17755-d038-7ff2-97ac-96f2bc992c83",
+    "problem": "mux4",
+    "problem_title": "Мультиплексор 4:1",
+    "version": 1,
+    "kind": "run",
+    "status": "compile_error",
+    "verdict_detail": {
+      "first_failure": {
+        "stage": "precheck",
+        "test": null,
+        "cycle": null
+      },
+      "limit": null,
+      "warnings": [],
+      "error_codes": []
+    },
+    "created_at": "2026-10-26T08:31:15+00:00",
+    "finished_at": "2026-10-26T08:31:18.734000+00:00",
+    "code": "module mux4 #(\n  parameter int WIDTH = 8\n) (\n  input  logic [1:0]       sel,\n  input  logic [WIDTH-1:0] d0,\n  input  logic [WIDTH-1:0] d1,\n  input  logic [WIDTH-1:0] d2,\n  input  logic [WIDTH-1:0] d3,\n  output logic [WIDTH-1:0] y\n);\n  always_comb begin\n    unique case (sel)\n      2'd0: y = d0;\n      2'd1: y = d1;\n      2'd2: y = d2;\n      2'd3: y = d3\n    endcase\n  end\nendmodule\n",
+    "seed": "20261026",
+    "toolchain_profile": "sv-dev",
+    "queue_position": null,
+    "eta_s": null,
+    "started_at": "2026-10-26T08:31:16.408183+00:00",
+    "stages": [
+      {
+        "key": "precheck",
+        "type": "precheck",
+        "ordinal": 0,
+        "status": "failed",
+        "failure_kind": "compile",
+        "error_code": null,
+        "started_at": "2026-10-26T08:31:16.408183Z",
+        "duration_ms": 1786,
+        "metrics_schema": "precheck/v1",
+        "metrics": {},
+        "summary": {
+          "caption": null,
+          "skip_reason": null,
+          "diagnostics": [
+            {
+              "severity": "error",
+              "message": "expected ';'",
+              "code": "ExpectedToken",
+              "file": "solution.sv",
+              "line": 16,
+              "col": 19,
+              "end_line": null,
+              "end_col": null
+            }
+          ],
+          "tests": [],
+          "hidden_tests": null
+        },
+        "finished_at": "2026-10-26T08:31:18.194183+00:00"
+      },
+      {
+        "key": "lint",
+        "type": "lint",
+        "ordinal": 1,
+        "status": "skipped",
+        "failure_kind": null,
+        "error_code": null,
+        "started_at": null,
+        "duration_ms": null,
+        "metrics_schema": null,
+        "metrics": {},
+        "summary": {
+          "caption": null,
+          "skip_reason": "previous_failed",
+          "diagnostics": [],
+          "tests": [],
+          "hidden_tests": null
+        },
+        "finished_at": null
+      },
+      {
+        "key": "sim_run",
+        "type": "sim",
+        "ordinal": 2,
+        "status": "skipped",
+        "failure_kind": null,
+        "error_code": null,
+        "started_at": null,
+        "duration_ms": null,
+        "metrics_schema": null,
+        "metrics": {},
+        "summary": {
+          "caption": null,
+          "skip_reason": "previous_failed",
+          "diagnostics": [],
+          "tests": [],
+          "hidden_tests": null
+        },
+        "finished_at": null
+      }
+    ],
+    "artifacts": [
+      {
+        "kind": "log",
+        "stage": "precheck",
+        "state": "ready",
+        "size_bytes": 0,
+        "waveform": null
+      },
+      {
+        "kind": "events",
+        "stage": null,
+        "state": "ready",
+        "size_bytes": 2170,
+        "waveform": null
+      }
+    ]
+  },
+  "events": [
+    {
+      "id": "1793003475000-0",
+      "event": {
+        "type": "queue",
+        "position": 2,
+        "eta_s": 4
+      }
+    },
+    {
+      "id": "1793003475600-0",
+      "event": {
+        "type": "queue",
+        "position": 1,
+        "eta_s": 2
+      }
+    },
+    {
+      "id": "1793003476827-0",
+      "event": {
+        "type": "stage_start",
+        "stage": "precheck",
+        "stage_type": "precheck",
+        "ordinal": 0,
+        "attempt": 1
+      }
+    },
+    {
+      "id": "1793003477827-0",
+      "event": {
+        "type": "heartbeat",
+        "stage": "precheck",
+        "elapsed_ms": 1000,
+        "note": null,
+        "attempt": 1
+      }
+    },
+    {
+      "id": "1793003478613-0",
+      "event": {
+        "type": "stage_end",
+        "result": {
+          "key": "precheck",
+          "type": "precheck",
+          "ordinal": 0,
+          "status": "failed",
+          "failure_kind": "compile",
+          "limit": null,
+          "error_code": null,
+          "started_at": "2026-10-26T08:31:16.408183Z",
+          "duration_ms": 1786,
+          "metrics_schema": "precheck/v1",
+          "metrics": {},
+          "cached": false,
+          "summary": {
+            "caption": null,
+            "skip_reason": null,
+            "diagnostics": [
+              {
+                "severity": "error",
+                "message": "expected ';'",
+                "code": "ExpectedToken",
+                "file": "solution.sv",
+                "line": 16,
+                "col": 19,
+                "end_line": null,
+                "end_col": null
+              }
+            ],
+            "tests": [],
+            "hidden_tests": null
+          }
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "id": "1793003478613-1",
+      "event": {
+        "type": "stage_end",
+        "result": {
+          "key": "lint",
+          "type": "lint",
+          "ordinal": 1,
+          "status": "skipped",
+          "failure_kind": null,
+          "limit": null,
+          "error_code": null,
+          "started_at": null,
+          "duration_ms": null,
+          "metrics_schema": null,
+          "metrics": {},
+          "cached": false,
+          "summary": {
+            "caption": null,
+            "skip_reason": "previous_failed",
+            "diagnostics": [],
+            "tests": [],
+            "hidden_tests": null
+          }
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "id": "1793003478614-0",
+      "event": {
+        "type": "stage_end",
+        "result": {
+          "key": "sim_run",
+          "type": "sim",
+          "ordinal": 2,
+          "status": "skipped",
+          "failure_kind": null,
+          "limit": null,
+          "error_code": null,
+          "started_at": null,
+          "duration_ms": null,
+          "metrics_schema": null,
+          "metrics": {},
+          "cached": false,
+          "summary": {
+            "caption": null,
+            "skip_reason": "previous_failed",
+            "diagnostics": [],
+            "tests": [],
+            "hidden_tests": null
+          }
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "id": "1793003478614-1",
+      "event": {
+        "type": "done",
+        "attempt": 1
+      }
+    },
+    {
+      "id": "1793003478734-0",
+      "event": {
+        "type": "finalized",
+        "status": "compile_error",
+        "verdict_detail": {
+          "first_failure": {
+            "stage": "precheck",
+            "test": null,
+            "cycle": null
+          },
+          "limit": null,
+          "warnings": [],
+          "error_codes": []
+        }
+      }
+    }
+  ]
+}

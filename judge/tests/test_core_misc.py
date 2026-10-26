@@ -134,10 +134,16 @@ def test_console_sink() -> None:
     sink = events.ConsoleSink(stream)
     sink.emit(events.StageStartEvent(stage="sim", stage_type="sim", ordinal=2))
     sink.emit(events.LogEvent(stage="sim", ch="out", text="compiling"))
+    sink.emit(events.HeartbeatEvent(stage="sim", elapsed_ms=3000, note="verilator"))
     sink.emit(events.TestEvent(stage="sim", test=FAILED_TEST))
     sink.emit(
         events.StageEndEvent(result=result("sim", "failed", failure_kind="wrong", duration_ms=1500))
     )
     lines = stream.getvalue().splitlines()
     assert lines[0].startswith("── sim ──")
-    assert lines[1:] == ["compiling", "test t7 (push и pop): failed", "sim: failed (wrong, 1.5 s)"]
+    assert lines[1:] == [
+        "compiling",
+        "# sim: 3 s · verilator",
+        "test t7 (push и pop): failed",
+        "sim: failed (wrong, 1.5 s)",
+    ]

@@ -1,0 +1,321 @@
+{
+  "name": "internal-error",
+  "submission": {
+    "id": "01a17756-5508-7fdb-9554-df1b4ab25eb5",
+    "problem": "mux4",
+    "problem_title": "Мультиплексор 4:1",
+    "version": 1,
+    "kind": "run",
+    "status": "internal_error",
+    "verdict_detail": {
+      "first_failure": null,
+      "limit": null,
+      "warnings": [],
+      "error_codes": ["EXECUTOR_FAILED"]
+    },
+    "created_at": "2026-10-26T08:31:49+00:00",
+    "finished_at": "2026-10-26T08:31:54.188000+00:00",
+    "code": "module mux4 #(\n  parameter int WIDTH = 8\n) (\n  input  logic [1:0]       sel,\n  input  logic [WIDTH-1:0] d0,\n  input  logic [WIDTH-1:0] d1,\n  input  logic [WIDTH-1:0] d2,\n  input  logic [WIDTH-1:0] d3,\n  output logic [WIDTH-1:0] y\n);\n  always_comb begin\n    unique case (sel)\n      2'd0: y = d0;\n      2'd1: y = d1;\n      2'd2: y = d2;\n      2'd3: y = d3;\n    endcase\n  end\nendmodule\n",
+    "seed": "20261026",
+    "toolchain_profile": "sv-dev",
+    "queue_position": null,
+    "eta_s": null,
+    "started_at": "2026-10-26T08:31:49.802851+00:00",
+    "stages": [
+      {
+        "key": "precheck",
+        "type": "precheck",
+        "ordinal": 0,
+        "status": "passed",
+        "failure_kind": null,
+        "error_code": null,
+        "started_at": "2026-10-26T08:31:49.802851Z",
+        "duration_ms": 1775,
+        "metrics_schema": "precheck/v1",
+        "metrics": {
+          "code_hash": "de8b116271f8d0240dd92b15bdf8c43615dd39af6a129dc32236c2f81bf80774",
+          "ast_hash": "n1:911351ff6f93c2265f0fb2245cf8477226ec075e65d76187652c387abc15c8ed",
+          "normalization_version": 1,
+          "module": "mux4",
+          "ports_ok": true,
+          "state_bits": 42
+        },
+        "summary": {
+          "caption": null,
+          "skip_reason": null,
+          "diagnostics": [],
+          "tests": [],
+          "hidden_tests": null
+        },
+        "finished_at": "2026-10-26T08:31:51.577851+00:00"
+      },
+      {
+        "key": "lint",
+        "type": "lint",
+        "ordinal": 1,
+        "status": "passed",
+        "failure_kind": null,
+        "error_code": null,
+        "started_at": "2026-10-26T08:31:51.577895Z",
+        "duration_ms": 1380,
+        "metrics_schema": "lint/v1",
+        "metrics": {
+          "warnings": 0,
+          "errors": 0,
+          "rules": {}
+        },
+        "summary": {
+          "caption": null,
+          "skip_reason": null,
+          "diagnostics": [],
+          "tests": [],
+          "hidden_tests": null
+        },
+        "finished_at": "2026-10-26T08:31:52.957895+00:00"
+      },
+      {
+        "key": "sim_run",
+        "type": "sim",
+        "ordinal": 2,
+        "status": "error",
+        "failure_kind": null,
+        "error_code": "EXECUTOR_FAILED",
+        "started_at": "2026-10-26T08:31:52.958171Z",
+        "duration_ms": 2,
+        "metrics_schema": "sim/v1",
+        "metrics": {},
+        "summary": {
+          "caption": null,
+          "skip_reason": null,
+          "diagnostics": [],
+          "tests": [],
+          "hidden_tests": null
+        },
+        "finished_at": "2026-10-26T08:31:52.960171+00:00"
+      }
+    ],
+    "artifacts": [
+      {
+        "kind": "log",
+        "stage": "precheck",
+        "state": "ready",
+        "size_bytes": 0,
+        "waveform": null
+      },
+      {
+        "kind": "log",
+        "stage": "lint",
+        "state": "ready",
+        "size_bytes": 304,
+        "waveform": null
+      },
+      {
+        "kind": "log",
+        "stage": "sim_run",
+        "state": "ready",
+        "size_bytes": 30,
+        "waveform": null
+      },
+      {
+        "kind": "events",
+        "stage": null,
+        "state": "ready",
+        "size_bytes": 3119,
+        "waveform": null
+      }
+    ]
+  },
+  "events": [
+    {
+      "id": "1793003509000-0",
+      "event": {
+        "type": "queue",
+        "position": 2,
+        "eta_s": 4
+      }
+    },
+    {
+      "id": "1793003509600-0",
+      "event": {
+        "type": "queue",
+        "position": 1,
+        "eta_s": 2
+      }
+    },
+    {
+      "id": "1793003510910-0",
+      "event": {
+        "type": "stage_start",
+        "stage": "precheck",
+        "stage_type": "precheck",
+        "ordinal": 0,
+        "attempt": 1
+      }
+    },
+    {
+      "id": "1793003511910-0",
+      "event": {
+        "type": "heartbeat",
+        "stage": "precheck",
+        "elapsed_ms": 1000,
+        "note": null,
+        "attempt": 1
+      }
+    },
+    {
+      "id": "1793003512685-0",
+      "event": {
+        "type": "stage_end",
+        "result": {
+          "key": "precheck",
+          "type": "precheck",
+          "ordinal": 0,
+          "status": "passed",
+          "failure_kind": null,
+          "limit": null,
+          "error_code": null,
+          "started_at": "2026-10-26T08:31:49.802851Z",
+          "duration_ms": 1775,
+          "metrics_schema": "precheck/v1",
+          "metrics": {
+            "code_hash": "de8b116271f8d0240dd92b15bdf8c43615dd39af6a129dc32236c2f81bf80774",
+            "ast_hash": "n1:911351ff6f93c2265f0fb2245cf8477226ec075e65d76187652c387abc15c8ed",
+            "normalization_version": 1,
+            "module": "mux4",
+            "ports_ok": true,
+            "state_bits": 42
+          },
+          "cached": false,
+          "summary": {
+            "caption": null,
+            "skip_reason": null,
+            "diagnostics": [],
+            "tests": [],
+            "hidden_tests": null
+          }
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "id": "1793003512685-1",
+      "event": {
+        "type": "stage_start",
+        "stage": "lint",
+        "stage_type": "lint",
+        "ordinal": 1,
+        "attempt": 1
+      }
+    },
+    {
+      "id": "1793003513517-0",
+      "event": {
+        "type": "log",
+        "stage": "lint",
+        "ch": "out",
+        "text": "- V e r i l a t i o n   R e p o r t: Verilator 5.052 2026-09-05 rev vUNKNOWN-built20261025\n- Verilator: Built from 0.030 MB sources in 2 modules, into 0.015 MB in 3 C++ files needing 0.000 MB\n- Verilator: Walltime 0.008 s (elab=0.000, cvt=0.002, bld=0.000); cpu 0.008 s on 1 threads; allocated 17.355 MB\n",
+        "attempt": 1
+      }
+    },
+    {
+      "id": "1793003514065-0",
+      "event": {
+        "type": "stage_end",
+        "result": {
+          "key": "lint",
+          "type": "lint",
+          "ordinal": 1,
+          "status": "passed",
+          "failure_kind": null,
+          "limit": null,
+          "error_code": null,
+          "started_at": "2026-10-26T08:31:51.577895Z",
+          "duration_ms": 1380,
+          "metrics_schema": "lint/v1",
+          "metrics": {
+            "warnings": 0,
+            "errors": 0,
+            "rules": {}
+          },
+          "cached": false,
+          "summary": {
+            "caption": null,
+            "skip_reason": null,
+            "diagnostics": [],
+            "tests": [],
+            "hidden_tests": null
+          }
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "id": "1793003514065-1",
+      "event": {
+        "type": "stage_start",
+        "stage": "sim_run",
+        "stage_type": "sim",
+        "ordinal": 2,
+        "attempt": 1
+      }
+    },
+    {
+      "id": "1793003514068-0",
+      "event": {
+        "type": "log",
+        "stage": "sim_run",
+        "ch": "sys",
+        "text": "the sandbox container is gone\n",
+        "attempt": 1
+      }
+    },
+    {
+      "id": "1793003514068-1",
+      "event": {
+        "type": "stage_end",
+        "result": {
+          "key": "sim_run",
+          "type": "sim",
+          "ordinal": 2,
+          "status": "error",
+          "failure_kind": null,
+          "limit": null,
+          "error_code": "EXECUTOR_FAILED",
+          "started_at": "2026-10-26T08:31:52.958171Z",
+          "duration_ms": 2,
+          "metrics_schema": "sim/v1",
+          "metrics": {},
+          "cached": false,
+          "summary": {
+            "caption": null,
+            "skip_reason": null,
+            "diagnostics": [],
+            "tests": [],
+            "hidden_tests": null
+          }
+        },
+        "attempt": 1
+      }
+    },
+    {
+      "id": "1793003514068-2",
+      "event": {
+        "type": "done",
+        "attempt": 1
+      }
+    },
+    {
+      "id": "1793003514188-0",
+      "event": {
+        "type": "finalized",
+        "status": "internal_error",
+        "verdict_detail": {
+          "first_failure": null,
+          "limit": null,
+          "warnings": [],
+          "error_codes": ["EXECUTOR_FAILED"]
+        }
+      }
+    }
+  ]
+}

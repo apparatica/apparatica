@@ -159,9 +159,9 @@ write_verilog -noexpr -noattr netlist.v ; write_json netlist.json
 |---|---|---|---|
 | `queue` | API | `position`, `eta_s` | позиция в очереди |
 | `stage_start` | воркер | `attempt`, `stage`, `stage_type`, `ordinal` | этап начат |
-| `log` | воркер | `attempt`, `stage`, `ch` (`out`/`err`/`sys`), `text` | текстовая порция; склейка ~75 мс или 8 КБ |
+| `log` | воркер | `attempt`, `stage`, `ch` (`out`/`err`/`sys`), `text` | целые строки, каждая с переводом строки; склейка ~75 мс или 8 КБ |
 | `heartbeat` | воркер | `attempt`, `stage`, `elapsed_ms`, `note` | раз в 1 с на «молчаливых» шагах (компиляция C++, ABC, SAT) |
-| `test` | воркер | `attempt`, `test: TestCase` | прогресс тестов из строк `@@apx` |
+| `test` | воркер | `attempt`, `stage`, `test: TestCase` | прогресс тестов из строк `@@apx`; тест заменяется по `id` целиком |
 | `stage_end` | воркер | `attempt`, `result: StageResult` | этап завершён; частичные результаты видны сразу |
 | `truncated` | воркер | `attempt`, `stage`, `limit_kb` | вывод обрезан |
 | `done` | воркер | `attempt` | пайплайн завершён, итог считает ингестор |

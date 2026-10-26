@@ -8,6 +8,7 @@ toolchain profile of its language and a fresh 63-bit seed: the triple makes a ru
 import secrets
 import uuid
 from datetime import UTC, datetime
+from typing import get_args
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,17 +21,20 @@ from apparatica.submissions.models import Artifact, StageResult, ToolchainProfil
 from apparatica.submissions.models import Submission as SubmissionRow
 from apparatica.submissions.queue import Job, JobQueue
 from apparatica.submissions.schemas import (
+    ArtifactKind,
     Submission,
     SubmissionArtifact,
     SubmissionCreate,
+    SubmissionCreated,
     SubmissionStage,
 )
 from apparatica.submissions.tokens import JobTokens
 from judge.core.stage import StageSummary
 from judge.core.verdict import VerdictDetail
 
-# The testbench result file holds the expected values of hidden tests (specs/07 §4.4).
-HIDDEN_ARTIFACT_KINDS = frozenset({"tb_result"})
+# Kinds a user may download; the testbench result file with the expected values of hidden tests
+# is not one of them (specs/07 §4.4).
+DOWNLOADABLE_ARTIFACT_KINDS: tuple[str, ...] = get_args(ArtifactKind)
 
 
 def check_size(code: str, limits: SolutionLimits) -> None:
@@ -57,7 +61,7 @@ async def create_submission(
     limits: SolutionLimits,
     tokens: JobTokens,
     queue: JobQueue,
-) -> Submission:
+) -> SubmissionCreated:
     check_size(request.code, limits)
     row = await session.execute(
         select(Problem.slug, ProblemVersion)
@@ -107,7 +111,7 @@ async def create_submission(
     )
     result = await get_submission(session, submission.id)
     assert result is not None
-    return result
+    return SubmissionCreated(**dict(result), quota=None)  # quotas arrive with guests (T1.7)
 
 
 async def get_submission(session: AsyncSession, submission_id: uuid.UUID) -> Submission | None:
@@ -130,7 +134,7 @@ async def get_submission(session: AsyncSession, submission_id: uuid.UUID) -> Sub
         select(Artifact)
         .where(
             Artifact.submission_id == submission_id,
-            Artifact.kind.not_in(HIDDEN_ARTIFACT_KINDS),
+            Artifact.kind.in_(DOWNLOADABLE_ARTIFACT_KINDS),
         )
         .order_by(Artifact.created_at, Artifact.kind)
     )
@@ -146,6 +150,7 @@ async def get_submission(session: AsyncSession, submission_id: uuid.UUID) -> Sub
         seed=str(submission.seed),
         toolchain_profile=submission.toolchain_profile_id,
         queue_position=None,
+        eta_s=None,
         created_at=submission.created_at,
         started_at=submission.started_at,
         finished_at=submission.finished_at,
@@ -173,10 +178,13 @@ async def get_submission(session: AsyncSession, submission_id: uuid.UUID) -> Sub
         ],
         artifacts=[
             SubmissionArtifact(
-                kind=artifact.kind,
+                kind=artifact.kind,  # type: ignore[arg-type]  # filtered by the query
                 stage=artifact.stage_key,
+                state="expired"
+                if artifact.expires_at is not None and artifact.expires_at <= now
+                else "ready",
                 size_bytes=artifact.size_bytes,
-                expired=artifact.expires_at is not None and artifact.expires_at <= now,
+                waveform=None,  # trace windows are stored with the worker artifacts (T1.2b)
             )
             for artifact in artifacts
         ],

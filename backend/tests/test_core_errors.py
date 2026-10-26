@@ -52,6 +52,7 @@ def test_api_error(client: TestClient) -> None:
         "detail": "Guest limit is 10 checks per hour",
         "params": {"limit": 10, "retry_after_s": 761},
         "request_id": response.headers["x-request-id"],
+        "errors": None,
     }
 
 

@@ -108,20 +108,26 @@ def _design(ctx: StageContext, config: SimConfig) -> tuple[str, bytes]:
 
 
 class _Progress:
-    """Turns progress lines of apx_tb_pkg into test events; hidden tests stay anonymous."""
+    """Turns progress lines of apx_tb_pkg into test events; hidden tests stay anonymous.
+
+    Every event of a test is complete: the end record has no name and group, so they come from
+    the start record (the client replaces a test by id)."""
 
     def __init__(self, nonce: str) -> None:
         self.nonce = nonce
         self.hidden: dict[str, str] = {}
+        self.started: dict[str, tuple[str, str]] = {}
 
     def __call__(self, line: str) -> tuple[str | None, TestCase | None]:
         text, record = tbproto.split_progress(line, self.nonce)
         shown = None if _FINISH_NOTICE.match(text) or (record and not text) else text
         match record:
             case tbproto.TestStart():
+                self.started[record.id] = (record.name, record.group)
                 return shown, self._case(record.id, record.name, record.group, "running")
             case tbproto.TestEnd():
-                return shown, self._case(record.id, "", "", record.status)
+                name, group = self.started.get(record.id, ("", ""))
+                return shown, self._case(record.id, name, group, record.status)
             case tbproto.TestSkip():
                 return shown, self._case(record.id, record.name, record.group, "not_run")
         return shown, None

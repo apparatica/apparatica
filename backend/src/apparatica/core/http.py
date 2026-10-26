@@ -4,6 +4,7 @@ import hashlib
 
 from fastapi import Request, Response
 from pydantic import BaseModel
+from starlette.responses import StreamingResponse
 
 PUBLIC = "public, max-age=60, stale-while-revalidate=300"
 PRIVATE = "private, no-store"
@@ -22,3 +23,10 @@ def cached_json(request: Request, body: BaseModel, cache_control: str = PUBLIC) 
 
 def _etags(header: str) -> set[str]:
     return {tag.strip().removeprefix("W/") for tag in header.split(",") if tag.strip()}
+
+
+class EventStreamResponse(StreamingResponse):
+    """A `text/event-stream` route. Unlike `fastapi.sse.EventSourceResponse` the handler is not a
+    generator: it returns the stream itself, so it can fail with problem+json before streaming."""
+
+    media_type = "text/event-stream"

@@ -395,17 +395,17 @@
           "submissions"
         ],
         "summary": "Create Submission",
-        "description": "A Run or a Submit of the current version of a problem; the check runs in the background.",
+        "description": "A Run or a Submit of the current version of a problem; the check runs in the background.\nCAPTCHA_REQUIRED: solve GET /captcha/challenge and repeat with `captcha`.",
         "operationId": "create_submission",
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/SubmissionCreate"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "202": {
@@ -413,7 +413,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/Submission"
+                  "$ref": "#/components/schemas/SubmissionCreated"
                 }
               }
             }
@@ -458,8 +458,38 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "422": {
             "description": "Unprocessable Content",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Precondition Required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -480,6 +510,108 @@
           }
         },
         "x-phase": 0
+      },
+      "get": {
+        "tags": [
+          "submissions"
+        ],
+        "summary": "List Submissions",
+        "description": "Own submissions (the guest by cookie) and the quotas left.",
+        "operationId": "list_submissions",
+        "parameters": [
+          {
+            "name": "problem",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64,
+                  "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Slug of a problem",
+              "title": "Problem"
+            },
+            "description": "Slug of a problem"
+          },
+          {
+            "name": "cursor",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 256
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Cursor"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmissionPage"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-phase": 1
       }
     },
     "/api/v1/submissions/{id}": {
@@ -546,6 +678,454 @@
         },
         "x-phase": 0
       }
+    },
+    "/api/v1/submissions/{id}/events": {
+      "get": {
+        "tags": [
+          "submissions"
+        ],
+        "summary": "Stream Submission Events",
+        "description": "The live log and progress of a check (specs/07 §4); after the stream expires, the same\nevents from the archive. The status is final only with the `finalized` event.",
+        "operationId": "stream_submission_events",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Id"
+            }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^\\d+-\\d+$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Continue after this event id",
+              "title": "From"
+            },
+            "description": "Continue after this event id"
+          },
+          {
+            "name": "Last-Event-ID",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "pattern": "^\\d+-\\d+$"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Set by EventSource on reconnect",
+              "title": "Last-Event-Id"
+            },
+            "description": "Set by EventSource on reconnect"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Server-Sent Events: `data:` is a SubmissionEvent, `event:` its type, `id:` the stream entry id. `: keepalive` comments every 15 s.",
+            "content": {
+              "text/event-stream": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmissionEvent"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-phase": 1
+      }
+    },
+    "/api/v1/submissions/{id}/cancel": {
+      "post": {
+        "tags": [
+          "submissions"
+        ],
+        "summary": "Cancel Submission",
+        "description": "Cancel a queued or running check; the result comes as `finalized` with `cancelled`.",
+        "operationId": "cancel_submission",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Id"
+            }
+          }
+        ],
+        "responses": {
+          "202": {
+            "description": "Cancellation requested"
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-phase": 1
+      }
+    },
+    "/api/v1/submissions/{id}/artifacts/{kind}": {
+      "get": {
+        "tags": [
+          "submissions"
+        ],
+        "summary": "Get Artifact",
+        "description": "Download an artifact of a submission; NOT_FOUND also when it has expired.",
+        "operationId": "get_artifact",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Id"
+            }
+          },
+          {
+            "name": "kind",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "enum": [
+                "log",
+                "events",
+                "fst"
+              ],
+              "type": "string",
+              "title": "Kind"
+            }
+          },
+          {
+            "name": "stage",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 64
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Key of the stage",
+              "title": "Stage"
+            },
+            "description": "Key of the stage"
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirect to a presigned URL of the file (attachment)",
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string",
+                  "format": "uri"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-phase": 1
+      }
+    },
+    "/api/v1/submissions/{id}/waveform": {
+      "post": {
+        "tags": [
+          "submissions"
+        ],
+        "summary": "Request Waveform",
+        "description": "Recreate an expired FST or record a whole test with the seed of the submission\n(FR-WAV-05); the FST artifact is pending until GET /submissions/{id} shows it ready.",
+        "operationId": "request_waveform",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/WaveformRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SubmissionArtifact"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-phase": 1
+      }
+    },
+    "/api/v1/captcha/challenge": {
+      "get": {
+        "tags": [
+          "captcha"
+        ],
+        "summary": "Get Captcha Challenge",
+        "description": "A new challenge for the next submission after CAPTCHA_REQUIRED.",
+        "operationId": "get_captcha_challenge",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CaptchaChallenge"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-phase": 1
+      }
     }
   },
   "components": {
@@ -567,6 +1147,44 @@
           "title"
         ],
         "title": "AuthProvider"
+      },
+      "CaptchaChallenge": {
+        "properties": {
+          "algorithm": {
+            "type": "string",
+            "const": "SHA-256",
+            "title": "Algorithm"
+          },
+          "challenge": {
+            "type": "string",
+            "title": "Challenge",
+            "description": "Hash to find, hex"
+          },
+          "maxnumber": {
+            "type": "integer",
+            "title": "Maxnumber",
+            "description": "Upper bound of the number to find"
+          },
+          "salt": {
+            "type": "string",
+            "title": "Salt"
+          },
+          "signature": {
+            "type": "string",
+            "title": "Signature",
+            "description": "HMAC of the challenge by the server, hex"
+          }
+        },
+        "type": "object",
+        "required": [
+          "algorithm",
+          "challenge",
+          "maxnumber",
+          "salt",
+          "signature"
+        ],
+        "title": "CaptchaChallenge",
+        "description": "An ALTCHA challenge: the widget finds the number and sends the solution as `captcha`."
       },
       "ConfigResponse": {
         "properties": {
@@ -746,6 +1364,66 @@
         ],
         "title": "DifficultyTotal"
       },
+      "DoneEvent": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "done",
+            "title": "Type",
+            "default": "done"
+          },
+          "attempt": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Attempt",
+            "description": "Attempt of the check; a new attempt resets the results"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "type",
+          "attempt"
+        ],
+        "title": "DoneEvent",
+        "description": "The pipeline of the attempt is over; the status comes with `finalized`."
+      },
+      "FinalizedEvent": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "finalized",
+            "title": "Type",
+            "default": "finalized"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "accepted",
+              "accepted_with_warnings",
+              "wrong_answer",
+              "compile_error",
+              "limit_exceeded",
+              "forbidden_construct",
+              "cancelled",
+              "internal_error"
+            ],
+            "title": "Status"
+          },
+          "verdict_detail": {
+            "$ref": "#/components/schemas/VerdictDetail"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "type",
+          "status",
+          "verdict_detail"
+        ],
+        "title": "FinalizedEvent",
+        "description": "The final status, from the ingestor after it is stored: the last event of the stream."
+      },
       "FirstFailure": {
         "properties": {
           "stage": {
@@ -815,6 +1493,52 @@
           "checks"
         ],
         "title": "HealthResponse"
+      },
+      "HeartbeatEvent": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "heartbeat",
+            "title": "Type",
+            "default": "heartbeat"
+          },
+          "stage": {
+            "type": "string",
+            "title": "Stage"
+          },
+          "elapsed_ms": {
+            "type": "integer",
+            "title": "Elapsed Ms"
+          },
+          "note": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Note"
+          },
+          "attempt": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Attempt",
+            "description": "Attempt of the check; a new attempt resets the results"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "type",
+          "stage",
+          "elapsed_ms",
+          "note",
+          "attempt"
+        ],
+        "title": "HeartbeatEvent",
+        "description": "Once a second on a silent step."
       },
       "HiddenTests": {
         "properties": {
@@ -888,6 +1612,50 @@
           "quotas"
         ],
         "title": "Limits"
+      },
+      "LogEvent": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "log",
+            "title": "Type",
+            "default": "log"
+          },
+          "stage": {
+            "type": "string",
+            "title": "Stage"
+          },
+          "ch": {
+            "type": "string",
+            "enum": [
+              "out",
+              "err",
+              "sys"
+            ],
+            "title": "Ch"
+          },
+          "text": {
+            "type": "string",
+            "title": "Text"
+          },
+          "attempt": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Attempt",
+            "description": "Attempt of the check; a new attempt resets the results"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "type",
+          "stage",
+          "ch",
+          "text",
+          "attempt"
+        ],
+        "title": "LogEvent",
+        "description": "Console text: whole lines, each with its newline, glued for ~75 ms or up to 8 KB."
       },
       "Mismatch": {
         "properties": {
@@ -1297,6 +2065,42 @@
         ],
         "title": "ProblemPage"
       },
+      "QueueEvent": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "queue",
+            "title": "Type",
+            "default": "queue"
+          },
+          "position": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Position"
+          },
+          "eta_s": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eta S",
+            "description": "Estimated wait in seconds"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "type",
+          "position",
+          "eta_s"
+        ],
+        "title": "QueueEvent",
+        "description": "Position in the queue, from the API while the submission waits."
+      },
       "Quota": {
         "properties": {
           "checks_per_hour": {
@@ -1329,6 +2133,57 @@
           "waveforms_per_hour"
         ],
         "title": "Quota"
+      },
+      "QuotaStatus": {
+        "properties": {
+          "checks": {
+            "$ref": "#/components/schemas/QuotaWindow"
+          },
+          "waveforms": {
+            "$ref": "#/components/schemas/QuotaWindow",
+            "description": "Recreated and full-test waveforms"
+          }
+        },
+        "type": "object",
+        "required": [
+          "checks",
+          "waveforms"
+        ],
+        "title": "QuotaStatus",
+        "description": "What is left of the quotas of the current guest or user (specs/07 §3)."
+      },
+      "QuotaWindow": {
+        "properties": {
+          "limit": {
+            "type": "integer",
+            "title": "Limit",
+            "description": "Per hour"
+          },
+          "remaining": {
+            "type": "integer",
+            "title": "Remaining"
+          },
+          "reset_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reset At",
+            "description": "When one more becomes available; null while any are left"
+          }
+        },
+        "type": "object",
+        "required": [
+          "limit",
+          "remaining",
+          "reset_at"
+        ],
+        "title": "QuotaWindow"
       },
       "Quotas": {
         "properties": {
@@ -1400,6 +2255,211 @@
           "max_lines"
         ],
         "title": "SolutionLimits"
+      },
+      "StageEndEvent": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "stage_end",
+            "title": "Type",
+            "default": "stage_end"
+          },
+          "result": {
+            "$ref": "#/components/schemas/StageResult"
+          },
+          "attempt": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Attempt",
+            "description": "Attempt of the check; a new attempt resets the results"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "type",
+          "result",
+          "attempt"
+        ],
+        "title": "StageEndEvent",
+        "description": "A finished stage: its partial results are final."
+      },
+      "StageResult": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key"
+          },
+          "type": {
+            "type": "string",
+            "title": "Type"
+          },
+          "ordinal": {
+            "type": "integer",
+            "title": "Ordinal"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "running",
+              "passed",
+              "warning",
+              "failed",
+              "skipped",
+              "cancelled",
+              "error"
+            ],
+            "title": "Status"
+          },
+          "failure_kind": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "forbidden",
+                  "compile",
+                  "wrong",
+                  "limit"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Failure Kind"
+          },
+          "limit": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "time",
+                  "memory",
+                  "output",
+                  "fst",
+                  "cycles",
+                  "size"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Limit"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "duration_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Ms"
+          },
+          "metrics_schema": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metrics Schema"
+          },
+          "metrics": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metrics",
+            "default": {}
+          },
+          "cached": {
+            "type": "boolean",
+            "title": "Cached",
+            "default": false
+          },
+          "summary": {
+            "$ref": "#/components/schemas/StageSummary",
+            "default": {
+              "diagnostics": [],
+              "tests": []
+            }
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "key",
+          "type",
+          "ordinal",
+          "status"
+        ],
+        "title": "StageResult",
+        "description": "A finished stage as the worker reports it (`stage_results`, specs/04 §4)."
+      },
+      "StageStartEvent": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "stage_start",
+            "title": "Type",
+            "default": "stage_start"
+          },
+          "stage": {
+            "type": "string",
+            "title": "Stage"
+          },
+          "stage_type": {
+            "type": "string",
+            "title": "Stage Type"
+          },
+          "ordinal": {
+            "type": "integer",
+            "title": "Ordinal"
+          },
+          "attempt": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Attempt",
+            "description": "Attempt of the check; a new attempt resets the results"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "type",
+          "stage",
+          "stage_type",
+          "ordinal",
+          "attempt"
+        ],
+        "title": "StageStartEvent"
       },
       "StageSummary": {
         "properties": {
@@ -1506,6 +2566,34 @@
             ],
             "title": "Status"
           },
+          "verdict_detail": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VerdictDetail"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set with the final status"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
           "code": {
             "type": "string",
             "title": "Code"
@@ -1535,12 +2623,19 @@
               }
             ],
             "title": "Queue Position",
-            "description": "Position in the queue; from phase 1"
+            "description": "Position in the queue while queued"
           },
-          "created_at": {
-            "type": "string",
-            "format": "date-time",
-            "title": "Created At"
+          "eta_s": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eta S",
+            "description": "Estimated wait in the queue, seconds"
           },
           "started_at": {
             "anyOf": [
@@ -1553,29 +2648,6 @@
               }
             ],
             "title": "Started At"
-          },
-          "finished_at": {
-            "anyOf": [
-              {
-                "type": "string",
-                "format": "date-time"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Finished At"
-          },
-          "verdict_detail": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/VerdictDetail"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "description": "Set with the final status"
           },
           "stages": {
             "items": {
@@ -1601,14 +2673,15 @@
           "version",
           "kind",
           "status",
+          "verdict_detail",
+          "created_at",
+          "finished_at",
           "code",
           "seed",
           "toolchain_profile",
           "queue_position",
-          "created_at",
+          "eta_s",
           "started_at",
-          "finished_at",
-          "verdict_detail",
           "stages",
           "artifacts"
         ],
@@ -1618,11 +2691,12 @@
         "properties": {
           "kind": {
             "type": "string",
-            "title": "Kind",
-            "examples": [
+            "enum": [
               "log",
+              "events",
               "fst"
-            ]
+            ],
+            "title": "Kind"
           },
           "stage": {
             "anyOf": [
@@ -1635,22 +2709,48 @@
             ],
             "title": "Stage"
           },
-          "size_bytes": {
-            "type": "integer",
-            "title": "Size Bytes"
+          "state": {
+            "type": "string",
+            "enum": [
+              "ready",
+              "expired",
+              "pending",
+              "failed"
+            ],
+            "title": "State",
+            "description": "expired: removed by the retention rules (an FST can be recreated); pending, failed: a recreated FST (POST /submissions/{id}/waveform)"
           },
-          "expired": {
-            "type": "boolean",
-            "title": "Expired",
-            "description": "Removed by the retention rules; FST can be recreated"
+          "size_bytes": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Size Bytes",
+            "description": "Null until the file exists"
+          },
+          "waveform": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Waveform"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "With kind=fst"
           }
         },
         "type": "object",
         "required": [
           "kind",
           "stage",
+          "state",
           "size_bytes",
-          "expired"
+          "waveform"
         ],
         "title": "SubmissionArtifact"
       },
@@ -1682,6 +2782,19 @@
             "minLength": 1,
             "title": "Code",
             "description": "Size limits: GET /config, limits.solution (CODE_TOO_LARGE)"
+          },
+          "captcha": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4096
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Captcha",
+            "description": "Solved ALTCHA challenge (GET /captcha/challenge) after CAPTCHA_REQUIRED"
           }
         },
         "type": "object",
@@ -1692,6 +2805,272 @@
           "code"
         ],
         "title": "SubmissionCreate"
+      },
+      "SubmissionCreated": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "problem": {
+            "type": "string",
+            "title": "Problem",
+            "description": "Slug of the problem"
+          },
+          "problem_title": {
+            "type": "string",
+            "title": "Problem Title"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "run",
+              "submit"
+            ],
+            "title": "Kind"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "accepted",
+              "accepted_with_warnings",
+              "wrong_answer",
+              "compile_error",
+              "limit_exceeded",
+              "forbidden_construct",
+              "cancelled",
+              "internal_error"
+            ],
+            "title": "Status"
+          },
+          "verdict_detail": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VerdictDetail"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set with the final status"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "seed": {
+            "type": "string",
+            "title": "Seed",
+            "description": "64-bit seed as a decimal string",
+            "examples": [
+              "41917"
+            ]
+          },
+          "toolchain_profile": {
+            "type": "string",
+            "title": "Toolchain Profile",
+            "examples": [
+              "sv-2026.10.2"
+            ]
+          },
+          "queue_position": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Queue Position",
+            "description": "Position in the queue while queued"
+          },
+          "eta_s": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eta S",
+            "description": "Estimated wait in the queue, seconds"
+          },
+          "started_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Started At"
+          },
+          "stages": {
+            "items": {
+              "$ref": "#/components/schemas/SubmissionStage"
+            },
+            "type": "array",
+            "title": "Stages",
+            "description": "In pipeline order"
+          },
+          "artifacts": {
+            "items": {
+              "$ref": "#/components/schemas/SubmissionArtifact"
+            },
+            "type": "array",
+            "title": "Artifacts"
+          },
+          "quota": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/QuotaStatus"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "After this submission; null while quotas are off"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "problem",
+          "problem_title",
+          "version",
+          "kind",
+          "status",
+          "verdict_detail",
+          "created_at",
+          "finished_at",
+          "code",
+          "seed",
+          "toolchain_profile",
+          "queue_position",
+          "eta_s",
+          "started_at",
+          "stages",
+          "artifacts",
+          "quota"
+        ],
+        "title": "SubmissionCreated"
+      },
+      "SubmissionEvent": {
+        "oneOf": [
+          {
+            "$ref": "#/components/schemas/QueueEvent"
+          },
+          {
+            "$ref": "#/components/schemas/StageStartEvent"
+          },
+          {
+            "$ref": "#/components/schemas/LogEvent"
+          },
+          {
+            "$ref": "#/components/schemas/HeartbeatEvent"
+          },
+          {
+            "$ref": "#/components/schemas/TestEvent"
+          },
+          {
+            "$ref": "#/components/schemas/TruncatedEvent"
+          },
+          {
+            "$ref": "#/components/schemas/StageEndEvent"
+          },
+          {
+            "$ref": "#/components/schemas/DoneEvent"
+          },
+          {
+            "$ref": "#/components/schemas/FinalizedEvent"
+          }
+        ],
+        "title": "SubmissionEvent",
+        "description": "An event of the submission stream; the final status comes only with `finalized`.",
+        "discriminator": {
+          "propertyName": "type",
+          "mapping": {
+            "done": "#/components/schemas/DoneEvent",
+            "finalized": "#/components/schemas/FinalizedEvent",
+            "heartbeat": "#/components/schemas/HeartbeatEvent",
+            "log": "#/components/schemas/LogEvent",
+            "queue": "#/components/schemas/QueueEvent",
+            "stage_end": "#/components/schemas/StageEndEvent",
+            "stage_start": "#/components/schemas/StageStartEvent",
+            "test": "#/components/schemas/TestEvent",
+            "truncated": "#/components/schemas/TruncatedEvent"
+          }
+        }
+      },
+      "SubmissionPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SubmissionSummary"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "next_cursor": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next Cursor",
+            "description": "Pass as cursor for the next page"
+          },
+          "quota": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/QuotaStatus"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null while quotas are off"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "next_cursor",
+          "quota"
+        ],
+        "title": "SubmissionPage",
+        "description": "Own submissions, newest first."
       },
       "SubmissionStage": {
         "properties": {
@@ -1831,6 +3210,93 @@
         ],
         "title": "SubmissionStage"
       },
+      "SubmissionSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "problem": {
+            "type": "string",
+            "title": "Problem",
+            "description": "Slug of the problem"
+          },
+          "problem_title": {
+            "type": "string",
+            "title": "Problem Title"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "run",
+              "submit"
+            ],
+            "title": "Kind"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "accepted",
+              "accepted_with_warnings",
+              "wrong_answer",
+              "compile_error",
+              "limit_exceeded",
+              "forbidden_construct",
+              "cancelled",
+              "internal_error"
+            ],
+            "title": "Status"
+          },
+          "verdict_detail": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VerdictDetail"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set with the final status"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "problem",
+          "problem_title",
+          "version",
+          "kind",
+          "status",
+          "verdict_detail",
+          "created_at",
+          "finished_at"
+        ],
+        "title": "SubmissionSummary"
+      },
       "Tag": {
         "properties": {
           "slug": {
@@ -1921,6 +3387,73 @@
         ],
         "title": "TestCase"
       },
+      "TestEvent": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "test",
+            "title": "Type",
+            "default": "test"
+          },
+          "stage": {
+            "type": "string",
+            "title": "Stage"
+          },
+          "test": {
+            "$ref": "#/components/schemas/TestCase"
+          },
+          "attempt": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Attempt",
+            "description": "Attempt of the check; a new attempt resets the results"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "type",
+          "stage",
+          "test",
+          "attempt"
+        ],
+        "title": "TestEvent",
+        "description": "A test started or finished: the client replaces the test with this id."
+      },
+      "TruncatedEvent": {
+        "properties": {
+          "type": {
+            "type": "string",
+            "const": "truncated",
+            "title": "Type",
+            "default": "truncated"
+          },
+          "stage": {
+            "type": "string",
+            "title": "Stage"
+          },
+          "limit_kb": {
+            "type": "integer",
+            "title": "Limit Kb"
+          },
+          "attempt": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Attempt",
+            "description": "Attempt of the check; a new attempt resets the results"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "type",
+          "stage",
+          "limit_kb",
+          "attempt"
+        ],
+        "title": "TruncatedEvent",
+        "description": "The stage output hit the limit: the stage was stopped."
+      },
       "VerdictDetail": {
         "properties": {
           "first_failure": {
@@ -1972,6 +3505,84 @@
         "additionalProperties": false,
         "type": "object",
         "title": "VerdictDetail"
+      },
+      "Waveform": {
+        "properties": {
+          "test": {
+            "type": "string",
+            "title": "Test",
+            "description": "Id of the traced test",
+            "examples": [
+              "t7"
+            ]
+          },
+          "scope": {
+            "type": "string",
+            "enum": [
+              "failure_window",
+              "full_test"
+            ],
+            "title": "Scope"
+          },
+          "from_cycle": {
+            "type": "integer",
+            "title": "From Cycle"
+          },
+          "to_cycle": {
+            "type": "integer",
+            "title": "To Cycle"
+          },
+          "cursor_cycle": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cursor Cycle",
+            "description": "Cycle of the first mismatch"
+          }
+        },
+        "type": "object",
+        "required": [
+          "test",
+          "scope",
+          "from_cycle",
+          "to_cycle",
+          "cursor_cycle"
+        ],
+        "title": "Waveform",
+        "description": "What an FST trace covers (ADR-0004)."
+      },
+      "WaveformRequest": {
+        "properties": {
+          "scope": {
+            "type": "string",
+            "enum": [
+              "failure_window",
+              "full_test"
+            ],
+            "title": "Scope",
+            "description": "full_test: the whole test, for signed-in users only (FR-WAV-05)",
+            "default": "failure_window"
+          },
+          "test": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Test",
+            "description": "Test id for full_test; the failed test by default"
+          }
+        },
+        "type": "object",
+        "title": "WaveformRequest"
       },
       "ErrorCode": {
         "enum": [
