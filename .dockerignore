@@ -1,0 +1,17 @@
+# Build context of the images of deploy/compose.yaml is the repository root.
+**/.venv
+**/node_modules
+**/.next
+**/__pycache__
+**/.mypy_cache
+**/.pytest_cache
+**/.ruff_cache
+**/*.tsbuildinfo
+.git
+.github
+brief
+specs
+docs
+toolchain
+worker
+deploy/.env

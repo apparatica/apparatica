@@ -1,0 +1,13 @@
+# Development on the host next to the stand (specs/09 §1): the data services on localhost ports,
+# so that `apparatica serve`, `pnpm dev` and the tests run outside containers.
+#
+#   docker compose -f deploy/compose.yaml -f deploy/compose.dev.yaml up -d    # just up
+services:
+  postgres:
+    ports: ["127.0.0.1:${POSTGRES_PORT:-5432}:5432"]
+  valkey-queue:
+    ports: ["127.0.0.1:${VALKEY_QUEUE_PORT:-6379}:6379"]
+  valkey-cache:
+    ports: ["127.0.0.1:${VALKEY_CACHE_PORT:-6380}:6379"]
+  garage:
+    ports: ["127.0.0.1:${GARAGE_S3_PORT:-3900}:3900"]

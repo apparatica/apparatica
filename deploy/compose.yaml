@@ -1,0 +1,204 @@
+# The stand: every service of the platform with the demo problems (NFR-MAINT-06, docs/stand.md).
+#
+#   docker compose -f deploy/compose.yaml up -d --build      # or: just up
+#   http://localhost:8080
+#
+# Secrets have development defaults, so a clean checkout starts without configuration. They are
+# public: any stand reachable by others sets its own in deploy/.env (see .env.example).
+name: apparatica
+
+x-api-image: &api-image
+  image: apparatica-api:local
+  build:
+    context: ..
+    dockerfile: backend/Dockerfile
+    args:
+      PYTHON_IMAGE: ${PYTHON_IMAGE:-python:3.13-slim}
+
+x-api-env: &api-env
+  APX_ENVIRONMENT: ${APX_ENVIRONMENT:-development}
+  APX_DATABASE_URL: postgresql+asyncpg://apparatica:${POSTGRES_PASSWORD:-apparatica}@postgres:5432/apparatica
+  APX_LOG_FORMAT: json
+  APX_S3_ENDPOINT_URL: http://garage:3900
+  APX_S3_REGION: garage
+  APX_S3_ACCESS_KEY_ID: ${S3_API_KEY_ID:-GKa62ffff5803d2dfabefd25b6}
+  APX_S3_SECRET_ACCESS_KEY: ${S3_API_KEY_SECRET:-ebf9a4900fe670897d3173d6d0083909c70442874266971e109c3132efa6d05d}
+  APX_JOB_TOKEN_KEY: ${APX_JOB_TOKEN_KEY:-d0bcee91e1bd0d6ae13d2a129c5f78bc14b19f28c6824598c54dbc3b5ca20531}
+
+services:
+  postgres:
+    image: ${POSTGRES_IMAGE:-postgres:17-alpine}
+    environment:
+      POSTGRES_DB: apparatica
+      POSTGRES_USER: apparatica
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-apparatica}
+      # Unicode case mapping of PostgreSQL itself, whatever the OS of the image (catalogue search).
+      POSTGRES_INITDB_ARGS: --encoding=UTF8 --locale-provider=builtin --builtin-locale=C.UTF-8
+    volumes:
+      - postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "apparatica", "-d", "apparatica"]
+      interval: 2s
+      retries: 30
+    restart: unless-stopped
+
+  # Queues, event and result streams: nothing may be lost (no eviction, append-only file).
+  valkey-queue:
+    image: ${VALKEY_IMAGE:-valkey/valkey:8-alpine}
+    command: ["valkey-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    volumes:
+      - valkey-queue:/data
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 2s
+      retries: 30
+    restart: unless-stopped
+
+  # Cache and rate limits: may lose everything.
+  valkey-cache:
+    image: ${VALKEY_IMAGE:-valkey/valkey:8-alpine}
+    command:
+      ["valkey-server", "--save", "", "--appendonly", "no", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru"]
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 2s
+      retries: 30
+    restart: unless-stopped
+
+  garage:
+    image: ${GARAGE_IMAGE:-dxflrs/garage:v2.1.0}
+    environment:
+      GARAGE_RPC_SECRET: ${GARAGE_RPC_SECRET:-0c7e8361eb04ad66e95511b66c3fd55ff0b97acd8c25e8c6048447e9254467bc}
+      GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN:-71c6cd204d58198a322ae55d545e36225687389c5bb0e54a}
+    volumes:
+      - ./garage/garage.toml:/etc/garage.toml:ro
+      - garage-meta:/var/lib/garage/meta
+      - garage-data:/var/lib/garage/data
+    healthcheck:
+      test: ["CMD", "/garage", "status"]
+      interval: 2s
+      retries: 30
+    restart: unless-stopped
+
+  # One-shot setup, idempotent: run on every `up`.
+  garage-setup:
+    <<: *api-image
+    command: ["python", "/opt/apparatica/deploy/garage/setup.py"]
+    environment:
+      GARAGE_ADMIN_URL: http://garage:3903
+      GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN:-71c6cd204d58198a322ae55d545e36225687389c5bb0e54a}
+      GARAGE_S3_URL: http://garage:3900
+      GARAGE_CAPACITY_GB: ${GARAGE_CAPACITY_GB:-10}
+      CORS_ORIGINS: http://localhost:${HTTP_PORT:-8080},http://waveview.web.localhost:${HTTP_PORT:-8080}
+      KEY_API_ID: ${S3_API_KEY_ID:-GKa62ffff5803d2dfabefd25b6}
+      KEY_API_SECRET: ${S3_API_KEY_SECRET:-ebf9a4900fe670897d3173d6d0083909c70442874266971e109c3132efa6d05d}
+      KEY_WORKER_ID: ${S3_WORKER_KEY_ID:-GK9a64760795929c9d10aae242}
+      KEY_WORKER_SECRET: ${S3_WORKER_KEY_SECRET:-931daceee6933f2579ef0dde804a626bf9922094d047aab7b467b186ecd5e497}
+      KEY_INGEST_ID: ${S3_INGEST_KEY_ID:-GK4032d71ff405a5010bc4fade}
+      KEY_INGEST_SECRET: ${S3_INGEST_KEY_SECRET:-83880593275b8ccdee7eabf3eea0e5a9e7ee64ee0da5f3fa5bc3d56f301a2a34}
+    volumes:
+      - ./garage:/opt/apparatica/deploy/garage:ro
+    depends_on:
+      garage:
+        condition: service_healthy
+    restart: "no"
+
+  migrate:
+    <<: *api-image
+    command: ["apparatica", "migrate"]
+    environment: *api-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  # The problems of the repository, published (unchanged versions are skipped).
+  demo-problems:
+    <<: *api-image
+    command: ["apparatica-admin", "problems", "import", "--publish", "/opt/apparatica/problems"]
+    environment: *api-env
+    volumes:
+      - ../problems:/opt/apparatica/problems:ro
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      garage-setup:
+        condition: service_completed_successfully
+    restart: "no"
+
+  api:
+    <<: *api-image
+    environment: *api-env
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      garage-setup:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        ["CMD", "python", "-c", "import urllib.request as r; r.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=2)"]
+      interval: 3s
+      retries: 30
+    restart: unless-stopped
+
+  web:
+    image: apparatica-web:local
+    build:
+      context: ..
+      dockerfile: web/Dockerfile
+      args:
+        NODE_IMAGE: ${NODE_IMAGE:-node:24-alpine}
+    healthcheck:
+      test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/problems').then(r => process.exit(r.ok ? 0 : 1), () => process.exit(1))"]
+      interval: 3s
+      retries: 30
+    restart: unless-stopped
+
+  # Storage capabilities of the stand (ADR-0013), through Caddy as a browser sees them:
+  # `just stand-check`. Not started by `up` (profile check).
+  storage-check:
+    <<: *api-image
+    profiles: [check]
+    command: ["python", "/opt/apparatica/deploy/garage/check.py"]
+    environment:
+      S3_URL: http://s3.localhost:${HTTP_PORT:-8080}
+      WEB_URL: http://waveview.web.localhost:${HTTP_PORT:-8080}
+      ALLOWED_ORIGINS: http://localhost:${HTTP_PORT:-8080},http://waveview.web.localhost:${HTTP_PORT:-8080}
+      KEY_API_ID: ${S3_API_KEY_ID:-GKa62ffff5803d2dfabefd25b6}
+      KEY_API_SECRET: ${S3_API_KEY_SECRET:-ebf9a4900fe670897d3173d6d0083909c70442874266971e109c3132efa6d05d}
+      KEY_WORKER_ID: ${S3_WORKER_KEY_ID:-GK9a64760795929c9d10aae242}
+      KEY_WORKER_SECRET: ${S3_WORKER_KEY_SECRET:-931daceee6933f2579ef0dde804a626bf9922094d047aab7b467b186ecd5e497}
+      KEY_INGEST_ID: ${S3_INGEST_KEY_ID:-GK4032d71ff405a5010bc4fade}
+      KEY_INGEST_SECRET: ${S3_INGEST_KEY_SECRET:-83880593275b8ccdee7eabf3eea0e5a9e7ee64ee0da5f3fa5bc3d56f301a2a34}
+    volumes:
+      - ./garage:/opt/apparatica/deploy/garage:ro
+    extra_hosts:
+      - s3.localhost:host-gateway
+      - waveview.web.localhost:host-gateway
+    depends_on:
+      caddy:
+        condition: service_started
+    restart: "no"
+
+  caddy:
+    image: ${CADDY_IMAGE:-caddy:2-alpine}
+    ports:
+      - "${HTTP_PORT:-8080}:80"
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+    depends_on:
+      api:
+        condition: service_healthy
+      web:
+        condition: service_healthy
+      garage:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  postgres:
+  valkey-queue:
+  garage-meta:
+  garage-data:
+  caddy-data:

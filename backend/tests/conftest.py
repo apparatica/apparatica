@@ -23,6 +23,7 @@ CONFIG_DIR = Path(__file__).parents[2] / "config"
 PROBLEMS = Path(__file__).parents[2] / "problems"
 # Locally the image can come from a mirror (docs/development.md).
 POSTGRES_IMAGE = os.environ.get("APX_TEST_POSTGRES_IMAGE", "postgres:17-alpine")
+POSTGRES_INITDB_ARGS = "--encoding=UTF8 --locale-provider=builtin --builtin-locale=C.UTF-8"
 
 
 @pytest.fixture
@@ -70,7 +71,12 @@ class Postgres:
 @pytest.fixture(scope="session")
 def postgres() -> Iterator[Postgres]:
     try:
-        container = PostgresContainer(POSTGRES_IMAGE, driver="asyncpg").start()
+        container = (
+            PostgresContainer(POSTGRES_IMAGE, driver="asyncpg")
+            # The locale of the stand (deploy/compose.yaml): case mapping of PostgreSQL itself.
+            .with_env("POSTGRES_INITDB_ARGS", POSTGRES_INITDB_ARGS)
+            .start()
+        )
     except Exception as error:
         if os.environ.get("CI"):
             raise

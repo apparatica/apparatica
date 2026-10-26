@@ -122,6 +122,27 @@ validate-problems:
 # Everything CI runs (the toolchain image has its own workflow: toolchain-build, toolchain-test)
 check: check-locks check-licenses check-api lint typecheck test
 
+compose := "docker compose -f deploy/compose.yaml -f deploy/compose.dev.yaml"
+
+# Start the stand: build the images, migrate, set up Garage, import the demo problems
+# (http://localhost:8080; docs/stand.md). `up --wait` fails on finished one-shot services, so it
+# waits for the long-running ones, and the import runs in the foreground with its exit code.
+up:
+    {{ compose }} up -d --build --wait caddy valkey-queue valkey-cache
+    {{ compose }} run --rm demo-problems
+
+# Stop the stand; the data volumes stay (remove them with: docker compose ... down -v)
+down:
+    {{ compose }} down
+
+# Follow the logs of the stand, or of the given services
+logs *services:
+    {{ compose }} logs -f {{ services }}
+
+# Check the object storage of the running stand: key permissions, presigned URLs, CORS, website
+stand-check:
+    {{ compose }} run --rm storage-check
+
 toolchain_image := "apparatica-toolchain:dev"
 # Base image override for networks without Docker Hub access; keep the digest from the Dockerfile,
 # e.g. TOOLCHAIN_BASE_IMAGE=mirror.gcr.io/library/debian@sha256:<digest>

@@ -1,0 +1,36 @@
+# Reverse proxy of the stand (specs/03 §2): the site and the API on one origin, the object storage
+# and the waveview website on their own. HTTP only: TLS and the production domains come with
+# staging (T1.23).
+{
+	admin off
+	auto_https off
+}
+
+http://localhost {
+	# The API, unbuffered: server-sent events of submissions arrive as they are written (Ф1).
+	handle /api/* {
+		reverse_proxy api:8000 {
+			flush_interval -1
+		}
+	}
+	handle {
+		encode zstd gzip
+		reverse_proxy web:3000
+	}
+	header {
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		X-Frame-Options DENY
+		-Server
+	}
+}
+
+# S3 API for presigned URLs of artifacts; the Host header is kept, it is part of the signature.
+http://s3.localhost {
+	reverse_proxy garage:3900
+}
+
+# The waveview bucket as a website: Surfer on its own origin (ADR-0004).
+http://waveview.web.localhost {
+	reverse_proxy garage:3902
+}

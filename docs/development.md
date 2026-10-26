@@ -43,6 +43,8 @@ Poetry создаёт виртуальное окружение внутри к�
 | `just check` | `check-locks`, `check-licenses`, `check-api`, `lint`, `typecheck`, `test` |
 | `just openapi` | пересоздаёт контракт API: `backend/openapi.json` из кода и типы TS-клиента ([api.md](api.md)) |
 | `just check-api` | проверяет, что типы TS-клиента совпадают с `backend/openapi.json` |
+| `just up`, `just down`, `just logs` | стенд в docker compose: все сервисы и демо-задачи на http://localhost:8080 ([stand.md](stand.md)) |
+| `just stand-check` | проверка хранилища запущенного стенда |
 | `just validate-problems` | `judge validate` всех пакетов `problems/` в образе тулчейна (нужен Docker) |
 | `just schemas` | перегенерирует JSON Schema из моделей судьи: `problem.yaml` и записи протокола тестбенча (`judge/schemas/`) |
 | `just toolchain-build` | собирает образ тулчейна `apparatica-toolchain:dev` |
@@ -52,12 +54,13 @@ Poetry создаёт виртуальное окружение внутри к�
 
 ## CI
 
-GitHub Actions, `.github/workflows/ci.yml`, на GitHub-hosted раннерах `ubuntu-24.04`. Запускается на push в `master`, на каждый pull request и вручную. Два параллельных job'а вызывают те же рецепты `just`, что и локальная проверка:
+GitHub Actions, `.github/workflows/ci.yml`, на GitHub-hosted раннерах `ubuntu-24.04`. Запускается на push в `master`, на каждый pull request и вручную. Три параллельных job'а вызывают те же рецепты `just`, что и локальная проверка:
 
 | Job | Шаги |
 |---|---|
 | Python | `install-py`, `check-locks`, `lint-py`, `lint-imports`, `typecheck-py`, `test-py`, `check-licenses-py` |
 | JS | `install-js`, `lint-js`, `typecheck-js`, `check-api`, `test-js`, `build-js`, `check-licenses-js` |
+| Stand | `up`, `stand-check` и проверка сайта и API через Caddy ([stand.md](stand.md#ci)) |
 
 Образ тулчейна собирает и публикует отдельный workflow `.github/workflows/toolchain.yml` — при изменениях в `toolchain/` и в коде судьи, чьи тесты против образа он прогоняет; публикует только при изменении входов образа (подробности — [toolchain/README.md](../toolchain/README.md)).
 
@@ -97,7 +100,8 @@ worker/     воркер и оркестратор песочницы (Poetry, �
 web/        фронтенд: Next.js-приложение (frontend.md)
 .github/    CI (GitHub Actions)
 toolchain/  образ тулчейна песочницы: Dockerfile, versions.lock, apx-run, apx-verilate, apx_tb_pkg, тесты образа
-config/     конфигурация: классы ресурсов судьи (resource-classes.yaml)
+config/     конфигурация: классы ресурсов судьи, уровни сложности, лимиты (configuration.md)
+deploy/     стенд в docker compose: compose.yaml, compose.dev.yaml, Caddyfile, настройка Garage (stand.md)
 problems/   пакеты задач, CC BY-SA 4.0
 scripts/    служебные скрипты: сверка lock-файлов и лицензий, политика лицензий
 docs/       проектная документация
@@ -105,7 +109,7 @@ specs/      спецификация и план
 brief/      исходные материалы заказчика (не редактируются)
 ```
 
-Остальные каталоги из [specs/03 §6](../specs/03-architecture.md) (`config/`, `deploy/`, `tests/`) появляются вместе с задачами, которые их наполняют.
+Остальные каталоги из [specs/03 §6](../specs/03-architecture.md) (`tests/`) появляются вместе с задачами, которые их наполняют.
 
 ## Python-проекты
 
@@ -137,7 +141,7 @@ poetry -C backend run apparatica migrate          # alembic upgrade head
 poetry -C backend run apparatica openapi          # документ OpenAPI в stdout (just openapi)
 ```
 
-Нужен Postgres 17+ по `APX_DATABASE_URL` (стенд docker compose — T0.19); без него API стартует, но `GET /health` отвечает 503. Настройки и файлы `config/` — [configuration.md](configuration.md).
+Нужен Postgres 17+ по `APX_DATABASE_URL` (например, со стенда: `just up` публикует его на `127.0.0.1:5432`, [stand.md](stand.md)); без него API стартует, но `GET /health` отвечает 503. Настройки и файлы `config/` — [configuration.md](configuration.md).
 
 ### API каталога задач
 
