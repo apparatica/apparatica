@@ -15,7 +15,8 @@ from test_ingest import LINT, common, ingestor, new_submission, run
 from test_submissions_api import CODE, PROFILE, RecordingQueue
 
 from apparatica.core.db import Database
-from apparatica.core.platform import SolutionLimits
+from apparatica.core.platform import Quota, SolutionLimits, load_platform_config
+from apparatica.core.ratelimit import RateLimiter
 from apparatica.core.settings import Settings
 from apparatica.judging.cancels import CancelWatcher
 from apparatica.main import create_app
@@ -23,9 +24,10 @@ from apparatica.submissions import service
 from apparatica.submissions.events import FinalizedEvent
 from apparatica.submissions.profiles import add_profile
 from apparatica.submissions.queue import DramatiqQueue
+from apparatica.submissions.quotas import Author, Quotas
 from apparatica.submissions.schemas import SubmissionCreate
 from apparatica.submissions.tokens import JobTokens
-from conftest import CONFIG_DIR, Postgres
+from conftest import CONFIG_DIR, Postgres, as_guest
 from judge.core.jobs import CANCEL_CHANNEL, DoneRecord, cancel_key, submission_stream_key
 from judge.core.verdict import VerdictDetail
 
@@ -39,7 +41,9 @@ def database_url(postgres: Postgres, catalogue_template: str) -> str:
 
 def api(database_url: str, queue: RecordingQueue) -> TestClient:
     settings = Settings(environment="test", database_url=database_url, config_dir=CONFIG_DIR)
-    return TestClient(create_app(settings, job_queue=queue), raise_server_exceptions=False)
+    return as_guest(
+        TestClient(create_app(settings, job_queue=queue), raise_server_exceptions=False)
+    )
 
 
 def test_the_endpoint_asks_to_cancel_an_unfinished_check(database_url: str) -> None:
@@ -55,6 +59,10 @@ def test_the_endpoint_asks_to_cancel_an_unfinished_check(database_url: str) -> N
         assert (done.status_code, done.json()["code"]) == (409, "SUBMISSION_FINISHED")
         missing = client.post(f"/api/v1/submissions/{uuid.uuid4()}/cancel")
         assert missing.status_code == 404
+        # A submission of someone else does not exist for the caller.
+        as_guest(client, uuid.uuid4())
+        assert client.post(f"/api/v1/submissions/{queued}/cancel").status_code == 404
+        as_guest(client)
         queue.unavailable = True
         down = client.post(f"/api/v1/submissions/{queued}/cancel")
         assert (down.status_code, down.json()["code"]) == (503, "JUDGE_UNAVAILABLE")
@@ -66,6 +74,9 @@ def test_the_endpoint_asks_to_cancel_an_unfinished_check(database_url: str) -> N
 def test_a_new_run_preempts_the_unfinished_runs_of_its_author(database_url: str) -> None:
     guest, other = uuid.uuid4(), uuid.uuid4()
     queue = RecordingQueue()
+    # Enough concurrent checks for a guest: a Submit and a Run of another problem stay unfinished.
+    quota = Quota(checks_per_hour=10, concurrent=3, heavy_per_day=0, waveforms_per_hour=5)
+    quotas = Quotas(quota, RateLimiter.connect(None), load_platform_config(CONFIG_DIR).rate_limits)
 
     async def scenario(database: Database) -> list[uuid.UUID]:
         async def create(kind: str, author: uuid.UUID, problem: str = "mux4") -> uuid.UUID:
@@ -79,7 +90,8 @@ def test_a_new_run_preempts_the_unfinished_runs_of_its_author(database_url: str)
                     limits=SolutionLimits(max_bytes=65536, max_lines=2000),
                     tokens=JobTokens(b"k" * 32, ttl_s=60),
                     queue=queue,
-                    guest_id=author,
+                    quotas=quotas,
+                    author=Author(guest_id=author, address=None),
                 )
             return created.id
 

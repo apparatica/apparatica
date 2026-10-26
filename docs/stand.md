@@ -40,7 +40,7 @@ just down          # остановить; данные в томах остаю
 | `web` | Next.js, standalone-сервер (`web/Dockerfile`) |
 | `postgres` | PostgreSQL 17, локаль `builtin C.UTF-8` (регистр символов — средствами PostgreSQL, поиск по кириллице не зависит от ОС образа) |
 | `valkey-queue` | очереди и стримы: AOF, без вытеснения. Пользователи и их ключи — `deploy/valkey/queue-users.acl.in` ([security.md](security.md#права-компонентов)); пароли — `VALKEY_QUEUE_API_PASSWORD`, `VALKEY_QUEUE_WORKER_PASSWORD`, `VALKEY_QUEUE_INGEST_PASSWORD`. API ставит в него проверки как `api`, ингестор читает результаты как `ingest`; воркера на стенде пока нет (T1.21), поэтому отправки остаются в очереди |
-| `valkey-cache` | кэш и rate limit: без сохранения на диск, LRU. Используется с Ф1 |
+| `valkey-cache` | кэш и rate limit: без сохранения на диск, LRU. API хранит в нём счётчики rate limit и квоты волн ([api.md](api.md#гости-и-лимиты-ф1)) |
 | `garage` | S3-хранилище (ADR-0013), один узел |
 | `garage-setup` | одноразовый: раскладка узла, бакеты, ключи компонентов и их права, сайт `waveview`, CORS, правила жизненного цикла (`deploy/garage/setup.py`) |
 | `migrate` | одноразовый: `apparatica migrate` |
@@ -63,10 +63,11 @@ just down          # остановить; данные в томах остаю
 
 ## Настройки и секреты
 
-Значения по умолчанию заданы в `compose.yaml`, поэтому чистый checkout запускается без настройки. Секреты по умолчанию (пароль БД, ключ токенов заданий, секреты и ключи Garage) публичны. Стенд, к которому есть доступ у других, должен задать свои значения в `deploy/.env`. Список переменных — `deploy/.env.example`, файл `deploy/.env` в git не попадает.
+Значения по умолчанию заданы в `compose.yaml`, поэтому чистый checkout запускается без настройки. Секреты по умолчанию (пароль БД, ключ токенов заданий, ключ cookie гостя, соль адресов, секреты и ключи Garage) публичны. Стенд, к которому есть доступ у других, должен задать свои значения в `deploy/.env`. Список переменных — `deploy/.env.example`, файл `deploy/.env` в git не попадает.
 
 Там же задаются:
 - порт сайта (`HTTP_PORT`);
+- `APX_COOKIE_SECURE`: на стенде по HTTP cookie гостя без `Secure` (по умолчанию `false`), за HTTPS — `true`;
 - порты `compose.dev.yaml` — если, например, 5432 уже занят Postgres на хосте;
 - образы. Если Docker Hub недоступен, их можно брать через зеркало (`POSTGRES_IMAGE=mirror.gcr.io/library/postgres:17-alpine` …; базовые образы сборки — `PYTHON_IMAGE`, `NODE_IMAGE`).
 

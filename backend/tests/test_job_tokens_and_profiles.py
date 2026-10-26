@@ -56,14 +56,19 @@ def test_job_tokens() -> None:
         JobTokens(b"short", ttl_s=60)
 
 
-def test_production_needs_a_job_token_key_and_a_queue() -> None:
-    settings = Settings(environment="production", config_dir=CONFIG_DIR)
-    with pytest.raises(RuntimeError, match="APX_JOB_TOKEN_KEY"):
-        create_app(settings)
-    keyed = settings.model_copy(update={"job_token_key": SecretStr("s" * 32)})
-    with pytest.raises(RuntimeError, match="APX_QUEUE_URL"):
-        create_app(keyed)
-    keyed = keyed.model_copy(update={"queue_url": "redis://valkey-queue:6379/0"})
+def test_production_needs_keys_a_queue_and_a_cache() -> None:
+    keyed = Settings(environment="production", config_dir=CONFIG_DIR)
+    steps: list[tuple[str, dict[str, object]]] = [
+        ("APX_JOB_TOKEN_KEY", {"job_token_key": SecretStr("s" * 32)}),
+        ("APX_GUEST_COOKIE_KEY", {"guest_cookie_key": SecretStr("g" * 32)}),
+        ("APX_IP_HASH_SALT", {"ip_hash_salt": SecretStr("i" * 32)}),
+        ("APX_QUEUE_URL", {"queue_url": "redis://valkey-queue:6379/0"}),
+        ("APX_CACHE_URL", {"cache_url": "redis://valkey-cache:6379/0"}),
+    ]
+    for name, update in steps:
+        with pytest.raises(RuntimeError, match=name):
+            create_app(keyed)
+        keyed = keyed.model_copy(update=update)
     tokens = create_app(keyed).state.job_tokens
     submission = uuid.uuid4()
     other = JobTokens(b"s" * 32, ttl_s=60)  # the ingestor with the same key

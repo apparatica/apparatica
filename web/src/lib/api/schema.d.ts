@@ -121,14 +121,16 @@ export interface paths {
         };
         /**
          * List Submissions
-         * @description Own submissions (the guest by cookie) and the quotas left.
+         * @description Own submissions (the guest by cookie) and the quotas left; empty without a guest.
          */
         get: operations["list_submissions"];
         put?: never;
         /**
          * Create Submission
          * @description A Run or a Submit of the current version of a problem; the check runs in the background.
-         *     CAPTCHA_REQUIRED: solve GET /captcha/challenge and repeat with `captcha`.
+         *     Sets the guest cookie with the first submission. RATE_LIMITED: `params.quota` names the
+         *     spent quota (docs/api.md). CAPTCHA_REQUIRED: solve GET /captcha/challenge and repeat with
+         *     `captcha`.
          */
         post: operations["create_submission"];
         delete?: never;
@@ -146,7 +148,7 @@ export interface paths {
         };
         /**
          * Get Submission
-         * @description A submission with its stages and artifacts. Access by author arrives with guests (T1.7).
+         * @description A submission of the caller with its stages and artifacts.
          */
         get: operations["get_submission"];
         put?: never;
@@ -190,8 +192,8 @@ export interface paths {
         put?: never;
         /**
          * Cancel Submission
-         * @description Cancel a queued or running check; the result comes as `finalized` with `cancelled`.
-         *     Access by author arrives with guests (T1.7).
+         * @description Cancel a queued or running check of the caller; the result comes as `finalized` with
+         *     `cancelled`.
          */
         post: operations["cancel_submission"];
         delete?: never;
@@ -1619,15 +1621,6 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Error"];
                 };
             };
-            /** @description Not Implemented */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Error"];
-                };
-            };
         };
     };
     create_submission: {
@@ -1886,6 +1879,15 @@ export interface operations {
             };
             /** @description Unprocessable Content */
             422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

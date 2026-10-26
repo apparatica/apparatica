@@ -1,5 +1,6 @@
-"""Submissions (specs/05 §3). `POST` and `GET /submissions/{id}` work since phase 0 (no workers yet:
-submissions stay queued); the other routes are the phase 1 contract, stubs until implemented."""
+"""Submissions (specs/05 §3). The author is the guest of the `ap_guest` cookie, which the first
+submission sets (FR-GST-01); a submission of someone else is NOT_FOUND. Routes of the phase 1
+contract that are not implemented yet answer NOT_IMPLEMENTED."""
 
 import uuid
 from typing import Annotated, NoReturn
@@ -8,12 +9,15 @@ from fastapi import APIRouter, Depends, Header, Query, Request, Response, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from apparatica.auth.guests import Guest
+from apparatica.auth.throttle import throttle
 from apparatica.core.db import get_session
 from apparatica.core.errors import ApiError, ErrorCode, problem_responses
 from apparatica.core.http import PRIVATE, EventStreamResponse
 from apparatica.submissions import service
 from apparatica.submissions.events import SubmissionEvent
 from apparatica.submissions.live import archived_events, live_events
+from apparatica.submissions.quotas import Author
 from apparatica.submissions.schemas import (
     ArtifactKind,
     Submission,
@@ -55,21 +59,29 @@ def not_implemented(task: str) -> NoReturn:
         ErrorCode.RATE_LIMITED,
         ErrorCode.JUDGE_UNAVAILABLE,
     ),
+    dependencies=[Depends(throttle)],
     openapi_extra=PHASE_0,
 )
 async def create_submission(
-    request: Request, response: Response, session: Session, body: SubmissionCreate
+    request: Request, response: Response, session: Session, body: SubmissionCreate, guest: Guest
 ) -> SubmissionCreated:
     """A Run or a Submit of the current version of a problem; the check runs in the background.
-    CAPTCHA_REQUIRED: solve GET /captcha/challenge and repeat with `captcha`."""
+    Sets the guest cookie with the first submission. RATE_LIMITED: `params.quota` names the
+    spent quota (docs/api.md). CAPTCHA_REQUIRED: solve GET /captcha/challenge and repeat with
+    `captcha`."""
     state = request.app.state
+    author = Author(guest_id=guest or uuid.uuid4(), address=state.client_addresses.hash(request))
     submission = await service.create_submission(
         session,
         body,
         limits=state.platform.limits.solution,
         tokens=state.job_tokens,
         queue=state.job_queue,
+        quotas=state.quotas,
+        author=author,
     )
+    if guest is None:
+        state.guest_cookies.set(response, author.guest_id)
     response.headers["Location"] = str(request.url_for("get_submission", id=submission.id))
     response.headers["Cache-Control"] = PRIVATE
     return submission
@@ -78,16 +90,28 @@ async def create_submission(
 @router.get(
     "/submissions",
     response_model=SubmissionPage,
-    responses=problem_responses(ErrorCode.VALIDATION_ERROR, ErrorCode.NOT_IMPLEMENTED),
+    responses=problem_responses(ErrorCode.VALIDATION_ERROR),
     openapi_extra=PHASE_1,
 )
 async def list_submissions(
+    request: Request,
+    response: Response,
+    session: Session,
+    guest: Guest,
     problem: Annotated[Slug | None, Query(description="Slug of a problem")] = None,
     cursor: Annotated[str | None, Query(max_length=256)] = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> SubmissionPage:
-    """Own submissions (the guest by cookie) and the quotas left."""
-    not_implemented("T1.7")
+    """Own submissions (the guest by cookie) and the quotas left; empty without a guest."""
+    items, next_cursor = await service.list_submissions(
+        session, guest, problem=problem, cursor=cursor, limit=limit
+    )
+    response.headers["Cache-Control"] = PRIVATE
+    return SubmissionPage(
+        items=items,
+        next_cursor=next_cursor,
+        quota=await request.app.state.quotas.status(session, guest),
+    )
 
 
 @router.get(
@@ -97,10 +121,10 @@ async def list_submissions(
     openapi_extra=PHASE_0,
 )
 async def get_submission(
-    request: Request, response: Response, session: Session, id: uuid.UUID
+    request: Request, response: Response, session: Session, guest: Guest, id: uuid.UUID
 ) -> Submission:
-    """A submission with its stages and artifacts. Access by author arrives with guests (T1.7)."""
-    submission = await service.get_submission(session, id, request.app.state.job_queue)
+    """A submission of the caller with its stages and artifacts."""
+    submission = await service.get_submission(session, id, request.app.state.job_queue, guest)
     if submission is None:
         raise ApiError(ErrorCode.NOT_FOUND, f"No submission {id}")
     response.headers["Cache-Control"] = PRIVATE
@@ -125,6 +149,7 @@ async def get_submission(
 async def stream_submission_events(
     request: Request,
     session: Session,
+    guest: Guest,
     id: uuid.UUID,
     from_: Annotated[
         EventId | None, Query(alias="from", description="Continue after this event id")
@@ -141,7 +166,7 @@ async def stream_submission_events(
     """The live log and progress of a check (specs/07 §4); after the stream expires, the same
     events from the archive. The status is final only with the `finalized` event. While the check
     waits, `queue` events carry its position; they have no `id:`."""
-    watched = await service.watch_submission(session, id)
+    watched = await service.watch_submission(session, id, guest)
     if watched is None:
         raise ApiError(ErrorCode.NOT_FOUND, f"No submission {id}")
     after = last_event_id or from_ or "0-0"
@@ -167,15 +192,19 @@ async def stream_submission_events(
             ErrorCode.NOT_FOUND,
             ErrorCode.SUBMISSION_FINISHED,
             ErrorCode.VALIDATION_ERROR,
+            ErrorCode.RATE_LIMITED,
             ErrorCode.JUDGE_UNAVAILABLE,
         ),
     },
+    dependencies=[Depends(throttle)],
     openapi_extra=PHASE_1,
 )
-async def cancel_submission(request: Request, session: Session, id: uuid.UUID) -> None:
-    """Cancel a queued or running check; the result comes as `finalized` with `cancelled`.
-    Access by author arrives with guests (T1.7)."""
-    await service.cancel_submission(session, id, request.app.state.job_queue)
+async def cancel_submission(
+    request: Request, session: Session, guest: Guest, id: uuid.UUID
+) -> None:
+    """Cancel a queued or running check of the caller; the result comes as `finalized` with
+    `cancelled`."""
+    await service.cancel_submission(session, id, request.app.state.job_queue, guest)
 
 
 @router.get(
@@ -213,6 +242,7 @@ async def get_artifact(
         ErrorCode.RATE_LIMITED,
         ErrorCode.NOT_IMPLEMENTED,
     ),
+    dependencies=[Depends(throttle)],
     openapi_extra=PHASE_1,
 )
 async def request_waveform(id: uuid.UUID, body: WaveformRequest) -> SubmissionArtifact:

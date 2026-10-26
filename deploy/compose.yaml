@@ -135,13 +135,22 @@ services:
 
   api:
     <<: *api-image
-    environment: *api-env
+    environment:
+      <<: *api-env
+      APX_CACHE_URL: redis://valkey-cache:6379/0
+      APX_GUEST_COOKIE_KEY: ${APX_GUEST_COOKIE_KEY:-5f0c2a7e9b1d4c6a8e3f7b2d9c4a1e6f8b3d5a7c9e2f4b6d8a1c3e5f7b9d2a4c}
+      APX_IP_HASH_SALT: ${APX_IP_HASH_SALT:-a3c5e7b9d1f2a4c6e8b0d2f4a6c8e1b3d5f7a9c2e4b6d8f1a3c5e7b9d2f4a6c8}
+      # The stand is served over plain HTTP: a Secure cookie would not come back from
+      # an address other than localhost.
+      APX_COOKIE_SECURE: ${APX_COOKIE_SECURE:-false}
     depends_on:
       migrate:
         condition: service_completed_successfully
       garage-setup:
         condition: service_completed_successfully
       valkey-queue:
+        condition: service_healthy
+      valkey-cache:
         condition: service_healthy
     healthcheck:
       test:

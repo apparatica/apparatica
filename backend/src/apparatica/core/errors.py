@@ -101,9 +101,11 @@ class ApiError(Exception):
         *,
         params: dict[str, Any] | None = None,
         title: str | None = None,
+        headers: dict[str, str] | None = None,
     ) -> None:
         super().__init__(detail or code)
         self.code, self.detail, self.params, self.title = code, detail, params, title
+        self.headers = headers
 
 
 def problem_response(
@@ -114,6 +116,7 @@ def problem_response(
     params: dict[str, Any] | None = None,
     title: str | None = None,
     errors: list[FieldError] | None = None,
+    headers: dict[str, str] | None = None,
 ) -> JSONResponse:
     status = STATUS[code]
     request_id = getattr(request.state, "request_id", None)
@@ -127,12 +130,12 @@ def problem_response(
         request_id=request_id,
         errors=errors,
     )
-    headers = {"X-Request-ID": request_id} if request_id else None
+    headers = (headers or {}) | ({"X-Request-ID": request_id} if request_id else {})
     return JSONResponse(
         body.model_dump(mode="json"),  # every field, null when unset: as the TS client types it
         status_code=status,
         media_type=PROBLEM_MEDIA_TYPE,
-        headers=headers,
+        headers=headers or None,
     )
 
 
@@ -151,7 +154,12 @@ def problem_responses(*codes: ErrorCode) -> dict[int | str, dict[str, Any]]:
 async def _api_error(request: Request, error: Exception) -> JSONResponse:
     assert isinstance(error, ApiError)
     return problem_response(
-        request, error.code, detail=error.detail, params=error.params, title=error.title
+        request,
+        error.code,
+        detail=error.detail,
+        params=error.params,
+        title=error.title,
+        headers=error.headers,
     )
 
 

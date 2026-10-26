@@ -9,7 +9,9 @@ from typing import Any
 import redis.asyncio
 from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
+from pydantic import SecretStr
 
+from apparatica.auth.guests import GuestCookies
 from apparatica.captcha import api as captcha_api
 from apparatica.core import api as core_api
 from apparatica.core.db import Database
@@ -23,12 +25,14 @@ from apparatica.core.errors import (
 from apparatica.core.flags import FeatureFlags, Overrides, database_overrides
 from apparatica.core.logging import configure_logging
 from apparatica.core.platform import load_platform_config
+from apparatica.core.ratelimit import ClientAddresses, RateLimiter
 from apparatica.core.requests import RequestContextMiddleware
 from apparatica.core.settings import Settings, get_settings
 from apparatica.core.storage import Storage
 from apparatica.problems import api as problems_api
 from apparatica.submissions import api as submissions_api
 from apparatica.submissions.queue import DramatiqQueue, JobQueue, NoQueue
+from apparatica.submissions.quotas import Quotas
 from apparatica.submissions.streams import StreamHub
 from apparatica.submissions.tokens import JobTokens
 
@@ -46,9 +50,20 @@ def create_app(
     settings = settings or get_settings()
     configure_logging(settings.log_level, settings.log_format)
     platform = load_platform_config(settings.config_dir)  # fail fast on a broken config
-    job_tokens = JobTokens(_job_token_key(settings), ttl_s=settings.job_token_ttl_s)
+    job_tokens = JobTokens(
+        _secret(settings, settings.job_token_key, "APX_JOB_TOKEN_KEY"),
+        ttl_s=settings.job_token_ttl_s,
+    )
+    guest_cookies = GuestCookies(
+        _secret(settings, settings.guest_cookie_key, "APX_GUEST_COOKIE_KEY"),
+        secure=settings.cookie_secure,
+    )
+    addresses = ClientAddresses(_secret(settings, settings.ip_hash_salt, "APX_IP_HASH_SALT"))
     database = Database(settings.database_url)  # connects on first use
     queue = job_queue or _job_queue(settings)  # connects on first use
+    if settings.cache_url is None and settings.environment == "production":
+        raise RuntimeError("APX_CACHE_URL is required in production")
+    limiter = RateLimiter.connect(settings.cache_url)  # connects on first use
     # One reader of the submission streams for the process (specs/07 §4.2); none without Valkey.
     hub = (
         StreamHub(redis.asyncio.Redis.from_url(settings.queue_url))
@@ -87,6 +102,10 @@ def create_app(
     app.state.stream_hub = hub
     app.state.storage = Storage(settings)  # the event journals of finished checks
     app.state.job_queue = queue
+    app.state.guest_cookies = guest_cookies
+    app.state.client_addresses = addresses
+    app.state.rate_limiter = limiter
+    app.state.quotas = Quotas(platform.limits.quotas.guest, limiter, platform.rate_limits)
     install_error_handlers(app)
     app.add_middleware(RequestContextMiddleware)
     # Every operation may fail with INTERNAL; the routes declare their other errors.
@@ -129,10 +148,11 @@ def _job_queue(settings: Settings) -> JobQueue:
     return NoQueue()
 
 
-def _job_token_key(settings: Settings) -> bytes:
-    if settings.job_token_key is not None:
-        return settings.job_token_key.get_secret_value().encode()
+def _secret(settings: Settings, value: SecretStr | None, name: str) -> bytes:
+    """A key of the settings; outside production an unset key is random, valid in this process
+    only: the ingestor accepts no job tokens of it, and guests are forgotten on restart."""
+    if value is not None:
+        return value.get_secret_value().encode()
     if settings.environment == "production":
-        raise RuntimeError("APX_JOB_TOKEN_KEY is required in production")
-    # Tokens of this process only: the ingestor needs the same key, so it accepts no results.
+        raise RuntimeError(f"{name} is required in production")
     return secrets.token_bytes(32)

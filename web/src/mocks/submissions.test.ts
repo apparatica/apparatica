@@ -131,6 +131,7 @@ it("limits the checks of a guest", async () => {
   const { error, response } = await submit("module sync_fifo; endmodule");
   expect(response.status).toBe(429);
   expect(error?.code).toBe("RATE_LIMITED");
+  expect(error?.params?.quota).toBe("checks");
   expect(error?.params?.retry_after_s).toBeGreaterThan(3500);
 });
 

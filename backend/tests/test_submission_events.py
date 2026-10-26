@@ -28,7 +28,7 @@ from apparatica.submissions import live
 from apparatica.submissions.models import Artifact
 from apparatica.submissions.queue import Job
 from apparatica.submissions.streams import StreamHub
-from conftest import CONFIG_DIR, Postgres
+from conftest import CONFIG_DIR, Postgres, as_guest
 from judge.core.jobs import JudgeJob, submission_stream_key
 
 if TYPE_CHECKING:
@@ -75,7 +75,9 @@ def api(database_url: str, queue: RecordingQueue, queue_url: str | None) -> Test
         queue_url=queue_url,
         s3_region="us-east-1",
     )
-    return TestClient(create_app(settings, job_queue=queue), raise_server_exceptions=False)
+    return as_guest(
+        TestClient(create_app(settings, job_queue=queue), raise_server_exceptions=False)
+    )
 
 
 def read(client: TestClient, path: str, headers: dict[str, str] | None = None) -> list[Event]:
@@ -232,6 +234,11 @@ def test_errors_come_before_the_stream(database_url: str, queue: RecordingQueue)
         assert (missing.status_code, missing.json()["code"]) == (404, "NOT_FOUND")
         waiting = client.get(f"/api/v1/submissions/{submission}/events")  # no Valkey
         assert (waiting.status_code, waiting.json()["code"]) == (503, "JUDGE_UNAVAILABLE")
+        # The events belong to the author of the submission (specs/05 §4).
+        client.cookies.clear()
+        assert client.get(f"/api/v1/submissions/{submission}/events").status_code == 404
+        as_guest(client, uuid.uuid4())
+        assert client.get(f"/api/v1/submissions/{submission}/events").status_code == 404
 
 
 def test_one_reader_serves_every_subscriber(valkey: str) -> None:

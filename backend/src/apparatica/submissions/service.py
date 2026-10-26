@@ -2,19 +2,22 @@
 
 A submission is checked against the current version of a published problem with the default
 toolchain profile of its language and a fresh 63-bit seed: the triple makes a run reproducible
-(specs/04 §1). Quotas, the guest cookie and the captcha arrive in phase 1 (T1.7).
+(specs/04 §1). A submission belongs to its author, a guest until accounts arrive (phase 2): other
+callers get NOT_FOUND, as if it did not exist. Quotas are checked before it is stored (`quotas`).
 
 The submission is committed before it is queued, so that a worker finds what it is given. A queue
 that cannot be reached fails the submission with `internal_error`: it would otherwise wait forever.
 """
 
+import base64
 import secrets
 import uuid
 from datetime import UTC, datetime
 from typing import get_args
 
 import structlog
-from sqlalchemy import select
+from fastapi.exceptions import RequestValidationError
+from sqlalchemy import select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from apparatica.core.errors import ApiError, ErrorCode
@@ -25,6 +28,7 @@ from apparatica.submissions.live import Watched
 from apparatica.submissions.models import Artifact, StageResult, ToolchainProfile
 from apparatica.submissions.models import Submission as SubmissionRow
 from apparatica.submissions.queue import Job, JobQueue, QueueUnavailableError
+from apparatica.submissions.quotas import Author, Quotas
 from apparatica.submissions.schemas import (
     ArtifactKind,
     Submission,
@@ -32,6 +36,7 @@ from apparatica.submissions.schemas import (
     SubmissionCreate,
     SubmissionCreated,
     SubmissionStage,
+    SubmissionSummary,
 )
 from apparatica.submissions.tokens import JobTokens
 from judge.core.jobs import JudgeJob, queue_name
@@ -71,7 +76,8 @@ async def create_submission(
     limits: SolutionLimits,
     tokens: JobTokens,
     queue: JobQueue,
-    guest_id: uuid.UUID | None = None,
+    quotas: Quotas,
+    author: Author,
 ) -> SubmissionCreated:
     check_size(request.code, limits)
     row = await session.execute(
@@ -100,6 +106,13 @@ async def create_submission(
             ErrorCode.JUDGE_UNAVAILABLE,
             f"No default toolchain profile for {version.language!r}",
         )
+    await quotas.admit(
+        session,
+        author,
+        kind=request.kind,
+        problem_id=version.problem_id,
+        resource_class=version.resource_class,
+    )
 
     submission = SubmissionRow(
         id=uuid7(),
@@ -109,7 +122,8 @@ async def create_submission(
         seed=secrets.randbits(63),
         toolchain_profile_id=profile.id,
         queue_class=version.resource_class,
-        guest_id=guest_id,
+        guest_id=author.guest_id,
+        client_ip_hash=author.address,
     )
     session.add(submission)
     await session.commit()
@@ -137,11 +151,11 @@ async def create_submission(
         submission.finished_at = datetime.now(UTC)
         await session.commit()
         raise ApiError(ErrorCode.JUDGE_UNAVAILABLE, "The queue of checks is unavailable") from error
-    if submission.kind == "run" and guest_id is not None:
+    if submission.kind == "run":
         await preempt_runs(session, submission, version.problem_id, queue)
-    result = await get_submission(session, submission.id, queue)
+    result = await get_submission(session, submission.id, queue, author.guest_id)
     assert result is not None
-    return SubmissionCreated(**dict(result), quota=None)  # quotas arrive with guests (T1.7)
+    return SubmissionCreated(**dict(result), quota=await quotas.status(session, author.guest_id))
 
 
 async def preempt_runs(
@@ -168,11 +182,17 @@ async def preempt_runs(
 
 
 async def cancel_submission(
-    session: AsyncSession, submission_id: uuid.UUID, queue: JobQueue
+    session: AsyncSession, submission_id: uuid.UUID, queue: JobQueue, guest_id: uuid.UUID | None
 ) -> None:
     """Ask for the cancellation; the status changes when the ingestor stores it (`finalized`)."""
-    status = await session.scalar(
-        select(SubmissionRow.status).where(SubmissionRow.id == submission_id)
+    status = (
+        await session.scalar(
+            select(SubmissionRow.status).where(
+                SubmissionRow.id == submission_id, SubmissionRow.guest_id == guest_id
+            )
+        )
+        if guest_id is not None  # `== None` would match the submissions without an author
+        else None
     )
     if status is None:
         raise ApiError(ErrorCode.NOT_FOUND, f"No submission {submission_id}")
@@ -185,13 +205,16 @@ async def cancel_submission(
 
 
 async def get_submission(
-    session: AsyncSession, submission_id: uuid.UUID, queue: JobQueue
+    session: AsyncSession, submission_id: uuid.UUID, queue: JobQueue, guest_id: uuid.UUID | None
 ) -> Submission | None:
+    """The submission if `guest_id` is its author."""
+    if guest_id is None:  # `== None` would match the submissions without an author
+        return None
     row = await session.execute(
         select(SubmissionRow, ProblemVersion, Problem.slug)
         .join(ProblemVersion, ProblemVersion.id == SubmissionRow.problem_version_id)
         .join(Problem, Problem.id == ProblemVersion.problem_id)
-        .where(SubmissionRow.id == submission_id)
+        .where(SubmissionRow.id == submission_id, SubmissionRow.guest_id == guest_id)
     )
     found = row.one_or_none()
     if found is None:
@@ -267,10 +290,12 @@ async def get_submission(
     )
 
 
-async def watch_submission(session: AsyncSession, submission_id: uuid.UUID) -> Watched | None:
-    """What the event stream of a submission needs (specs/07 §4.2)."""
+async def watch_submission(
+    session: AsyncSession, submission_id: uuid.UUID, guest_id: uuid.UUID | None
+) -> Watched | None:
+    """What the event stream of a submission needs (specs/07 §4.2), for its author."""
     submission = await session.get(SubmissionRow, submission_id)
-    if submission is None:
+    if submission is None or guest_id is None or submission.guest_id != guest_id:
         return None
     journal = await session.scalar(
         select(Artifact.storage_key)
@@ -291,3 +316,72 @@ async def watch_submission(session: AsyncSession, submission_id: uuid.UUID) -> W
         finished_at=submission.finished_at,
         journal=journal,
     )
+
+
+async def list_submissions(
+    session: AsyncSession,
+    guest_id: uuid.UUID | None,
+    *,
+    problem: str | None,
+    cursor: str | None,
+    limit: int,
+) -> tuple[list[SubmissionSummary], str | None]:
+    """A page of the submissions of a guest, newest first, and the cursor of the next page."""
+    after = _decode_cursor(cursor) if cursor is not None else None
+    if guest_id is None:
+        return [], None
+    query = (
+        select(SubmissionRow, ProblemVersion, Problem.slug)
+        .join(ProblemVersion, ProblemVersion.id == SubmissionRow.problem_version_id)
+        .join(Problem, Problem.id == ProblemVersion.problem_id)
+        .where(SubmissionRow.guest_id == guest_id)
+        .order_by(SubmissionRow.created_at.desc(), SubmissionRow.id.desc())
+        .limit(limit + 1)
+    )
+    if problem is not None:
+        query = query.where(Problem.slug == problem)
+    if after is not None:
+        query = query.where(tuple_(SubmissionRow.created_at, SubmissionRow.id) < after)
+    rows = (await session.execute(query)).all()
+    items = [
+        SubmissionSummary(
+            id=submission.id,
+            problem=slug,
+            problem_title=version.title,
+            version=version.version,
+            kind=submission.kind,  # type: ignore[arg-type]  # checked by the table constraint
+            status=submission.status,  # type: ignore[arg-type]  # a submission_status value
+            verdict_detail=(
+                VerdictDetail.model_validate(submission.verdict_detail)
+                if submission.verdict_detail is not None
+                else None
+            ),
+            created_at=submission.created_at,
+            finished_at=submission.finished_at,
+        )
+        for submission, version, slug in rows[:limit]
+    ]
+    if len(rows) <= limit:
+        return items, None
+    last = rows[limit - 1][0]
+    return items, _encode_cursor(last.created_at, last.id)
+
+
+def _encode_cursor(created_at: datetime, submission_id: uuid.UUID) -> str:
+    text = f"{created_at.isoformat()}|{submission_id}"
+    return base64.urlsafe_b64encode(text.encode()).rstrip(b"=").decode()
+
+
+def _decode_cursor(cursor: str) -> tuple[datetime, uuid.UUID]:
+    """The position of the last item of the previous page; VALIDATION_ERROR if malformed."""
+    try:
+        text = base64.urlsafe_b64decode(cursor + "=" * (-len(cursor) % 4)).decode()
+        created_at, submission_id = text.split("|")
+        after = datetime.fromisoformat(created_at), uuid.UUID(submission_id)
+    except ValueError:  # bad base64, UTF-8, separator, time or id
+        after = None
+    if after is None or after[0].tzinfo is None:
+        raise RequestValidationError(
+            [{"loc": ("query", "cursor"), "msg": "Invalid cursor", "type": "value_error"}]
+        )
+    return after

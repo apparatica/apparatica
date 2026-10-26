@@ -1,4 +1,4 @@
-"""`GET /captcha/challenge` (specs/05 §3, phase 1): the contract, a stub until T1.7."""
+"""`GET /captcha/challenge` (specs/05 §3, phase 1): the contract, a stub until T1.7b."""
 
 from typing import Literal
 
@@ -30,4 +30,4 @@ class CaptchaChallenge(BaseModel):
 )
 async def get_captcha_challenge() -> CaptchaChallenge:
     """A new challenge for the next submission after CAPTCHA_REQUIRED."""
-    raise ApiError(ErrorCode.NOT_IMPLEMENTED, "Declared by the phase 1 contract; arrives in T1.7")
+    raise ApiError(ErrorCode.NOT_IMPLEMENTED, "Declared by the phase 1 contract; arrives in T1.7b")

@@ -1,6 +1,7 @@
 import asyncio
 import itertools
 import os
+import uuid
 from collections.abc import Iterator
 from pathlib import Path
 
@@ -12,6 +13,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from testcontainers.community.postgres import PostgresContainer
 from testcontainers.community.redis import RedisContainer
 
+from apparatica.auth.guests import COOKIE
 from apparatica.cli import alembic_config
 from apparatica.core.db import Database
 from apparatica.core.flags import no_overrides
@@ -26,6 +28,8 @@ PROBLEMS = Path(__file__).parents[2] / "problems"
 POSTGRES_IMAGE = os.environ.get("APX_TEST_POSTGRES_IMAGE", "postgres:17-alpine")
 VALKEY_IMAGE = os.environ.get("APX_TEST_VALKEY_IMAGE", "valkey/valkey:8-alpine")
 POSTGRES_INITDB_ARGS = "--encoding=UTF8 --locale-provider=builtin --builtin-locale=C.UTF-8"
+# The author of the submissions that tests store directly.
+GUEST = uuid.UUID("0190f1e2-0000-7000-8000-000000000001")
 
 
 @pytest.fixture
@@ -41,6 +45,12 @@ def client(settings: Settings) -> Iterator[TestClient]:
     app = create_app(settings, flag_overrides=no_overrides)  # the SQLite database has no tables
     with TestClient(app, raise_server_exceptions=False) as test_client:
         yield test_client
+
+
+def as_guest(client: TestClient, guest: uuid.UUID = GUEST) -> TestClient:
+    """The client sends the cookie of `guest`, signed by the key of its app."""
+    client.cookies.set(COOKIE, client.app.state.guest_cookies.value(guest))  # type: ignore[attr-defined]
+    return client
 
 
 class Postgres:

@@ -12,7 +12,6 @@ ID = "0192d1a2-7c00-7000-8000-000000000001"
 @pytest.mark.parametrize(
     ("method", "path", "body"),
     [
-        ("GET", "/api/v1/submissions?problem=mux4", None),
         ("GET", f"/api/v1/submissions/{ID}/artifacts/fst?stage=sim_run", None),
         ("POST", f"/api/v1/submissions/{ID}/waveform", {"scope": "full_test", "test": "t7"}),
         ("GET", "/api/v1/captcha/challenge", None),

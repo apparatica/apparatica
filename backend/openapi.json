@@ -395,7 +395,7 @@
           "submissions"
         ],
         "summary": "Create Submission",
-        "description": "A Run or a Submit of the current version of a problem; the check runs in the background.\nCAPTCHA_REQUIRED: solve GET /captcha/challenge and repeat with `captcha`.",
+        "description": "A Run or a Submit of the current version of a problem; the check runs in the background.\nSets the guest cookie with the first submission. RATE_LIMITED: `params.quota` names the\nspent quota (docs/api.md). CAPTCHA_REQUIRED: solve GET /captcha/challenge and repeat with\n`captcha`.",
         "operationId": "create_submission",
         "requestBody": {
           "required": true,
@@ -516,7 +516,7 @@
           "submissions"
         ],
         "summary": "List Submissions",
-        "description": "Own submissions (the guest by cookie) and the quotas left.",
+        "description": "Own submissions (the guest by cookie) and the quotas left; empty without a guest.",
         "operationId": "list_submissions",
         "parameters": [
           {
@@ -599,16 +599,6 @@
                 }
               }
             }
-          },
-          "501": {
-            "description": "Not Implemented",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
           }
         },
         "x-phase": 1
@@ -620,7 +610,7 @@
           "submissions"
         ],
         "summary": "Get Submission",
-        "description": "A submission with its stages and artifacts. Access by author arrives with guests (T1.7).",
+        "description": "A submission of the caller with its stages and artifacts.",
         "operationId": "get_submission",
         "parameters": [
           {
@@ -798,7 +788,7 @@
           "submissions"
         ],
         "summary": "Cancel Submission",
-        "description": "Cancel a queued or running check; the result comes as `finalized` with `cancelled`.\nAccess by author arrives with guests (T1.7).",
+        "description": "Cancel a queued or running check of the caller; the result comes as `finalized` with\n`cancelled`.",
         "operationId": "cancel_submission",
         "parameters": [
           {
@@ -848,6 +838,16 @@
           },
           "422": {
             "description": "Unprocessable Content",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
             "content": {
               "application/problem+json": {
                 "schema": {

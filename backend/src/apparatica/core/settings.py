@@ -51,6 +51,19 @@ class Settings(BaseSettings):
         default=86400, description="Lifetime of a job token: queue wait and every attempt"
     )
 
+    # valkey-cache: rate limits against abuse (NFR-SEC-06). Required in production; unset elsewhere
+    # means counters in the memory of the process.
+    cache_url: str | None = Field(default=None, description="redis:// URL of valkey-cache")
+
+    # Guests (ADR-0010): the signed cookie `ap_guest` and the salted hash of client addresses
+    # (NFR-PRIV-01). Required in production; elsewhere an unset key means a random key of the
+    # process: its guests are forgotten on restart.
+    guest_cookie_key: SecretStr | None = Field(default=None, min_length=32)
+    ip_hash_salt: SecretStr | None = Field(default=None, min_length=32)
+    cookie_secure: bool = Field(
+        default=True, description="Secure cookies; off only for a stand served over plain HTTP"
+    )
+
     # The ingestor (`apparatica ingest`, ADR-0009): its consumer in the group of judge:results.
     ingest_consumer: str | None = Field(
         default=None, description="Consumer name; unset means <hostname>:<pid>"

@@ -24,7 +24,7 @@ from apparatica.submissions.events import FinalizedEvent
 from apparatica.submissions.models import Artifact, StageResult, Submission
 from apparatica.submissions.profiles import add_profile
 from apparatica.submissions.tokens import JobTokens
-from conftest import CONFIG_DIR, Postgres
+from conftest import CONFIG_DIR, GUEST, Postgres
 from judge.core.jobs import (
     RESULTS_STREAM,
     AttemptFailedRecord,
@@ -71,7 +71,9 @@ def database_url(postgres: Postgres, catalogue_template: str) -> str:
     return postgres.create_database(template=catalogue_template)
 
 
-async def new_submission(database: Database, kind: str = "run") -> uuid.UUID:
+async def new_submission(
+    database: Database, kind: str = "run", guest: uuid.UUID = GUEST
+) -> uuid.UUID:
     async with database.sessions.begin() as session:
         await add_profile(session, PROFILE, default=True)
         version = await session.scalar(
@@ -88,6 +90,7 @@ async def new_submission(database: Database, kind: str = "run") -> uuid.UUID:
             seed=1,
             toolchain_profile_id=PROFILE.id,
             queue_class="light",
+            guest_id=guest,
         )
         session.add(submission)
     return submission.id

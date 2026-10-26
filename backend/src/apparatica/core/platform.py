@@ -1,4 +1,5 @@
-"""Platform data from `config/*.yaml` that the frontend shows: difficulty levels and limits.
+"""Platform data from `config/*.yaml`: difficulty levels and limits, which the frontend shows, and
+the rate limits against abuse, which it does not.
 
 Loaded once at startup and validated strictly: a broken file stops the process instead of serving
 a half-configured site.
@@ -12,6 +13,7 @@ from pydantic import BaseModel, ConfigDict, Field, NonNegativeInt, PositiveInt, 
 
 DIFFICULTIES_FILE = "difficulties.yaml"
 LIMITS_FILE = "limits.yaml"
+RATE_LIMITS_FILE = "rate-limits.yaml"
 
 
 class _Model(BaseModel):
@@ -48,9 +50,23 @@ class Limits(_Model):
     quotas: Quotas
 
 
+class Window(_Model):
+    """At most `limit` events in any `window_s` seconds (a moving window)."""
+
+    limit: PositiveInt
+    window_s: PositiveInt
+
+
+class RateLimits(_Model):
+    requests_per_ip: Window
+    requests_per_author: Window
+    checks_per_ip: Window
+
+
 class PlatformConfig(_Model):
     difficulties: Annotated[list[Difficulty], Field(min_length=1)]
     limits: Limits
+    rate_limits: RateLimits
 
 
 class ConfigFileError(Exception):
@@ -68,6 +84,7 @@ def load_platform_config(config_dir: Path) -> PlatformConfig:
     data = {
         "difficulties": _read(config_dir / DIFFICULTIES_FILE),
         "limits": _read(config_dir / LIMITS_FILE),
+        "rate_limits": _read(config_dir / RATE_LIMITS_FILE),
     }
     try:
         config = PlatformConfig.model_validate(data)

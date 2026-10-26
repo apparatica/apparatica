@@ -71,7 +71,8 @@ S1–S8 — [spikes-and-risks.md](spikes-and-risks.md). До начала Ф1 н
 | T1.4b | Ингестор: блокировка лидера, watchdog-страховка, сроки хранения артефактов (`purged_at`), сервис `ingest` в compose | FR-JDG-09, NFR-REL-01 | T1.4a |
 | T1.5 | SSE-эндпоинт: один читатель стримов на процесс, `Last-Event-ID`, keepalive, переключение на журнал из хранилища | FR-CON-05/06 | T1.3 |
 | T1.6 | Отмена и вытеснение Run; `POST /cancel` | FR-JDG-10, FR-RUN-07 | T1.2b |
-| T1.7 | Гость и лимиты: cookie `ap_guest`, rate limit (`limits` + valkey-cache), квоты проверок и перезаписи волн, `GET /submissions` для гостя, ALTCHA | FR-GST-01/04/05, NFR-SEC-06 | T0.18 |
+| T1.7a | Гость и лимиты: cookie `ap_guest`, доступ к отправкам только автору, квоты проверок (по Postgres) и перезаписи волн, rate limit (`limits` + valkey-cache), `GET /submissions` для гостя | FR-GST-01/04, NFR-SEC-06 | T0.18 |
+| T1.7b | Капча и очистка: ALTCHA (`/captcha/challenge`, проверка решения, защита от повтора), правило «3 отправки за минуту» и флаг `captcha`, удаление гостевых отправок старше 14 дней (ОВ-13), обнуление `client_ip_hash` через 30 дней (NFR-PRIV-01) | FR-GST-05, NFR-PRIV-01 | T1.7a |
 | T1.8 | Набор `tests/security/` в CI (GitHub-hosted раннер с gVisor) | NFR-SEC-04 | T1.2b |
 | T1.9 | Базовые контролы по `CmpD` во всех состояниях + палитра команд | specs/08 §4 | T0.20 |
 | T1.10 | Рендер условия: Markdown, KaTeX, WaveDrom (SSR), таблица портов, санитизация; Node-скрипт проверки для `judge validate` | FR-PRB-03, FR-PKG-03 | T0.20 |
@@ -83,7 +84,7 @@ S1–S8 — [spikes-and-risks.md](spikes-and-risks.md). До начала Ф1 н
 | T1.15b | `Console` (ссылки на строки, автопрокрутка, копирование) и маркеры Monaco | FR-CON-*, FR-EDT-05 | T1.15a |
 | T1.16 | Вкладка «Тесты»: `TestList`, расхождения с подсказками, скрытые тесты | FR-TST-* | T1.15a |
 | T1.17 | Волны: Surfer на отдельном origin (бакет `waveview`), изолированный iframe, адаптер `postMessage`, `WaveformPanel` (5 состояний), курсор, тема, пересоздание FST | FR-WAV-*, ADR-0004 | T1.15a, S3 |
-| T1.18 | «Мои отправки» гостя, пустые состояния; баннер гостя, панели лимита, капча | FR-PRB-06, FR-GST-02/03 | T1.15a, T1.7 |
+| T1.18 | «Мои отправки» гостя, пустые состояния; баннер гостя, панели лимита, капча | FR-PRB-06, FR-GST-02/03 | T1.15a, T1.7b |
 | T1.19 | Ошибки и уведомления: 404/500/сеть/«ничего не найдено», toast о завершении | FR-RUN-08 | T1.12 |
 | T1.20 | Мобильные каталог и условие, нижняя навигация | FR-MOB-01/02 | T1.12, T1.13 |
 | T1.21 | Воркер в compose; e2e «гость решает задачу» (Playwright + axe) | specs/09 §4.4 | T1.17, T1.18 |

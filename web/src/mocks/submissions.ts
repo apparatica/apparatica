@@ -297,6 +297,7 @@ export const submissionHandlers = [
     if (left.remaining === 0) {
       const retry = Math.ceil((Date.parse(left.reset_at ?? "") - Date.now()) / 1000);
       return problem(429, "RATE_LIMITED", `Guest limit is ${left.limit} checks per hour`, {
+        quota: "checks",
         limit: left.limit,
         window_s: HOUR_MS / 1000,
         retry_after_s: retry,
@@ -394,8 +395,15 @@ export const submissionHandlers = [
     if (trace === undefined || submissionOf(check).finished_at === null) {
       return problem(422, "VALIDATION_ERROR", "The submission has no failed test to trace");
     }
-    if (quota().waveforms.remaining === 0) {
-      return problem(429, "RATE_LIMITED", "Waveform quota is spent", { retry_after_s: 60 });
+    const waves = quota().waveforms;
+    if (waves.remaining === 0) {
+      const retry = Math.ceil((Date.parse(waves.reset_at ?? "") - Date.now()) / 1000);
+      return problem(429, "RATE_LIMITED", `At most ${waves.limit} waveforms per hour`, {
+        quota: "waveforms",
+        limit: waves.limit,
+        window_s: HOUR_MS / 1000,
+        retry_after_s: retry,
+      });
     }
     check.waveform = Date.now();
     const pending: Schemas["SubmissionArtifact"] = { ...trace, state: "pending", size_bytes: null };

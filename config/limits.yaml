@@ -1,5 +1,5 @@
 # Solution size and check quotas (specs/02 NFR-LIM-01/08, specs/07 §3; decision ОВ-11).
-# Served to the frontend by GET /api/v1/config; enforced by the API from T1.x.
+# Served to the frontend by GET /api/v1/config and enforced by the API (docs/api.md).
 solution:
   max_bytes: 65536
   max_lines: 2000

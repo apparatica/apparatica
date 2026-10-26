@@ -1,0 +1,14 @@
+# Rate limits against abuse (specs/02 NFR-SEC-06), counted in valkey-cache: moving windows over the
+# requests to the mutating endpoints and over the checks of one client address. They may lose
+# their counters and are not shown to users; the quotas users see are in limits.yaml.
+# An address is an IPv4 address or an IPv6 /64 network.
+requests_per_ip:
+  limit: 120
+  window_s: 60
+requests_per_author:
+  limit: 30
+  window_s: 60
+# Checks of guests who drop their cookie; generous, since a classroom shares one address.
+checks_per_ip:
+  limit: 300
+  window_s: 3600
