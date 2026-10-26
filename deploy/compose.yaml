@@ -24,7 +24,7 @@ x-api-env: &api-env
   APX_S3_ACCESS_KEY_ID: ${S3_API_KEY_ID:-GKa62ffff5803d2dfabefd25b6}
   APX_S3_SECRET_ACCESS_KEY: ${S3_API_KEY_SECRET:-ebf9a4900fe670897d3173d6d0083909c70442874266971e109c3132efa6d05d}
   APX_JOB_TOKEN_KEY: ${APX_JOB_TOKEN_KEY:-d0bcee91e1bd0d6ae13d2a129c5f78bc14b19f28c6824598c54dbc3b5ca20531}
-  APX_QUEUE_URL: redis://valkey-queue:6379/0
+  APX_QUEUE_URL: redis://api:${VALKEY_QUEUE_API_PASSWORD:-8b1e3f0c5a7d4e2b9c6f1a0d3e5b7c9a}@valkey-queue:6379/0
 
 services:
   postgres:
@@ -44,11 +44,16 @@ services:
     restart: unless-stopped
 
   # Queues, event and result streams: nothing may be lost (no eviction, append-only file).
+  # Users and their keys: valkey/queue-users.acl.in.
   valkey-queue:
     image: ${VALKEY_IMAGE:-valkey/valkey:8-alpine}
-    command: ["valkey-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    command: ["sh", "/etc/apparatica/start-queue.sh"]
+    environment:
+      API_PASSWORD: ${VALKEY_QUEUE_API_PASSWORD:-8b1e3f0c5a7d4e2b9c6f1a0d3e5b7c9a}
+      WORKER_PASSWORD: ${VALKEY_QUEUE_WORKER_PASSWORD:-2f7a9c1e4b6d8f0a3c5e7b9d1f2a4c6e}
     volumes:
       - valkey-queue:/data
+      - ./valkey:/etc/apparatica:ro
     healthcheck:
       test: ["CMD", "valkey-cli", "ping"]
       interval: 2s

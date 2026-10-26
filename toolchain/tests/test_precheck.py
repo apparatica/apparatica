@@ -12,7 +12,7 @@ from judge.core.limits import SandboxLimits, StageLimits
 from judge.core.package import parse_manifest
 from judge.core.stage import Command, StageContext, StageOutcome, StagePlan
 from judge.languages.systemverilog.stages.precheck import PrecheckConfig, PrecheckStage
-from sandbox import IMAGE
+from sandbox import IMAGE, RUNTIME
 
 CORPUS = Path(__file__).parents[2] / "judge" / "tests" / "data" / "precheck" / "good"
 ADDER = (CORPUS / "adder.sv").read_text(encoding="utf-8")
@@ -20,7 +20,9 @@ ADDER = (CORPUS / "adder.sv").read_text(encoding="utf-8")
 
 @pytest.fixture(scope="module")
 def executor() -> Iterator[LocalDockerExecutor]:
-    with LocalDockerExecutor(IMAGE, SandboxLimits(cpus=2, memory_mb=2048, pids=256)) as running:
+    with LocalDockerExecutor(
+        IMAGE, SandboxLimits(cpus=2, memory_mb=2048, pids=256), runtime=RUNTIME
+    ) as running:
         yield running
 
 

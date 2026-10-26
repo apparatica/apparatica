@@ -126,8 +126,11 @@ judge/src/judge/
 worker/src/apparatica_worker/
   broker.py          брокер Dramatiq и актор judge_submission
   main.py            apparatica-worker: пулы слотов основных очередей и judge.rejudge
-  runner.py          что делается с взятым заданием (позиция в очереди, затем оркестратор)
-  orchestrator.py    песочница, PTY, отмена, heartbeat, загрузка артефактов
+  orchestrator.py    попытка проверки: позиция, аренда, попытки, пакет, песочница, пайплайн, артефакты
+  lease.py           аренда lease:<id> с продлением
+  storage.py         кэш пакетов задач, загрузка артефактов
+  report.py          отчёт о попытке, запись консоли этапов
+  sandboxd/          apx-sandboxd (демон на хосте) и клиент SandboxExecutor
 ```
 
 Граница «ядро ↔ язык»: ядро знает только `language`, `stage.type`, `failure_kind` и схемы метрик. Подсветка SV в редакторе — Monaco-язык `systemverilog`, выбирается по `language` задачи.

@@ -11,7 +11,7 @@ from judge.core.package import Problem, parse_manifest
 from judge.core.pipeline import Job, run_pipeline
 from judge.core.registry import get_language
 from judge.core.stage import StageResult
-from sandbox import IMAGE
+from sandbox import IMAGE, RUNTIME
 
 ROOT = Path(__file__).parents[2]
 RESOURCE_CLASSES = load_resource_classes(ROOT / "config" / "resource-classes.yaml")
@@ -58,7 +58,9 @@ def judge(solution: str) -> tuple[list[StageResult], Sink]:
     task = problem()
     sink = Sink()
     job = Job(task, Path(), "run", seed=1, solution=solution.encode())
-    with LocalDockerExecutor(IMAGE, sandbox_limits(task, RESOURCE_CLASSES)) as executor:
+    with LocalDockerExecutor(
+        IMAGE, sandbox_limits(task, RESOURCE_CLASSES), runtime=RUNTIME
+    ) as executor:
         results = run_pipeline(job, get_language("systemverilog"), executor, sink, RESOURCE_CLASSES)
     return results, sink
 

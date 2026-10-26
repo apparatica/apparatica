@@ -7,15 +7,13 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from typing import Any
 
-import redis
 from dramatiq import Message
 from dramatiq.brokers.redis import RedisBroker
 
 from apparatica_worker.broker import Handler
 from apparatica_worker.main import create_workers, run
-from apparatica_worker.runner import JobRunner
 from apparatica_worker.settings import WorkerSettings
-from judge.core.jobs import ACTOR, QUEUES, JudgeJob, position_key
+from judge.core.jobs import ACTOR, QUEUES, JudgeJob
 
 
 def job() -> JudgeJob:
@@ -107,16 +105,6 @@ def test_a_broken_message_is_not_retried(valkey_url: str) -> None:
         wait_for(lambda: taken == [good.submission_id])
         time.sleep(0.5)
     assert taken == [good.submission_id]
-
-
-def test_a_taken_job_leaves_the_queue_positions(valkey_url: str) -> None:
-    client = redis.Redis.from_url(valkey_url)
-    first, second = job(), job()
-    key = position_key("judge.light")
-    client.zadd(key, {str(first.submission_id): 1, str(second.submission_id): 2})
-    JobRunner(client)(first, "judge.light")
-    assert client.zrank(key, str(second.submission_id)) == 0
-    assert client.zrank(key, str(first.submission_id)) is None
 
 
 def test_a_worker_holds_no_more_messages_than_it_runs() -> None:

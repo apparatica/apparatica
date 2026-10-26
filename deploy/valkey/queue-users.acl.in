@@ -1,0 +1,11 @@
+# Users of valkey-queue (specs/07 §5.3, NFR-SEC-03): each component reaches only its own keys and no
+# administrative command. @API_PASSWORD@ and @WORKER_PASSWORD@ come from the environment
+# (start-queue.sh); a phase that adds keys adds them here. Dramatiq names its namespace `dramatiq`
+# as a key of its scripts, then `dramatiq:<queue>...`.
+#
+# default: the container health check only.
+user default on nopass -@all +ping
+# api: puts checks on the Dramatiq queues, keeps the queue positions.
+user api on >@API_PASSWORD@ ~dramatiq ~dramatiq:* ~queue:* +@all -@dangerous
+# worker: takes checks from the queues, removes their positions, holds leases and counts attempts.
+user worker on >@WORKER_PASSWORD@ ~dramatiq ~dramatiq:* %W~queue:* ~lease:* ~attempts:* +@all -@dangerous

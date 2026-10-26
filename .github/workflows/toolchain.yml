@@ -6,22 +6,22 @@ on:
     paths:
       - toolchain/**
       # The image tests exercise the judge against the image (executor, testbench protocol) and the
-      # worker's sandbox (apx-sandboxd, SandboxExecutor).
+      # worker in a sandbox (apx-sandboxd, the orchestrator: worker/tests/*_image.py).
       - judge/src/**
       - judge/poetry.lock
-      - worker/src/apparatica_worker/sandboxd/**
-      - worker/tests/test_sandbox_image.py
+      - worker/src/**
+      - worker/tests/*_image.py
       - worker/poetry.lock
       - .github/workflows/toolchain.yml
   pull_request:
     paths:
       - toolchain/**
       # The image tests exercise the judge against the image (executor, testbench protocol) and the
-      # worker's sandbox (apx-sandboxd, SandboxExecutor).
+      # worker in a sandbox (apx-sandboxd, the orchestrator: worker/tests/*_image.py).
       - judge/src/**
       - judge/poetry.lock
-      - worker/src/apparatica_worker/sandboxd/**
-      - worker/tests/test_sandbox_image.py
+      - worker/src/**
+      - worker/tests/*_image.py
       - worker/poetry.lock
       - .github/workflows/toolchain.yml
   workflow_dispatch:

@@ -19,6 +19,22 @@ RESOURCE_CLASS_QUEUES = {"light": "judge.light", "heavy": "judge.heavy"}
 QUEUES = (*RESOURCE_CLASS_QUEUES.values(), REJUDGE_QUEUE)
 
 
+# A check runs at most this many times: once, and again after its worker died (specs/07 §3).
+ATTEMPT_MAX = 2
+LEASE_TTL_S = 15  # a worker holds the lease of a running check and renews it ...
+LEASE_RENEW_S = 5  # ... this often; a dead worker loses it within the TTL
+
+
+def lease_key(submission_id: uuid.UUID) -> str:
+    """Who runs the check now: the worker id, with a TTL (SET NX)."""
+    return f"lease:{submission_id}"
+
+
+def attempts_key(submission_id: uuid.UUID) -> str:
+    """How many times a worker started the check (INCR)."""
+    return f"attempts:{submission_id}"
+
+
 def queue_name(resource_class: str, *, rejudge: bool = False) -> str:
     """`judge.<resource class>`; rejudges always go to their own queue."""
     return REJUDGE_QUEUE if rejudge else RESOURCE_CLASS_QUEUES[resource_class]

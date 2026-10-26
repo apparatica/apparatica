@@ -3,7 +3,7 @@ import uuid
 import pytest
 from pydantic import ValidationError
 
-from judge.core.jobs import QUEUES, JudgeJob, position_key, queue_name
+from judge.core.jobs import QUEUES, JudgeJob, attempts_key, lease_key, position_key, queue_name
 
 JOB = {
     "submission_id": str(uuid.uuid4()),
@@ -27,6 +27,11 @@ def test_queues_follow_the_resource_class() -> None:
     assert queue_name("light", rejudge=True) == "judge.rejudge"
     assert QUEUES == ("judge.light", "judge.heavy", "judge.rejudge")
     assert position_key("judge.light") == "queue:judge.light"
+    submission = uuid.UUID(str(JOB["submission_id"]))
+    assert (lease_key(submission), attempts_key(submission)) == (
+        f"lease:{submission}",
+        f"attempts:{submission}",
+    )
     with pytest.raises(KeyError):
         queue_name("huge")
 

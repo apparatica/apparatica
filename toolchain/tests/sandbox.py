@@ -8,6 +8,8 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 
 IMAGE = os.environ.get("TOOLCHAIN_IMAGE", "apparatica-toolchain:dev")
+# runsc on the worker hosts and in the security suite; unset: the Docker default (runc).
+RUNTIME = os.environ.get("JUDGE_SANDBOX_RUNTIME") or None
 SANDBOX_UID = 10001
 
 # specs/07 §5.1 with the runc runtime; the orchestrator adds runsc on staging and production.
@@ -51,7 +53,8 @@ class Sandbox:
     @classmethod
     def start(cls) -> "Sandbox":
         name = f"apx-toolchain-test-{uuid.uuid4().hex[:8]}"
-        argv = ["docker", "run", "-d", "--rm", "--name", name, *SANDBOX_FLAGS, IMAGE]
+        runtime = [f"--runtime={RUNTIME}"] if RUNTIME else []
+        argv = ["docker", "run", "-d", "--rm", "--name", name, *runtime, *SANDBOX_FLAGS, IMAGE]
         started = subprocess.run([*argv, "apx-init"], capture_output=True, text=True, check=False)
         if started.returncode != 0:
             raise RuntimeError(f"cannot start {IMAGE}: {started.stderr.strip()}")

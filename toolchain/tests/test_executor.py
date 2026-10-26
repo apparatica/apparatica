@@ -8,14 +8,16 @@ import pytest
 from judge.core.executor import LocalDockerExecutor
 from judge.core.limits import SandboxLimits
 from judge.core.stage import Command, ExecResult, StagePlan
-from sandbox import IMAGE
+from sandbox import IMAGE, RUNTIME
 
 Lines = list[tuple[str, str]]
 
 
 @pytest.fixture(scope="module")
 def executor() -> Iterator[LocalDockerExecutor]:
-    with LocalDockerExecutor(IMAGE, SandboxLimits(cpus=2, memory_mb=2048, pids=256)) as running:
+    with LocalDockerExecutor(
+        IMAGE, SandboxLimits(cpus=2, memory_mb=2048, pids=256), runtime=RUNTIME
+    ) as running:
         yield running
 
 

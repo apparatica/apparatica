@@ -10,7 +10,7 @@ from judge.core.package import load_manifest
 from judge.core.pipeline import Job, run_pipeline
 from judge.core.registry import get_language
 from judge.core.stage import StageResult, SubmissionKind
-from sandbox import IMAGE
+from sandbox import IMAGE, RUNTIME
 
 ROOT = Path(__file__).parents[2]
 PACKAGE = ROOT / "judge" / "tests" / "data" / "packages" / "counter"
@@ -36,7 +36,9 @@ class Run:
         self.artifacts: dict[tuple[str, str], bytes] = {}
         problem = load_manifest(PACKAGE)
         job = Job(problem, PACKAGE, kind, seed=41917, solution=solution.encode())
-        with LocalDockerExecutor(IMAGE, sandbox_limits(problem, RESOURCE_CLASSES)) as executor:
+        with LocalDockerExecutor(
+            IMAGE, sandbox_limits(problem, RESOURCE_CLASSES), runtime=RUNTIME
+        ) as executor:
             self.results = run_pipeline(
                 job,
                 get_language("systemverilog"),

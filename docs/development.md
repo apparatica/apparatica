@@ -222,11 +222,20 @@ poetry -C backend run apparatica-admin toolchain add sv-2026.10.2 \
 
 ### Воркер
 
+Воркер работает на Linux-хосте с Docker, рядом с `apx-sandboxd` (тот слушает unix-сокет, на Windows не запускается):
+
 ```sh
-APX_QUEUE_URL=redis://localhost:6379/0 poetry -C worker run apparatica-worker
+APX_SANDBOXD_RUNTIME=runc APX_SANDBOXD_SOCKET=/tmp/sandboxd.sock poetry -C worker run apx-sandboxd
+APX_QUEUE_URL=redis://worker:<пароль>@localhost:6379/0 APX_SANDBOXD_SOCKET=/tmp/sandboxd.sock \
+  APX_SANDBOX_RUNTIME=runc APX_RESOURCE_CLASSES=../config/resource-classes.yaml \
+  APX_PACKAGE_CACHE=/tmp/apx-packages APX_S3_ENDPOINT_URL=http://localhost:3900 \
+  APX_S3_ACCESS_KEY_ID=<ключ воркера> APX_S3_SECRET_ACCESS_KEY=<секрет> \
+  poetry -C worker run apparatica-worker
 ```
 
-Берёт проверки из очередей `valkey-queue` (на стенде с `compose.dev.yaml` он доступен на `localhost:6379`) до Ctrl+C или SIGTERM; начатые проверки при остановке доводятся до конца. Настройки — [configuration.md](configuration.md#воркер).
+Он берёт проверки из очередей `valkey-queue` (на стенде с `compose.dev.yaml` — `localhost:6379`, пользователь `worker`, пароль `VALKEY_QUEUE_WORKER_PASSWORD`) до Ctrl+C или SIGTERM; начатые проверки при остановке доводятся до конца. Настройки — [configuration.md](configuration.md#воркер).
+
+Тесты воркера, которым нужны Docker и образ тулчейна (`-m image`: песочница, оркестратор), запускает `just toolchain-test`; под gVisor — с `JUDGE_SANDBOX_RUNTIME=runsc`. Остальные (`just test`) работают с Valkey в контейнере и S3 через moto.
 
 ## Судья: CLI `judge`
 

@@ -16,9 +16,9 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from judge.core.jobs import ATTEMPT_MAX  # the worker counts attempts:<id> against the same limit
+
 VERSION = "v1"
-# Starts of a check before it ends with internal_error (ADR-0002: the counter attempts:<id>).
-ATTEMPT_MAX = 2
 
 
 class InvalidJobTokenError(ValueError):

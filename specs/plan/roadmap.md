@@ -64,7 +64,8 @@ S1–S8 — [spikes-and-risks.md](spikes-and-risks.md). До начала Ф1 н
 | T1.0 | PR контракта Ф1: SSE `/submissions/{id}/events` со схемой `SubmissionEvent`, `/cancel`, `GET /submissions`, артефакты, `/waveform`, `/captcha/challenge` — роуты-заглушки, `openapi.json`, TS-клиент, MSW-моки (включая записанные SSE-сценарии) | specs/05 §0 | T0.18 |
 | T1.1 | Очередь: Dramatiq ≥ 2.2, актор с `max_retries=0`, очереди `judge.light/heavy/rejudge` и лимиты слотов, постановка из API, позиция в очереди | ADR-0002 | T0.18 |
 | T1.2a | `apx-sandboxd`: создание контейнера с фиксированными флагами (runsc/runc), `exec` с PTY, копирование файлов, уничтожение процессов, удаление; тесты интерфейса; `SandboxExecutor` | ADR-0003, NFR-SEC-01 | T1.1, S6 |
-| T1.2b | Оркестратор: аренда и счётчик попыток, чистая директория на этап, кэш пакетов, артефакты и кэш бинарника в Garage, разбор выходов как недоверенных, ACL Valkey; `docs/security.md` | specs/07 §3, §5, NFR-SEC-03/10 | T1.2a |
+| T1.2b | Оркестратор: аренда и счётчик попыток, чистая директория на этап, кэш пакетов, артефакты в Garage, разбор выходов как недоверенных, ACL Valkey; `docs/security.md` | specs/07 §3, §5, NFR-SEC-03/10 | T1.2a |
+| T1.2c | Кэш бинарника симуляции в `build-cache`: этап `sim` делится на сборку и прогон, бинарник сохраняется до первого запуска, ключ `(code_hash, problem_version, toolchain_profile, design)`, `cached` у этапа | ADR-0003 | T1.3 |
 | T1.3 | События: `ValkeyStreamSink` (склейка, heartbeat, лимит вывода, `truncated`, `attempt`), стрим результатов с токеном задания | ADR-0008/0009, FR-JDG-08 | T1.2b |
 | T1.4 | Ингестор: consumer group, проверка токена, upsert этапов, вердикт, событие `finalized`, идемпотентность, watchdog-страховка, блокировка лидера | FR-JDG-07/09, NFR-REL-01/02 | T1.3 |
 | T1.5 | SSE-эндпоинт: один читатель стримов на процесс, `Last-Event-ID`, keepalive, переключение на журнал из хранилища | FR-CON-05/06 | T1.3 |
