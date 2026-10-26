@@ -17,13 +17,22 @@ import pytest
 import redis
 import zstandard
 from moto import mock_aws
+from stream_helpers import read_stream
 
 from apparatica_worker.orchestrator import Orchestrator
 from apparatica_worker.report import AttemptReport
 from apparatica_worker.sandboxd.client import SandboxdClient, SandboxExecutor
 from apparatica_worker.sandboxd.server import MAX_REQUEST, DockerCli, Policy, Sandboxd, repository
 from apparatica_worker.storage import ArtifactStore, PackageCache
-from judge.core.jobs import JudgeJob, lease_key
+from apparatica_worker.stream import ResultsStream
+from judge.core.jobs import (
+    RESULT_RECORD,
+    RESULTS_STREAM,
+    JudgeJob,
+    StageEndRecord,
+    lease_key,
+    submission_stream_key,
+)
 from judge.core.limits import SandboxLimits, load_resource_classes
 from judge.core.pack import content_hash, pack, package_files
 
@@ -92,12 +101,14 @@ def attempt(
         toolchain_image=IMAGE,
     )
     reports = Reports()
+    valkey = redis.Redis.from_url(valkey_url)
     orchestrator = Orchestrator(
-        valkey=redis.Redis.from_url(valkey_url),
+        valkey=valkey,
         packages=PackageCache(s3, "packages", tmp_path),
         artifacts=ArtifactStore(s3, "artifacts"),
         executor=lambda job, limits: SandboxExecutor(sandboxd, job.toolchain_image, limits),
         classes=load_resource_classes(ROOT / "config" / "resource-classes.yaml"),
+        results=ResultsStream(valkey),
         reporter=reports,
         owner="worker-test",
     )
@@ -127,8 +138,22 @@ def test_an_accepted_run(
     events = zstandard.ZstdDecompressor().decompress(
         read(s3, next(a.key for a in report.artifacts if a.kind == "events"))
     )
-    records = [json.loads(line) for line in io.BytesIO(events)]
-    assert records[-1] == {"type": "done", "attempt": 1}
+    journal = [json.loads(line) for line in io.BytesIO(events)]
+    assert journal[-1]["event"] == {"type": "done", "attempt": 1}
+    # The browser saw the same events under the same ids.
+    valkey = redis.Redis.from_url(valkey_url)
+    stream = read_stream(valkey, submission_stream_key(report.job.submission_id))
+    assert [(r["id"], r["event"]) for r in journal] == stream
+    logs = [r["event"] for r in journal if r["event"]["type"] == "log"]
+    assert logs
+    assert all(log["text"].endswith("\n") for log in logs)
+    # The ingestor got each stage result as it ended, with the job token.
+    records = [RESULT_RECORD.validate_python(r) for _, r in read_stream(valkey, RESULTS_STREAM)]
+    assert [(r.result.key, r.token) for r in records if isinstance(r, StageEndRecord)] == [
+        ("precheck", "v1.token"),
+        ("lint", "v1.token"),
+        ("sim_run", "v1.token"),
+    ]
 
 
 def test_a_wrong_answer_keeps_its_trace(

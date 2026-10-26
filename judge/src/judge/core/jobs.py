@@ -1,17 +1,19 @@
-"""The check the API hands to a worker through the queue (ADR-0002, specs/07 §3).
+"""The check the API hands to a worker through the queue and what the worker returns (ADR-0002,
+ADR-0008, ADR-0009, specs/07 §3, §4).
 
-The API and the worker share only this module: the API enqueues a Dramatiq message for the
-`judge_submission` actor without importing the worker. A worker has no access to the database, so
-the job carries everything a check needs.
+The API, the worker and the ingestor share only this module: the API enqueues a Dramatiq message
+for the `judge_submission` actor without importing the worker, the worker writes the events of a
+check to its submission stream and the results to `judge:results`. A worker has no access to the
+database, so the job carries everything a check needs and the results carry the job token.
 """
 
 import uuid
-from typing import Annotated
+from typing import Annotated, Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 from judge.core.package import Slug
-from judge.core.stage import SubmissionKind
+from judge.core.stage import StageResult, SubmissionKind
 
 ACTOR = "judge_submission"
 REJUDGE_QUEUE = "judge.rejudge"
@@ -33,6 +35,21 @@ def lease_key(submission_id: uuid.UUID) -> str:
 def attempts_key(submission_id: uuid.UUID) -> str:
     """How many times a worker started the check (INCR)."""
     return f"attempts:{submission_id}"
+
+
+# The events of a check (specs/07 §4.1): one stream per submission, each entry holds one JSON event
+# in the field `e`; the entry id is the SSE id. The ingestor shortens the TTL after `finalized`.
+SUBMISSION_STREAM_FIELD = "e"
+SUBMISSION_STREAM_MAXLEN = 5000  # approximate (MAXLEN ~)
+SUBMISSION_STREAM_TTL_S = 86400  # a stream whose check was never finalized does not stay forever
+
+# The results of all checks for the ingestor (ADR-0009): each entry holds one JSON record in `r`.
+RESULTS_STREAM = "judge:results"
+RESULTS_STREAM_FIELD = "r"
+
+
+def submission_stream_key(submission_id: uuid.UUID) -> str:
+    return f"sub:{submission_id}"
 
 
 def queue_name(resource_class: str, *, rejudge: bool = False) -> str:
@@ -62,3 +79,56 @@ class JudgeJob(BaseModel):
     code: str
     toolchain_profile: str
     toolchain_image: str = Field(description="Image with its digest: <image>@sha256:<digest>")
+
+
+class _Record(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    submission_id: uuid.UUID
+    attempt: Annotated[int, Field(ge=1)]
+    token: str = Field(description="The job token of the check: the ingestor verifies it")
+
+
+# tb_result holds the expected values of hidden tests: stored, never offered (specs/07 §4.4).
+ArtifactKind = Literal["log", "events", "fst", "tb_result"]
+
+
+class StoredArtifact(BaseModel):
+    """A file of an attempt in the `artifacts` bucket (`artifacts`, specs/04 §4)."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    kind: ArtifactKind
+    stage: str | None
+    key: str
+    size_bytes: Annotated[int, Field(ge=0)]
+    sha256: str
+
+
+class StageEndRecord(_Record):
+    """A stage finished: partial results are stored as they come."""
+
+    type: Literal["stage_end"] = "stage_end"
+    result: StageResult
+
+
+class DoneRecord(_Record):
+    """The pipeline finished: every stage result of the attempt and its artifacts. The ingestor
+    aggregates the verdict from it; `stage_end` records before it may have been lost."""
+
+    type: Literal["done"] = "done"
+    results: tuple[StageResult, ...]
+    artifacts: tuple[StoredArtifact, ...]
+
+
+class AttemptFailedRecord(_Record):
+    """The pipeline did not run (no attempts left, no package, no sandbox): internal_error."""
+
+    type: Literal["attempt_failed"] = "attempt_failed"
+    error_code: str
+
+
+type ResultRecord = Annotated[
+    StageEndRecord | DoneRecord | AttemptFailedRecord, Field(discriminator="type")
+]
+RESULT_RECORD: TypeAdapter[ResultRecord] = TypeAdapter(ResultRecord)

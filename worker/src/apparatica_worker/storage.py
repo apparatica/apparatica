@@ -9,7 +9,6 @@ import shutil
 import tempfile
 import threading
 import uuid
-from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from typing import TYPE_CHECKING, Any
@@ -18,7 +17,7 @@ import structlog
 import zstandard
 from botocore.exceptions import BotoCoreError, ClientError
 
-from judge.core.jobs import JudgeJob
+from judge.core.jobs import ArtifactKind, JudgeJob, StoredArtifact
 from judge.core.pack import PackError, content_hash, unpack
 
 if TYPE_CHECKING:
@@ -92,15 +91,6 @@ class PackageCache:
         log.info("package cached", package=job.package_uri, content_hash=job.content_hash)
 
 
-@dataclass(frozen=True)
-class StoredArtifact:
-    kind: str  # log, events, fst, tb_result (specs/04 §4)
-    stage: str | None
-    key: str
-    size_bytes: int
-    sha256: str
-
-
 def artifact_key(submission_id: uuid.UUID, attempt: int, name: str) -> str:
     """`<yyyy>/<mm>/<submission_id>/<attempt>/<name>` (specs/07 §4.4): the month of the submission,
     read from its UUIDv7, so that every attempt of a check lands in one place."""
@@ -121,7 +111,7 @@ class ArtifactStore:
         self,
         job: JudgeJob,
         attempt: int,
-        kind: str,
+        kind: ArtifactKind,
         stage: str | None,
         name: str,
         data: bytes,
@@ -131,4 +121,10 @@ class ArtifactStore:
         self._s3.put_object(
             Bucket=self._bucket, Key=key, Body=data, ContentType="application/octet-stream"
         )
-        return StoredArtifact(kind, stage, key, len(data), hashlib.sha256(data).hexdigest())
+        return StoredArtifact(
+            kind=kind,
+            stage=stage,
+            key=key,
+            size_bytes=len(data),
+            sha256=hashlib.sha256(data).hexdigest(),
+        )

@@ -19,10 +19,11 @@ from dramatiq import Broker, Worker
 from apparatica_worker.broker import Handler, create_broker, declare_actor
 from apparatica_worker.logging import configure_logging
 from apparatica_worker.orchestrator import Orchestrator
-from apparatica_worker.report import LogReporter
+from apparatica_worker.report import StreamReporter
 from apparatica_worker.sandboxd.client import SandboxdClient, SandboxExecutor
 from apparatica_worker.settings import WorkerSettings
 from apparatica_worker.storage import ArtifactStore, PackageCache
+from apparatica_worker.stream import ResultsStream
 from judge.core.jobs import REJUDGE_QUEUE
 from judge.core.limits import load_resource_classes
 
@@ -70,13 +71,17 @@ def create_orchestrator(settings: WorkerSettings) -> Orchestrator:
         aws_secret_access_key=secret.get_secret_value() if secret else None,
         config=Config(s3={"addressing_style": "path"}, retries={"mode": "standard"}),
     )
+    # A hung Valkey must fail a write, not block the pipeline that emits events.
+    valkey = redis.Redis.from_url(settings.queue_url, socket_timeout=5, socket_connect_timeout=5)
+    results = ResultsStream(valkey)
     return Orchestrator(
-        valkey=redis.Redis.from_url(settings.queue_url),
+        valkey=valkey,
         packages=PackageCache(s3, settings.s3_bucket_packages, settings.package_cache),
         artifacts=ArtifactStore(s3, settings.s3_bucket_artifacts),
         executor=lambda job, limits: SandboxExecutor(sandboxd, job.toolchain_image, limits),
         classes=load_resource_classes(settings.resource_classes),
-        reporter=LogReporter(),
+        results=results,
+        reporter=StreamReporter(results),
         owner=settings.worker_id,
     )
 

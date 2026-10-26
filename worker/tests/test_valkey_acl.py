@@ -1,6 +1,7 @@
 """The users of valkey-queue (deploy/valkey/queue-users.acl.in): the API and the worker do their
 work with them and nothing else (specs/07 §5.3)."""
 
+import json
 import os
 import threading
 import time
@@ -20,11 +21,20 @@ from testcontainers.community.redis import RedisContainer
 
 from apparatica_worker.main import run
 from apparatica_worker.orchestrator import Orchestrator
-from apparatica_worker.report import SANDBOX_UNAVAILABLE, AttemptReport
+from apparatica_worker.report import SANDBOX_UNAVAILABLE, AttemptReport, StreamReporter
 from apparatica_worker.settings import WorkerSettings
 from apparatica_worker.storage import ArtifactStore, PackageCache
+from apparatica_worker.stream import ResultsStream, ValkeyStreamSink
+from judge.core.events import DoneEvent
 from judge.core.executor import ExecutorError
-from judge.core.jobs import ACTOR, JudgeJob, position_key
+from judge.core.jobs import (
+    ACTOR,
+    RESULTS_STREAM,
+    AttemptFailedRecord,
+    JudgeJob,
+    position_key,
+    submission_stream_key,
+)
 from judge.core.limits import SandboxLimits, load_resource_classes
 from judge.core.pack import content_hash, pack, package_files
 from judge.core.stage import ExecResult
@@ -118,17 +128,27 @@ def test_the_users_do_their_work(server: tuple[str, str], tmp_path: Path) -> Non
     broker.close()
 
     reports: list[AttemptReport] = []
+    worker = redis.Redis.from_url(worker_url)
+    results = ResultsStream(worker, retries=1)
+    reporter = StreamReporter(results)
+
+    class Reports:
+        def report(self, report: AttemptReport) -> None:
+            reporter.report(report)
+            reports.append(report)
+
     with mock_aws():
         s3: S3Client = boto3.client("s3", region_name="us-east-1")
         s3.create_bucket(Bucket="packages")
         s3.put_object(Bucket="packages", Key="mux4/1.tar.zst", Body=pack(files))
         orchestrator = Orchestrator(
-            valkey=redis.Redis.from_url(worker_url),
+            valkey=worker,
             packages=PackageCache(s3, "packages", tmp_path),
             artifacts=ArtifactStore(s3, "artifacts"),
             executor=NoSandbox,
             classes=load_resource_classes(ROOT / "config" / "resource-classes.yaml"),
-            reporter=type("Reports", (), {"report": lambda self, r: reports.append(r)})(),
+            results=results,
+            reporter=Reports(),
             owner="worker-acl",
         )
         stop = threading.Event()
@@ -145,6 +165,19 @@ def test_the_users_do_their_work(server: tuple[str, str], tmp_path: Path) -> Non
     # The worker took the job, its position, its lease and its attempt; only the sandbox failed.
     assert [(r.attempt, r.error_code) for r in reports] == [(1, SANDBOX_UNAVAILABLE)]
     assert api.zrank(position_key("judge.light"), str(job.submission_id)) is None
+    # It writes results and events; the streams are not its to read.
+    assert results.write(
+        AttemptFailedRecord(submission_id=job.submission_id, attempt=1, token="t", error_code="X")
+    )
+    with ValkeyStreamSink(worker, job, 1) as sink:
+        sink.emit(DoneEvent())
+    assert json.loads(sink.journal[0])["id"] is not None
+    for read in (
+        lambda: worker.xrange(RESULTS_STREAM),
+        lambda: worker.xread({submission_stream_key(job.submission_id): 0}),
+    ):
+        with pytest.raises(redis.exceptions.NoPermissionError):
+            read()
 
 
 @pytest.mark.parametrize(
@@ -157,6 +190,7 @@ def test_the_users_do_their_work(server: tuple[str, str], tmp_path: Path) -> Non
         ("worker", lambda r: r.config_get("*")),
         ("api", lambda r: r.set("lease:1", "x")),
         ("api", lambda r: r.incr("attempts:1")),
+        ("api", lambda r: r.xadd("judge:results", {"r": "{}"})),  # a forged result
         ("default", lambda r: r.get("queue:judge.light")),
     ],
     ids=[
@@ -167,6 +201,7 @@ def test_the_users_do_their_work(server: tuple[str, str], tmp_path: Path) -> Non
         "config",
         "lease",
         "attempts",
+        "results",
         "default",
     ],
 )

@@ -9,4 +9,4 @@ APX_SANDBOXD_RUNTIME=runc APX_SANDBOXD_SOCKET=/tmp/sandboxd.sock poetry -C worke
 
 `apx-sandboxd` — демон песочницы на хосте воркера ([architecture.md](../docs/architecture.md#песочница-apx-sandboxd)), единственный процесс с доступом к Docker. Он слушает unix-сокет, поэтому на Windows не запускается; его тесты поднимают его на `127.0.0.1`. Тесты против образа тулчейна (`-m image`) запускает `just toolchain-test`.
 
-Устройство — [docs/architecture.md](../docs/architecture.md#очередь-проверок) (очередь, [оркестратор](../docs/architecture.md#оркестратор)), безопасность — [docs/security.md](../docs/security.md), настройки — [docs/configuration.md](../docs/configuration.md#воркер), разработка — [docs/development.md](../docs/development.md#воркер).
+Устройство — [docs/architecture.md](../docs/architecture.md#очередь-проверок) (очередь, [оркестратор](../docs/architecture.md#оркестратор), [стримы](../docs/architecture.md#стримы-проверки)), безопасность — [docs/security.md](../docs/security.md), настройки — [docs/configuration.md](../docs/configuration.md#воркер), разработка — [docs/development.md](../docs/development.md#воркер).

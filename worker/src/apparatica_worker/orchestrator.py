@@ -2,12 +2,13 @@
 
 Lease and attempt count first: a duplicate message is dropped, and a check that already used its
 attempts ends with internal_error without running. Then the package from the cache, a sandbox of
-apx-sandboxd, the pipeline of the judge, the artifacts to the storage and the report.
+apx-sandboxd, the pipeline of the judge with its events in `sub:<id>` and its stage results in
+`judge:results`, the artifacts to the storage and the report.
 """
 
 import threading
 from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 import redis
 import structlog
@@ -19,20 +20,21 @@ from apparatica_worker.report import (
     PACKAGE_UNAVAILABLE,
     SANDBOX_UNAVAILABLE,
     AttemptReport,
-    NullSink,
     RecordingSink,
     Reporter,
 )
-from apparatica_worker.storage import (
-    STORAGE_ERRORS,
-    ArtifactStore,
-    PackageCache,
-    PackageError,
-    StoredArtifact,
-)
-from judge.core.events import EventSink
+from apparatica_worker.storage import STORAGE_ERRORS, ArtifactStore, PackageCache, PackageError
+from apparatica_worker.stream import ResultsSink, ResultsStream, ValkeyStreamSink
+from judge.core.events import FanoutSink
 from judge.core.executor import Executor, ExecutorError
-from judge.core.jobs import ATTEMPT_MAX, JudgeJob, attempts_key, position_key
+from judge.core.jobs import (
+    ATTEMPT_MAX,
+    ArtifactKind,
+    JudgeJob,
+    StoredArtifact,
+    attempts_key,
+    position_key,
+)
 from judge.core.limits import ResourceClasses, SandboxLimits, sandbox_limits
 from judge.core.package import ManifestError, load_manifest
 from judge.core.pipeline import Job, PipelineConfigError, run_pipeline
@@ -44,10 +46,9 @@ log = structlog.get_logger(__name__)
 ATTEMPTS_TTL_S = 7 * 86400  # longer than any check waits and runs
 # Files the stages keep for the user, by name (StageOutcome.artifacts), and their artifact kind.
 # tb_result holds the expected values of hidden tests: stored, never offered (specs/07 §4.4).
-ARTIFACT_KINDS = {"trace.fst": "fst", "tb_result.jsonl": "tb_result"}
+ARTIFACT_KINDS: dict[str, ArtifactKind] = {"trace.fst": "fst", "tb_result.jsonl": "tb_result"}
 
 ExecutorFactory = Callable[[JudgeJob, SandboxLimits], Executor]
-SinkFactory = Callable[[JudgeJob, int], EventSink]
 
 
 @dataclass
@@ -57,9 +58,9 @@ class Orchestrator:
     artifacts: ArtifactStore
     executor: ExecutorFactory  # SandboxExecutor of apx-sandboxd
     classes: ResourceClasses
-    reporter: Reporter
+    results: ResultsStream  # stage results as the stages end
+    reporter: Reporter  # the attempt: StreamReporter of the same stream
     owner: str  # this worker, the value of its leases
-    sink: SinkFactory = field(default=lambda job, attempt: NullSink())  # the event stream (T1.3)
 
     def __call__(self, job: JudgeJob, queue: str) -> None:
         submission = str(job.submission_id)
@@ -88,24 +89,25 @@ class Orchestrator:
             log.error("package unavailable", submission_id=str(job.submission_id), error=str(error))
             return AttemptReport(job, attempt, error_code=PACKAGE_UNAVAILABLE)
 
-        sink = RecordingSink(attempt, self.sink(job, attempt))
-        files: dict[tuple[str, str], bytes] = {}
         executor = self.executor(job, limits)
         try:
             executor.__enter__()
         except ExecutorError as error:
             log.error("sandbox unavailable", submission_id=str(job.submission_id), error=str(error))
             return AttemptReport(job, attempt, error_code=SANDBOX_UNAVAILABLE)
+        console = RecordingSink()
+        files: dict[tuple[str, str], bytes] = {}
         try:
-            results = run_pipeline(
-                Job(problem, package, job.kind, job.seed, job.code.encode()),
-                language,
-                executor,
-                sink,
-                self.classes,
-                cancel,
-                on_artifact=lambda stage, name, data: files.__setitem__((stage, name), data),
-            )
+            with ValkeyStreamSink(self.valkey, job, attempt) as stream:
+                results = run_pipeline(
+                    Job(problem, package, job.kind, job.seed, job.code.encode()),
+                    language,
+                    executor,
+                    FanoutSink(console, stream, ResultsSink(self.results, job, attempt)),
+                    self.classes,
+                    cancel,
+                    on_artifact=lambda stage, name, data: files.__setitem__((stage, name), data),
+                )
         except PipelineConfigError as error:  # the package passed validation: a platform failure
             log.error(
                 "pipeline not runnable", submission_id=str(job.submission_id), error=str(error)
@@ -116,7 +118,7 @@ class Orchestrator:
                 executor.__exit__(None, None, None)
             except ExecutorError as error:  # apx-sandboxd removes it when its lifetime ends
                 log.warning("sandbox not destroyed", error=str(error))
-        artifacts = self._store(job, attempt, results, sink, files)
+        artifacts = self._store(job, attempt, results, console, stream.journal, files)
         return AttemptReport(job, attempt, tuple(results), artifacts)
 
     def _store(
@@ -124,18 +126,19 @@ class Orchestrator:
         job: JudgeJob,
         attempt: int,
         results: list[StageResult],
-        sink: RecordingSink,
+        console: RecordingSink,
+        events: list[bytes],
         files: dict[tuple[str, str], bytes],
     ) -> tuple[StoredArtifact, ...]:
         """Logs, events and the files of the stages. A file that cannot be stored is a lost
         artifact, not a lost check: the results stand."""
         compress = zstandard.ZstdCompressor(level=10).compress
-        uploads: list[tuple[str, str | None, str, bytes]] = [
-            ("log", r.key, f"logs/{r.key}.log.zst", compress(sink.log_text(r.key)))
+        uploads: list[tuple[ArtifactKind, str | None, str, bytes]] = [
+            ("log", r.key, f"logs/{r.key}.log.zst", compress(console.log_text(r.key)))
             for r in results
             if r.started_at is not None
         ]
-        uploads.append(("events", None, "events.jsonl.zst", compress(b"".join(sink.events))))
+        uploads.append(("events", None, "events.jsonl.zst", compress(b"".join(events))))
         for (key, file), data in sorted(files.items()):
             known = ARTIFACT_KINDS.get(file)
             if known is None:

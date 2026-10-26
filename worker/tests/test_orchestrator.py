@@ -13,6 +13,7 @@ import boto3
 import pytest
 import redis
 from moto import mock_aws
+from stream_helpers import read_stream
 
 from apparatica_worker.lease import Lease
 from apparatica_worker.orchestrator import Orchestrator
@@ -21,10 +22,20 @@ from apparatica_worker.report import (
     PACKAGE_UNAVAILABLE,
     SANDBOX_UNAVAILABLE,
     AttemptReport,
+    StreamReporter,
 )
 from apparatica_worker.storage import ArtifactStore, PackageCache, PackageError, artifact_key
+from apparatica_worker.stream import ResultsStream
 from judge.core.executor import ExecutorError
-from judge.core.jobs import JudgeJob, attempts_key, lease_key, position_key
+from judge.core.jobs import (
+    RESULT_RECORD,
+    RESULTS_STREAM,
+    AttemptFailedRecord,
+    JudgeJob,
+    attempts_key,
+    lease_key,
+    position_key,
+)
 from judge.core.limits import SandboxLimits, load_resource_classes
 from judge.core.pack import content_hash, pack, package_files
 from judge.core.stage import ExecResult
@@ -102,12 +113,14 @@ def job(**fields: Any) -> JudgeJob:
 def orchestrator(valkey_url: str, s3: "S3Client", tmp_path: Path) -> Orchestrator:
     s3.put_object(Bucket="packages", Key="mux4/1-abc.tar.zst", Body=pack(package_files(MUX4)))
     BrokenSandbox.created = []
+    valkey = redis.Redis.from_url(valkey_url)
     return Orchestrator(
-        valkey=redis.Redis.from_url(valkey_url),
+        valkey=valkey,
         packages=PackageCache(s3, "packages", tmp_path / "packages"),
         artifacts=ArtifactStore(s3, "artifacts"),
         executor=BrokenSandbox,
         classes=CLASSES,
+        results=ResultsStream(valkey),
         reporter=Reports(),
         owner="worker-a",
     )
@@ -131,6 +144,19 @@ def test_an_attempt_takes_the_job_off_the_queue(orchestrator: Orchestrator) -> N
     assert valkey.get(lease_key(payload.submission_id)) is None  # released
     assert int(valkey.get(attempts_key(payload.submission_id)) or 0) == 1
     assert valkey.ttl(attempts_key(payload.submission_id)) > 0
+
+
+def test_a_failed_attempt_goes_to_the_ingestor(orchestrator: Orchestrator) -> None:
+    orchestrator.reporter = StreamReporter(orchestrator.results)
+    payload = job()
+    orchestrator(payload, "judge.light")
+    [(_, record)] = read_stream(orchestrator.valkey, RESULTS_STREAM)
+    assert RESULT_RECORD.validate_python(record) == AttemptFailedRecord(
+        submission_id=payload.submission_id,
+        attempt=1,
+        token=payload.token,
+        error_code=SANDBOX_UNAVAILABLE,
+    )
 
 
 def test_a_duplicate_message_is_dropped(orchestrator: Orchestrator) -> None:

@@ -3,7 +3,16 @@ import uuid
 import pytest
 from pydantic import ValidationError
 
-from judge.core.jobs import QUEUES, JudgeJob, attempts_key, lease_key, position_key, queue_name
+from judge.core.jobs import (
+    QUEUES,
+    RESULTS_STREAM,
+    JudgeJob,
+    attempts_key,
+    lease_key,
+    position_key,
+    queue_name,
+    submission_stream_key,
+)
 
 JOB = {
     "submission_id": str(uuid.uuid4()),
@@ -32,6 +41,8 @@ def test_queues_follow_the_resource_class() -> None:
         f"lease:{submission}",
         f"attempts:{submission}",
     )
+    assert submission_stream_key(submission) == f"sub:{submission}"
+    assert RESULTS_STREAM == "judge:results"
     with pytest.raises(KeyError):
         queue_name("huge")
 

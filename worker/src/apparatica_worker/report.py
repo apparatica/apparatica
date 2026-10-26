@@ -1,19 +1,18 @@
 """What a worker reports of an attempt and how it records its console (specs/07 §4).
 
-The ingestor turns a report into stage rows, artifacts and the verdict (ADR-0009). Until the results
-stream arrives (T1.3) the report is only logged.
+The ingestor turns a report into stage rows, artifacts and the verdict (ADR-0009): the report goes
+to `judge:results` as `done` or, when the pipeline did not run, `attempt_failed`.
 """
 
-import json
 from collections import defaultdict
 from dataclasses import dataclass
 from typing import Protocol
 
 import structlog
 
-from apparatica_worker.storage import StoredArtifact
-from judge.core.events import EVENT, Event, EventSink, LogEvent
-from judge.core.jobs import JudgeJob
+from apparatica_worker.stream import ResultsStream
+from judge.core.events import Event, LogEvent
+from judge.core.jobs import AttemptFailedRecord, DoneRecord, JudgeJob, StoredArtifact
 from judge.core.stage import StageResult
 
 log = structlog.get_logger(__name__)
@@ -37,8 +36,11 @@ class Reporter(Protocol):
     def report(self, report: AttemptReport) -> None: ...
 
 
-class LogReporter:
-    """Until T1.3: the report goes to the log only."""
+class StreamReporter:
+    """The report to the ingestor through `judge:results`, and to the log."""
+
+    def __init__(self, results: ResultsStream) -> None:
+        self._results = results
 
     def report(self, report: AttemptReport) -> None:
         log.info(
@@ -49,29 +51,35 @@ class LogReporter:
             stages={result.key: result.status for result in report.results},
             artifacts=[artifact.key for artifact in report.artifacts],
         )
-
-
-class NullSink:
-    def emit(self, event: Event) -> None:
-        pass
+        job, attempt = report.job, report.attempt
+        record: AttemptFailedRecord | DoneRecord
+        if report.error_code is not None:
+            record = AttemptFailedRecord(
+                submission_id=job.submission_id,
+                attempt=attempt,
+                token=job.token,
+                error_code=report.error_code,
+            )
+        else:
+            record = DoneRecord(
+                submission_id=job.submission_id,
+                attempt=attempt,
+                token=job.token,
+                results=report.results,
+                artifacts=report.artifacts,
+            )
+        self._results.write(record, final=True)
 
 
 class RecordingSink:
-    """Keeps the console of each stage and every event of the attempt for the artifacts
-    (`logs/<stage>.log`, `events.jsonl`), and passes the events on."""
+    """Keeps the console of each stage for the artifacts (`logs/<stage>.log`)."""
 
-    def __init__(self, attempt: int, inner: EventSink) -> None:
-        self._attempt = attempt
-        self._inner = inner
+    def __init__(self) -> None:
         self.logs: dict[str, list[str]] = defaultdict(list)
-        self.events: list[bytes] = []
 
     def emit(self, event: Event) -> None:
         if isinstance(event, LogEvent):
             self.logs[event.stage].append(event.text)
-        record = json.loads(EVENT.dump_json(event)) | {"attempt": self._attempt}
-        self.events.append(json.dumps(record, ensure_ascii=False).encode() + b"\n")
-        self._inner.emit(event)
 
     def log_text(self, stage: str) -> bytes:
         return "".join(line + "\n" for line in self.logs.get(stage, ())).encode()
