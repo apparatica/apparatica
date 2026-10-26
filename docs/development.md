@@ -235,6 +235,15 @@ APX_QUEUE_URL=redis://worker:<пароль>@localhost:6379/0 APX_SANDBOXD_SOCKET
 
 Он берёт проверки из очередей `valkey-queue` (на стенде с `compose.dev.yaml` — `localhost:6379`, пользователь `worker`, пароль `VALKEY_QUEUE_WORKER_PASSWORD`) до Ctrl+C или SIGTERM; начатые проверки при остановке доводятся до конца. Настройки — [configuration.md](configuration.md#воркер).
 
+### Ингестор
+
+```sh
+APX_QUEUE_URL=redis://ingest:<пароль>@localhost:6379/0 APX_JOB_TOKEN_KEY=<ключ API> \
+  APX_CONFIG_DIR=../config poetry -C backend run apparatica ingest
+```
+
+Переносит результаты проверок из `judge:results` в Postgres до Ctrl+C или SIGTERM ([architecture.md](architecture.md#ingest)). Ключ токенов должен совпадать с ключом API, иначе ингестор отбросит все результаты; на стенде он задан в `deploy/compose.yaml` (`APX_JOB_TOKEN_KEY`), пароль пользователя — `VALKEY_QUEUE_INGEST_PASSWORD`.
+
 Тесты воркера, которым нужны Docker и образ тулчейна (`-m image`: песочница, оркестратор), запускает `just toolchain-test`; под gVisor — с `JUDGE_SANDBOX_RUNTIME=runsc`. Остальные (`just test`) работают с Valkey в контейнере и S3 через moto.
 
 ## Судья: CLI `judge`

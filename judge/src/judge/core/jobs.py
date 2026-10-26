@@ -42,6 +42,7 @@ def attempts_key(submission_id: uuid.UUID) -> str:
 SUBMISSION_STREAM_FIELD = "e"
 SUBMISSION_STREAM_MAXLEN = 5000  # approximate (MAXLEN ~)
 SUBMISSION_STREAM_TTL_S = 86400  # a stream whose check was never finalized does not stay forever
+SUBMISSION_STREAM_FINAL_TTL_S = 600  # after `finalized`: then the SSE endpoint reads the journal
 
 # The results of all checks for the ingestor (ADR-0009): each entry holds one JSON record in `r`.
 RESULTS_STREAM = "judge:results"
@@ -105,6 +106,13 @@ class StoredArtifact(BaseModel):
     sha256: str
 
 
+class AttemptStartedRecord(_Record):
+    """A worker took the check and started this attempt: the submission is running, and the
+    stage results of an earlier attempt are void."""
+
+    type: Literal["attempt_started"] = "attempt_started"
+
+
 class StageEndRecord(_Record):
     """A stage finished: partial results are stored as they come."""
 
@@ -129,6 +137,7 @@ class AttemptFailedRecord(_Record):
 
 
 type ResultRecord = Annotated[
-    StageEndRecord | DoneRecord | AttemptFailedRecord, Field(discriminator="type")
+    AttemptStartedRecord | StageEndRecord | DoneRecord | AttemptFailedRecord,
+    Field(discriminator="type"),
 ]
 RESULT_RECORD: TypeAdapter[ResultRecord] = TypeAdapter(ResultRecord)

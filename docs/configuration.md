@@ -1,6 +1,6 @@
 # Конфигурация
 
-Как настраивается бэкенд (`api`, позже `ingest`): переменные окружения, файлы `config/`, feature flags. Судья и его классы ресурсов — в [judge.md](judge.md).
+Как настраивается бэкенд (`api` и `ingest`): переменные окружения, файлы `config/`, feature flags. Судья и его классы ресурсов — в [judge.md](judge.md).
 
 ## Переменные окружения
 
@@ -10,7 +10,7 @@
 |---|---|---|
 | `APX_ENVIRONMENT` | `development` | `development`, `test` или `production` |
 | `APX_DATABASE_URL` | `postgresql+asyncpg://apparatica:apparatica@localhost:5432/apparatica` | URL SQLAlchemy с асинхронным драйвером (`postgresql+asyncpg://…`) |
-| `APX_CONFIG_DIR` | `config` | каталог с `difficulties.yaml` и `limits.yaml`, относительно рабочего каталога процесса |
+| `APX_CONFIG_DIR` | `config` | каталог файлов `config/` (ниже), относительно рабочего каталога процесса |
 | `APX_LOG_LEVEL` | `INFO` | `DEBUG`, `INFO`, `WARNING`, `ERROR` |
 | `APX_LOG_FORMAT` | `console` | `json` — одна JSON-запись на строку (production), `console` — читаемые строки |
 | `APX_FEATURE_FLAGS_TTL_S` | `30` | сколько секунд процесс кэширует feature flags |
@@ -19,9 +19,10 @@
 | `APX_S3_REGION` | `garage` | регион S3; Garage принимает тот, что задан в его конфигурации |
 | `APX_S3_ACCESS_KEY_ID`, `APX_S3_SECRET_ACCESS_KEY` | — | ключ доступа к бакетам |
 | `APX_S3_BUCKET_PACKAGES` | `packages` | бакет пакетов задач; в него пишет `apparatica-admin problems import` |
-| `APX_JOB_TOKEN_KEY` | — | ключ подписи токенов заданий (не короче 32 символов, [api.md](api.md#отправки-ф0)); общий у API и ингестора. Обязателен в `production`, иначе API не стартует; в других окружениях без него процесс берёт случайный ключ |
+| `APX_JOB_TOKEN_KEY` | — | ключ подписи токенов заданий (не короче 32 символов, [api.md](api.md#отправки-ф0)); общий у API и ингестора. API без него не стартует в `production`, а в других окружениях берёт случайный ключ; ингестор без него не стартует никогда |
 | `APX_JOB_TOKEN_TTL_S` | `86400` | срок жизни токена задания: ожидание в очереди и все попытки проверки |
-| `APX_QUEUE_URL` | — | `redis://` адрес `valkey-queue`: брокер Dramatiq и позиции в очереди ([architecture.md](architecture.md#очередь-проверок)). Обязателен в `production`; в других окружениях без него проверки только пишутся в лог и остаются в очереди |
+| `APX_QUEUE_URL` | — | `redis://` адрес `valkey-queue`: брокер Dramatiq и позиции в очереди ([architecture.md](architecture.md#очередь-проверок)). Обязателен в `production`; в других окружениях без него проверки только пишутся в лог и остаются в очереди. Ингестору нужен всегда, с пользователем `ingest` ([security.md](security.md#права-компонентов)) |
+| `APX_INGEST_CONSUMER` | `<hostname>:<pid>` | имя экземпляра ингестора в группе `ingest` стрима `judge:results` |
 
 Неизвестные переменные с префиксом игнорируются. Секреты (пароль БД в URL, ключи хранилища, ключ токенов заданий, позже OAuth) передаются только переменными окружения и в репозиторий не попадают.
 
@@ -68,6 +69,7 @@
 | `difficulties.yaml` | API → `GET /config` | уровни сложности: `key` (значение `difficulty` в `problem.yaml`), подпись, цветовой токен (`e` — пара `--e`/`--es`); порядок в файле — порядок сортировки каталога (FR-CAT-05) |
 | `limits.yaml` | API → `GET /config`; проверка — с T1.x | размер решения (`solution.max_bytes`, `max_lines`) и квоты гостя и пользователя: проверок в час, одновременных, тяжёлых в сутки, перезаписей волн в час (specs/07 §3) |
 | `resource-classes.yaml` | судья | лимиты песочницы и этапов по классам `light`/`heavy` ([judge.md](judge.md#лимиты)) |
+| `retention.yaml` | ингестор | сроки хранения артефактов в днях по виду отправки (`run`, `submit`) и виду файла (`log`, `events`, `fst`, `tb_result`); `null` — бессрочно (specs/07 §4.4) |
 
 ## Feature flags
 

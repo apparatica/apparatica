@@ -67,7 +67,8 @@ S1–S8 — [spikes-and-risks.md](spikes-and-risks.md). До начала Ф1 н
 | T1.2b | Оркестратор: аренда и счётчик попыток, чистая директория на этап, кэш пакетов, артефакты в Garage, разбор выходов как недоверенных, ACL Valkey; `docs/security.md` | specs/07 §3, §5, NFR-SEC-03/10 | T1.2a |
 | T1.2c | Кэш бинарника симуляции в `build-cache`: этап `sim` делится на сборку и прогон, бинарник сохраняется до первого запуска, ключ `(code_hash, problem_version, toolchain_profile, design)`, `cached` у этапа | ADR-0003 | T1.3 |
 | T1.3 | События: `ValkeyStreamSink` (склейка, heartbeat, лимит вывода, `truncated`, `attempt`), стрим результатов с токеном задания | ADR-0008/0009, FR-JDG-08 | T1.2b |
-| T1.4 | Ингестор: consumer group, проверка токена, upsert этапов, вердикт, событие `finalized`, идемпотентность, watchdog-страховка, блокировка лидера | FR-JDG-07/09, NFR-REL-01/02 | T1.3 |
+| T1.4a | Ингестор: consumer group, проверка токена, запись `attempt_started` от воркера, upsert этапов и артефактов (`expires_at` по `config/retention.yaml`), вердикт, событие `finalized`, идемпотентность, `apparatica ingest`, ACL-пользователь `ingest` | FR-JDG-07, NFR-REL-02 | T1.3 |
+| T1.4b | Ингестор: блокировка лидера, watchdog-страховка, сроки хранения артефактов (`purged_at`), сервис `ingest` в compose | FR-JDG-09, NFR-REL-01 | T1.4a |
 | T1.5 | SSE-эндпоинт: один читатель стримов на процесс, `Last-Event-ID`, keepalive, переключение на журнал из хранилища | FR-CON-05/06 | T1.3 |
 | T1.6 | Отмена и вытеснение Run; `POST /cancel` | FR-JDG-10, FR-RUN-07 | T1.2b |
 | T1.7 | Гость и лимиты: cookie `ap_guest`, rate limit (`limits` + valkey-cache), квоты проверок и перезаписи волн, `GET /submissions` для гостя, ALTCHA | FR-GST-01/04/05, NFR-SEC-06 | T0.18 |
@@ -86,7 +87,7 @@ S1–S8 — [spikes-and-risks.md](spikes-and-risks.md). До начала Ф1 н
 | T1.19 | Ошибки и уведомления: 404/500/сеть/«ничего не найдено», toast о завершении | FR-RUN-08 | T1.12 |
 | T1.20 | Мобильные каталог и условие, нижняя навигация | FR-MOB-01/02 | T1.12, T1.13 |
 | T1.21 | Воркер в compose; e2e «гость решает задачу» (Playwright + axe) | specs/09 §4.4 | T1.17, T1.18 |
-| T1.22 | Метрики Prometheus для API, воркера, ингестора; дашборд Grafana очередей | NFR-OBS-01/02 | T1.4 |
+| T1.22 | Метрики Prometheus для API, воркера, ингестора; дашборд Grafana очередей | NFR-OBS-01/02 | T1.4a |
 | T1.23 | Инфраструктура staging: описание серверов кодом (Ansible), установка Docker + gVisor + `apx-sandboxd` на VPS воркера, Caddy с TLS, отдельный поддомен для Surfer, CSP и заголовки безопасности, деплой из CI; `docs/deployment.md` | NFR-SEC-07, specs/09 §1 | T1.2a, T0.19 |
 
 **Готовность Ф1:** e2e «гость решает задачу» зелёный на staging с gVisor; Run p50 < 10 с на FIFO (NFR-PERF-01); все доступные в Ф1 состояния specs/08 §3 воспроизводятся сценариями; набор безопасности проходит.
@@ -212,4 +213,4 @@ S1–S8 — [spikes-and-risks.md](spikes-and-risks.md). До начала Ф1 н
 
 ## Критический путь
 
-S5/S7 → T0.5/T0.7a → T0.9 → T0.10 → T0.13 … S6 → T1.2a → T1.2b → T1.3 → T1.4/T1.5 → T1.14 → T1.15a → T1.17 → T1.21 → Ф2 → S4 → T3.1a → T3.1b → T3.2 → T3.4 → публичная бета. Фронтенд Ф1 (T1.9–T1.13) идёт параллельно с бэкендом по контракту OpenAPI; S4 выполняется параллельно с Ф1–Ф2.
+S5/S7 → T0.5/T0.7a → T0.9 → T0.10 → T0.13 … S6 → T1.2a → T1.2b → T1.3 → T1.4a/T1.5 → T1.14 → T1.15a → T1.17 → T1.21 → Ф2 → S4 → T3.1a → T3.1b → T3.2 → T3.4 → публичная бета. Фронтенд Ф1 (T1.9–T1.13) идёт параллельно с бэкендом по контракту OpenAPI; S4 выполняется параллельно с Ф1–Ф2.

@@ -121,5 +121,5 @@ def _job_token_key(settings: Settings) -> bytes:
         return settings.job_token_key.get_secret_value().encode()
     if settings.environment == "production":
         raise RuntimeError("APX_JOB_TOKEN_KEY is required in production")
-    # Tokens of this process only; the ingestor of phase 1 needs the same key.
+    # Tokens of this process only: the ingestor needs the same key, so it accepts no results.
     return secrets.token_bytes(32)

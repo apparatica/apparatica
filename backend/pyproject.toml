@@ -63,7 +63,7 @@ forbidden_modules = ["apparatica.main", "apparatica.cli"]
 name = "Backend modules depend on each other in one direction (specs/03 §3)"
 type = "layers"
 layers = [
-    "apparatica.admin",
+    "apparatica.admin | apparatica.judging",
     "apparatica.submissions",
     "apparatica.captcha",
     "apparatica.problems",

@@ -1,7 +1,10 @@
-"""`apparatica` command line: run the API, migrate the database, write the OpenAPI document."""
+"""`apparatica` command line: run the API or the ingestor, migrate the database, write the OpenAPI
+document."""
 
 import argparse
+import asyncio
 import json
+import signal
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -32,6 +35,24 @@ def _serve(args: argparse.Namespace) -> int:
         forwarded_allow_ips=args.forwarded_allow_ips,
         log_config=None,  # structlog configures logging in create_app
     )
+    return 0
+
+
+def _ingest(args: argparse.Namespace) -> int:
+    from apparatica.core.logging import configure_logging
+    from apparatica.judging.consumer import run_ingest
+
+    settings = get_settings()
+    configure_logging(settings.log_level, settings.log_format)
+
+    async def main() -> None:
+        stop = asyncio.Event()
+        loop = asyncio.get_running_loop()
+        for name in (signal.SIGINT, signal.SIGTERM):
+            signal.signal(name, lambda *_: loop.call_soon_threadsafe(stop.set))
+        await run_ingest(settings, stop)
+
+    asyncio.run(main())
     return 0
 
 
@@ -74,6 +95,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         help="proxies trusted for X-Forwarded-* (the Caddy address in compose)",
     )
     serve.set_defaults(handler=_serve)
+
+    ingest = commands.add_parser(
+        "ingest", help="store the results of checks: judge:results to the database (ADR-0009)"
+    )
+    ingest.set_defaults(handler=_ingest)
 
     migrate = commands.add_parser("migrate", help="apply database migrations")
     migrate.add_argument("revision", nargs="?", default="head")

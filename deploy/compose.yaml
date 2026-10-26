@@ -51,6 +51,7 @@ services:
     environment:
       API_PASSWORD: ${VALKEY_QUEUE_API_PASSWORD:-8b1e3f0c5a7d4e2b9c6f1a0d3e5b7c9a}
       WORKER_PASSWORD: ${VALKEY_QUEUE_WORKER_PASSWORD:-2f7a9c1e4b6d8f0a3c5e7b9d1f2a4c6e}
+      INGEST_PASSWORD: ${VALKEY_QUEUE_INGEST_PASSWORD:-d68eaacfa776d6c2f16ba2aa081bcee9}
     volumes:
       - valkey-queue:/data
       - ./valkey:/etc/apparatica:ro

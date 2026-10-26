@@ -1,6 +1,7 @@
 """The users of valkey-queue (deploy/valkey/queue-users.acl.in): the API and the worker do their
 work with them and nothing else (specs/07 §5.3)."""
 
+import contextlib
 import json
 import os
 import threading
@@ -45,7 +46,11 @@ if TYPE_CHECKING:
 ROOT = Path(__file__).parents[2]
 TEMPLATE = ROOT / "deploy" / "valkey" / "queue-users.acl.in"
 VALKEY_IMAGE = os.environ.get("APX_TEST_VALKEY_IMAGE", "valkey/valkey:8-alpine")
-PASSWORDS = {"API_PASSWORD": "api-secret", "WORKER_PASSWORD": "worker-secret"}
+PASSWORDS = {
+    "API_PASSWORD": "api-secret",
+    "WORKER_PASSWORD": "worker-secret",
+    "INGEST_PASSWORD": "ingest-secret",
+}
 
 
 def acl_arguments() -> list[str]:
@@ -180,6 +185,28 @@ def test_the_users_do_their_work(server: tuple[str, str], tmp_path: Path) -> Non
             read()
 
 
+def ingest(api_url: str) -> str:
+    """The URL of the ingest user on the same server."""
+    return api_url.replace(
+        f"api:{PASSWORDS['API_PASSWORD']}", f"ingest:{PASSWORDS['INGEST_PASSWORD']}"
+    )
+
+
+def test_the_ingestor_reads_results_and_writes_finalized(server: tuple[str, str]) -> None:
+    api_url, worker_url = server
+    redis.Redis.from_url(worker_url).xadd(RESULTS_STREAM, {"r": "{}"})
+    client = redis.Redis.from_url(ingest(api_url))
+    with contextlib.suppress(redis.exceptions.ResponseError):  # BUSYGROUP: an earlier run
+        client.xgroup_create(RESULTS_STREAM, "ingest", id="0")
+    entries: Any = client.xreadgroup("ingest", "ingest-acl", {RESULTS_STREAM: ">"})
+    assert entries
+    entry_id = entries[0][1][0][0]
+    client.xack(RESULTS_STREAM, "ingest", entry_id)
+    client.xdel(RESULTS_STREAM, entry_id)
+    client.xadd("sub:1", {"e": "{}"})
+    client.expire("sub:1", 600)
+
+
 @pytest.mark.parametrize(
     ("user", "command"),
     [
@@ -191,6 +218,9 @@ def test_the_users_do_their_work(server: tuple[str, str], tmp_path: Path) -> Non
         ("api", lambda r: r.set("lease:1", "x")),
         ("api", lambda r: r.incr("attempts:1")),
         ("api", lambda r: r.xadd("judge:results", {"r": "{}"})),  # a forged result
+        ("ingest", lambda r: r.xrange("sub:1")),  # writes finalized, reads no events
+        ("ingest", lambda r: r.get("lease:1")),
+        ("ingest", lambda r: r.xadd("dramatiq:judge.light", {"x": "1"})),
         ("default", lambda r: r.get("queue:judge.light")),
     ],
     ids=[
@@ -202,6 +232,9 @@ def test_the_users_do_their_work(server: tuple[str, str], tmp_path: Path) -> Non
         "lease",
         "attempts",
         "results",
+        "ingest-events",
+        "ingest-lease",
+        "ingest-queue",
         "default",
     ],
 )
@@ -210,6 +243,7 @@ def test_the_users_do_nothing_else(
 ) -> None:
     api_url, worker_url = server
     anonymous = "redis://" + api_url.split("@", 1)[1]  # the default user, as the health check
-    url = {"api": api_url, "worker": worker_url, "default": anonymous}[user]
+    users = {"api": api_url, "worker": worker_url, "ingest": ingest(api_url), "default": anonymous}
+    url = users[user]
     with pytest.raises(redis.exceptions.NoPermissionError):
         command(redis.Redis.from_url(url))

@@ -1,0 +1,14 @@
+# How long the artifacts of a check are kept, in days, by submission kind (specs/07 §4.4);
+# null keeps them. The ingestor sets artifacts.expires_at when it stores a check.
+# tb_result holds the expected values of hidden tests: it is never offered to the user and is
+# kept with the logs, for failure analysis and moderation.
+run:
+  log: 30
+  events: 30
+  fst: 7
+  tb_result: 30
+submit:
+  log: null
+  events: null
+  fst: 7
+  tb_result: null

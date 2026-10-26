@@ -31,6 +31,7 @@ from judge.core.jobs import (
     RESULT_RECORD,
     RESULTS_STREAM,
     AttemptFailedRecord,
+    AttemptStartedRecord,
     JudgeJob,
     attempts_key,
     lease_key,
@@ -150,13 +151,25 @@ def test_a_failed_attempt_goes_to_the_ingestor(orchestrator: Orchestrator) -> No
     orchestrator.reporter = StreamReporter(orchestrator.results)
     payload = job()
     orchestrator(payload, "judge.light")
-    [(_, record)] = read_stream(orchestrator.valkey, RESULTS_STREAM)
-    assert RESULT_RECORD.validate_python(record) == AttemptFailedRecord(
-        submission_id=payload.submission_id,
-        attempt=1,
-        token=payload.token,
-        error_code=SANDBOX_UNAVAILABLE,
-    )
+    stream = read_stream(orchestrator.valkey, RESULTS_STREAM)
+    records = [RESULT_RECORD.validate_python(record) for _, record in stream]
+    common: dict[str, Any] = {
+        "submission_id": payload.submission_id,
+        "attempt": 1,
+        "token": payload.token,
+    }
+    assert records == [
+        AttemptStartedRecord(**common),
+        AttemptFailedRecord(**common, error_code=SANDBOX_UNAVAILABLE),
+    ]
+
+
+def test_an_exhausted_check_does_not_start(orchestrator: Orchestrator) -> None:
+    payload = job()
+    orchestrator.valkey.set(attempts_key(payload.submission_id), 2)
+    orchestrator(payload, "judge.light")
+    assert read_stream(orchestrator.valkey, RESULTS_STREAM) == []  # no attempt_started
+    assert [(r.attempt, r.error_code) for r in reports(orchestrator)] == [(3, ATTEMPTS_EXHAUSTED)]
 
 
 def test_a_duplicate_message_is_dropped(orchestrator: Orchestrator) -> None:

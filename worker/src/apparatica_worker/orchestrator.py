@@ -30,6 +30,7 @@ from judge.core.executor import Executor, ExecutorError
 from judge.core.jobs import (
     ATTEMPT_MAX,
     ArtifactKind,
+    AttemptStartedRecord,
     JudgeJob,
     StoredArtifact,
     attempts_key,
@@ -77,6 +78,11 @@ class Orchestrator:
             if attempt > ATTEMPT_MAX:
                 self.reporter.report(AttemptReport(job, attempt, error_code=ATTEMPTS_EXHAUSTED))
                 return
+            self.results.write(
+                AttemptStartedRecord(
+                    submission_id=job.submission_id, attempt=attempt, token=job.token
+                )
+            )
             self.reporter.report(self._attempt(job, attempt, cancel=lease.lost))
 
     def _attempt(self, job: JudgeJob, attempt: int, cancel: threading.Event) -> AttemptReport:

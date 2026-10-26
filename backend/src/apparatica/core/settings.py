@@ -50,6 +50,11 @@ class Settings(BaseSettings):
         default=86400, description="Lifetime of a job token: queue wait and every attempt"
     )
 
+    # The ingestor (`apparatica ingest`, ADR-0009): its consumer in the group of judge:results.
+    ingest_consumer: str | None = Field(
+        default=None, description="Consumer name; unset means <hostname>:<pid>"
+    )
+
 
 @cache
 def get_settings() -> Settings:

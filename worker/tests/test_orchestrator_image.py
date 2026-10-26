@@ -149,6 +149,7 @@ def test_an_accepted_run(
     assert all(log["text"].endswith("\n") for log in logs)
     # The ingestor got each stage result as it ended, with the job token.
     records = [RESULT_RECORD.validate_python(r) for _, r in read_stream(valkey, RESULTS_STREAM)]
+    assert records[0].type == "attempt_started"
     assert [(r.result.key, r.token) for r in records if isinstance(r, StageEndRecord)] == [
         ("precheck", "v1.token"),
         ("lint", "v1.token"),
