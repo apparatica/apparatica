@@ -72,7 +72,7 @@ PR контракта Ф1 (T1.0) объявил эндпоинты Ф1. Пока
 |---|---|---|
 | `GET /submissions?problem=&cursor=&limit=` | `SubmissionPage`: свои отправки, новые первыми, `next_cursor` и остаток квот `quota` | T1.7 |
 | `GET /submissions/{id}/events` | поток событий проверки, см. ниже | работает (T1.5) |
-| `POST /submissions/{id}/cancel` | `202` без тела; итог приходит событием `finalized` со статусом `cancelled`. Завершённая отправка — `409 SUBMISSION_FINISHED` | T1.6 |
+| `POST /submissions/{id}/cancel` | `202` без тела; итог приходит событием `finalized` со статусом `cancelled`. Завершённая отправка — `409 SUBMISSION_FINISHED`, нет Valkey — `503 JUDGE_UNAVAILABLE`. Как работает — [architecture.md](architecture.md#отмена) | работает (T1.6) |
 | `GET /submissions/{id}/artifacts/{kind}?stage=` | `302` на presigned URL файла; истёкший файл — `404` | T1.2b |
 | `POST /submissions/{id}/waveform` | `202` с артефактом FST в состоянии `pending`, см. ниже | T1.17 |
 | `GET /captcha/challenge` | задача ALTCHA `CaptchaChallenge` | T1.7 |

@@ -19,7 +19,16 @@ from dramatiq import Message
 from dramatiq.brokers.redis import RedisBroker
 from dramatiq.errors import BrokerError
 
-from judge.core.jobs import ACTOR, QUEUES, JudgeJob, position_key
+from judge.core.jobs import (
+    ACTOR,
+    CANCEL_CHANNEL,
+    CANCEL_TTL_S,
+    QUEUES,
+    CancelReason,
+    JudgeJob,
+    cancel_key,
+    position_key,
+)
 
 log = structlog.get_logger(__name__)
 
@@ -47,6 +56,11 @@ class JobQueue(Protocol):
         """1 for the next submission to be taken; None when it is not waiting."""
         ...
 
+    async def cancel(self, submission_id: uuid.UUID, reason: CancelReason) -> None:
+        """Ask the worker that runs the check, or the ingestor, to cancel it (specs/07 §3).
+        Raises QueueUnavailableError."""
+        ...
+
     async def close(self) -> None: ...
 
 
@@ -58,6 +72,9 @@ class NoQueue:
 
     async def position(self, queue: str, submission_id: uuid.UUID) -> int | None:
         return None
+
+    async def cancel(self, submission_id: uuid.UUID, reason: CancelReason) -> None:
+        raise QueueUnavailableError("no queue: no worker or ingestor can cancel")
 
     async def close(self) -> None:
         pass
@@ -100,6 +117,17 @@ class DramatiqQueue:
             log.warning("queue position unavailable", error=repr(error))
             return None
         return rank + 1 if isinstance(rank, int) else None
+
+    async def cancel(self, submission_id: uuid.UUID, reason: CancelReason) -> None:
+        """The key first: a worker that starts the attempt later finds it; the message reaches
+        the worker that runs it and the ingestor, which ends a check still waiting."""
+        try:
+            async with self._redis.pipeline(transaction=False) as pipe:
+                pipe.set(cancel_key(submission_id), reason, ex=CANCEL_TTL_S)
+                pipe.publish(CANCEL_CHANNEL, f"{submission_id} {reason}")
+                await pipe.execute()
+        except redis.RedisError as error:
+            raise QueueUnavailableError(str(error)) from error
 
     async def close(self) -> None:
         await self._redis.aclose()

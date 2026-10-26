@@ -53,9 +53,9 @@ Verilator превращает решение в C++ и исполняет ег�
 
 | Компонент | Postgres | Хранилище | Valkey (`valkey-queue`) | Docker |
 |---|---|---|---|---|
-| `api` | да | `packages` — запись; `artifacts` — presigned URL, чтение журналов событий | пользователь `api`: очереди Dramatiq, позиции в очереди, чтение (без записи) `sub:*` | нет |
-| `worker` | нет | `packages` — чтение; `artifacts`, `build-cache` — запись | пользователь `worker`: очереди Dramatiq, снятие позиций, `lease:*`, `attempts:*`, запись (без чтения) в `sub:*` и `judge:results` | нет, только через `apx-sandboxd` |
-| `ingest` | да | `artifacts` — чтение и удаление истёкших файлов (в Garage это право `write`) | пользователь `ingest`: `judge:results` (группа `ingest`), запись (без чтения) в `sub:*`, `leader:ingest`, чтение `lease:*` | нет |
+| `api` | да | `packages` — запись; `artifacts` — presigned URL, чтение журналов событий | пользователь `api`: очереди Dramatiq, позиции в очереди, чтение (без записи) `sub:*`, запись `cancel:*` и публикация в `judge:cancel` | нет |
+| `worker` | нет | `packages` — чтение; `artifacts`, `build-cache` — запись | пользователь `worker`: очереди Dramatiq, снятие позиций, `lease:*`, `attempts:*`, запись (без чтения) в `sub:*` и `judge:results`, чтение `cancel:*` и подписка на `judge:cancel` (без `PUBLISH`) | нет, только через `apx-sandboxd` |
+| `ingest` | да | `artifacts` — чтение и удаление истёкших файлов (в Garage это право `write`) | пользователь `ingest`: `judge:results` (группа `ingest`), запись (без чтения) в `sub:*`, `leader:ingest`, чтение `lease:*`, подписка на `judge:cancel` (без `PUBLISH`) | нет |
 | `apx-sandboxd` | нет | нет | нет | да |
 
 **Valkey.** Пользователи и их ключи описаны в `deploy/valkey/queue-users.acl.in`. Каждый пользователь видит только свои шаблоны ключей; административные команды (`@dangerous`: `FLUSHALL`, `CONFIG`, `KEYS`, `ACL`…) закрыты всем. Пользователь по умолчанию может только `PING` — это проверка здоровья контейнера. Пароли передаются переменными окружения. Компонент, у которого появляются новые ключи (стримы событий, отмена, ингестор), добавляет их в шаблон в той же задаче. Проверка — `worker/tests/test_valkey_acl.py`: API, воркер и ингестор делают свою работу с этими правами, а чужие ключи и административные команды им недоступны.

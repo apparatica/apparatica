@@ -98,6 +98,16 @@ class Ingestor:
         except (IntegrityError, DataError) as error:  # e.g. a stage result the schema refuses
             raise InvalidRecordError(f"refused by the database: {error.orig}") from error
 
+    async def cancel_waiting(self, submission_id: uuid.UUID) -> FinalizedEvent | None:
+        """A cancelled check that no worker has started ends now (specs/07 §3); a running one
+        ends when its worker reports it."""
+        async with self.database.sessions.begin() as session:
+            submission = await session.get(Submission, submission_id, with_for_update=True)
+            if submission is None or submission.status != "queued":
+                return None
+            log.info("waiting check cancelled", submission_id=str(submission_id))
+            return finalize(submission, Verdict(status="cancelled"), self.clock())
+
     async def _apply(self, session: AsyncSession, record: ResultRecord) -> FinalizedEvent | None:
         submission = await session.get(Submission, record.submission_id, with_for_update=True)
         if submission is None:  # deleted meanwhile, e.g. an old guest submission
@@ -134,9 +144,10 @@ class Ingestor:
             case DoneRecord():
                 await _upsert_stages(session, submission.id, record.results)
                 await self._store_artifacts(session, submission, record)
-                verdict = (
-                    aggregate(record.results) if record.results else internal_error(EMPTY_PIPELINE)
-                )
+                if record.results or record.cancelled:  # cancelled while waiting: nothing ran
+                    verdict = aggregate(record.results, cancelled=record.cancelled)
+                else:
+                    verdict = internal_error(EMPTY_PIPELINE)
             case AttemptFailedRecord():
                 verdict = internal_error(record.error_code)
         log.info(

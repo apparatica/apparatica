@@ -19,6 +19,7 @@ import zstandard
 from moto import mock_aws
 from stream_helpers import read_stream
 
+from apparatica_worker.cancel import CancelListener
 from apparatica_worker.orchestrator import Orchestrator
 from apparatica_worker.report import AttemptReport
 from apparatica_worker.sandboxd.client import SandboxdClient, SandboxExecutor
@@ -26,10 +27,13 @@ from apparatica_worker.sandboxd.server import MAX_REQUEST, DockerCli, Policy, Sa
 from apparatica_worker.storage import ArtifactStore, PackageCache
 from apparatica_worker.stream import ResultsStream
 from judge.core.jobs import (
+    CANCEL_CHANNEL,
+    CANCEL_NOTES,
     RESULT_RECORD,
     RESULTS_STREAM,
     JudgeJob,
     StageEndRecord,
+    cancel_key,
     lease_key,
     submission_stream_key,
 )
@@ -82,7 +86,13 @@ def s3() -> Iterator["S3Client"]:
 
 
 def attempt(
-    sandboxd: SandboxdClient, s3: "S3Client", valkey_url: str, tmp_path: Path, slug: str, code: str
+    sandboxd: SandboxdClient,
+    s3: "S3Client",
+    valkey_url: str,
+    tmp_path: Path,
+    slug: str,
+    code: str,
+    cancel_after_s: float | None = None,
 ) -> AttemptReport:
     files = package_files(ROOT / "problems" / slug)
     s3.put_object(Bucket="packages", Key=f"{slug}/1.tar.zst", Body=pack(files))
@@ -112,7 +122,23 @@ def attempt(
         reporter=reports,
         owner="worker-test",
     )
-    orchestrator(job, "judge.light")
+    if cancel_after_s is None:
+        orchestrator(job, "judge.light")
+    else:  # as the API does it: the key, then the message
+        orchestrator.cancels = CancelListener(valkey)
+        orchestrator.cancels.start()
+
+        def cancel() -> None:
+            valkey.set(cancel_key(job.submission_id), "user")
+            valkey.publish(CANCEL_CHANNEL, f"{job.submission_id} user")
+
+        timer = threading.Timer(cancel_after_s, cancel)
+        timer.start()
+        try:
+            orchestrator(job, "judge.light")
+        finally:
+            timer.cancel()
+            orchestrator.cancels.stop()
     [report] = reports.items
     assert orchestrator.valkey.get(lease_key(job.submission_id)) is None
     return report
@@ -155,6 +181,24 @@ def test_an_accepted_run(
         ("lint", "v1.token"),
         ("sim_run", "v1.token"),
     ]
+
+
+def test_a_cancel_kills_the_running_stage(
+    sandboxd: SandboxdClient, s3: "S3Client", valkey_url: str, tmp_path: Path
+) -> None:
+    code = (ROOT / "problems" / "sync-fifo" / "reference" / "sync_fifo.sv").read_text("utf-8")
+    started = time.monotonic()
+    report = attempt(sandboxd, s3, valkey_url, tmp_path, "sync-fifo", code, cancel_after_s=3)
+    assert report.cancelled
+    assert time.monotonic() - started < 60  # not the whole check
+    statuses = [r.status for r in report.results]
+    assert "cancelled" in statuses
+    assert set(statuses[statuses.index("cancelled") + 1 :]) <= {"skipped"}
+    cancelled = next(r for r in report.results if r.status == "cancelled")
+    log = zstandard.ZstdDecompressor().decompress(
+        read(s3, next(a.key for a in report.artifacts if a.stage == cancelled.key))
+    )
+    assert log.decode().splitlines()[-1] == CANCEL_NOTES["user"]
 
 
 def test_a_wrong_answer_keeps_its_trace(

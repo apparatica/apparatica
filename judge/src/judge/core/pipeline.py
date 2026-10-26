@@ -104,8 +104,10 @@ def run_pipeline(
     resource_classes: ResourceClasses,
     cancel: threading.Event | None = None,
     on_artifact: ArtifactSink | None = None,
+    cancel_note: Callable[[], str] = lambda: "cancelled",
 ) -> list[StageResult]:
-    """Run the stages; `on_artifact` gets the files a stage keeps for the user (e.g. FST)."""
+    """Run the stages; `on_artifact` gets the files a stage keeps for the user (e.g. FST),
+    `cancel_note` says in the console of the running stage why it was cancelled."""
     cancel = cancel or threading.Event()
     planned = plan_stages(job.problem, job.kind, language, job.stages)
     finished: dict[str, FinishedStage] = {}
@@ -137,7 +139,7 @@ def run_pipeline(
                 limits=stage_limits(job.problem, item.key, item.stage.stage_type, resource_classes),
                 previous=dict(finished),
             )
-            result, outcome = _run_stage(item.stage, ctx, executor, sink, cancel)
+            result, outcome = _run_stage(item.stage, ctx, executor, sink, cancel, cancel_note)
             outputs = outcome.outputs if outcome else {}
             if outcome is not None and on_artifact is not None:
                 for name, data in outcome.artifacts.items():
@@ -160,6 +162,7 @@ def _run_stage(
     executor: Executor,
     sink: EventSink,
     cancel: threading.Event,
+    cancel_note: Callable[[], str],
 ) -> tuple[StageResult, StageOutcome | None]:
     sink.emit(StageStartEvent(stage=ctx.key, stage_type=ctx.type, ordinal=ctx.ordinal))
     started_at, started = datetime.now(UTC), time.monotonic()
@@ -196,7 +199,7 @@ def _run_stage(
             run = executor.run(ctx.key, step, on_line, cancel, reuse_dir=bool(runs))
             runs.append(run)
             if run.cancelled:
-                sink.emit(LogEvent(stage=ctx.key, ch="sys", text="cancelled"))
+                sink.emit(LogEvent(stage=ctx.key, ch="sys", text=cancel_note()))
                 return finish(None), None
             if run.output_limited:
                 sink.emit(TruncatedEvent(stage=ctx.key, limit_kb=step.output_limit // 1024))

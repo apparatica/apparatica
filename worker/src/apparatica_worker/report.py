@@ -30,6 +30,7 @@ class AttemptReport:
     results: tuple[StageResult, ...] = ()
     artifacts: tuple[StoredArtifact, ...] = ()
     error_code: str | None = None  # the pipeline did not run
+    cancelled: bool = False  # by the user or by a newer run
 
 
 class Reporter(Protocol):
@@ -48,6 +49,7 @@ class StreamReporter:
             submission_id=str(report.job.submission_id),
             attempt=report.attempt,
             error_code=report.error_code,
+            cancelled=report.cancelled,
             stages={result.key: result.status for result in report.results},
             artifacts=[artifact.key for artifact in report.artifacts],
         )
@@ -67,6 +69,7 @@ class StreamReporter:
                 token=job.token,
                 results=report.results,
                 artifacts=report.artifacts,
+                cancelled=report.cancelled,
             )
         self._results.write(record, final=True)
 

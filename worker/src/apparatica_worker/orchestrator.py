@@ -6,14 +6,15 @@ apx-sandboxd, the pipeline of the judge with its events in `sub:<id>` and its st
 `judge:results`, the artifacts to the storage and the report.
 """
 
-import threading
-from collections.abc import Callable
+import contextlib
+from collections.abc import Callable, Iterator
 from dataclasses import dataclass
 
 import redis
 import structlog
 import zstandard
 
+from apparatica_worker.cancel import Cancellation, CancelListener
 from apparatica_worker.lease import Lease
 from apparatica_worker.report import (
     ATTEMPTS_EXHAUSTED,
@@ -62,12 +63,15 @@ class Orchestrator:
     results: ResultsStream  # stage results as the stages end
     reporter: Reporter  # the attempt: StreamReporter of the same stream
     owner: str  # this worker, the value of its leases
+    cancels: CancelListener | None = None  # the cancel channel of the process
 
     def __call__(self, job: JudgeJob, queue: str) -> None:
         submission = str(job.submission_id)
         # Taken: no longer waiting. A message requeued after a worker died is not counted again.
         self.valkey.zrem(position_key(queue), submission)
-        with Lease(self.valkey, job.submission_id, self.owner) as lease:
+        cancellation = Cancellation()
+        lease = Lease(self.valkey, job.submission_id, self.owner, on_lost=cancellation.lose_lease)
+        with lease, self._watch(job, cancellation):
             if not lease.held:
                 log.info("duplicate message dropped: the check runs", submission_id=submission)
                 return
@@ -83,9 +87,24 @@ class Orchestrator:
                     submission_id=job.submission_id, attempt=attempt, token=job.token
                 )
             )
-            self.reporter.report(self._attempt(job, attempt, cancel=lease.lost))
+            report = self._attempt(job, attempt, cancellation)
+            if cancellation.lease_lost:  # another worker runs the check now and reports it
+                log.warning("attempt not reported: the lease was lost", submission_id=submission)
+                return
+            self.reporter.report(report)
 
-    def _attempt(self, job: JudgeJob, attempt: int, cancel: threading.Event) -> AttemptReport:
+    @contextlib.contextmanager
+    def _watch(self, job: JudgeJob, cancellation: Cancellation) -> Iterator[None]:
+        if self.cancels is None:
+            yield
+            return
+        with self.cancels.watch(job.submission_id, cancellation):
+            yield
+
+    def _attempt(self, job: JudgeJob, attempt: int, cancellation: Cancellation) -> AttemptReport:
+        if cancellation.cancelled:  # cancelled while it waited: nothing runs
+            log.info("cancelled check not run", submission_id=str(job.submission_id))
+            return AttemptReport(job, attempt, cancelled=True)
         try:
             package = self.packages.get(job)
             problem = load_manifest(package)
@@ -111,8 +130,9 @@ class Orchestrator:
                     executor,
                     FanoutSink(console, stream, ResultsSink(self.results, job, attempt)),
                     self.classes,
-                    cancel,
+                    cancellation.event,
                     on_artifact=lambda stage, name, data: files.__setitem__((stage, name), data),
+                    cancel_note=cancellation.note,
                 )
         except PipelineConfigError as error:  # the package passed validation: a platform failure
             log.error(
@@ -125,7 +145,9 @@ class Orchestrator:
             except ExecutorError as error:  # apx-sandboxd removes it when its lifetime ends
                 log.warning("sandbox not destroyed", error=str(error))
         artifacts = self._store(job, attempt, results, console, stream.journal, files)
-        return AttemptReport(job, attempt, tuple(results), artifacts)
+        return AttemptReport(
+            job, attempt, tuple(results), artifacts, cancelled=cancellation.cancelled
+        )
 
     def _store(
         self,

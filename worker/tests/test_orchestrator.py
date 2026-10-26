@@ -15,6 +15,7 @@ import redis
 from moto import mock_aws
 from stream_helpers import read_stream
 
+from apparatica_worker.cancel import CancelListener
 from apparatica_worker.lease import Lease
 from apparatica_worker.orchestrator import Orchestrator
 from apparatica_worker.report import (
@@ -34,6 +35,7 @@ from judge.core.jobs import (
     AttemptStartedRecord,
     JudgeJob,
     attempts_key,
+    cancel_key,
     lease_key,
     position_key,
 )
@@ -234,7 +236,9 @@ def test_artifact_keys_follow_the_submission(s3: "S3Client") -> None:
 def test_the_lease_is_renewed_and_lost(valkey_url: str) -> None:
     client = redis.Redis.from_url(valkey_url)
     submission = uuid.uuid4()
-    with Lease(client, submission, "worker-a", ttl_s=0.5, renew_s=0.1) as lease:
+    lost: list[bool] = []
+    on_lost = lambda: lost.append(True)  # noqa: E731
+    with Lease(client, submission, "worker-a", ttl_s=0.5, renew_s=0.1, on_lost=on_lost) as lease:
         assert lease.held
         time.sleep(1)  # twice the TTL: alive only because it is renewed
         assert client.get(lease_key(submission)) == b"worker-a"
@@ -242,7 +246,23 @@ def test_the_lease_is_renewed_and_lost(valkey_url: str) -> None:
             assert not other.held
         client.set(lease_key(submission), "worker-b")  # expired and taken meanwhile
         assert lease.lost.wait(2)
+    assert lost == [True]  # the attempt is told: it stops
     assert client.get(lease_key(submission)) == b"worker-b"  # not released: it is not ours
+
+
+def test_a_check_cancelled_while_waiting_does_not_run(orchestrator: Orchestrator) -> None:
+    payload = job()
+    orchestrator.valkey.set(cancel_key(payload.submission_id), "user")
+    orchestrator.cancels = CancelListener(orchestrator.valkey)  # watched, not listening
+    orchestrator(payload, "judge.light")
+    [report] = reports(orchestrator)
+    assert (report.attempt, report.cancelled, report.results, report.error_code) == (
+        1,
+        True,
+        (),
+        None,
+    )
+    assert BrokenSandbox.created == []  # no package, no sandbox
 
 
 def test_an_orchestrator_is_thread_safe_on_the_cache(s3: "S3Client", tmp_path: Path) -> None:

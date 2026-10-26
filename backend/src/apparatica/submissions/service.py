@@ -13,6 +13,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import get_args
 
+import structlog
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -36,6 +37,8 @@ from apparatica.submissions.tokens import JobTokens
 from judge.core.jobs import JudgeJob, queue_name
 from judge.core.stage import StageSummary
 from judge.core.verdict import SubmissionStatus, VerdictDetail
+
+log = structlog.get_logger(__name__)
 
 # Kinds a user may download; the testbench result file with the expected values of hidden tests
 # is not one of them (specs/07 §4.4).
@@ -68,6 +71,7 @@ async def create_submission(
     limits: SolutionLimits,
     tokens: JobTokens,
     queue: JobQueue,
+    guest_id: uuid.UUID | None = None,
 ) -> SubmissionCreated:
     check_size(request.code, limits)
     row = await session.execute(
@@ -105,6 +109,7 @@ async def create_submission(
         seed=secrets.randbits(63),
         toolchain_profile_id=profile.id,
         queue_class=version.resource_class,
+        guest_id=guest_id,
     )
     session.add(submission)
     await session.commit()
@@ -132,9 +137,51 @@ async def create_submission(
         submission.finished_at = datetime.now(UTC)
         await session.commit()
         raise ApiError(ErrorCode.JUDGE_UNAVAILABLE, "The queue of checks is unavailable") from error
+    if submission.kind == "run" and guest_id is not None:
+        await preempt_runs(session, submission, version.problem_id, queue)
     result = await get_submission(session, submission.id, queue)
     assert result is not None
     return SubmissionCreated(**dict(result), quota=None)  # quotas arrive with guests (T1.7)
+
+
+async def preempt_runs(
+    session: AsyncSession, submission: SubmissionRow, problem_id: uuid.UUID, queue: JobQueue
+) -> None:
+    """A new Run cancels the unfinished Runs of the same problem by the same author (FR-JDG-10).
+    The author is a guest until accounts arrive (phase 2)."""
+    previous = await session.scalars(
+        select(SubmissionRow.id)
+        .join(ProblemVersion, ProblemVersion.id == SubmissionRow.problem_version_id)
+        .where(
+            ProblemVersion.problem_id == problem_id,
+            SubmissionRow.guest_id == submission.guest_id,
+            SubmissionRow.kind == "run",
+            SubmissionRow.status.in_(("queued", "running")),
+            SubmissionRow.id != submission.id,
+        )
+    )
+    for submission_id in previous:
+        try:
+            await queue.cancel(submission_id, "preempted")
+        except QueueUnavailableError as error:  # the new run counts more than the old one
+            log.warning("run not preempted", submission_id=str(submission_id), error=str(error))
+
+
+async def cancel_submission(
+    session: AsyncSession, submission_id: uuid.UUID, queue: JobQueue
+) -> None:
+    """Ask for the cancellation; the status changes when the ingestor stores it (`finalized`)."""
+    status = await session.scalar(
+        select(SubmissionRow.status).where(SubmissionRow.id == submission_id)
+    )
+    if status is None:
+        raise ApiError(ErrorCode.NOT_FOUND, f"No submission {submission_id}")
+    if status in FINAL_STATUSES:
+        raise ApiError(ErrorCode.SUBMISSION_FINISHED, f"Submission {submission_id} is {status}")
+    try:
+        await queue.cancel(submission_id, "user")
+    except QueueUnavailableError as error:
+        raise ApiError(ErrorCode.JUDGE_UNAVAILABLE, "The queue of checks is unavailable") from error
 
 
 async def get_submission(

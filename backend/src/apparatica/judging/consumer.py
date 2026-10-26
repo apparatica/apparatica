@@ -5,7 +5,8 @@ database or of Valkey leaves it pending: the consumer reads its own pending entr
 ones, and takes over the entries that another consumer left idle (it died). After a record ended
 a check, `finalized` goes to the submission stream, whose TTL is then shortened.
 
-Next to the consumer, the leading instance runs the periodic tasks (`housekeeping`).
+Next to the consumer, the leading instance runs the periodic tasks (`housekeeping`), and every
+instance ends the cancelled checks that wait in the queue (`cancels`).
 """
 
 import asyncio
@@ -23,6 +24,7 @@ from redis.exceptions import ResponseError
 from apparatica.core.db import Database
 from apparatica.core.settings import Settings
 from apparatica.core.storage import Storage
+from apparatica.judging.cancels import CancelWatcher
 from apparatica.judging.housekeeping import ArtifactPurge, Housekeeping, Periodic, Watchdog
 from apparatica.judging.ingest import Ingestor, InvalidRecordError, transient
 from apparatica.judging.leader import Leadership
@@ -168,12 +170,14 @@ async def run_ingest(settings: Settings, stop: asyncio.Event) -> None:
         Periodic("watchdog", WATCHDOG_EVERY_S, watchdog),
         Periodic("retention", PURGE_EVERY_S, purge),
     ]
-    consumer = ResultsConsumer(valkey, Ingestor(database, tokens, retention), name)
+    ingestor = Ingestor(database, tokens, retention)
+    consumer = ResultsConsumer(valkey, ingestor, name)
     housekeeping = Housekeeping(Leadership(valkey, name), tasks)
     try:
         async with asyncio.TaskGroup() as group:  # a failure of one stops the other
             group.create_task(consumer.run(stop))
             group.create_task(housekeeping.run(stop))
+            group.create_task(CancelWatcher(valkey, ingestor).run(stop))
     finally:
         await valkey.aclose()
         await database.dispose()

@@ -208,7 +208,16 @@ def test_the_ingestor_reads_results_and_writes_finalized(server: tuple[str, str]
     client.set("leader:ingest", "ingest-acl", nx=True, px=30000)  # the leader of the instances
     client.exists("lease:1")  # the watchdog: does a worker hold the check
     # The SSE endpoint of the API reads what the ingestor and the worker wrote.
-    assert redis.Redis.from_url(api_url).xrange("sub:1")
+    api = redis.Redis.from_url(api_url)
+    assert api.xrange("sub:1")
+    # A cancel: the API sets the key and publishes, the worker and the ingestor listen.
+    for listener in (client, redis.Redis.from_url(worker_url)):
+        pubsub: Any = listener.pubsub(ignore_subscribe_messages=True)  # type: ignore[no-untyped-call]
+        pubsub.subscribe("judge:cancel")
+        pubsub.close()
+    api.set("cancel:1", "user", ex=60)
+    api.publish("judge:cancel", "1 user")
+    assert redis.Redis.from_url(worker_url).get("cancel:1") == b"user"
 
 
 @pytest.mark.parametrize(
@@ -225,6 +234,10 @@ def test_the_ingestor_reads_results_and_writes_finalized(server: tuple[str, str]
         ("api", lambda r: r.xadd("sub:1", {"e": "{}"})),  # reads the events, writes none
         ("ingest", lambda r: r.xrange("sub:1")),  # writes finalized, reads no events
         ("ingest", lambda r: r.set("lease:1", "x")),  # reads leases, holds none
+        ("ingest", lambda r: r.publish("judge:cancel", "x")),  # listens only
+        ("worker", lambda r: r.publish("judge:cancel", "x")),
+        ("worker", lambda r: r.set("cancel:1", "user")),  # reads cancels, makes none
+        ("api", lambda r: r.get("cancel:1")),
         ("ingest", lambda r: r.xadd("dramatiq:judge.light", {"x": "1"})),
         ("default", lambda r: r.get("queue:judge.light")),
     ],
@@ -241,6 +254,10 @@ def test_the_ingestor_reads_results_and_writes_finalized(server: tuple[str, str]
         "ingest-events",
         "ingest-lease",
         "ingest-queue",
+        "ingest-publish",
+        "worker-publish",
+        "worker-cancel",
+        "api-read-cancel",
         "default",
     ],
 )

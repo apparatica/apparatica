@@ -191,6 +191,7 @@ export interface paths {
         /**
          * Cancel Submission
          * @description Cancel a queued or running check; the result comes as `finalized` with `cancelled`.
+         *     Access by author arrives with guests (T1.7).
          */
         post: operations["cancel_submission"];
         delete?: never;
@@ -1901,8 +1902,8 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Error"];
                 };
             };
-            /** @description Not Implemented */
-            501: {
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -167,14 +167,15 @@ async def stream_submission_events(
             ErrorCode.NOT_FOUND,
             ErrorCode.SUBMISSION_FINISHED,
             ErrorCode.VALIDATION_ERROR,
-            ErrorCode.NOT_IMPLEMENTED,
+            ErrorCode.JUDGE_UNAVAILABLE,
         ),
     },
     openapi_extra=PHASE_1,
 )
-async def cancel_submission(id: uuid.UUID) -> None:
-    """Cancel a queued or running check; the result comes as `finalized` with `cancelled`."""
-    not_implemented("T1.6")
+async def cancel_submission(request: Request, session: Session, id: uuid.UUID) -> None:
+    """Cancel a queued or running check; the result comes as `finalized` with `cancelled`.
+    Access by author arrives with guests (T1.7)."""
+    await service.cancel_submission(session, id, request.app.state.job_queue)
 
 
 @router.get(

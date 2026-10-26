@@ -166,6 +166,24 @@ def test_cancellation_during_a_stage() -> None:
     assert results[1].summary.skip_reason == "cancelled"
 
 
+def test_the_console_says_why_a_stage_was_cancelled() -> None:
+    problem = make_problem({"a": {"type": "script", "code": "import time; time.sleep(30)"}}, ["a"])
+    job = Job(problem, Path(), "run", seed=1, solution=b"module demo; endmodule\n")
+    sink = ListSink()
+    with HostExecutor() as executor:
+        run_pipeline(
+            job,
+            FAKE,
+            executor,
+            sink,
+            RESOURCE_CLASSES,
+            cancel_after(0.3),
+            cancel_note=lambda: "cancelled by the user",
+        )
+    notes = [e.text for e in sink.events if isinstance(e, events.LogEvent) and e.ch == "sys"]
+    assert notes[-1] == "cancelled by the user"
+
+
 def test_stage_config_is_validated_before_running() -> None:
     with pytest.raises(PipelineConfigError, match="stage a"):
         run({"a": {"type": "script", "unknown": 1}}, ["a"])

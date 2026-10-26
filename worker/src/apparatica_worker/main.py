@@ -17,6 +17,7 @@ from botocore.config import Config
 from dramatiq import Broker, Worker
 
 from apparatica_worker.broker import Handler, create_broker, declare_actor
+from apparatica_worker.cancel import CancelListener
 from apparatica_worker.logging import configure_logging
 from apparatica_worker.orchestrator import Orchestrator
 from apparatica_worker.report import StreamReporter
@@ -83,13 +84,18 @@ def create_orchestrator(settings: WorkerSettings) -> Orchestrator:
         results=results,
         reporter=StreamReporter(results),
         owner=settings.worker_id,
+        cancels=CancelListener(valkey),
     )
 
 
 def run(settings: WorkerSettings, stop: threading.Event, handler: Handler | None = None) -> None:
     """Serve the queues until `stop` is set; the running checks finish first."""
     broker = create_broker(settings.queue_url)
-    declare_actor(broker, handler or create_orchestrator(settings))
+    handler = handler or create_orchestrator(settings)
+    cancels = handler.cancels if isinstance(handler, Orchestrator) else None
+    if cancels is not None:
+        cancels.start()  # before the first check: a cancel must find it listening
+    declare_actor(broker, handler)
     workers = create_workers(broker, settings)
     logging.getLogger(f"dramatiq.broker.{type(broker).__name__}").addFilter(_SecondPoolWarning())
     for worker in workers:
@@ -99,6 +105,8 @@ def run(settings: WorkerSettings, stop: threading.Event, handler: Handler | None
     log.info("worker stopping")
     for worker in workers:
         worker.stop()
+    if cancels is not None:
+        cancels.stop()
     broker.close()
 
 

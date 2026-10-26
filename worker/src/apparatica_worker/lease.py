@@ -7,6 +7,7 @@ runs finds the lease taken and is dropped. The lease lives `LEASE_TTL_S` and is 
 
 import threading
 import uuid
+from collections.abc import Callable
 from types import TracebackType
 from typing import Self
 
@@ -40,6 +41,7 @@ class Lease:
         *,
         ttl_s: float = LEASE_TTL_S,
         renew_s: float = LEASE_RENEW_S,
+        on_lost: Callable[[], None] = lambda: None,
     ) -> None:
         self._client = client
         self._key = lease_key(submission_id)
@@ -50,6 +52,7 @@ class Lease:
         self._thread = threading.Thread(target=self._renew, daemon=True)
         self.held = False
         self.lost = threading.Event()
+        self._on_lost = on_lost
 
     def __enter__(self) -> Self:
         self.held = bool(self._client.set(self._key, self._owner, nx=True, px=self._ttl_ms))
@@ -82,4 +85,5 @@ class Lease:
             if not renewed:
                 log.error("lease lost", key=self._key)
                 self.lost.set()
+                self._on_lost()
                 return

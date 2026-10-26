@@ -35,6 +35,7 @@ class RecordingQueue:
 
     def __init__(self) -> None:
         self.jobs: list[Job] = []
+        self.cancels: list[tuple[uuid.UUID, str]] = []
         self.unavailable = False
 
     async def enqueue(self, job: Job) -> None:
@@ -45,6 +46,11 @@ class RecordingQueue:
     async def position(self, queue: str, submission_id: uuid.UUID) -> int | None:
         waiting = [job.submission_id for job in self.jobs if job.queue == queue]
         return waiting.index(submission_id) + 1 if submission_id in waiting else None
+
+    async def cancel(self, submission_id: uuid.UUID, reason: str) -> None:
+        if self.unavailable:
+            raise QueueUnavailableError("connection refused")
+        self.cancels.append((submission_id, reason))
 
     async def close(self) -> None:
         pass

@@ -5,11 +5,13 @@
 #
 # default: the container health check only.
 user default on nopass -@all +ping
-# api: puts checks on the Dramatiq queues, keeps the queue positions, reads the event streams.
-user api on >@API_PASSWORD@ ~dramatiq ~dramatiq:* ~queue:* %R~sub:* +@all -@dangerous
+# api: puts checks on the Dramatiq queues, keeps the queue positions, reads the event streams,
+# cancels checks (a key and a message on the cancel channel).
+user api on >@API_PASSWORD@ ~dramatiq ~dramatiq:* ~queue:* %R~sub:* %W~cancel:* &judge:cancel +@all -@dangerous
 # worker: takes checks from the queues, removes their positions, holds leases and counts attempts,
-# writes the events of its checks and their results (it reads neither stream).
-user worker on >@WORKER_PASSWORD@ ~dramatiq ~dramatiq:* %W~queue:* ~lease:* ~attempts:* %W~sub:* %W~judge:results +@all -@dangerous
+# writes the events of its checks and their results (it reads neither stream), learns of cancels.
+user worker on >@WORKER_PASSWORD@ ~dramatiq ~dramatiq:* %W~queue:* ~lease:* ~attempts:* %W~sub:* %W~judge:results %R~cancel:* &judge:cancel +@all -@dangerous -publish
 # ingest: reads the results through its consumer group, writes `finalized` to the event streams;
-# its leader holds leader:ingest, and the watchdog looks whether a worker holds a check.
-user ingest on >@INGEST_PASSWORD@ ~judge:results %W~sub:* ~leader:ingest %R~lease:* +@all -@dangerous
+# its leader holds leader:ingest, the watchdog looks whether a worker holds a check; it ends the
+# cancelled checks that wait.
+user ingest on >@INGEST_PASSWORD@ ~judge:results %W~sub:* ~leader:ingest %R~lease:* &judge:cancel +@all -@dangerous -publish

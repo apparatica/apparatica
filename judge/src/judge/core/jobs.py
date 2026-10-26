@@ -53,6 +53,23 @@ def submission_stream_key(submission_id: uuid.UUID) -> str:
     return f"sub:{submission_id}"
 
 
+# Cancellation (specs/07 §3): the API sets `cancel:<id>` to the reason and publishes the id on the
+# channel. A worker checks the key when an attempt starts and listens to the channel while it runs;
+# the ingestor ends a check that no worker has taken yet.
+CANCEL_CHANNEL = "judge:cancel"
+CANCEL_TTL_S = 86400  # longer than any check waits and runs
+CancelReason = Literal["user", "preempted"]
+# What the console of the running stage says.
+CANCEL_NOTES: dict[CancelReason, str] = {
+    "user": "cancelled by the user — sandbox process tree killed",
+    "preempted": "cancelled: new run started — sandbox process tree killed",
+}
+
+
+def cancel_key(submission_id: uuid.UUID) -> str:
+    return f"cancel:{submission_id}"
+
+
 def queue_name(resource_class: str, *, rejudge: bool = False) -> str:
     """`judge.<resource class>`; rejudges always go to their own queue."""
     return REJUDGE_QUEUE if rejudge else RESOURCE_CLASS_QUEUES[resource_class]
@@ -127,6 +144,9 @@ class DoneRecord(_Record):
     type: Literal["done"] = "done"
     results: tuple[StageResult, ...]
     artifacts: tuple[StoredArtifact, ...]
+    cancelled: bool = Field(
+        default=False, description="Cancelled by the user or by a newer run: the verdict"
+    )
 
 
 class AttemptFailedRecord(_Record):

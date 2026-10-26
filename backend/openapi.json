@@ -798,7 +798,7 @@
           "submissions"
         ],
         "summary": "Cancel Submission",
-        "description": "Cancel a queued or running check; the result comes as `finalized` with `cancelled`.",
+        "description": "Cancel a queued or running check; the result comes as `finalized` with `cancelled`.\nAccess by author arrives with guests (T1.7).",
         "operationId": "cancel_submission",
         "parameters": [
           {
@@ -856,8 +856,8 @@
               }
             }
           },
-          "501": {
-            "description": "Not Implemented",
+          "503": {
+            "description": "Service Unavailable",
             "content": {
               "application/problem+json": {
                 "schema": {
