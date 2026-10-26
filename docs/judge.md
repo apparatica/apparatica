@@ -8,7 +8,7 @@
 |---|---|
 | `judge.core.stage` | протокол `Stage`, `StageContext`, `StagePlan`, `ExecResult`, `StageOutcome`, `StageResult` и общие модели: диагностика, тест-кейс, сводка этапа |
 | `judge.core.pipeline` | `run_pipeline`: этапы `pipelines.practice.<kind>` по порядку, ранняя остановка, отмена |
-| `judge.core.executor` | `LocalDockerExecutor` (контейнер образа тулчейна) и `HostExecutor` (подпроцессы на хосте); лимиты времени и вывода, отмена |
+| `judge.core.executor` | `ContainerExecutor` (контейнер песочницы через интерфейс `Container`), `LocalDockerExecutor` (он же через docker CLI), `HostExecutor` (подпроцессы на хосте); лимиты времени и вывода, отмена |
 | `judge.core.jobs` | задание проверки для очереди (`JudgeJob`), имя актора и очередей: общий контракт API и воркера ([architecture.md](architecture.md#очередь-проверок)) |
 | `judge.core.events` | события пайплайна и приёмники: `ConsoleSink`, `JsonlSink`, `FanoutSink` |
 | `judge.core.limits` | лимиты песочницы и этапов: класс ресурсов из `config/resource-classes.yaml`, переопределения из `problem.yaml` |
@@ -50,7 +50,14 @@
 - **Отмена** — проверяется каждые 50 мс; команда убивается, `cancelled`.
 - **Файлы**: `inputs` записываются в каталог этапа — свежий или, с `reuse_dir`, оставшийся от прошлого прогона этого этапа; из `collect` читаются существующие файлы не больше `collect_limit` байт, более крупные попадают в `oversized` и не читаются. Пути — только относительные внутри каталога этапа.
 
-`LocalDockerExecutor(image, sandbox_limits)` — один контейнер на отправку с флагами specs/07 §5.1 (`sandbox_flags`), память, CPU и число процессов — из класса ресурсов. Каталог этапа — `/work/<stage_key>`; входные файлы загружаются tar-потоком через `docker exec` (`docker cp` не пишет в tmpfs), выходные читаются через `head -c` с ограничением. Команды идут через `docker exec -t … apx-run`: TTY даёт построчный вывод, `apx-run` помечает строки stderr. Убить клиент `docker exec` недостаточно, поэтому при таймауте, лимите, отмене и после каждого плана выполняется `kill -KILL -1` от пользователя песочницы — фоновый процесс этапа не доживает до следующего (S6). PID 1 контейнера пока `sleep infinity`; собственный `apx-init` из образа появится в T1.2a.
+`ContainerExecutor` исполняет планы одной отправки в её контейнере песочницы — один контейнер на отправку с флагами specs/07 §5.1 (`sandbox_flags`); память, CPU и число процессов берутся из класса ресурсов. С контейнером он работает через интерфейс `Container`: короткая команда без TTY (`run`), команда этапа с TTY (`start`), `kill_all`. Реализаций две: `DockerContainer` (docker CLI) для `LocalDockerExecutor` — `judge run`, `judge validate`, CI — и контейнер `apx-sandboxd` для `SandboxExecutor` воркера ([architecture.md](architecture.md#песочница-apx-sandboxd)). Поэтому `judge run` и воркер ведут себя одинаково.
+
+- Каталог этапа — `/work/<stage_key>`, чистый для каждого этапа (кроме повторного прогона того же этапа).
+- Входные файлы загружаются tar-потоком через `exec` со stdin: `docker cp` не пишет в tmpfs.
+- Выходные файлы читаются через `head -c` с ограничением.
+- Команды этапа идут через `exec` с TTY и `apx-run`: TTY даёт построчный вывод, `apx-run` помечает строки stderr.
+- Убить клиент `exec` недостаточно, поэтому при таймауте, лимите, отмене и после каждого плана выполняется `kill -KILL -1` от пользователя песочницы: фоновый процесс этапа не доживает до следующего (S6).
+- PID 1 контейнера — `apx-init` из образа: ядро не доставляет ему `kill -1`, а он забирает убитые процессы, так что зомби не занимают `--pids-limit`.
 
 `HostExecutor` — подпроцессы во временном каталоге на хосте (`judge --no-docker`, тесты ядра). Изоляции нет; stdout и stderr читаются раздельно, на POSIX при убийстве завершается вся группа процессов.
 
@@ -105,4 +112,4 @@
 - `judge/tests/test_lint_stage.py` — план и разбор SARIF lint; `toolchain/tests/test_lint.py` — пайплайн `precheck → lint` в образе через `run_pipeline`.
 - `judge/tests/test_validate.py` — проверки `validate` на фиктивном языке (этап решает по метке в решении, команды — на хосте); `test_pack.py`, `test_scaffold.py`, `test_cli.py` — `pack`, `new` и CLI без Docker; `toolchain/tests/test_cli.py` — `new → validate → run` в образе, включая сломанный пакет, воспроизведение падения по сиду и мутант, которого ловят только скрытые тесты.
 - `judge/tests/test_sim_stage.py` — план, разбор результатов, окно трассы, анонимность скрытых тестов; `toolchain/tests/test_sim.py` — пайплайн `precheck → lint → sim` в образе на пакете-фикстуре `judge/tests/data/packages/counter` (принятое решение, падение открытого теста с FST, падение скрытого).
-- `toolchain/tests/test_executor.py` — `LocalDockerExecutor` против образа тулчейна: каналы, файлы, таймаут, лимит вывода, отмена, отсутствие выживших процессов. Запускается `just toolchain-test`.
+- `toolchain/tests/test_executor.py` — `LocalDockerExecutor` против образа тулчейна: каналы, файлы, таймаут, лимит вывода, отмена, отсутствие выживших процессов. Тот же набор для `SandboxExecutor` через настоящий `apx-sandboxd` — `worker/tests/test_sandbox_image.py`. Оба запускает `just toolchain-test`.

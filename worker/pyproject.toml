@@ -9,6 +9,7 @@ dependencies = ["apparatica-judge", "dramatiq[redis] (>=2.2,<3)", "pydantic-sett
 
 [project.scripts]
 apparatica-worker = "apparatica_worker.main:main"
+apx-sandboxd = "apparatica_worker.sandboxd.server:main"
 
 [dependency-groups]
 dev = [
@@ -26,7 +27,8 @@ apparatica-judge = { path = "../judge", develop = true }
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
-addopts = ["-ra", "--strict-markers", "--strict-config"]
+addopts = ["-ra", "--strict-markers", "--strict-config", "-m", "not image"]
+markers = ["image: needs Docker and the toolchain image; run by `just toolchain-test`"]
 
 [tool.mypy]
 strict = true

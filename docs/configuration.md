@@ -37,6 +37,21 @@
 | `APX_REJUDGE_SLOTS` | `1` | отдельные слоты для `judge.rejudge`; `0` — воркер не берёт перепроверки |
 | `APX_LOG_LEVEL`, `APX_LOG_FORMAT` | `INFO`, `console` | как у API |
 
+## apx-sandboxd
+
+Демон песочницы на хосте воркера (`apparatica_worker.sandboxd.server`), префикс `APX_SANDBOXD_`:
+
+| Переменная | По умолчанию | Назначение |
+|---|---|---|
+| `APX_SANDBOXD_SOCKET` | `/run/apx-sandboxd/sandboxd.sock` | unix-сокет, права `0660` |
+| `APX_SANDBOXD_SOCKET_GROUP` | — | группа пользователя оркестратора: она может подключаться, а группа `docker` ему не нужна |
+| `APX_SANDBOXD_RUNTIME` | `runsc` | рантайм контейнеров; `runc` — только для разработки без gVisor (ADR-0003) |
+| `APX_SANDBOXD_IMAGES` | `["ghcr.io/apparatica/toolchain", "apparatica-toolchain"]` | репозитории образов тулчейна, которые можно запускать, JSON-список; тег или digest задаёт клиент |
+| `APX_SANDBOXD_MAX_CPUS`, `APX_SANDBOXD_MAX_MEMORY_MB`, `APX_SANDBOXD_MAX_PIDS` | `4`, `8192`, `256` | потолки лимитов контейнера; лимиты сверх них отклоняются |
+| `APX_SANDBOXD_MAX_SANDBOXES` | `8` | сколько контейнеров одновременно |
+| `APX_SANDBOXD_MAX_LIFETIME_S` | `3600` | контейнер старше этого удаляется |
+| `APX_SANDBOXD_LOG_LEVEL`, `APX_SANDBOXD_LOG_FORMAT` | `INFO`, `console` | как у API |
+
 ## Файлы `config/`
 
 Данные, которые видит пользователь и которые меняются без правки кода. Загружаются при старте и проверяются строго: ошибка в файле останавливает процесс, а не даёт сайт с наполовину пустыми настройками.

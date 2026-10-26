@@ -1,10 +1,10 @@
 """Executors run a `StagePlan` and stream its output (specs/07 §2, §4.3, §5).
 
-- `LocalDockerExecutor`: a container of the toolchain image with the sandbox restrictions, one per
-  submission, commands through `docker exec -t` and `apx-run` — `judge` locally and in CI.
+- `ContainerExecutor`: a sandbox container of the toolchain image, one per submission (specs/07
+  §5.1-5.2), driven through a `Container`. `LocalDockerExecutor` drives it with the docker CLI
+  (`judge` locally and in CI); the worker drives it through `apx-sandboxd`.
 - `HostExecutor`: plain subprocesses in a temporary directory (`judge --no-docker`): no isolation,
   for trusted code only.
-- The worker's executor talks to `apx-sandboxd` instead of Docker (T1.2b).
 
 All of them enforce the plan's time and output limits, honour cancellation and kill what is left of
 a stage before the next one starts.
@@ -23,7 +23,8 @@ import tempfile
 import threading
 import time
 import uuid
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from types import TracebackType
 from typing import IO, Protocol, Self
@@ -110,30 +111,45 @@ class _Lines:
         return self.channel, text
 
 
-def _pump(stream: IO[bytes], lines: _Lines, events: "queue.Queue[tuple[_Lines, bytes]]") -> None:
-    while chunk := os.read(stream.fileno(), 65536):
-        events.put((lines, chunk))
-    events.put((lines, b""))
+Read = Callable[[], bytes]  # the next chunk of a stream; b"" at its end
+
+
+@dataclass(frozen=True)
+class Running:
+    """A started command: its output streams, its exit code, how to stop it."""
+
+    streams: Sequence[tuple[Read, Channel]]
+    wait: Callable[[], int]  # raises ExecutorError when the platform lost the command
+    kill: Callable[[], None]
+    marked: bool = False  # stderr comes in the first stream, marked by apx-run
+
+
+def _pump(read: Read, lines: _Lines, events: "queue.Queue[tuple[_Lines, bytes]]") -> None:
+    try:
+        while chunk := read():
+            events.put((lines, chunk))
+    finally:  # a failed read ends the stream too; wait() reports the failure
+        events.put((lines, b""))
 
 
 def _run_streaming(
     argv: Sequence[str],
-    streams: Callable[[subprocess.Popen[bytes]], Iterable[tuple[IO[bytes], _Lines]]],
+    start: Callable[[], Running],
     *,
-    popen: Callable[[], subprocess.Popen[bytes]],
     deadline: float,
     budget: _Budget,
     on_line: OnLine,
     cancel: threading.Event,
-    kill: Callable[[subprocess.Popen[bytes]], None],
 ) -> tuple[CommandResult, str | None]:
     """Run one command; returns its result and why it was killed (timeout, output, cancel)."""
     started = time.monotonic()
-    process = popen()
+    running = start()
     events: queue.Queue[tuple[_Lines, bytes]] = queue.Queue()
     readers = [
-        threading.Thread(target=_pump, args=(stream, lines, events), daemon=True)
-        for stream, lines in streams(process)
+        threading.Thread(
+            target=_pump, args=(read, _Lines(channel, running.marked), events), daemon=True
+        )
+        for read, channel in running.streams
     ]
     for reader in readers:
         reader.start()
@@ -154,7 +170,7 @@ def _run_streaming(
             elif budget.exceeded:
                 stop = "output"
             if stop is not None:
-                kill(process)
+                running.kill()
         try:
             lines, chunk = events.get(timeout=_POLL_S)
         except queue.Empty:
@@ -164,7 +180,7 @@ def _run_streaming(
         else:
             open_streams -= 1
             emit(lines.flush())
-    exit_code = process.wait()
+    exit_code = running.wait()
     if stop is None and budget.exceeded:
         stop = "output"
     duration = time.monotonic() - started
@@ -202,6 +218,12 @@ def _exec_result(
         files=files,
         oversized=frozenset(oversized),
     )
+
+
+def _read_pipe(stream: IO[bytes] | None) -> Read:
+    assert stream is not None
+    fd = stream.fileno()
+    return lambda: os.read(fd, 65536)
 
 
 class HostExecutor:
@@ -248,9 +270,9 @@ class HostExecutor:
         def run_one(
             argv: Sequence[str], deadline: float, budget: _Budget
         ) -> tuple[CommandResult, str | None]:
-            def popen() -> subprocess.Popen[bytes]:
+            def start() -> Running:
                 try:
-                    return subprocess.Popen(
+                    process = subprocess.Popen(
                         argv,
                         cwd=workdir,
                         stdin=subprocess.DEVNULL,
@@ -260,26 +282,17 @@ class HostExecutor:
                     )
                 except OSError as error:
                     raise ExecutorError(f"cannot start {argv[0]}: {error}") from error
-
-            def streams(
-                process: subprocess.Popen[bytes],
-            ) -> list[tuple[IO[bytes], _Lines]]:
-                assert process.stdout is not None
-                assert process.stderr is not None
-                return [
-                    (process.stdout, _Lines("out", marked=False)),
-                    (process.stderr, _Lines("err", marked=False)),
-                ]
+                return Running(
+                    streams=[
+                        (_read_pipe(process.stdout), "out"),
+                        (_read_pipe(process.stderr), "err"),
+                    ],
+                    wait=process.wait,
+                    kill=lambda: _kill_host(process),
+                )
 
             return _run_streaming(
-                argv,
-                streams,
-                popen=popen,
-                deadline=deadline,
-                budget=budget,
-                on_line=on_line,
-                cancel=cancel,
-                kill=_kill_host,
+                argv, start, deadline=deadline, budget=budget, on_line=on_line, cancel=cancel
             )
 
         results, stop, budget = _run_plan(plan, run_one)
@@ -304,15 +317,21 @@ def _kill_host(process: subprocess.Popen[bytes]) -> None:
 
 
 SANDBOX_UID = 10001
+# PID 1 of the sandbox container: it reaps orphans and survives `kill -KILL -1` (S6).
+SANDBOX_INIT = ("apx-init",)
+# Every process of the sandbox user but PID 1; nothing left to kill is not an error (no /bin/kill
+# in the image: the shell builtin, S6).
+KILL_ALL = ("sh", "-c", "kill -KILL -1 || true")
 
 
 def sandbox_flags(limits: SandboxLimits) -> list[str]:
-    """`docker run` flags of the sandbox container (specs/07 §5.1)."""
+    """`docker run` flags of the sandbox container (specs/07 §5.1), without the runtime."""
     return [
         "--network=none",
         "--read-only",
         f"--tmpfs=/work:exec,size=512m,uid={SANDBOX_UID},gid={SANDBOX_UID}",
         "--tmpfs=/tmp:size=64m",
+        f"--user={SANDBOX_UID}:{SANDBOX_UID}",
         "--cap-drop=ALL",
         "--security-opt=no-new-privileges",
         f"--pids-limit={limits.pids}",
@@ -322,21 +341,30 @@ def sandbox_flags(limits: SandboxLimits) -> list[str]:
     ]
 
 
-class LocalDockerExecutor:
-    """One container of the toolchain image per submission, driven with the docker CLI."""
+class Container(Protocol):
+    """A running sandbox container of the toolchain image (specs/07 §5.1)."""
 
-    def __init__(self, image: str, limits: SandboxLimits, *, runtime: str | None = None) -> None:
-        self.image = image
-        self.limits = limits
-        self.runtime = runtime  # e.g. runsc; None: the Docker default
-        self.container = f"apx-judge-{uuid.uuid4().hex[:12]}"
+    def run(self, argv: Sequence[str], *, stdin: bytes | None = None) -> tuple[int, bytes, str]:
+        """A short command without a TTY: exit code, stdout (binary-safe), stderr text."""
+        ...
+
+    def start(self, argv: Sequence[str], *, cwd: str) -> Running:
+        """A stage command with a TTY: tools print line by line, apx-run marks stderr."""
+        ...
+
+    def kill_all(self) -> None:
+        """SIGKILL every process of the sandbox user; killing the exec client is not enough (S6)."""
+        ...
+
+
+class ContainerExecutor:
+    """Runs the plans of one submission in its container: each stage in a fresh /work/<stage>
+    (specs/07 §5.2), inputs as a tar stream, outputs read back with a size bound."""
+
+    def __init__(self, container: Container) -> None:
+        self.container = container
 
     def __enter__(self) -> Self:
-        runtime = [f"--runtime={self.runtime}"] if self.runtime else []
-        # TODO(T1.2a): PID 1 becomes apx-init from the image (S6); sleep leaves zombies behind.
-        argv = ["docker", "run", "-d", "--rm", "--name", self.container, *runtime]
-        argv += [*sandbox_flags(self.limits), self.image, "sleep", "infinity"]
-        self._docker(argv, "start the sandbox container")
         return self
 
     def __exit__(
@@ -345,7 +373,7 @@ class LocalDockerExecutor:
         error: BaseException | None,
         tb: TracebackType | None,
     ) -> None:
-        subprocess.run(["docker", "rm", "-f", self.container], capture_output=True, check=False)
+        pass
 
     def run(
         self,
@@ -358,46 +386,27 @@ class LocalDockerExecutor:
     ) -> ExecResult:
         workdir = f"/work/{check_relative(stage_key)}"
         prepare = 'mkdir -p "$1"' if reuse_dir else 'rm -rf "$1" && mkdir "$1"'
-        self._exec(["sh", "-c", prepare, "sh", workdir], f"prepare {workdir}")
+        self._check(["sh", "-c", prepare, "sh", workdir], f"prepare {workdir}")
         self._put(workdir, plan)
 
         def run_one(
             argv: Sequence[str], deadline: float, budget: _Budget
         ) -> tuple[CommandResult, str | None]:
-            # A TTY makes tools print line by line; apx-run keeps stderr apart (specs/07 §4.3).
-            command = ["docker", "exec", "-t", "-w", workdir, self.container, "apx-run", *argv]
-
-            def popen() -> subprocess.Popen[bytes]:
-                try:
-                    return subprocess.Popen(
-                        command,
-                        stdin=subprocess.DEVNULL,
-                        stdout=subprocess.PIPE,
-                        stderr=subprocess.STDOUT,
-                    )
-                except OSError as error:
-                    raise ExecutorError(f"cannot run docker: {error}") from error
-
-            def streams(process: subprocess.Popen[bytes]) -> list[tuple[IO[bytes], _Lines]]:
-                assert process.stdout is not None
-                return [(process.stdout, _Lines("out", marked=True))]
-
+            command = ["apx-run", *argv]  # keeps stderr apart under the TTY (specs/07 §4.3)
             return _run_streaming(
                 argv,
-                streams,
-                popen=popen,
+                lambda: self.container.start(command, cwd=workdir),
                 deadline=deadline,
                 budget=budget,
                 on_line=on_line,
                 cancel=cancel,
-                kill=lambda _: self._kill_all(),
             )
 
         try:
             results, stop, budget = _run_plan(plan, run_one)
         finally:
             # Nothing a stage started survives into the next one (specs/07 §5.2).
-            self._kill_all()
+            self.container.kill_all()
         files, oversized = self._collect(workdir, plan)
         return _exec_result(results, stop, budget, files, oversized)
 
@@ -411,7 +420,7 @@ class LocalDockerExecutor:
                 info = tarfile.TarInfo(str(check_relative(name)))
                 info.size, info.mode, info.mtime = len(content), 0o644, 0
                 tar.addfile(info, io.BytesIO(content))
-        self._exec(["tar", "-x", "-C", workdir], "upload stage inputs", stdin=archive.getvalue())
+        self._check(["tar", "-x", "-C", workdir], "upload stage inputs", stdin=archive.getvalue())
 
     def _collect(self, workdir: str, plan: StagePlan) -> tuple[dict[str, bytes], set[str]]:
         files, oversized = {}, set()
@@ -419,36 +428,92 @@ class LocalDockerExecutor:
             path = f"{workdir}/{check_relative(name)}"
             # head bounds what is read from the sandbox; one extra byte detects an oversized file.
             script = 'test -f "$1" && exec head -c "$2" "$1"'
-            argv = ["sh", "-c", script, "sh", path, str(plan.collect_limit + 1)]
-            result = self._exec(argv, None)
-            if result.returncode != 0:
+            code, data, _ = self.container.run(
+                ["sh", "-c", script, "sh", path, str(plan.collect_limit + 1)]
+            )
+            if code != 0:
                 continue
-            if len(result.stdout) > plan.collect_limit:
+            if len(data) > plan.collect_limit:
                 oversized.add(name)
             else:
-                files[name] = result.stdout
+                files[name] = data
         return files, oversized
 
-    def _kill_all(self) -> None:
-        """SIGKILL every process of the sandbox user; killing the exec client is not enough (S6)."""
-        self._exec(["sh", "-c", "kill -KILL -1"], None)
+    def _check(self, argv: list[str], what: str, stdin: bytes | None = None) -> None:
+        code, _, stderr = self.container.run(argv, stdin=stdin)
+        if code != 0:
+            raise ExecutorError(f"cannot {what}: {stderr.strip()}")
 
-    def _exec(
-        self, argv: list[str], what: str | None, stdin: bytes | None = None
-    ) -> subprocess.CompletedProcess[bytes]:
+
+class DockerContainer:
+    """A sandbox container driven with the docker CLI."""
+
+    def __init__(self, image: str, limits: SandboxLimits, *, runtime: str | None = None) -> None:
+        self.image = image
+        self.limits = limits
+        self.runtime = runtime  # e.g. runsc; None: the Docker default
+        self.name = f"apx-judge-{uuid.uuid4().hex[:12]}"
+
+    def create(self) -> None:
+        runtime = [f"--runtime={self.runtime}"] if self.runtime else []
+        argv = ["docker", "run", "-d", "--rm", "--name", self.name, *runtime]
+        argv += [*sandbox_flags(self.limits), self.image, *SANDBOX_INIT]
+        result = self._docker(argv)
+        if result.returncode != 0:
+            message = result.stderr.decode(errors="replace").strip()
+            raise ExecutorError(f"cannot start the sandbox container: {message}")
+
+    def destroy(self) -> None:
+        subprocess.run(["docker", "rm", "-f", self.name], capture_output=True, check=False)
+
+    def run(self, argv: Sequence[str], *, stdin: bytes | None = None) -> tuple[int, bytes, str]:
         options = ["-i"] if stdin is not None else []
-        command = ["docker", "exec", *options, self.container, *argv]
-        result = self._docker(command, what, stdin=stdin)
-        return result
+        result = self._docker(["docker", "exec", *options, self.name, *argv], stdin=stdin)
+        return result.returncode, result.stdout, result.stderr.decode(errors="replace")
+
+    def start(self, argv: Sequence[str], *, cwd: str) -> Running:
+        command = ["docker", "exec", "-t", "-w", cwd, self.name, *argv]
+        try:
+            process = subprocess.Popen(
+                command, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
+            )
+        except OSError as error:
+            raise ExecutorError(f"cannot run docker: {error}") from error
+        return Running(
+            streams=[(_read_pipe(process.stdout), "out")],
+            wait=process.wait,
+            kill=self.kill_all,
+            marked=True,
+        )
+
+    def kill_all(self) -> None:
+        self._docker(["docker", "exec", self.name, *KILL_ALL])
 
     def _docker(
-        self, argv: list[str], what: str | None, stdin: bytes | None = None
+        self, argv: list[str], stdin: bytes | None = None
     ) -> subprocess.CompletedProcess[bytes]:
         try:
-            result = subprocess.run(argv, input=stdin, capture_output=True, check=False, timeout=60)
+            return subprocess.run(argv, input=stdin, capture_output=True, check=False, timeout=60)
         except (OSError, subprocess.TimeoutExpired) as error:
             raise ExecutorError(f"docker failed: {error}") from error
-        if what is not None and result.returncode != 0:
-            message = result.stderr.decode(errors="replace").strip()
-            raise ExecutorError(f"cannot {what}: {message}")
-        return result
+
+
+class LocalDockerExecutor(ContainerExecutor):
+    """One container of the toolchain image per submission, driven with the docker CLI."""
+
+    container: DockerContainer
+
+    def __init__(self, image: str, limits: SandboxLimits, *, runtime: str | None = None) -> None:
+        super().__init__(DockerContainer(image, limits, runtime=runtime))
+
+    def __enter__(self) -> Self:
+        self.container.create()
+        return self
+
+    def __exit__(
+        self,
+        kind: type[BaseException] | None,
+        error: BaseException | None,
+        tb: TracebackType | None,
+    ) -> None:
+        self.container.destroy()

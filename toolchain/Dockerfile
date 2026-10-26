@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1
-# Sandbox toolchain image, profile 1: Verilator, Z3, pyslang, Verible, apx-run, apx_tb_pkg
+# Sandbox toolchain image, profile 1: Verilator, Z3, pyslang, Verible, apx-run, apx-init, apx_tb_pkg
 # (ADR-0003, specs/07 §5).
 # Tool versions live in versions.lock. Build and test: `just toolchain-build`, `just toolchain-test`.
 
@@ -89,8 +89,24 @@ RUN --mount=type=bind,source=apx-verilate,target=/tmp/apx-verilate \
 RUN --mount=type=bind,source=sv,target=/tmp/sv \
     install -D -m 0644 /tmp/sv/apx_tb_pkg.sv /opt/apx/sv/apx_tb_pkg.sv
 
+# PID 1 of the sandbox container (S6): reaps the processes killed between stages.
+COPY --chmod=0755 apx-init/apx_init.py /opt/apx/bin/apx-init
+
+# Where the sources of the programs in the image are (ADR-0012): versions from versions.lock, the
+# Debian packages as installed.
+RUN --mount=type=bind,source=SOURCES.md.in,target=/tmp/SOURCES.md.in \
+    set -a && . /opt/apx/versions.lock && set +a \
+    && sed -e "s|@TOOLCHAIN_PROFILE@|${TOOLCHAIN_PROFILE}|g" \
+           -e "s|@VERILATOR_VERSION@|${VERILATOR_VERSION}|g" \
+           -e "s|@VERILATOR_SHA256@|${VERILATOR_SHA256}|g" \
+           -e "s|@VERIBLE_VERSION@|${VERIBLE_VERSION}|g" \
+           -e "s|@PYSLANG_VERSION@|${PYSLANG_VERSION}|g" \
+           /tmp/SOURCES.md.in > /opt/licenses/SOURCES.md \
+    && dpkg-query -W -f '| ${Package} | ${Version} |\n' >> /opt/licenses/SOURCES.md
+
 RUN useradd --uid 10001 --user-group --home-dir /work --no-create-home --shell /usr/sbin/nologin sandbox \
     && mkdir /work && chown sandbox:sandbox /work
 USER sandbox
 ENV HOME=/work
 WORKDIR /work
+CMD ["apx-init"]

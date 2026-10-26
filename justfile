@@ -55,7 +55,7 @@ typecheck-py:
     poetry -C backend run mypy
     poetry -C worker run mypy
     poetry -C judge run mypy ../scripts
-    poetry -C judge run mypy --platform linux ../toolchain/apx-run ../toolchain/tests
+    poetry -C judge run mypy --platform linux ../toolchain/apx-run ../toolchain/apx-init ../toolchain/tests
 
 # Type-check TypeScript (tsc, strict)
 typecheck-js:
@@ -162,6 +162,7 @@ toolchain_mirror := env("TOOLCHAIN_DEBIAN_MIRROR", "")
 toolchain-build:
     docker build {{ if toolchain_base != "" { "--build-arg BASE_IMAGE=" + toolchain_base } else { "" } }} {{ if toolchain_mirror != "" { "--build-arg DEBIAN_MIRROR=" + toolchain_mirror } else { "" } }} -t {{ toolchain_image }} toolchain
 
-# Run the toolchain image tests: pytest on the host, commands in a sandboxed container (specs/07 §5.1)
+# Run the toolchain image tests and the worker's sandbox tests against the image (specs/07 §5)
 toolchain-test:
     poetry -C judge run pytest ../toolchain/tests -v
+    poetry -C worker run pytest -m image -v

@@ -1,0 +1,19 @@
+# Исходные тексты программ образа
+
+Образ тулчейна Apparatica, профиль @TOOLCHAIN_PROFILE@. Программы в нём — отдельные, неизменённые сборки из исходных текстов по ссылкам ниже (ADR-0012). Тексты лицензий — рядом, в `/opt/licenses/`, и в `/usr/share/doc/*/copyright` для пакетов Debian.
+
+| Программа | Версия | Лицензия | Исходные тексты |
+|---|---|---|---|
+| Verilator | @VERILATOR_VERSION@ | LGPL-3.0-only или Artistic-2.0 | https://github.com/verilator/verilator/archive/refs/tags/v@VERILATOR_VERSION@.tar.gz (sha256 @VERILATOR_SHA256@) |
+| Verible | @VERIBLE_VERSION@ | Apache-2.0 | https://github.com/chipsalliance/verible/tree/@VERIBLE_VERSION@ |
+| pyslang | @PYSLANG_VERSION@ | MIT | https://pypi.org/project/pyslang/@PYSLANG_VERSION@/#files |
+| apx-run, apx-verilate, apx-init, apx_tb_pkg | профиль @TOOLCHAIN_PROFILE@ | AGPL-3.0-or-later | https://github.com/apparatica/apparatica/tree/master/toolchain |
+
+Рантайм Verilator в `/opt/apx/verilator-runtime` собран из исходников Verilator той же версии.
+
+## Пакеты Debian
+
+Установлены из Debian trixie. Исходные тексты любой версии — `apt-get source <пакет>=<версия>`, https://sources.debian.org/src/<пакет>/<версия>/ или https://snapshot.debian.org.
+
+| Пакет | Версия |
+|---|---|

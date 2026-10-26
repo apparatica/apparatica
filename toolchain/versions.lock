@@ -1,9 +1,9 @@
 # Toolchain profile: tool versions of the sandbox image (ToolchainProfile, specs/09 §2).
 # KEY=value lines: sourced by the Dockerfile, checked by the image tests (tests/test_image.py).
 # Change a version together with its checksum. Bump TOOLCHAIN_PROFILE on every change of the image
-# (this file, Dockerfile, apx-run, apx-verilate, sv/): published profile tags are immutable.
+# (this file, Dockerfile, apx-run, apx-init, apx-verilate, sv/, SOURCES.md.in): published profile tags are immutable.
 
-TOOLCHAIN_PROFILE=2026.10.2
+TOOLCHAIN_PROFILE=2026.10.3
 
 # Debian trixie packages: apt does not pin them, the smoke tests check the installed versions.
 GCC_VERSION=14.2.0

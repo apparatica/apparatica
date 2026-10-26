@@ -5,16 +5,24 @@ on:
     branches: [master]
     paths:
       - toolchain/**
-      # The image tests exercise the judge against the image (executor, testbench protocol).
+      # The image tests exercise the judge against the image (executor, testbench protocol) and the
+      # worker's sandbox (apx-sandboxd, SandboxExecutor).
       - judge/src/**
       - judge/poetry.lock
+      - worker/src/apparatica_worker/sandboxd/**
+      - worker/tests/test_sandbox_image.py
+      - worker/poetry.lock
       - .github/workflows/toolchain.yml
   pull_request:
     paths:
       - toolchain/**
-      # The image tests exercise the judge against the image (executor, testbench protocol).
+      # The image tests exercise the judge against the image (executor, testbench protocol) and the
+      # worker's sandbox (apx-sandboxd, SandboxExecutor).
       - judge/src/**
       - judge/poetry.lock
+      - worker/src/apparatica_worker/sandboxd/**
+      - worker/tests/test_sandbox_image.py
+      - worker/poetry.lock
       - .github/workflows/toolchain.yml
   workflow_dispatch:
 
@@ -42,7 +50,7 @@ jobs:
           fetch-depth: 0  # to diff the image inputs against the base
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
-      # The image tests run with pytest from the judge environment on the runner.
+      # The image tests run with pytest from the judge and worker environments on the runner.
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: "3.13"
@@ -50,6 +58,7 @@ jobs:
         run: |
           pipx install "poetry==${POETRY_VERSION}"
           poetry -C judge install
+          poetry -C worker install
 
       - name: Read toolchain profile
         id: profile

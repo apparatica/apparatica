@@ -107,6 +107,39 @@ class TestSandbox:
         result = sandbox.exec(["cat", "/sys/class/net/eth0/address"])
         assert result.returncode != 0
 
+    def test_pid_1_is_apx_init(self, sandbox: Sandbox) -> None:
+        cmdline = sandbox.exec(["cat", "/proc/1/cmdline"]).stdout.split(b"\0")
+        assert b"/opt/apx/bin/apx-init" in cmdline
+
+    def test_processes_killed_between_stages_are_reaped(self, sandbox: Sandbox) -> None:
+        """`kill -KILL -1` spares PID 1; apx-init reaps the orphans (S6): no zombie, the container
+        lives on."""
+        background = "sleep 300 > /dev/null 2>&1 & sleep 300 > /dev/null 2>&1 &"
+        assert sandbox.exec(["sh", "-c", background]).returncode == 0
+        sandbox.exec(["sh", "-c", "kill -KILL -1"])
+        deadline = time.monotonic() + 5
+        while True:
+            states = sandbox.exec(["sh", "-c", "cat /proc/[0-9]*/stat"]).stdout.decode()
+            # The killed sleeps and any zombie; the sh reading /proc is this check itself.
+            processes = re.findall(r"\((\w+)\) ([A-Z])", states)
+            left = [(name, state) for name, state in processes if name == "sleep" or state == "Z"]
+            if not left or time.monotonic() > deadline:
+                break
+            time.sleep(0.1)
+        assert left == []
+        assert sandbox.exec(["true"]).returncode == 0
+
+
+def test_sources_of_the_programs(sandbox: Sandbox, lock: dict[str, str]) -> None:
+    """ADR-0012: where the sources of the programs in the image are."""
+    text = sandbox.read("/opt/licenses/SOURCES.md")
+    for key in ("TOOLCHAIN_PROFILE", "VERILATOR_VERSION", "VERILATOR_SHA256", "PYSLANG_VERSION"):
+        assert lock[key] in text, key
+    assert lock["VERIBLE_VERSION"] in text
+    assert not re.search(r"@[A-Z_0-9]+@", text)
+    for package in ("g++", "z3", "python3", "perl"):
+        assert re.search(rf"^\| {re.escape(package)} \| \S+ \|$", text, re.MULTILINE), package
+
 
 class TestVerilator:
     def test_simulation_with_fst_trace(self, sandbox: Sandbox, workdir: str) -> None:

@@ -16,6 +16,7 @@ SANDBOX_FLAGS = [
     "--read-only",
     f"--tmpfs=/work:exec,size=512m,uid={SANDBOX_UID},gid={SANDBOX_UID}",
     "--tmpfs=/tmp:size=64m",
+    f"--user={SANDBOX_UID}:{SANDBOX_UID}",
     "--cap-drop=ALL",
     "--security-opt=no-new-privileges",
     "--pids-limit=256",
@@ -51,9 +52,7 @@ class Sandbox:
     def start(cls) -> "Sandbox":
         name = f"apx-toolchain-test-{uuid.uuid4().hex[:8]}"
         argv = ["docker", "run", "-d", "--rm", "--name", name, *SANDBOX_FLAGS, IMAGE]
-        started = subprocess.run(
-            [*argv, "sleep", "infinity"], capture_output=True, text=True, check=False
-        )
+        started = subprocess.run([*argv, "apx-init"], capture_output=True, text=True, check=False)
         if started.returncode != 0:
             raise RuntimeError(f"cannot start {IMAGE}: {started.stderr.strip()}")
         return cls(name)
