@@ -39,6 +39,10 @@ class Settings(BaseSettings):
     s3_secret_access_key: SecretStr | None = None
     s3_bucket_packages: str = "packages"
 
+    # valkey-queue (ADR-0002): the Dramatiq broker, queue positions. Required in production; unset
+    # elsewhere means no workers: a submission stays queued.
+    queue_url: str | None = Field(default=None, description="redis:// URL of valkey-queue")
+
     # Job tokens (specs/07 §5.3): the API signs them, the ingestor checks them. Required in
     # production; elsewhere an unset key means a random key of the process.
     job_token_key: SecretStr | None = Field(default=None, min_length=32)

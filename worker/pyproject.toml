@@ -5,13 +5,17 @@ description = "Apparatica worker: Dramatiq actor and sandbox orchestrator"
 license = "AGPL-3.0-or-later"
 readme = "README.md"
 requires-python = ">=3.13,<3.14"
-dependencies = ["apparatica-judge"]
+dependencies = ["apparatica-judge", "dramatiq[redis] (>=2.2,<3)", "pydantic-settings (>=2.11,<3)", "structlog (>=25.4)"]
+
+[project.scripts]
+apparatica-worker = "apparatica_worker.main:main"
 
 [dependency-groups]
 dev = [
     "mypy>=1.18",
     "pytest>=8.4",
     "ruff>=0.14",
+    "testcontainers[redis] (>=4.13,<5.0)",
 ]
 
 [tool.poetry]
@@ -26,6 +30,7 @@ addopts = ["-ra", "--strict-markers", "--strict-config"]
 
 [tool.mypy]
 strict = true
+untyped_calls_exclude = ["dramatiq.brokers.redis"]  # RedisBroker has no annotations
 files = ["src", "tests"]
 
 [build-system]

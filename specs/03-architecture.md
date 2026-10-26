@@ -111,6 +111,7 @@ judge/src/judge/
     stage.py         протокол Stage, StageContext, StagePlan, StageOutcome
     executor.py      Executor: LocalDocker, Sandbox (gVisor), Host
     events.py        EventSink: консоль, файл JSONL, Redis Stream
+    jobs.py          задание проверки в очереди: контракт API и воркера
     package.py       загрузка и валидация problem.yaml (Pydantic, сверка с JSON Schema)
     limits.py        лимиты песочницы и этапов: классы ресурсов (config/resource-classes.yaml) и переопределения задачи
     registry.py      языковые модули по ключу language
@@ -123,7 +124,9 @@ judge/src/judge/
       diagnostics.py разбор сообщений Verilator, Yosys, slang в file:line:col
   cli.py             judge validate | run | metrics | pack | new
 worker/src/apparatica_worker/
-  actor.py           Dramatiq-актор judge_submission
+  broker.py          брокер Dramatiq и актор judge_submission
+  main.py            apparatica-worker: пулы слотов основных очередей и judge.rejudge
+  runner.py          что делается с взятым заданием (позиция в очереди, затем оркестратор)
   orchestrator.py    песочница, PTY, отмена, heartbeat, загрузка артефактов
 ```
 

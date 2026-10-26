@@ -94,9 +94,11 @@ async def list_submissions(
     responses=problem_responses(ErrorCode.NOT_FOUND, ErrorCode.VALIDATION_ERROR),
     openapi_extra=PHASE_0,
 )
-async def get_submission(response: Response, session: Session, id: uuid.UUID) -> Submission:
+async def get_submission(
+    request: Request, response: Response, session: Session, id: uuid.UUID
+) -> Submission:
     """A submission with its stages and artifacts. Access by author arrives with guests (T1.7)."""
-    submission = await service.get_submission(session, id)
+    submission = await service.get_submission(session, id, request.app.state.job_queue)
     if submission is None:
         raise ApiError(ErrorCode.NOT_FOUND, f"No submission {id}")
     response.headers["Cache-Control"] = PRIVATE

@@ -8,14 +8,14 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import update
+from sqlalchemy import select, update
 
 from apparatica.core.db import Database
 from apparatica.core.settings import Settings
 from apparatica.main import create_app
 from apparatica.submissions.models import Artifact, StageResult, Submission, ToolchainProfile
 from apparatica.submissions.profiles import ProfileSpec, add_profile
-from apparatica.submissions.queue import Job
+from apparatica.submissions.queue import Job, QueueUnavailableError
 from conftest import CONFIG_DIR, PROBLEMS, Postgres
 
 PROBLEM = "application/problem+json"
@@ -31,11 +31,23 @@ CODE = (PROBLEMS / "mux4" / "reference" / "mux4.sv").read_text(encoding="utf-8")
 
 
 class RecordingQueue:
+    """Jobs in the order they were queued; none is ever taken."""
+
     def __init__(self) -> None:
         self.jobs: list[Job] = []
+        self.unavailable = False
 
     async def enqueue(self, job: Job) -> None:
+        if self.unavailable:
+            raise QueueUnavailableError("connection refused")
         self.jobs.append(job)
+
+    async def position(self, queue: str, submission_id: uuid.UUID) -> int | None:
+        waiting = [job.submission_id for job in self.jobs if job.queue == queue]
+        return waiting.index(submission_id) + 1 if submission_id in waiting else None
+
+    async def close(self) -> None:
+        pass
 
 
 def run(url: str, scenario: Any) -> Any:
@@ -95,7 +107,7 @@ def test_a_submission_is_queued(api: TestClient, queue: RecordingQueue) -> None:
         "status": "queued",
         "code": CODE,
         "toolchain_profile": "sv-2026.10.2",
-        "queue_position": None,
+        "queue_position": 1,
         "eta_s": None,
         "started_at": None,
         "finished_at": None,
@@ -107,8 +119,20 @@ def test_a_submission_is_queued(api: TestClient, queue: RecordingQueue) -> None:
 
     [job] = queue.jobs
     assert (job.submission_id, job.queue) == (uuid.UUID(body["id"]), "judge.light")
+    payload = job.payload
     tokens = api.app.state.job_tokens  # type: ignore[attr-defined]
-    assert tokens.verify(job.token, job.submission_id).attempt_max == 2
+    assert tokens.verify(payload.token, job.submission_id).attempt_max == 2
+    # Everything the worker needs: it has no access to the database.
+    assert (payload.problem, payload.version, payload.kind, payload.code) == (
+        "mux4",
+        1,
+        "submit",
+        CODE,
+    )
+    assert str(payload.seed) == body["seed"]
+    assert payload.package_uri.startswith("mux4/1-")
+    assert payload.resource_class == "light"
+    assert payload.toolchain_image == f"{PROFILE.image}@{PROFILE.image_digest}"
 
     stored = api.get(f"/api/v1/submissions/{body['id']}")
     assert stored.status_code == 200
@@ -116,6 +140,32 @@ def test_a_submission_is_queued(api: TestClient, queue: RecordingQueue) -> None:
     assert stored.json() == {key: body[key] for key in body if key != "quota"}
     # Every submission has its own seed.
     assert submit(api).json()["seed"] != body["seed"]
+
+
+def test_a_submission_waits_in_its_queue(api: TestClient) -> None:
+    first, second = submit(api).json(), submit(api).json()
+    assert (first["queue_position"], second["queue_position"]) == (1, 2)
+    assert api.get(f"/api/v1/submissions/{second['id']}").json()["queue_position"] == 2
+
+
+def test_an_unavailable_queue_fails_the_submission(
+    api: TestClient, queue: RecordingQueue, database_url: str
+) -> None:
+    queue.unavailable = True
+    response = submit(api)
+    assert response.status_code == 503
+    assert response.json()["code"] == "JUDGE_UNAVAILABLE"
+
+    async def stored(database: Database) -> Submission:
+        async with database.sessions() as session:
+            return (await session.scalars(select(Submission))).one()
+
+    # It would wait forever otherwise: the submission is stored as failed.
+    submission = run(database_url, stored)
+    assert submission.status == "internal_error"
+    assert submission.verdict_detail is not None
+    assert submission.verdict_detail["error_codes"] == ["QUEUE_UNAVAILABLE"]
+    assert submission.finished_at is not None
 
 
 def test_submissions_check_the_current_version(api: TestClient, database_url: str) -> None:

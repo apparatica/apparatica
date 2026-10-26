@@ -38,7 +38,7 @@ just down          # остановить; данные в томах остаю
 | `api` | FastAPI (`backend/Dockerfile`) |
 | `web` | Next.js, standalone-сервер (`web/Dockerfile`) |
 | `postgres` | PostgreSQL 17, локаль `builtin C.UTF-8` (регистр символов — средствами PostgreSQL, поиск по кириллице не зависит от ОС образа) |
-| `valkey-queue` | очереди и стримы: AOF, без вытеснения. Используется с Ф1 |
+| `valkey-queue` | очереди и стримы: AOF, без вытеснения. API ставит в него проверки (`APX_QUEUE_URL`); воркера на стенде пока нет (T1.21), поэтому отправки остаются в очереди |
 | `valkey-cache` | кэш и rate limit: без сохранения на диск, LRU. Используется с Ф1 |
 | `garage` | S3-хранилище (ADR-0013), один узел |
 | `garage-setup` | одноразовый: раскладка узла, бакеты, ключи компонентов и их права, сайт `waveview`, CORS, правила жизненного цикла (`deploy/garage/setup.py`) |

@@ -45,6 +45,7 @@ allowed = [
 "ISC License (ISCL)" = "ISC"
 "Mozilla Public License 2.0 (MPL 2.0)" = "MPL-2.0"
 "Python Software Foundation License" = "PSF-2.0"
+"GNU Lesser General Public License v3 or later (LGPLv3+)" = "LGPL-3.0-or-later"
 
 # Explicit exceptions: dependencies allowed despite their license. Every entry cites an ADR.
 [[exceptions]]

@@ -9,6 +9,7 @@
 | `judge.core.stage` | протокол `Stage`, `StageContext`, `StagePlan`, `ExecResult`, `StageOutcome`, `StageResult` и общие модели: диагностика, тест-кейс, сводка этапа |
 | `judge.core.pipeline` | `run_pipeline`: этапы `pipelines.practice.<kind>` по порядку, ранняя остановка, отмена |
 | `judge.core.executor` | `LocalDockerExecutor` (контейнер образа тулчейна) и `HostExecutor` (подпроцессы на хосте); лимиты времени и вывода, отмена |
+| `judge.core.jobs` | задание проверки для очереди (`JudgeJob`), имя актора и очередей: общий контракт API и воркера ([architecture.md](architecture.md#очередь-проверок)) |
 | `judge.core.events` | события пайплайна и приёмники: `ConsoleSink`, `JsonlSink`, `FanoutSink` |
 | `judge.core.limits` | лимиты песочницы и этапов: класс ресурсов из `config/resource-classes.yaml`, переопределения из `problem.yaml` |
 | `judge.core.verdict` | `aggregate`: итоговый статус отправки по результатам этапов (specs/04 §3.3) |

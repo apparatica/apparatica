@@ -3,6 +3,9 @@
 A submission is checked against the current version of a published problem with the default
 toolchain profile of its language and a fresh 63-bit seed: the triple makes a run reproducible
 (specs/04 §1). Quotas, the guest cookie and the captcha arrive in phase 1 (T1.7).
+
+The submission is committed before it is queued, so that a worker finds what it is given. A queue
+that cannot be reached fails the submission with `internal_error`: it would otherwise wait forever.
 """
 
 import secrets
@@ -19,7 +22,7 @@ from apparatica.core.platform import SolutionLimits
 from apparatica.problems.models import Problem, ProblemVersion
 from apparatica.submissions.models import Artifact, StageResult, ToolchainProfile
 from apparatica.submissions.models import Submission as SubmissionRow
-from apparatica.submissions.queue import Job, JobQueue
+from apparatica.submissions.queue import Job, JobQueue, QueueUnavailableError
 from apparatica.submissions.schemas import (
     ArtifactKind,
     Submission,
@@ -29,12 +32,14 @@ from apparatica.submissions.schemas import (
     SubmissionStage,
 )
 from apparatica.submissions.tokens import JobTokens
+from judge.core.jobs import JudgeJob, queue_name
 from judge.core.stage import StageSummary
 from judge.core.verdict import VerdictDetail
 
 # Kinds a user may download; the testbench result file with the expected values of hidden tests
 # is not one of them (specs/07 §4.4).
 DOWNLOADABLE_ARTIFACT_KINDS: tuple[str, ...] = get_args(ArtifactKind)
+QUEUE_UNAVAILABLE = "QUEUE_UNAVAILABLE"  # error code of a submission that was never queued
 
 
 def check_size(code: str, limits: SolutionLimits) -> None:
@@ -80,7 +85,7 @@ async def create_submission(
             params={"current_version": version.version},
         )
     profile = await session.scalar(
-        select(ToolchainProfile.id).where(
+        select(ToolchainProfile).where(
             ToolchainProfile.language == version.language, ToolchainProfile.is_default
         )
     )
@@ -96,25 +101,43 @@ async def create_submission(
         kind=request.kind,
         code=request.code,
         seed=secrets.randbits(63),
-        toolchain_profile_id=profile,
+        toolchain_profile_id=profile.id,
         queue_class=version.resource_class,
     )
     session.add(submission)
     await session.commit()
-    # After the commit: a worker must find the submission it is given.
-    await queue.enqueue(
-        Job(
-            submission_id=submission.id,
-            queue=f"judge.{version.resource_class}",
-            token=tokens.issue(submission.id),
-        )
+    job = JudgeJob(
+        submission_id=submission.id,
+        token=tokens.issue(submission.id),
+        problem=request.problem,
+        version=version.version,
+        package_uri=version.package_uri,
+        content_hash=version.content_hash,
+        resource_class=version.resource_class,
+        kind=request.kind,
+        seed=submission.seed,
+        code=submission.code,
+        toolchain_profile=profile.id,
+        toolchain_image=f"{profile.image}@{profile.image_digest}",
     )
-    result = await get_submission(session, submission.id)
+    try:
+        await queue.enqueue(Job(queue=queue_name(version.resource_class), payload=job))
+    except QueueUnavailableError as error:
+        submission.status = "internal_error"
+        submission.verdict_detail = VerdictDetail(error_codes=[QUEUE_UNAVAILABLE]).model_dump(
+            mode="json"
+        )
+        submission.finished_at = datetime.now(UTC)
+        await session.commit()
+        raise ApiError(ErrorCode.JUDGE_UNAVAILABLE, "The queue of checks is unavailable") from error
+    result = await get_submission(session, submission.id, queue)
     assert result is not None
     return SubmissionCreated(**dict(result), quota=None)  # quotas arrive with guests (T1.7)
 
 
-async def get_submission(session: AsyncSession, submission_id: uuid.UUID) -> Submission | None:
+async def get_submission(
+    session: AsyncSession, submission_id: uuid.UUID, queue: JobQueue
+) -> Submission | None:
     row = await session.execute(
         select(SubmissionRow, ProblemVersion, Problem.slug)
         .join(ProblemVersion, ProblemVersion.id == SubmissionRow.problem_version_id)
@@ -149,8 +172,12 @@ async def get_submission(session: AsyncSession, submission_id: uuid.UUID) -> Sub
         code=submission.code,
         seed=str(submission.seed),
         toolchain_profile=submission.toolchain_profile_id,
-        queue_position=None,
-        eta_s=None,
+        queue_position=(
+            await queue.position(queue_name(submission.queue_class), submission.id)
+            if submission.status == "queued"
+            else None
+        ),
+        eta_s=None,  # needs the median check time of the ingestor (specs/07 §3)
         created_at=submission.created_at,
         started_at=submission.started_at,
         finished_at=submission.finished_at,

@@ -10,6 +10,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import make_url, text
 from sqlalchemy.ext.asyncio import create_async_engine
 from testcontainers.community.postgres import PostgresContainer
+from testcontainers.community.redis import RedisContainer
 
 from apparatica.cli import alembic_config
 from apparatica.core.db import Database
@@ -23,6 +24,7 @@ CONFIG_DIR = Path(__file__).parents[2] / "config"
 PROBLEMS = Path(__file__).parents[2] / "problems"
 # Locally the image can come from a mirror (docs/development.md).
 POSTGRES_IMAGE = os.environ.get("APX_TEST_POSTGRES_IMAGE", "postgres:17-alpine")
+VALKEY_IMAGE = os.environ.get("APX_TEST_VALKEY_IMAGE", "valkey/valkey:8-alpine")
 POSTGRES_INITDB_ARGS = "--encoding=UTF8 --locale-provider=builtin --builtin-locale=C.UTF-8"
 
 
@@ -134,3 +136,19 @@ def catalogue_template(postgres: Postgres) -> str:
         url, sorted(path.parent for path in PROBLEMS.glob("*/problem.yaml")), publish=True
     )
     return name
+
+
+@pytest.fixture(scope="session")
+def valkey_url() -> Iterator[str]:
+    """redis:// URL of a Valkey server for the test session (valkey-queue)."""
+    try:
+        container = RedisContainer(VALKEY_IMAGE).start()
+    except Exception as error:
+        if os.environ.get("CI"):
+            raise
+        pytest.skip(f"Valkey tests need Docker: {error!r}")
+    try:
+        host, port = container.get_container_host_ip(), container.get_exposed_port(6379)
+        yield f"redis://{host}:{port}/0"
+    finally:
+        container.stop()

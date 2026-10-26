@@ -56,11 +56,14 @@ def test_job_tokens() -> None:
         JobTokens(b"short", ttl_s=60)
 
 
-def test_production_needs_a_job_token_key() -> None:
+def test_production_needs_a_job_token_key_and_a_queue() -> None:
     settings = Settings(environment="production", config_dir=CONFIG_DIR)
     with pytest.raises(RuntimeError, match="APX_JOB_TOKEN_KEY"):
         create_app(settings)
     keyed = settings.model_copy(update={"job_token_key": SecretStr("s" * 32)})
+    with pytest.raises(RuntimeError, match="APX_QUEUE_URL"):
+        create_app(keyed)
+    keyed = keyed.model_copy(update={"queue_url": "redis://valkey-queue:6379/0"})
     tokens = create_app(keyed).state.job_tokens
     submission = uuid.uuid4()
     other = JobTokens(b"s" * 32, ttl_s=60)  # the ingestor with the same key

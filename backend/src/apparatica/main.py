@@ -26,7 +26,7 @@ from apparatica.core.requests import RequestContextMiddleware
 from apparatica.core.settings import Settings, get_settings
 from apparatica.problems import api as problems_api
 from apparatica.submissions import api as submissions_api
-from apparatica.submissions.queue import JobQueue, NoQueue
+from apparatica.submissions.queue import DramatiqQueue, JobQueue, NoQueue
 from apparatica.submissions.tokens import JobTokens
 
 API_PREFIX = "/api/v1"
@@ -39,18 +39,20 @@ def create_app(
     job_queue: JobQueue | None = None,
 ) -> FastAPI:
     """`flag_overrides` replaces the `feature_flags` table as the source of flag overrides,
-    `job_queue` the queue of checks (none until T1.1)."""
+    `job_queue` the queue of checks (by default from APX_QUEUE_URL)."""
     settings = settings or get_settings()
     configure_logging(settings.log_level, settings.log_format)
     platform = load_platform_config(settings.config_dir)  # fail fast on a broken config
     job_tokens = JobTokens(_job_token_key(settings), ttl_s=settings.job_token_ttl_s)
     database = Database(settings.database_url)  # connects on first use
+    queue = job_queue or _job_queue(settings)  # connects on first use
 
     @asynccontextmanager
     async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         try:
             yield
         finally:
+            await queue.close()
             await database.dispose()
 
     app = FastAPI(
@@ -71,7 +73,7 @@ def create_app(
         flag_overrides or database_overrides(database), ttl_s=settings.feature_flags_ttl_s
     )
     app.state.job_tokens = job_tokens
-    app.state.job_queue = job_queue or NoQueue()
+    app.state.job_queue = queue
     install_error_handlers(app)
     app.add_middleware(RequestContextMiddleware)
     # Every operation may fail with INTERNAL; the routes declare their other errors.
@@ -104,6 +106,14 @@ def _event_stream_schemas(schema: dict[str, Any]) -> None:
                 stream = response.get("content", {}).get("text/event-stream", {}).get("schema", {})
                 if "$ref" in stream:
                     stream.pop("type", None)
+
+
+def _job_queue(settings: Settings) -> JobQueue:
+    if settings.queue_url is not None:
+        return DramatiqQueue(settings.queue_url)
+    if settings.environment == "production":
+        raise RuntimeError("APX_QUEUE_URL is required in production")
+    return NoQueue()
 
 
 def _job_token_key(settings: Settings) -> bytes:

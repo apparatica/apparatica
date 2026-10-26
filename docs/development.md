@@ -218,6 +218,16 @@ poetry -C backend run apparatica-admin toolchain add sv-2026.10.2 \
 - **Изоляция.** Миграции применяются один раз к базе-шаблону. Каждый тест получает свою копию (`CREATE DATABASE … TEMPLATE`). Для тестов API есть второй шаблон, `catalogue_template`, — с опубликованными задачами из `problems/`.
 - **Образ.** По умолчанию `postgres:17-alpine`. Если Docker Hub недоступен, образ задаётся через `APX_TEST_POSTGRES_IMAGE`, например `mirror.gcr.io/library/postgres:17-alpine`.
 
+Тесты очереди (`backend/tests/test_queue.py`, `worker/tests/test_worker.py`) работают с настоящим Valkey: fixture поднимает его через testcontainers один раз на сессию, правила те же, что у Postgres. Образ по умолчанию — `valkey/valkey:8-alpine`, переопределяется через `APX_TEST_VALKEY_IMAGE` (например, `mirror.gcr.io/valkey/valkey:8-alpine`).
+
+### Воркер
+
+```sh
+APX_QUEUE_URL=redis://localhost:6379/0 poetry -C worker run apparatica-worker
+```
+
+Берёт проверки из очередей `valkey-queue` (на стенде с `compose.dev.yaml` он доступен на `localhost:6379`) до Ctrl+C или SIGTERM; начатые проверки при остановке доводятся до конца. Настройки — [configuration.md](configuration.md#воркер).
+
 ## Судья: CLI `judge`
 
 `judge` ставится вместе с окружением `judge` (`just install`) и запускается через Poetry:

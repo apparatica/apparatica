@@ -24,6 +24,7 @@ x-api-env: &api-env
   APX_S3_ACCESS_KEY_ID: ${S3_API_KEY_ID:-GKa62ffff5803d2dfabefd25b6}
   APX_S3_SECRET_ACCESS_KEY: ${S3_API_KEY_SECRET:-ebf9a4900fe670897d3173d6d0083909c70442874266971e109c3132efa6d05d}
   APX_JOB_TOKEN_KEY: ${APX_JOB_TOKEN_KEY:-d0bcee91e1bd0d6ae13d2a129c5f78bc14b19f28c6824598c54dbc3b5ca20531}
+  APX_QUEUE_URL: redis://valkey-queue:6379/0
 
 services:
   postgres:
@@ -134,6 +135,8 @@ services:
         condition: service_completed_successfully
       garage-setup:
         condition: service_completed_successfully
+      valkey-queue:
+        condition: service_healthy
     healthcheck:
       test:
         ["CMD", "python", "-c", "import urllib.request as r; r.urlopen('http://127.0.0.1:8000/api/v1/health', timeout=2)"]
