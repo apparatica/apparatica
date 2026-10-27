@@ -2,14 +2,16 @@
 
 // useSubmission: the check of a problem page (docs/frontend.md#проверка-usesubmission). Run and
 // Submit create a submission, its event stream feeds the state, a dropped stream reconnects; an
-// opened page restores the last submission of the problem and reads its stream to the end.
+// opened page restores the last submission of the problem and reads its stream to the end. A
+// finished check goes to the local history of the guest (the catalogue shows it).
 import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, useSyncExternalStore } from "react";
 
+import { recordCheck } from "@/features/guest/history";
 import type { ApiError, Schemas } from "@/lib/api/client";
 
 import { api, eventsUrl, getLatest, getSubmission, submissionKeys } from "./api";
-import type { Check, Submission } from "./machine";
+import { type Check, isFinished, type Submission } from "./machine";
 import { SubmissionStore } from "./store";
 import type { Connection } from "./stream";
 
@@ -23,6 +25,8 @@ export interface StartInput {
 export interface UseSubmissionOptions {
   problem: string;
   version: number;
+  /** The level of the problem, for the local history. */
+  difficulty: string;
   /** Delays of the reconnects; RECONNECT_DELAYS_MS by default. */
   reconnectDelaysMs?: readonly number[] | undefined;
 }
@@ -51,6 +55,7 @@ export interface SubmissionState {
 export function useSubmission({
   problem,
   version,
+  difficulty,
   reconnectDelaysMs,
 }: UseSubmissionOptions): SubmissionState {
   const queryClient = useQueryClient();
@@ -72,6 +77,12 @@ export function useSubmission({
     store.attach(problem);
     return () => store.detach();
   }, [store, problem]);
+
+  // A check that ended here or before the page opened; writing the same status again is a no-op.
+  const finished = check !== null && isFinished(check) ? check : null;
+  useEffect(() => {
+    if (finished !== null) recordCheck({ ...finished, difficulty });
+  }, [finished, difficulty]);
 
   // Not cached between visits: the last submission may have changed meanwhile.
   const latest = useQuery({

@@ -386,7 +386,7 @@ def test_heavy_problems_are_not_for_guests(api: TestClient, database_url: str) -
 
 
 def test_rate_limits_of_requests(database_url: str, queue: RecordingQueue, tmp_path: Path) -> None:
-    for name in ("difficulties.yaml", "limits.yaml"):
+    for name in ("difficulties.yaml", "catalog.yaml", "limits.yaml"):
         shutil.copy(CONFIG_DIR / name, tmp_path / name)
     (tmp_path / "rate-limits.yaml").write_text(
         "requests_per_ip: {limit: 3, window_s: 60}\n"

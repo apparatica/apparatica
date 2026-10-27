@@ -1,6 +1,6 @@
 """Response schemas of the problem catalogue (specs/05 §3, phase 0).
 
-Per-user fields (status, acceptance, progress solved) arrive with their phases; the interface
+Per-user fields (status, progress solved) arrive with users in phase 2; the interface
 of a problem is the `interface` model of the package manifest, as the statement shows it.
 """
 
@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field, RootModel
 
 from judge.core.package import Interface
 
-Sort = Literal["number", "-number", "difficulty", "-difficulty"]
+Sort = Literal["number", "-number", "difficulty", "-difficulty", "acceptance", "-acceptance"]
 
 
 class Tag(BaseModel):
@@ -28,6 +28,13 @@ class ProblemListItem(BaseModel):
     title: str
     difficulty: str = Field(description="Key of the difficulty levels of GET /config")
     tags: list[str] = Field(description="Tag slugs, titles in GET /tags")
+    acceptance: float | None = Field(
+        ge=0,
+        le=1,
+        examples=[0.78],
+        description="Share of the authors with a judged Submit whose Submit was accepted; null "
+        "before the first one. Recounted every few minutes (FR-CAT-04)",
+    )
 
 
 class DifficultyTotal(BaseModel):

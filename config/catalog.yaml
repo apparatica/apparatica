@@ -1,0 +1,3 @@
+# The problem catalogue (FR-CAT-01): problems per page of the site; the default page size of
+# GET /api/v1/problems. Served to the frontend by GET /api/v1/config.
+per_page: 12

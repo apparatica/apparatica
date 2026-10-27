@@ -75,6 +75,11 @@ class Settings(BaseSettings):
         default=300,
         description="The watchdog waits this long beyond the limits of every attempt",
     )
+    problem_stats_every_s: PositiveFloat = Field(
+        default=300,
+        le=600,
+        description="How often the ingestor recounts acceptance rates; 10 min at most (FR-CAT-04)",
+    )
 
 
 @cache

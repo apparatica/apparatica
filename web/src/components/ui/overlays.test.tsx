@@ -18,6 +18,7 @@ import {
 } from "./dialog";
 import {
   DropdownMenu,
+  DropdownMenuCheckboxItem,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuLabel,
@@ -80,6 +81,38 @@ it("marks the chosen option of a radio menu", async () => {
   await userEvent.click(screen.getByRole("menuitemradio", { name: "Тёмная" }));
   await userEvent.click(screen.getByRole("button", { name: "Тема" }));
   expect(screen.getByRole("menuitemradio", { name: "Тёмная" })).toBeChecked();
+});
+
+it("checks several options of a menu and stays open between them", async () => {
+  function Menu() {
+    const [levels, setLevels] = useState(["easy"]);
+    const toggle = (level: string) => (on: boolean) =>
+      setLevels(on ? [...levels, level] : levels.filter((item) => item !== level));
+    return (
+      <DropdownMenu>
+        <DropdownMenuTrigger>Сложность</DropdownMenuTrigger>
+        <DropdownMenuContent>
+          {["easy", "hard"].map((level) => (
+            <DropdownMenuCheckboxItem
+              key={level}
+              checked={levels.includes(level)}
+              onCheckedChange={toggle(level)}
+              onSelect={(event) => event.preventDefault()}
+            >
+              {level}
+            </DropdownMenuCheckboxItem>
+          ))}
+        </DropdownMenuContent>
+      </DropdownMenu>
+    );
+  }
+  renderWithProviders(<Menu />);
+  await userEvent.click(screen.getByRole("button", { name: "Сложность" }));
+  expect(screen.getByRole("menuitemcheckbox", { name: "easy" })).toBeChecked();
+  await userEvent.click(screen.getByRole("menuitemcheckbox", { name: "hard" }));
+  expect(screen.getByRole("menuitemcheckbox", { name: "hard" })).toBeChecked();
+  await userEvent.click(screen.getByRole("menuitemcheckbox", { name: "easy" }));
+  expect(screen.getByRole("menuitemcheckbox", { name: "easy" })).not.toBeChecked();
 });
 
 it("shows a tooltip on focus", async () => {

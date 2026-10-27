@@ -42,9 +42,12 @@ async def list_problems(
     q: Annotated[str | None, Query(max_length=100, description="In the title or tags")] = None,
     sort: Sort = "number",
     page: Annotated[int, Query(ge=1)] = 1,
-    per_page: Annotated[int, Query(ge=1, le=100)] = 12,
+    per_page: Annotated[
+        int | None, Query(ge=1, le=100, description="catalog.per_page of GET /config if unset")
+    ] = None,
 ) -> Response:
-    levels = [level.key for level in request.app.state.platform.difficulties]
+    platform = request.app.state.platform
+    levels = [level.key for level in platform.difficulties]
     body = await service.list_problems(
         session,
         levels,
@@ -53,7 +56,7 @@ async def list_problems(
         q=q,
         sort=sort,
         page=page,
-        per_page=per_page,
+        per_page=per_page or platform.catalog.per_page,
     )
     return cached_json(request, body)
 

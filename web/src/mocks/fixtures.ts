@@ -9,6 +9,7 @@ export const config: Schemas["ConfigResponse"] = {
     { key: "medium", title: "Medium", token: "m" },
     { key: "hard", title: "Hard", token: "h" },
   ],
+  catalog: { per_page: 12 },
   limits: {
     solution: { max_bytes: 65536, max_lines: 2000 },
     quotas: {
@@ -27,7 +28,20 @@ export const captchaChallenge: Schemas["CaptchaChallenge"] = {
   signature: "9b2e4d6f8a0c1e3b5d7f9a1c3e5b7d9f1a3c5e7b9d1f3a5c7e9b1d3f5a7c9e1b",
 };
 
-/** The demo problems of problems/, as the catalogue lists them. */
+/** The tags of problems/tags.yaml, in its order. */
+export const tags: Schemas["Tag"][] = [
+  { slug: "combinational", title: "комбинационная логика" },
+  { slug: "sequential", title: "последовательностная логика" },
+  { slug: "arithmetic", title: "арифметика" },
+  { slug: "multiplexer", title: "мультиплексоры" },
+  { slug: "counter", title: "счётчики" },
+  { slug: "fsm", title: "FSM" },
+  { slug: "memory", title: "память" },
+  { slug: "fifo", title: "FIFO" },
+];
+
+/** The demo problems of problems/, as the catalogue lists them; the acceptance rates are made up
+ * (sync-fifo has no judged Submit yet). */
 export const problems: Schemas["ProblemListItem"][] = [
   {
     slug: "mux4",
@@ -35,6 +49,7 @@ export const problems: Schemas["ProblemListItem"][] = [
     title: "Мультиплексор 4:1",
     difficulty: "easy",
     tags: ["combinational", "multiplexer"],
+    acceptance: 0.78,
   },
   {
     slug: "counter-mod-n",
@@ -42,6 +57,7 @@ export const problems: Schemas["ProblemListItem"][] = [
     title: "Счётчик по модулю N",
     difficulty: "easy",
     tags: ["sequential", "counter"],
+    acceptance: 0.71,
   },
   {
     slug: "carry-adder",
@@ -49,6 +65,7 @@ export const problems: Schemas["ProblemListItem"][] = [
     title: "Сумматор с переносом",
     difficulty: "easy",
     tags: ["combinational", "arithmetic"],
+    acceptance: 0.64,
   },
   {
     slug: "seq-detector",
@@ -56,6 +73,7 @@ export const problems: Schemas["ProblemListItem"][] = [
     title: "Детектор последовательности 1011",
     difficulty: "medium",
     tags: ["sequential", "fsm"],
+    acceptance: 0.52,
   },
   {
     slug: "sync-fifo",
@@ -63,5 +81,6 @@ export const problems: Schemas["ProblemListItem"][] = [
     title: "Синхронный FIFO",
     difficulty: "medium",
     tags: ["sequential", "memory", "fifo"],
+    acceptance: null,
   },
 ];

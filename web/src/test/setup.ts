@@ -19,5 +19,6 @@ afterEach(() => {
   server.resetHandlers();
   resetMocks();
   cleanup();
+  localStorage.clear(); // the local history of a guest
 });
 afterAll(() => server.close());

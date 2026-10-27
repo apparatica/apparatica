@@ -1,5 +1,6 @@
 """Periodic tasks of the leading ingestor: the leader lock, the watchdog, retention of artifacts,
-guest submissions and address hashes (ADR-0009, specs/07 §3, §4.4, ОВ-13, NFR-PRIV-01)."""
+guest submissions and address hashes, problem stats (ADR-0009, specs/07 §3, §4.4, ОВ-13,
+NFR-PRIV-01, FR-CAT-04)."""
 
 import asyncio
 import json
@@ -13,7 +14,7 @@ import pytest
 import redis.asyncio
 from botocore.exceptions import ClientError
 from moto import mock_aws
-from sqlalchemy import func, select, update
+from sqlalchemy import delete, func, select, update
 from test_ingest import NOW, new_submission, run
 
 from apparatica.core.db import Database
@@ -27,9 +28,11 @@ from apparatica.judging.housekeeping import (
     GuestPurge,
     Housekeeping,
     Periodic,
+    ProblemStatsRefresh,
     Watchdog,
 )
 from apparatica.judging.leader import LEADER_KEY, Leadership
+from apparatica.problems.models import Problem, ProblemStats
 from apparatica.submissions.models import Artifact, StageResult, Submission
 from conftest import CONFIG_DIR, Postgres
 from judge.core.jobs import ATTEMPT_MAX, lease_key, submission_stream_key
@@ -256,6 +259,50 @@ def test_old_address_hashes_are_cleared(database_url: str) -> None:
         async with database.sessions() as session:
             hashes = list(await session.scalars(select(Submission.client_ip_hash)))
             assert sorted(hashes, key=lambda value: value or "") == [None, "recent"]
+
+    run(database_url, scenario)
+
+
+def test_problem_stats_count_authors_of_judged_submits(database_url: str) -> None:
+    async def scenario(database: Database) -> None:
+        checks = {
+            "a": [("submit", "wrong_answer"), ("submit", "accepted")],
+            "b": [("submit", "wrong_answer"), ("submit", "compile_error")],
+            "c": [("run", "accepted")],  # a Run is not counted
+            "d": [("submit", "cancelled"), ("submit", "internal_error"), ("submit", "running")],
+            "e": [("submit", "accepted_with_warnings")],
+        }
+        guests = {name: uuid.uuid4() for name in checks}
+        accepted_of_a = uuid.UUID(int=0)
+        for name, kinds in checks.items():
+            for kind, state in kinds:
+                submission = await new_submission(database, kind, guests[name])
+                await set_state(database, submission, status=state)
+                if (name, state) == ("a", "accepted"):
+                    accepted_of_a = submission
+
+        async def stats() -> dict[str, tuple[int, int]]:
+            async with database.sessions() as session:
+                rows = await session.execute(
+                    select(Problem.slug, ProblemStats.authors, ProblemStats.accepted_authors).join(
+                        ProblemStats, ProblemStats.problem_id == Problem.id
+                    )
+                )
+                return {slug: (authors, accepted) for slug, authors, accepted in rows}
+
+        refresh = ProblemStatsRefresh(database, clock=lambda: NOW)
+        problems = await refresh()
+        counted = await stats()
+        assert problems == len(counted) > 1
+        assert counted["mux4"] == (3, 2)
+        assert counted["sync-fifo"] == (0, 0)
+        async with database.sessions() as session:
+            assert set(await session.scalars(select(ProblemStats.updated_at))) == {NOW}
+
+        async with database.sessions.begin() as session:  # deleted, as by the guest purge
+            await session.execute(delete(Submission).where(Submission.id == accepted_of_a))
+        await refresh()
+        assert (await stats())["mux4"] == (3, 1)
 
     run(database_url, scenario)
 

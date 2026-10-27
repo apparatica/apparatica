@@ -182,4 +182,4 @@ const { data, error } = await api.GET("/api/v1/problems/{slug}", {
 // data — ProblemDetail, error — ApiError (problem+json)
 ```
 
-Пути в схеме начинаются с `/api/v1`, поэтому `baseUrl` — origin API; пустая строка означает тот же origin, что у сайта. Схемы доступны как `Schemas["ProblemDetail"]`, ошибка — `ApiError`, коды — `ErrorCode`.
+Пути в схеме начинаются с `/api/v1`, поэтому `baseUrl` — origin API; пустая строка означает тот же origin, что у сайта. Готовые клиенты: `browserApi` (`browser.ts`) — для браузера, на origin сайта; `serverApi` (`server.ts`) — для серверных компонентов Next.js, по переменной окружения `API_URL` (в стенде `http://api:8000`, без неё — `http://localhost:8000`): сервер ходит в API напрямую, а не через Caddy. Схемы доступны как `Schemas["ProblemDetail"]`, ошибка — `ApiError`, коды — `ErrorCode`.

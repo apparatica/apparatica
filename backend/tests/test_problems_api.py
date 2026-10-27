@@ -7,9 +7,13 @@ from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
+from sqlalchemy import delete, select
+from test_ingest import NOW, run
 
+from apparatica.core.db import Database
 from apparatica.core.settings import Settings
 from apparatica.main import create_app
+from apparatica.problems.models import Problem, ProblemStats
 from conftest import CONFIG_DIR, PROBLEMS, Postgres, import_problems
 
 PUBLIC = "public, max-age=60, stale-while-revalidate=300"
@@ -90,8 +94,9 @@ def test_catalogue_lists_published_problems(api: TestClient) -> None:
         "title": "Мультиплексор 4:1",
         "difficulty": "easy",
         "tags": ["combinational", "multiplexer"],
+        "acceptance": None,
     }
-    assert (body["page"], body["per_page"], body["total"]) == (1, 12, 5)
+    assert (body["page"], body["per_page"], body["total"]) == (1, 12, 5)  # config/catalog.yaml
     assert body["progress"] == [
         {"difficulty": "easy", "total": 3},
         {"difficulty": "medium", "total": 2},
@@ -148,8 +153,51 @@ def test_catalogue_sort_and_pages(api: TestClient) -> None:
     assert slugs(api, "?page=4&per_page=2") == []
 
 
+def test_catalogue_acceptance_rates(api: TestClient, catalogue: str) -> None:
+    rates = {"mux4": (4, 3), "carry-adder": (3, 3), "sync-fifo": (2, 0), "seq-detector": (0, 0)}
+
+    async def set_stats(database: Database) -> None:
+        async with database.sessions.begin() as session:
+            rows = await session.execute(select(Problem.slug, Problem.id))
+            problems = {slug: problem_id for slug, problem_id in rows}
+            for slug, (authors, accepted) in rates.items():
+                session.add(
+                    ProblemStats(
+                        problem_id=problems[slug],
+                        authors=authors,
+                        accepted_authors=accepted,
+                        updated_at=NOW,
+                    )
+                )
+
+    async def clear_stats(database: Database) -> None:
+        async with database.sessions.begin() as session:
+            await session.execute(delete(ProblemStats))
+
+    run(catalogue, set_stats)
+    try:
+        items = api.get("/api/v1/problems?sort=-acceptance").json()["items"]
+        assert [(item["slug"], item["acceptance"]) for item in items] == [
+            ("carry-adder", 1.0),
+            ("mux4", 0.75),
+            ("sync-fifo", 0.0),
+            ("counter-mod-n", None),  # no stats yet
+            ("seq-detector", None),  # no judged Submit
+        ]
+        # Without a rate, last in both directions; then by number.
+        assert slugs(api, "?sort=acceptance") == [
+            "sync-fifo",
+            "mux4",
+            "carry-adder",
+            "counter-mod-n",
+            "seq-detector",
+        ]
+    finally:
+        run(catalogue, clear_stats)
+
+
 @pytest.mark.parametrize(
-    "query", ["?per_page=101", "?per_page=0", "?page=0", "?sort=acceptance", "?q=" + "x" * 101]
+    "query", ["?per_page=101", "?per_page=0", "?page=0", "?sort=status", "?q=" + "x" * 101]
 )
 def test_catalogue_rejects_bad_parameters(api: TestClient, query: str) -> None:
     response = api.get(f"/api/v1/problems{query}")

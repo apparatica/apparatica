@@ -8,7 +8,7 @@ from fastapi import APIRouter, Request, Response
 from pydantic import BaseModel
 
 from apparatica.core.http import PRIVATE, cached_json
-from apparatica.core.platform import Difficulty, Limits
+from apparatica.core.platform import Catalog, Difficulty, Limits
 
 router = APIRouter(tags=["core"])
 log = structlog.get_logger(__name__)
@@ -34,6 +34,7 @@ class ConfigResponse(BaseModel):
     version: str
     features: dict[str, bool]
     difficulties: list[Difficulty]
+    catalog: Catalog
     limits: Limits
     auth_providers: list[AuthProvider]
 
@@ -73,6 +74,7 @@ async def config(request: Request) -> Response:
         version=state.version,
         features=await state.flags.values(),
         difficulties=state.platform.difficulties,
+        catalog=state.platform.catalog,
         limits=state.platform.limits,
         auth_providers=[],  # login arrives in phase 2 (GitHub, email)
     )

@@ -31,6 +31,7 @@ from apparatica.judging.housekeeping import (
     GuestPurge,
     Housekeeping,
     Periodic,
+    ProblemStatsRefresh,
     Watchdog,
 )
 from apparatica.judging.ingest import Ingestor, InvalidRecordError, transient
@@ -177,6 +178,7 @@ async def run_ingest(settings: Settings, stop: asyncio.Event) -> None:
         Periodic("watchdog", WATCHDOG_EVERY_S, watchdog),
         Periodic("retention", PURGE_EVERY_S, ArtifactPurge(database, storage, bucket)),
         Periodic("addresses", PURGE_EVERY_S, AddressPurge(database, retention.client_ip_hash_days)),
+        Periodic("problem-stats", settings.problem_stats_every_s, ProblemStatsRefresh(database)),
     ]
     if retention.guest_submissions_days is not None:
         guests = GuestPurge(database, storage, bucket, retention.guest_submissions_days)

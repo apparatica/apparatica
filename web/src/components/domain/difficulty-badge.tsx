@@ -17,6 +17,9 @@ const TONES: Record<string, string> = {
 const NEUTRAL = "bg-sf2 text-mu";
 const BARS = ["h-1", "h-[7px]", "h-2.5"];
 
+/** The colour pair of a level: `bg-*` and `text-*` classes. */
+export const difficultyTone = (token: string): string => TONES[token] ?? NEUTRAL;
+
 /** The level of a problem and its place among the levels of the config (from 1). */
 export function findDifficulty(
   levels: readonly Difficulty[],
@@ -48,7 +51,7 @@ export function DifficultyBadge({
       className={cn(
         "inline-flex items-center gap-1.5 rounded-sm px-2 font-mono text-[11px] font-medium whitespace-nowrap",
         compact ? "h-[18px]" : "h-[22px]",
-        TONES[difficulty.token] ?? NEUTRAL,
+        difficultyTone(difficulty.token),
         className,
       )}
       {...props}

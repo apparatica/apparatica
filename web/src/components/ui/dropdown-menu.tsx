@@ -54,6 +54,27 @@ export function DropdownMenuRadioItem({
   );
 }
 
+/** A choice of several: a box on the left, checked when the item is on. */
+export function DropdownMenuCheckboxItem({
+  className,
+  children,
+  ...props
+}: ComponentProps<typeof Primitive.CheckboxItem>) {
+  return (
+    <Primitive.CheckboxItem className={cn(item, "group", className)} {...props}>
+      <span
+        aria-hidden="true"
+        className="inline-flex size-3.5 flex-none items-center justify-center rounded-sm border border-bc bg-ed group-data-[state=checked]:border-ac group-data-[state=checked]:bg-ac group-data-[state=checked]:text-acx"
+      >
+        <Primitive.ItemIndicator className="inline-flex">
+          <Check className="size-3!" strokeWidth={3} />
+        </Primitive.ItemIndicator>
+      </span>
+      {children}
+    </Primitive.CheckboxItem>
+  );
+}
+
 export function DropdownMenuLabel({ className, ...props }: ComponentProps<typeof Primitive.Label>) {
   return (
     <Primitive.Label

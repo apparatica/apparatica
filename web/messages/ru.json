@@ -39,7 +39,59 @@
   },
   "problems": {
     "title": "Задачи",
-    "placeholder": "Каталог задач появится здесь в одной из следующих версий."
+    "subtitle": "Решайте на SystemVerilog, проверка запускается прямо из браузера: линт и симуляция.",
+    "progress": {
+      "label": "Прогресс по уровням",
+      "solved": "<n>{solved}</n> из {total}",
+      "bar": "{level}: решено {solved} из {total}"
+    },
+    "search": {
+      "label": "Поиск по задачам",
+      "placeholder": "Название или тег"
+    },
+    "filters": {
+      "difficulty": "Сложность",
+      "tags": "Теги",
+      "status": "Статус",
+      "count": "{filter} · {count}",
+      "active": "Выбранные фильтры",
+      "reset": "Сбросить фильтры"
+    },
+    "status": {
+      "solved": "Решено",
+      "attempted": "Пробовал",
+      "not_started": "Не начато",
+      "chip": "Статус: {status, select, solved {решено} attempted {пробовал} other {не начато}}"
+    },
+    "total": "Всего <n>{count}</n> {count, plural, one {задача} few {задачи} many {задач} other {задачи}}",
+    "sort": {
+      "label": "Сортировка: {sort}",
+      "title": "Сортировка",
+      "number": "по номеру",
+      "-number": "по номеру, с конца",
+      "difficulty": "сначала простые",
+      "-difficulty": "сначала сложные",
+      "-acceptance": "больше принятых",
+      "acceptance": "меньше принятых"
+    },
+    "table": {
+      "label": "Список задач",
+      "status": "Статус",
+      "title": "Название",
+      "difficulty": "Уровень",
+      "tags": "Теги",
+      "acceptance": "Принято",
+      "percent": "{value}%",
+      "noAcceptance": "нет данных"
+    },
+    "shown": "Показано <n>{from}–{to}</n> из {total}",
+    "empty": {
+      "title": "Ничего не найдено",
+      "query": "По запросу «{q}» ничего не нашлось. Снимите часть фильтров или поправьте запрос.",
+      "filters": "Под эти фильтры задачи не подходят. Снимите часть фильтров.",
+      "catalog": "Задач пока нет",
+      "catalogHint": "Они появятся здесь, как только их опубликуют."
+    }
   },
   "domain": {
     "seconds": "{value} с",

@@ -181,7 +181,9 @@
                 "number",
                 "-number",
                 "difficulty",
-                "-difficulty"
+                "-difficulty",
+                "acceptance",
+                "-acceptance"
               ],
               "type": "string",
               "default": "number",
@@ -204,12 +206,20 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "integer",
-              "maximum": 100,
-              "minimum": 1,
-              "default": 12,
+              "anyOf": [
+                {
+                  "type": "integer",
+                  "maximum": 100,
+                  "minimum": 1
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "catalog.per_page of GET /config if unset",
               "title": "Per Page"
-            }
+            },
+            "description": "catalog.per_page of GET /config if unset"
           }
         ],
         "responses": {
@@ -1176,6 +1186,22 @@
         "title": "CaptchaChallenge",
         "description": "An ALTCHA challenge: the widget finds the number and sends the solution as `captcha`."
       },
+      "Catalog": {
+        "properties": {
+          "per_page": {
+            "type": "integer",
+            "maximum": 100.0,
+            "minimum": 1.0,
+            "title": "Per Page"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "per_page"
+        ],
+        "title": "Catalog"
+      },
       "ConfigResponse": {
         "properties": {
           "version": {
@@ -1196,6 +1222,9 @@
             "type": "array",
             "title": "Difficulties"
           },
+          "catalog": {
+            "$ref": "#/components/schemas/Catalog"
+          },
           "limits": {
             "$ref": "#/components/schemas/Limits"
           },
@@ -1212,6 +1241,7 @@
           "version",
           "features",
           "difficulties",
+          "catalog",
           "limits",
           "auth_providers"
         ],
@@ -2002,6 +2032,23 @@
             "type": "array",
             "title": "Tags",
             "description": "Tag slugs, titles in GET /tags"
+          },
+          "acceptance": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acceptance",
+            "description": "Share of the authors with a judged Submit whose Submit was accepted; null before the first one. Recounted every few minutes (FR-CAT-04)",
+            "examples": [
+              0.78
+            ]
           }
         },
         "type": "object",
@@ -2010,7 +2057,8 @@
           "number",
           "title",
           "difficulty",
-          "tags"
+          "tags",
+          "acceptance"
         ],
         "title": "ProblemListItem"
       },

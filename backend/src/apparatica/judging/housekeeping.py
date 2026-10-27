@@ -9,6 +9,8 @@
   their rows and the files of their artifacts (decision ОВ-13).
 - **Addresses** — the salted hashes of client addresses older than `client_ip_hash_days` are
   cleared (NFR-PRIV-01).
+- **Problem stats** — the authors of every problem with a judged and with an accepted Submit, for
+  the acceptance rate of the catalogue (FR-CAT-04).
 """
 
 import asyncio
@@ -23,14 +25,16 @@ import redis.asyncio
 import structlog
 from botocore.exceptions import BotoCoreError, ClientError
 from pydantic import ValidationError
-from sqlalchemy import CursorResult, delete, func, select, update
+from sqlalchemy import CursorResult, and_, delete, distinct, func, literal, select, update
+from sqlalchemy.dialects.postgresql import insert
 
 from apparatica.core.db import Database
 from apparatica.core.storage import Storage
 from apparatica.judging.ingest import finalize, internal_error, transient
 from apparatica.judging.leader import Leadership
 from apparatica.judging.publish import publish_finalized
-from apparatica.problems.models import ProblemVersion
+from apparatica.problems.models import Problem as ProblemRow
+from apparatica.problems.models import ProblemStats, ProblemVersion
 from apparatica.submissions.events import FinalizedEvent
 from apparatica.submissions.models import Artifact, Submission
 from judge.core.jobs import ATTEMPT_MAX, lease_key
@@ -41,6 +45,8 @@ from judge.core.stage import SubmissionKind
 log = structlog.get_logger(__name__)
 
 WATCHDOG_TIMEOUT = "WATCHDOG_TIMEOUT"
+ACCEPTED = ("accepted", "accepted_with_warnings")
+UNJUDGED = ("queued", "running", "cancelled", "internal_error")  # no verdict on the solution
 FALLBACK_CHECK_TIMEOUT_S = 3600.0  # the limits of a version that no longer parses
 Clock = Callable[[], datetime]
 
@@ -213,6 +219,45 @@ class AddressPurge:
         if cleared:
             log.info("address hashes cleared", count=cleared)
         return cleared
+
+
+@dataclass
+class ProblemStatsRefresh:
+    database: Database
+    clock: Clock = field(default=_now)
+
+    async def __call__(self) -> int:
+        """Counts the authors of every problem, over all its versions; returns how many problems.
+        Guest submissions count while they are kept (`guest_submissions_days`)."""
+        author = Submission.guest_id  # phase 2: the user, or the guest
+        counts = (
+            select(
+                ProblemRow.id,
+                func.count(distinct(author)),
+                func.count(distinct(author)).filter(Submission.status.in_(ACCEPTED)),
+                literal(self.clock()),
+            )
+            .select_from(ProblemRow)
+            .outerjoin(ProblemVersion, ProblemVersion.problem_id == ProblemRow.id)
+            .outerjoin(
+                Submission,
+                and_(
+                    Submission.problem_version_id == ProblemVersion.id,
+                    Submission.kind == "submit",
+                    Submission.status.not_in(UNJUDGED),
+                ),
+            )
+            .group_by(ProblemRow.id)
+        )
+        columns = ["problem_id", "authors", "accepted_authors", "updated_at"]
+        statement = insert(ProblemStats).from_select(columns, counts)
+        statement = statement.on_conflict_do_update(
+            index_elements=[ProblemStats.problem_id],
+            set_={name: statement.excluded[name] for name in columns[1:]},
+        )
+        async with self.database.sessions.begin() as session:
+            result = await session.execute(statement)
+        return result.rowcount if isinstance(result, CursorResult) else 0
 
 
 @dataclass

@@ -303,6 +303,11 @@ export interface components {
              */
             signature: string;
         };
+        /** Catalog */
+        Catalog: {
+            /** Per Page */
+            per_page: number;
+        };
         /**
          * ConfigResponse
          * @description What the frontend needs before anything else: features, levels, limits, login options.
@@ -316,6 +321,7 @@ export interface components {
             };
             /** Difficulties */
             difficulties: components["schemas"]["Difficulty"][];
+            catalog: components["schemas"]["Catalog"];
             limits: components["schemas"]["Limits"];
             /** Auth Providers */
             auth_providers: components["schemas"]["AuthProvider"][];
@@ -656,6 +662,12 @@ export interface components {
              * @description Tag slugs, titles in GET /tags
              */
             tags: string[];
+            /**
+             * Acceptance
+             * @description Share of the authors with a judged Submit whose Submit was accepted; null before the first one. Recounted every few minutes (FR-CAT-04)
+             * @example 0.78
+             */
+            acceptance: number | null;
         };
         /** ProblemPage */
         ProblemPage: {
@@ -1443,9 +1455,10 @@ export interface operations {
                 tag?: string[];
                 /** @description In the title or tags */
                 q?: string | null;
-                sort?: "number" | "-number" | "difficulty" | "-difficulty";
+                sort?: "number" | "-number" | "difficulty" | "-difficulty" | "acceptance" | "-acceptance";
                 page?: number;
-                per_page?: number;
+                /** @description catalog.per_page of GET /config if unset */
+                per_page?: number | null;
             };
             header?: never;
             path?: never;

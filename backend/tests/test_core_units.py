@@ -91,7 +91,7 @@ def test_platform_config_errors(tmp_path: Path) -> None:
         "- {key: easy, title: Easy, token: e}\n- {key: easy, title: Easy, token: e}\n",
         encoding="utf-8",
     )
-    for name in ("limits.yaml", "rate-limits.yaml"):
+    for name in ("catalog.yaml", "limits.yaml", "rate-limits.yaml"):
         (tmp_path / name).write_text((CONFIG_DIR / name).read_text("utf-8"), "utf-8")
     with pytest.raises(ConfigFileError, match="duplicate keys"):
         load_platform_config(tmp_path)

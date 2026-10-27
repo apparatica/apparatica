@@ -38,6 +38,7 @@ def test_config(client: TestClient) -> None:
         "reports": False,
     }
     assert [d["key"] for d in body["difficulties"]] == ["easy", "medium", "hard"]
+    assert body["catalog"] == {"per_page": 12}
     assert body["limits"]["solution"] == {"max_bytes": 65536, "max_lines": 2000}
     assert body["limits"]["quotas"]["guest"]["checks_per_hour"] == 10
     assert body["auth_providers"] == []

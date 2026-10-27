@@ -36,8 +36,8 @@ just down          # остановить; данные в томах остаю
 |---|---|
 | `caddy` | proxy: `localhost` — сайт и API (`/api` без буферизации, для SSE), `s3.localhost` и `waveview.web.localhost` — Garage; заголовки безопасности. Только HTTP: TLS — со staging (T1.23) |
 | `api` | FastAPI (`backend/Dockerfile`) |
-| `ingest` | `apparatica ingest` из того же образа: результаты проверок в Postgres, `finalized`, watchdog, сроки хранения артефактов. С ключом хранилища `ingest` и пользователем Valkey `ingest` |
-| `web` | Next.js, standalone-сервер (`web/Dockerfile`) |
+| `ingest` | `apparatica ingest` из того же образа: результаты проверок в Postgres, `finalized`, watchdog, сроки хранения артефактов, процент принятых. С ключом хранилища `ingest` и пользователем Valkey `ingest` |
+| `web` | Next.js, standalone-сервер (`web/Dockerfile`); серверный рендер читает `api` напрямую (`API_URL=http://api:8000`) и стартует после него |
 | `postgres` | PostgreSQL 17, локаль `builtin C.UTF-8` (регистр символов — средствами PostgreSQL, поиск по кириллице не зависит от ОС образа) |
 | `valkey-queue` | очереди и стримы: AOF, без вытеснения. Пользователи и их ключи — `deploy/valkey/queue-users.acl.in` ([security.md](security.md#права-компонентов)); пароли — `VALKEY_QUEUE_API_PASSWORD`, `VALKEY_QUEUE_WORKER_PASSWORD`, `VALKEY_QUEUE_INGEST_PASSWORD`. API ставит в него проверки как `api`, ингестор читает результаты как `ingest`; воркера на стенде пока нет (T1.21), поэтому отправки остаются в очереди |
 | `valkey-cache` | кэш и rate limit: без сохранения на диск, LRU. API хранит в нём счётчики rate limit и квоты волн ([api.md](api.md#гости-и-лимиты-ф1)) |

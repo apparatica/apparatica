@@ -73,6 +73,20 @@ class ProblemVersion(Base):
     published_at: Mapped[datetime] = created_at()
 
 
+class ProblemStats(Base):
+    """Authors of a problem for the acceptance rate (FR-CAT-04), recalculated by the ingestor."""
+
+    __tablename__ = "problem_stats"
+    __table_args__ = (
+        CheckConstraint("accepted_authors <= authors", name="accepted_within_authors"),
+    )
+
+    problem_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("problems.id"), primary_key=True)
+    authors: Mapped[int]  # with a judged Submit
+    accepted_authors: Mapped[int]  # with an accepted Submit
+    updated_at: Mapped[datetime]
+
+
 class ReferenceSolution(Base):
     __tablename__ = "reference_solutions"
 

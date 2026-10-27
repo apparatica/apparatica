@@ -7,11 +7,23 @@ submissions refer to them), newer imported ones are not visible until they are p
 from collections.abc import Sequence
 from typing import Any
 
-from sqlalchemy import ARRAY, ColumnElement, Select, Text, exists, func, literal, or_, select
+from sqlalchemy import (
+    ARRAY,
+    ColumnElement,
+    Float,
+    Select,
+    Text,
+    cast,
+    exists,
+    func,
+    literal,
+    or_,
+    select,
+)
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
-from apparatica.problems.models import Problem, ProblemVersion, Tag
+from apparatica.problems.models import Problem, ProblemStats, ProblemVersion, Tag
 from apparatica.problems.schemas import (
     DifficultyTotal,
     PipelineInfo,
@@ -67,7 +79,8 @@ async def list_problems(
     page: int,
     per_page: int,
 ) -> ProblemPage:
-    """Filters of one kind are alternatives (any of the levels, any of the tags)."""
+    """Filters of one kind are alternatives (any of the levels, any of the tags). Problems without
+    an acceptance rate sort after the others in both directions."""
     conditions: list[ColumnElement[bool]] = []
     if difficulties:
         conditions.append(ProblemVersion.difficulty.in_(difficulties))
@@ -85,10 +98,16 @@ async def list_problems(
         ),
         len(difficulty_order) + 1,
     )
-    key = {"number": Problem.number, "difficulty": level}[sort.removeprefix("-")]
-    order = [key.desc() if sort.startswith("-") else key.asc(), Problem.number]
+    acceptance = cast(ProblemStats.accepted_authors, Float) / func.nullif(ProblemStats.authors, 0)
+    keys = {"number": Problem.number, "difficulty": level, "acceptance": acceptance}
+    key = keys[sort.removeprefix("-")]
+    order = [(key.desc() if sort.startswith("-") else key.asc()).nulls_last(), Problem.number]
     rows = await session.execute(
-        filtered.order_by(*order).limit(per_page).offset((page - 1) * per_page)
+        filtered.add_columns(acceptance)
+        .outerjoin(ProblemStats, ProblemStats.problem_id == Problem.id)
+        .order_by(*order)
+        .limit(per_page)
+        .offset((page - 1) * per_page)
     )
     items = [
         ProblemListItem(
@@ -97,8 +116,9 @@ async def list_problems(
             title=version.title,
             difficulty=version.difficulty,
             tags=version.tags,
+            acceptance=None if rate is None else round(rate, 4),
         )
-        for problem, version in rows
+        for problem, version, rate in rows
     ]
 
     levels = await session.execute(

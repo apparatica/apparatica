@@ -69,7 +69,7 @@ RFC 9457 `application/problem+json`:
 | Метод и путь | Фаза | Назначение |
 |---|---|---|
 | `GET /health`, `GET /config` | Ф0 | здоровье; feature flags, лимиты, провайдеры входа, уровни |
-| `GET /problems` | Ф0 | каталог с фильтрами `difficulty`, `tag`, `status`, `q`, `sort` |
+| `GET /problems` | Ф0 | каталог с фильтрами `difficulty`, `tag`, `q`, `sort`; процент принятых — Ф1; фильтр `status` — Ф2 для вошедших (статусы гостя хранит браузер, по ним фильтрует он, FR-CAT-03) |
 | `GET /problems/{slug}` | Ф0 | текущая версия: условие, шаблон, интерфейс, статистика |
 | `GET /problems/{slug}/versions/{version}` | Ф0 | конкретная версия |
 | `GET /tags` | Ф0 | справочник тегов |

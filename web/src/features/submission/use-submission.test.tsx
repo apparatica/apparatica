@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
 import { expect, it } from "vitest";
 
+import { readHistory } from "@/features/guest/history";
 import { createApiClient } from "@/lib/api/client";
 import { api } from "@/mocks/http";
 import { scenarios } from "@/mocks/scenarios";
@@ -17,7 +18,13 @@ const CODE = "module sync_fifo; endmodule";
 function setup(options: Partial<UseSubmissionOptions> = {}) {
   return renderHook(
     (props: Partial<UseSubmissionOptions>) =>
-      useSubmission({ problem: "sync-fifo", version: 1, reconnectDelaysMs: FAST, ...props }),
+      useSubmission({
+        problem: "sync-fifo",
+        version: 1,
+        difficulty: "medium",
+        reconnectDelaysMs: FAST,
+        ...props,
+      }),
     { wrapper: Providers, initialProps: options },
   );
 }
@@ -61,6 +68,7 @@ it("starts a check, follows it to finalized and reads the stored result", async 
   expect(check?.status).toBe("wrong_answer");
   expect(check?.verdict).toEqual(scenarios["wrong-answer"].submission.verdict_detail);
   expect(linesOf(result)).toEqual(recordedLines("wrong-answer"));
+  expect(readHistory()["sync-fifo"]).toEqual({ status: "attempted", difficulty: "medium" });
   // After finalized the stored submission is read again: now with the trace.
   await waitFor(() =>
     expect(result.current.submission?.artifacts.map((item) => item.kind)).toContain("fst"),
@@ -152,6 +160,18 @@ it("restores the last submission of the problem and replays its console", async 
   await waitFor(() => expect(result.current.connection?.state).toBe("closed"));
   expect(linesOf(result)).toEqual(recordedLines("wrong-answer"));
   expect(result.current.submission?.id).toBe(result.current.check?.id);
+  expect(readHistory()["sync-fifo"]?.status).toBe("attempted");
+});
+
+it("an accepted Submit solves the problem in the local history", async () => {
+  configureMocks({ speed: Infinity });
+  const { result } = setup();
+  await ready(result);
+  act(() => result.current.start({ kind: "submit", code: CODE }));
+  await waitFor(() => expect(result.current.check?.status).toBe("accepted"));
+  await waitFor(() =>
+    expect(readHistory()["sync-fifo"]).toEqual({ status: "solved", difficulty: "medium" }),
+  );
 });
 
 it("reads the stream of a restored check that is still running", async () => {

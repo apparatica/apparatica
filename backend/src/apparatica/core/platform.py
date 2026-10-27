@@ -1,5 +1,5 @@
-"""Platform data from `config/*.yaml`: difficulty levels and limits, which the frontend shows, and
-the rate limits against abuse, which it does not.
+"""Platform data from `config/*.yaml`: difficulty levels, the catalogue and limits, which the
+frontend shows, and the rate limits against abuse, which it does not.
 
 Loaded once at startup and validated strictly: a broken file stops the process instead of serving
 a half-configured site.
@@ -12,6 +12,7 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field, NonNegativeInt, PositiveInt, ValidationError
 
 DIFFICULTIES_FILE = "difficulties.yaml"
+CATALOG_FILE = "catalog.yaml"
 LIMITS_FILE = "limits.yaml"
 RATE_LIMITS_FILE = "rate-limits.yaml"
 
@@ -26,6 +27,10 @@ class Difficulty(_Model):
     token: Annotated[
         str, Field(description="Colour pair of the design tokens, e.g. e for --e/--es")
     ]
+
+
+class Catalog(_Model):
+    per_page: Annotated[int, Field(ge=1, le=100)]
 
 
 class SolutionLimits(_Model):
@@ -75,6 +80,7 @@ class RateLimits(_Model):
 
 class PlatformConfig(_Model):
     difficulties: Annotated[list[Difficulty], Field(min_length=1)]
+    catalog: Catalog
     limits: Limits
     rate_limits: RateLimits
 
@@ -93,6 +99,7 @@ def _read(path: Path) -> object:
 def load_platform_config(config_dir: Path) -> PlatformConfig:
     data = {
         "difficulties": _read(config_dir / DIFFICULTIES_FILE),
+        "catalog": _read(config_dir / CATALOG_FILE),
         "limits": _read(config_dir / LIMITS_FILE),
         "rate_limits": _read(config_dir / RATE_LIMITS_FILE),
     }
