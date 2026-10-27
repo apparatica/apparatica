@@ -4,7 +4,7 @@ Next.js-приложение в `web/`: как оно устроено, отку
 
 ## Стек
 
-Next.js 16 (App Router), React 19, TypeScript 6 (`strict`), Tailwind CSS 4, next-intl 4, TanStack Query 5, иконки `lucide-react`. Компоненты shadcn/ui добавляются с T1.9; `components.json` уже настроен, `cn()` — в `src/lib/utils.ts`.
+Next.js 16 (App Router), React 19, TypeScript 6 (`strict`), Tailwind CSS 4, next-intl 4, TanStack Query 5, иконки `lucide-react`. Базовые контролы — по образцу shadcn/ui на Radix UI (пакет `radix-ui`), палитра команд — `cmdk`, уведомления — `sonner`, варианты классов — `class-variance-authority`; `cn()` — в `src/lib/utils.ts`.
 
 ```sh
 pnpm -C web dev          # http://localhost:3000
@@ -19,12 +19,14 @@ pnpm -C web typecheck    # just typecheck-js: типы маршрутов Next.j
 web/
   messages/ru.json        все строки интерфейса
   src/app/                маршруты App Router: layout.tsx (тема, шрифты, оболочка), страницы
-  src/components/shell/   оболочка: шапка, левая рейка, нижняя навигация, переключатель темы
+  src/components/shell/   оболочка: шапка, левая рейка, нижняя навигация, меню гостя, палитра команд
+  src/components/ui/      базовые контролы листа CmpD (ниже)
   src/features/submission/  проверка на странице задачи: useSubmission, машина состояний, поток событий
   src/i18n/               next-intl: request.ts (локаль и сообщения), типы сообщений
-  src/lib/api/            типизированный клиент API (docs/api.md)
+  src/lib/api/            типизированный клиент API (docs/api.md); browser.ts — клиент браузера
   src/lib/query.tsx       TanStack Query: QueryClient для данных, которые браузер берёт из API
   src/lib/theme.ts        выбор темы: cookie, скрипт до первой отрисовки
+  src/lib/shortcuts.ts    сочетания клавиш: Ctrl или ⌘, aria-keyshortcuts, сравнение с keydown
   src/styles/tokens.css   токены дизайна
   src/mocks/              MSW: обработчики, данные по типам API, записанные сценарии проверок
   src/instrumentation.ts  моки на сервере Next.js в режиме разработки без бэкенда
@@ -40,6 +42,9 @@ web/
 - **Заголовки — `text-title-1` и `text-title-2`.** В теме передачи они называются `h1` и `h2`, но `text-h1` … `text-h4` уже заняты цветами тепловой карты. Остальные размеры — как в передаче: `text-display`, `text-statement`, `text-body`, `text-caption`, `text-label`, `text-code`, `text-metric`.
 - **Имена shadcn/ui** (`bg-primary`, `text-muted-foreground`, `border-input`, `ring` …) сопоставлены токенам по `components.md`. Это те же цвета под другими именами, своих значений у них нет.
 - **Отступы** — шкала Tailwind по умолчанию (шаг 4 px). Она совпадает со шкалой передачи.
+- **`cn()` знает шкалу типографики.** Без этого `tailwind-merge` принял бы `text-caption` за цвет и в `cn("text-caption text-mu")` выбросил бы размер.
+- **`--shim`** — блик скелетона. Его нет в `tokens.css`: значение взято из исходников макетов (`source/*.dc.html`) и задано в `globals.css` для обеих тем, как и анимация `animate-shim`.
+- **Контур фокуса** задаёт `tokens.css` (`:focus-visible`, 2 px `--ac` со смещением 2 px). Это правило вне слоёв Tailwind и перебивает утилиты, поэтому изменить его у отдельного элемента можно только утилитой с `!` (`outline-none!`, `focus-visible:-outline-offset-2!`).
 
 Тёмная тема — те же переменные под `data-theme="dark"` на `<html>`, поэтому варианты `dark:` не нужны.
 
@@ -53,13 +58,37 @@ IBM Plex Sans и IBM Plex Mono, начертания 400, 500 и 600, из па�
 
 - **Явный выбор** сервер читает из cookie и рендерит `<html data-theme>` сразу. Страница не мигает и без JavaScript.
 - **Системная тема.** Сервер её не знает, поэтому `<html>` приходит без атрибута. Встроенный в `<head>` скрипт (`THEME_SCRIPT`) ставит атрибут по `prefers-color-scheme` до первой отрисовки и следит за сменой темы в ОС.
-- **Переключатель** в шапке перебирает системная → светлая → тёмная. Он временный: в T1.9 переедет в меню пользователя и палитру команд (specs/08 §2).
+- **Выбор** — в меню гостя («Гость» в шапке; с аккаунтами — меню пользователя) и в палитре команд (specs/08 §2). Оба меняют тему через общий контекст `ThemeProvider` (`src/components/shell/theme.tsx`).
 
 Layout читает cookie, поэтому страницы рендерятся на каждый запрос (динамически).
 
 ## Оболочка
 
-Шапка 40 px: знак и «Apparatica», переключатель темы. Левая рейка разделов шириной 48 px. На ширине меньше 640 px вместо неё нижняя навигация, высота целей нажатия от 44 px. Разделы перечислены в `src/components/shell/nav.ts`; «Рейтинг», «Дашборд» и «Профиль» появятся вместе со своими страницами. Хлебные крошки, «Быстрый поиск» (Ctrl+K) и вход появятся вместе с палитрой команд (T1.9) и пользователями (Ф2).
+Шапка 40 px: знак и «Apparatica», «Быстрый поиск» с подсказкой Ctrl K (на телефоне — только значок), чип «Гость» с меню темы. Левая рейка разделов шириной 48 px. На ширине меньше 640 px вместо неё нижняя навигация, высота целей нажатия от 44 px. Разделы перечислены в `src/components/shell/nav.ts`; «Рейтинг», «Дашборд» и «Профиль» появятся вместе со своими страницами. Хлебные крошки появятся со страницей задачи (T1.13), вход — с пользователями (Ф2).
+
+**Палитра команд** (`command-palette.tsx`) открывается по Ctrl+K (⌘K на Mac) или кнопкой «Быстрый поиск», закрывается по Esc или тому же сочетанию. Группа «Задачи» — до 8 задач из `GET /problems?q=` (поиск в названии и тегах), пока строка не пуста; группа «Действия» — «Перейти к задачам» и выбор темы, фильтруется по вводу. Стрелки выбирают пункт, Enter выполняет. Бейдж сложности у задач добавит T1.11 (`DifficultyBadge`); пока справа номер задачи.
+
+## Базовые контролы
+
+`src/components/ui/` — контролы листа CmpD (`components.md`) по образцу shadcn/ui: код в репозитории, примитивы Radix, классы только из токенов. Высота обычных элементов 30 px, на сенсорных экранах (`pointer-coarse`) — 44 px.
+
+| Файл | Что | Состояния |
+|---|---|---|
+| `button.tsx` | `Button` | `primary`, `default`, `ghost`, `selected`; `size="icon"`; `disabled` (45%); `loading` — значок `loader-circle` и кнопка недоступна; `asChild` — ссылка в виде кнопки |
+| `kbd.tsx` | `Kbd`, `Shortcut`, `useApple` | подсказка клавиш mono 10.5 px; `Shortcut keys={["Mod","Enter"]}` пишет «Ctrl ↵» или «⌘ ↵». Сервер и первая отрисовка всегда пишут Ctrl, чтобы гидратация совпала |
+| `input.tsx` | `Input`, `Field`, `SearchInput` | обычное, фокус, ошибка (`Field error` — граница `--er`, сообщение с `circle-x`, `aria-invalid`), недоступно; `Field` связывает подпись, подсказку и ошибку с полем через render-prop |
+| `checkbox.tsx`, `radio-group.tsx`, `switch.tsx` | флажок, переключатель, тумблер 30 × 16 | выключен, включён, фокус, недоступно |
+| `tabs.tsx` | `Tabs`, `TabsList variant`, `TabsTrigger` | `line` — линия 2 px под активной; `segmented` — переключатель периода |
+| `dropdown-menu.tsx` | меню | пункты 28 px, подсвеченный `--acs`, сочетание справа, радиогруппа с галочкой |
+| `tooltip.tsx` | `Tooltip`, `TooltipProvider` | через 300 мс, фон `--tx`, до 210 px; провайдер в layout |
+| `toast.tsx` | `notify`, `Toaster` | `ok`, `wn`, `er`, `in`: полоса 3 px слева, значок, заголовок, подпись, «Закрыть»; `Toaster` в layout, внизу справа |
+| `pagination.tsx` | `Pagination`, `pageItems` | страницы-ссылки, текущая `--acs` с границей `--ac`, «…», недоступные стрелки на краях |
+| `avatar.tsx` | `Avatar` | 20, 28, 40 px, инициалы (одна буква в малых) или картинка |
+| `skeleton.tsx` | `Skeleton` | блик `--shim`; при `prefers-reduced-motion` без анимации |
+| `dialog.tsx` | `Dialog` и части | окно `shadow-window` без затемнения страницы (макеты ModalsA/B), шапка, тело, подвал на `--sf2`, «Закрыть» |
+| `command.tsx` | `Command` и части (`cmdk`) | строка поиска 38 px с «Esc», группы с подписями, пункты 30 px, выбранный `--acs` |
+
+У каждого состояния есть компонентный тест (`*.test.tsx` рядом). Истории в Storybook или Ladle появятся с доменными компонентами (T1.11, specs/08 §4).
 
 Маршруты сейчас такие: `/` перенаправляет на `/problems`, пока нет дашборда (Ф4); `/problems` — заглушка до каталога (T1.12); остальные адреса ведут на `not-found.tsx`.
 
@@ -102,6 +131,7 @@ s.cancel(); s.reconnect();
 - **Vitest** с jsdom и Testing Library, тесты лежат рядом с кодом (`*.test.ts(x)`).
 - **Провайдеры.** `renderWithProviders` (`src/test/render.tsx`) оборачивает компонент провайдерами layout, `Providers` — то же для `renderHook`. У каждого теста свой `QueryClient` без повторов запросов.
 - **Тема ОС.** `mockColorScheme` (`src/test/match-media.ts`) задаёт тему ОС: в jsdom нет `matchMedia`.
+- **Radix и cmdk в jsdom.** `src/test/dom.ts` добавляет то, чего в jsdom нет: `ResizeObserver`, `scrollIntoView`, захват указателя.
 - **Запросы к API** перехватывает MSW (`src/mocks/`). Данные моков типизированы схемой API (`Schemas["ConfigResponse"]` …), поэтому изменение контракта ломает их при компиляции.
 - **Запрос без обработчика роняет тест.** Свой обработчик для теста задаётся через `server.use(...)`.
 - **Состояние моков** (созданные отправки) сбрасывается после каждого теста. `configureMocks({ speed: Infinity })` завершает проверки мгновенно; `eventsHandler({ dropAfter: N })` обрывает поток событий после N событий.
@@ -115,6 +145,8 @@ just dev-mocks    # http://localhost:3000; то же, что NEXT_PUBLIC_API_MOC
 ```
 
 С флагом `NEXT_PUBLIC_API_MOCKING=enabled` запросы браузера к API перехватывает service worker (`public/mockServiceWorker.js`), а запросы сервера Next.js — `src/instrumentation.ts`. Содержимое страницы гидратируется после старта worker'а, поэтому и первые запросы получают моки. Запросы без обработчика уходят в сеть. У браузера и сервера состояние моков своё. Новые обработчики добавляет PR контракта каждой фазы (specs/05 §0).
+
+**Каталог.** `GET /problems` (`src/mocks/problems.ts`) отдаёт пять демо-задач из `problems/` (`fixtures.problems`) с фильтрами API: поиск `q` в названии и slug тегов, `difficulty`, `tag`, страницы.
 
 **Проверки.** Отправка в моках воспроизводит записанный сценарий: события потока с настоящими задержками, а `GET /submissions/{id}` показывает состояние на текущий момент. Сценарий выбирается меткой в коде решения, например `// mock: wrong-answer`. Без метки Run воспроизводит `run-passed`, а Submit — `accepted`. Задача и версия отправки — из запроса, остальное — из записи.
 

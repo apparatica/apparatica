@@ -13,11 +13,6 @@ export function parseTheme(value: string | undefined): Theme {
   return THEMES.find((theme) => theme === value) ?? "system";
 }
 
-/** The next theme of the toggle: system → light → dark → system. */
-export function nextTheme(theme: Theme): Theme {
-  return THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length] ?? "system";
-}
-
 export function themeCookie(theme: Theme): string {
   return `${THEME_COOKIE}=${theme}; Path=/; Max-Age=${ONE_YEAR_S}; SameSite=Lax`;
 }

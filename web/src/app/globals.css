@@ -107,3 +107,32 @@
   --shadow-window: 0 16px 48px var(--sh);
   --shadow-pop: 0 8px 24px var(--sh);
 }
+
+@theme {
+  --animate-shim: shim 1.6s ease-in-out infinite;
+
+  @keyframes shim {
+    to {
+      transform: translateX(100%);
+    }
+  }
+}
+
+/* The shimmer of skeletons. Not in tokens.css: the value comes from the sources of the mock-ups
+   (brief/apparatica-handoff/source/*.dc.html). */
+:root,
+:root[data-theme="light"] {
+  --shim: rgba(255, 255, 255, 0.55);
+}
+:root[data-theme="dark"] {
+  --shim: rgba(255, 255, 255, 0.05);
+}
+
+/* tokens.css stops animations of elements; pseudo-elements (the shimmer) need their own rule. */
+@media (prefers-reduced-motion: reduce) {
+  *::before,
+  *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+}

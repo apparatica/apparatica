@@ -4,8 +4,10 @@ import type { ReactNode } from "react";
 
 import type { Theme } from "@/lib/theme";
 
+import { CommandPalette } from "./command-palette";
+import { GuestMenu } from "./guest-menu";
 import { BottomNav, Rail } from "./navigation";
-import { ThemeToggle } from "./theme-toggle";
+import { ThemeProvider } from "./theme";
 
 function Logo() {
   return (
@@ -29,20 +31,23 @@ function Logo() {
 export function AppShell({ theme, children }: { theme: Theme; children: ReactNode }) {
   const t = useTranslations("shell");
   return (
-    <div className="flex min-h-dvh flex-col bg-bg text-tx">
-      <header className="flex h-10 flex-none items-center gap-4 border-b border-bd bg-sf px-3">
-        <Link href="/" className="flex items-center gap-2 rounded-md font-semibold">
-          <Logo />
-          <span>{t("brand")}</span>
-        </Link>
-        <div className="flex-1" />
-        <ThemeToggle initial={theme} />
-      </header>
-      <div className="flex min-h-0 flex-1 gap-px">
-        <Rail />
-        <main className="min-w-0 flex-1 bg-sf pb-14 sm:pb-0">{children}</main>
+    <ThemeProvider initial={theme}>
+      <div className="flex min-h-dvh flex-col bg-bg text-tx">
+        <header className="flex min-h-10 flex-none items-center gap-3 border-b border-bd bg-sf px-3">
+          <Link href="/" className="flex items-center gap-2 rounded-md font-semibold">
+            <Logo />
+            <span>{t("brand")}</span>
+          </Link>
+          <div className="flex-1" />
+          <CommandPalette />
+          <GuestMenu />
+        </header>
+        <div className="flex min-h-0 flex-1 gap-px">
+          <Rail />
+          <main className="min-w-0 flex-1 bg-sf pb-14 sm:pb-0">{children}</main>
+        </div>
+        <BottomNav />
       </div>
-      <BottomNav />
-    </div>
+    </ThemeProvider>
   );
 }

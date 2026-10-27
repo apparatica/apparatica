@@ -13,6 +13,8 @@ import { getTranslations } from "next-intl/server";
 import type { ReactNode } from "react";
 
 import { AppShell } from "@/components/shell/app-shell";
+import { Toaster } from "@/components/ui/toast";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { LOCALE } from "@/i18n/request";
 import { ApiMocking } from "@/mocks/api-mocking";
 import { QueryProvider } from "@/lib/query";
@@ -42,13 +44,16 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       <body>
         <NextIntlClientProvider>
           <QueryProvider>
-            <AppShell theme={theme}>
-              {process.env.NEXT_PUBLIC_API_MOCKING === "enabled" ? (
-                <ApiMocking>{children}</ApiMocking>
-              ) : (
-                children
-              )}
-            </AppShell>
+            <TooltipProvider>
+              <AppShell theme={theme}>
+                {process.env.NEXT_PUBLIC_API_MOCKING === "enabled" ? (
+                  <ApiMocking>{children}</ApiMocking>
+                ) : (
+                  children
+                )}
+              </AppShell>
+              <Toaster />
+            </TooltipProvider>
           </QueryProvider>
         </NextIntlClientProvider>
       </body>

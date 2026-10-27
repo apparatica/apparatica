@@ -26,3 +26,42 @@ export const captchaChallenge: Schemas["CaptchaChallenge"] = {
   salt: "mock-salt?expires=1793000000",
   signature: "9b2e4d6f8a0c1e3b5d7f9a1c3e5b7d9f1a3c5e7b9d1f3a5c7e9b1d3f5a7c9e1b",
 };
+
+/** The demo problems of problems/, as the catalogue lists them. */
+export const problems: Schemas["ProblemListItem"][] = [
+  {
+    slug: "mux4",
+    number: 1,
+    title: "Мультиплексор 4:1",
+    difficulty: "easy",
+    tags: ["combinational", "multiplexer"],
+  },
+  {
+    slug: "counter-mod-n",
+    number: 2,
+    title: "Счётчик по модулю N",
+    difficulty: "easy",
+    tags: ["sequential", "counter"],
+  },
+  {
+    slug: "carry-adder",
+    number: 3,
+    title: "Сумматор с переносом",
+    difficulty: "easy",
+    tags: ["combinational", "arithmetic"],
+  },
+  {
+    slug: "seq-detector",
+    number: 4,
+    title: "Детектор последовательности 1011",
+    difficulty: "medium",
+    tags: ["sequential", "fsm"],
+  },
+  {
+    slug: "sync-fifo",
+    number: 5,
+    title: "Синхронный FIFO",
+    difficulty: "medium",
+    tags: ["sequential", "memory", "fifo"],
+  },
+];

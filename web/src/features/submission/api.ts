@@ -1,12 +1,11 @@
-// Requests of the submission feature: the browser talks to the API on the site's origin.
-import { createApiClient, type Schemas } from "@/lib/api/client";
+// Requests of the submission feature.
+import { apiUrl, browserApi as api } from "@/lib/api/browser";
+import type { Schemas } from "@/lib/api/client";
 
-const origin = globalThis.location?.origin ?? "";
-
-export const api = createApiClient({ baseUrl: origin });
+export { api };
 
 export const eventsUrl = (id: string) =>
-  `${origin}/api/v1/submissions/${encodeURIComponent(id)}/events`;
+  apiUrl(`/api/v1/submissions/${encodeURIComponent(id)}/events`);
 
 export const submissionKeys = {
   all: ["submissions"] as const,

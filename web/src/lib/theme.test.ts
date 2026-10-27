@@ -2,7 +2,7 @@ import { afterEach, describe, expect, it } from "vitest";
 
 import { clearThemeState, mockColorScheme } from "@/test/match-media";
 
-import { applyTheme, nextTheme, parseTheme, THEME_SCRIPT, themeCookie } from "./theme";
+import { applyTheme, parseTheme, THEME_SCRIPT, themeCookie } from "./theme";
 
 const runScript = () => new Function(THEME_SCRIPT)();
 const attribute = () => document.documentElement.dataset["theme"];
@@ -16,14 +16,6 @@ describe("theme choice", () => {
     expect(parseTheme("system")).toBe("system");
     expect(parseTheme(undefined)).toBe("system");
     expect(parseTheme("sepia")).toBe("system");
-  });
-
-  it("cycles system, light, dark", () => {
-    expect([nextTheme("system"), nextTheme("light"), nextTheme("dark")]).toEqual([
-      "light",
-      "dark",
-      "system",
-    ]);
   });
 
   it("keeps the choice for a year on the whole site", () => {
