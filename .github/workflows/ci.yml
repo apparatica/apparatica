@@ -62,6 +62,7 @@ jobs:
       - run: just check-api
       - run: just test-js
       - run: just build-js
+      - run: just build-storybook
       - run: just check-licenses-js
 
   stand:

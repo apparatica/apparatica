@@ -18,6 +18,7 @@ next-env.d.ts
 .pnpm-store/
 coverage/
 .eslintcache
+storybook-static/
 
 # Local environment
 .env

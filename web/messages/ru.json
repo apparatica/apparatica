@@ -41,6 +41,50 @@
     "title": "Задачи",
     "placeholder": "Каталог задач появится здесь в одной из следующих версий."
   },
+  "domain": {
+    "seconds": "{value} с",
+    "verdict": {
+      "accepted": "Принято",
+      "accepted_with_warnings": "Предупреждения линта",
+      "wrong_answer": "Неверный ответ",
+      "compile_error": "Ошибка компиляции",
+      "limit_exceeded": "Превышен лимит",
+      "forbidden_construct": "Запрещённая конструкция",
+      "queued": "В очереди",
+      "queuedAt": "В очереди · позиция {position}",
+      "running": "Выполняется",
+      "cancelled": "Отменено",
+      "internal_error": "Внутренняя ошибка"
+    },
+    "pipeline": {
+      "label": "Конвейер проверки",
+      "blocks": {
+        "lint": "Линт",
+        "sim": "Симуляция",
+        "synth": "Синтез",
+        "formal": "Формал"
+      },
+      "current": {
+        "lint": "линт",
+        "sim": "симуляция",
+        "synth": "синтез",
+        "formal": "формал"
+      },
+      "status": {
+        "pending": "ожидает",
+        "running": "идёт",
+        "passed": "чисто",
+        "warning": "предупреждение",
+        "failed": "ошибка",
+        "skipped": "пропущен",
+        "cancelled": "отменено",
+        "error": "сбой платформы"
+      }
+    },
+    "tag": {
+      "remove": "сбросить"
+    }
+  },
   "errors": {
     "notFound": {
       "title": "Страница не найдена",

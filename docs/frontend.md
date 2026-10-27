@@ -1,16 +1,17 @@
 # Фронтенд
 
-Next.js-приложение в `web/`: как оно устроено, откуда берутся цвета, шрифты и строки, как переключается тема и как тестируются компоненты. Экраны и состояния — [specs/08](../specs/08-screens.md), дизайн — `brief/apparatica-handoff/`.
+Next.js-приложение в `web/`: как оно устроено, откуда берутся цвета, шрифты и строки, как переключается тема, какие есть компоненты и как они тестируются. Экраны и состояния — [specs/08](../specs/08-screens.md), дизайн — `brief/apparatica-handoff/`.
 
 ## Стек
 
-Next.js 16 (App Router), React 19, TypeScript 6 (`strict`), Tailwind CSS 4, next-intl 4, TanStack Query 5, иконки `lucide-react`. Базовые контролы — по образцу shadcn/ui на Radix UI (пакет `radix-ui`), палитра команд — `cmdk`, уведомления — `sonner`, варианты классов — `class-variance-authority`; `cn()` — в `src/lib/utils.ts`.
+Next.js 16 (App Router), React 19, TypeScript 6 (`strict`), Tailwind CSS 4, next-intl 4, TanStack Query 5, иконки `lucide-react`. Базовые контролы — по образцу shadcn/ui на Radix UI (пакет `radix-ui`), палитра команд — `cmdk`, уведомления — `sonner`, варианты классов — `class-variance-authority`; `cn()` — в `src/lib/utils.ts`. Истории компонентов — Storybook 10 (`@storybook/nextjs-vite`).
 
 ```sh
 pnpm -C web dev          # http://localhost:3000
 pnpm -C web build        # just build-js
 pnpm -C web test         # just test-js: Vitest
 pnpm -C web typecheck    # just typecheck-js: типы маршрутов Next.js и tsc
+pnpm -C web storybook    # just storybook: http://localhost:6006
 ```
 
 ## Структура
@@ -18,13 +19,16 @@ pnpm -C web typecheck    # just typecheck-js: типы маршрутов Next.j
 ```
 web/
   messages/ru.json        все строки интерфейса
+  .storybook/             Storybook: main.ts (фреймворк, истории), preview.tsx (стили, тема, next-intl)
   src/app/                маршруты App Router: layout.tsx (тема, шрифты, оболочка), страницы
   src/components/shell/   оболочка: шапка, левая рейка, нижняя навигация, меню гостя, палитра команд
   src/components/ui/      базовые контролы листа CmpD (ниже)
+  src/components/domain/  доменные компоненты листа CmpA: вердикт, конвейер, сложность, теги
   src/features/submission/  проверка на странице задачи: useSubmission, машина состояний, поток событий
   src/i18n/               next-intl: request.ts (локаль и сообщения), типы сообщений
   src/lib/api/            типизированный клиент API (docs/api.md); browser.ts — клиент браузера
   src/lib/query.tsx       TanStack Query: QueryClient для данных, которые браузер берёт из API
+  src/lib/config.ts       useConfig(): GET /config в браузере (уровни сложности, флаги, лимиты)
   src/lib/theme.ts        выбор темы: cookie, скрипт до первой отрисовки
   src/lib/shortcuts.ts    сочетания клавиш: Ctrl или ⌘, aria-keyshortcuts, сравнение с keydown
   src/styles/tokens.css   токены дизайна
@@ -66,7 +70,7 @@ Layout читает cookie, поэтому страницы рендерятся
 
 Шапка 40 px: знак и «Apparatica», «Быстрый поиск» с подсказкой Ctrl K (на телефоне — только значок), чип «Гость» с меню темы. Левая рейка разделов шириной 48 px. На ширине меньше 640 px вместо неё нижняя навигация, высота целей нажатия от 44 px. Разделы перечислены в `src/components/shell/nav.ts`; «Рейтинг», «Дашборд» и «Профиль» появятся вместе со своими страницами. Хлебные крошки появятся со страницей задачи (T1.13), вход — с пользователями (Ф2).
 
-**Палитра команд** (`command-palette.tsx`) открывается по Ctrl+K (⌘K на Mac) или кнопкой «Быстрый поиск», закрывается по Esc или тому же сочетанию. Группа «Задачи» — до 8 задач из `GET /problems?q=` (поиск в названии и тегах), пока строка не пуста; группа «Действия» — «Перейти к задачам» и выбор темы, фильтруется по вводу. Стрелки выбирают пункт, Enter выполняет. Бейдж сложности у задач добавит T1.11 (`DifficultyBadge`); пока справа номер задачи.
+**Палитра команд** (`command-palette.tsx`) открывается по Ctrl+K (⌘K на Mac) или кнопкой «Быстрый поиск», закрывается по Esc или тому же сочетанию. Группа «Задачи» — до 8 задач из `GET /problems?q=` (поиск в названии и тегах), пока строка не пуста, справа — компактный `DifficultyBadge` уровня из `GET /config`; группа «Действия» — «Перейти к задачам» и выбор темы, фильтруется по вводу. Стрелки выбирают пункт, Enter выполняет.
 
 ## Базовые контролы
 
@@ -88,7 +92,24 @@ Layout читает cookie, поэтому страницы рендерятся
 | `dialog.tsx` | `Dialog` и части | окно `shadow-window` без затемнения страницы (макеты ModalsA/B), шапка, тело, подвал на `--sf2`, «Закрыть» |
 | `command.tsx` | `Command` и части (`cmdk`) | строка поиска 38 px с «Esc», группы с подписями, пункты 30 px, выбранный `--acs` |
 
-У каждого состояния есть компонентный тест (`*.test.tsx` рядом). Истории в Storybook или Ladle появятся с доменными компонентами (T1.11, specs/08 §4).
+У каждого состояния есть компонентный тест (`*.test.tsx` рядом).
+
+## Доменные компоненты
+
+`src/components/domain/` — компоненты листа CmpA (`components.md`). Каждое состояние — история в Storybook (`*.stories.tsx` рядом) и тест на неё (specs/08 §4). Статус нигде не передаётся одним цветом: у каждого свой значок и текст.
+
+| Файл | Что | Состояния |
+|---|---|---|
+| `verdict-badge.tsx` | `VerdictBadge status` | 10 статусов отправки (`Submission.status`); `queued` с `position` — «В очереди · позиция 3», `running` со `stage` и `elapsedMs` — «Выполняется · синтез 4,2 с» и вращающийся значок; `internal_error` — контур 1,5 px без заливки; `compact` — квадрат 26 × 26 только со значком, текст в `title` и `aria-label` |
+| `pipeline.tsx` | `PipelineStage`, `Pipeline` | 8 статусов этапа (`StageResult.status`): ожидает, идёт, чисто, предупреждение, ошибка, пропущен (пунктир и штриховка), отменён, сбой платформы (рамка без заливки). Подпись — «‹статус или `detail`› · ‹время›»; если `detail` заменяет слово статуса, слово остаётся для скринридеров |
+| `difficulty-badge.tsx` | `DifficultyBadge`, `findDifficulty` | уровни из `GET /config` (`config/difficulties.yaml`): цвет по `token`, столбиков закрашено по месту уровня в списке (не больше трёх); `compact` — 18 px без столбиков (палитра команд) |
+| `tag-chip.tsx` | `TagChip` | обычный, `selected` (акцент), `removable` (выбран и со значком `x`, «сбросить» для скринридеров); `asChild` — вид чипа у ссылки или кнопки |
+
+**Конвейер** — четыре блока: `lint`, `sim`, `synth`, `formal` (`PIPELINE_BLOCKS`). `precheck` показывается в блоке «Линт», `netlist_sim` — в блоке «Синтез» (specs/08 §6); этапы проверки на блоки раскладывает панель результатов. Ширина блока — ширина его текста плюс доля свободного места по времени этапа (`stageGrow`): у незапущенных доли нет, без времён место делится поровну.
+
+**Storybook.** `just storybook` открывает истории на http://localhost:6006, тема переключается на панели инструментов (`data-theme` на `<html>`, как в layout). Декораторы `.storybook/preview.tsx` — стили приложения, шрифты, тема и `NextIntlClientProvider` с `messages/ru.json`. CI собирает статический Storybook (`just build-storybook`), поэтому сломанная история или конфигурация роняет сборку.
+
+**Тесты по историям.** Тест рендерит историю через `composeStories` из `@storybook/react`; `src/test/setup.ts` подключает декораторы Storybook (`setProjectAnnotations`), поэтому истории в тестах получают те же провайдеры. `@storybook/nextjs-vite` в Vitest без своего Vite-плагина не работает, а доменным компонентам API Next.js не нужны.
 
 Маршруты сейчас такие: `/` перенаправляет на `/problems`, пока нет дашборда (Ф4); `/problems` — заглушка до каталога (T1.12); остальные адреса ведут на `not-found.tsx`.
 

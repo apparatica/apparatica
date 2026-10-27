@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
@@ -61,6 +61,8 @@ it("opens the palette by Ctrl+K and finds a problem", async () => {
   await user.type(input, "fifo");
   const problem = await screen.findByRole("option", { name: /Синхронный FIFO/ });
   expect(screen.queryByRole("option", { name: "Перейти к задачам" })).not.toBeInTheDocument();
+  // The level of GET /config, without the bars.
+  expect(await within(problem).findByText("Medium")).toHaveClass("h-[18px]");
   expect(problem).toHaveAttribute("data-selected", "true");
 
   await user.keyboard("{Enter}");

@@ -1,13 +1,14 @@
 "use client";
 
 // The command palette (specs/08 §2): Ctrl+K (⌘K) or "Quick search" in the header; problems found
-// by GET /problems?q= and actions of the site. Sheet CmpD.
+// by GET /problems?q= with their difficulty, and actions of the site. Sheet CmpD.
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
 import { CodeXml, List, type LucideIcon, Search } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useDeferredValue, useEffect, useState } from "react";
 
+import { DifficultyBadge, findDifficulty } from "@/components/domain/difficulty-badge";
 import {
   Command,
   CommandEmpty,
@@ -16,11 +17,11 @@ import {
   CommandItem,
   CommandList,
   CommandLoading,
-  CommandShortcut,
 } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Shortcut, useApple } from "@/components/ui/kbd";
 import { browserApi } from "@/lib/api/browser";
+import { useConfig } from "@/lib/config";
 import { ariaKeys, isShortcut, type Key } from "@/lib/shortcuts";
 import { THEMES } from "@/lib/theme";
 
@@ -53,6 +54,7 @@ export function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const q = useDeferredValue(query.trim());
+  const levels = useConfig().data?.difficulties ?? [];
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -124,20 +126,23 @@ export function CommandPalette() {
               {!found.isFetching && <CommandEmpty>{t("empty")}</CommandEmpty>}
               {problems.length > 0 && (
                 <CommandGroup heading={t("problems")}>
-                  {problems.map((problem) => (
-                    <CommandItem
-                      key={problem.slug}
-                      value={`problem:${problem.slug}`}
-                      onSelect={() => {
-                        close();
-                        router.push(`/problems/${problem.slug}`);
-                      }}
-                    >
-                      <CodeXml aria-hidden="true" />
-                      <span className="flex-1 truncate">{problem.title}</span>
-                      <CommandShortcut>{problem.number}</CommandShortcut>
-                    </CommandItem>
-                  ))}
+                  {problems.map((problem) => {
+                    const level = findDifficulty(levels, problem.difficulty);
+                    return (
+                      <CommandItem
+                        key={problem.slug}
+                        value={`problem:${problem.slug}`}
+                        onSelect={() => {
+                          close();
+                          router.push(`/problems/${problem.slug}`);
+                        }}
+                      >
+                        <CodeXml aria-hidden="true" />
+                        <span className="flex-1 truncate">{problem.title}</span>
+                        {level && <DifficultyBadge {...level} compact />}
+                      </CommandItem>
+                    );
+                  })}
                 </CommandGroup>
               )}
               {shown.length > 0 && (

@@ -79,6 +79,14 @@ test-js:
 build-js:
     pnpm -C web build
 
+# Storybook of the domain components (http://localhost:6006; docs/frontend.md)
+storybook:
+    pnpm -C web storybook
+
+# Build the static Storybook into web/storybook-static
+build-storybook:
+    pnpm -C web build-storybook
+
 # Check that lock files match pyproject.toml and agree on shared versions
 check-locks:
     poetry -C judge check --lock
