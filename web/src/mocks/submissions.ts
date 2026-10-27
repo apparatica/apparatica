@@ -96,6 +96,8 @@ function submissionOf(check: Check, now = Date.now()): Submission {
   const common = {
     ...final,
     id: check.id,
+    problem: check.request.problem,
+    version: check.request.version,
     code: check.request.code,
     created_at: new Date(check.created).toISOString(),
     started_at: at(final.started_at),

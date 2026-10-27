@@ -15,6 +15,7 @@ import type { ReactNode } from "react";
 import { AppShell } from "@/components/shell/app-shell";
 import { LOCALE } from "@/i18n/request";
 import { ApiMocking } from "@/mocks/api-mocking";
+import { QueryProvider } from "@/lib/query";
 import { parseTheme, THEME_COOKIE, THEME_SCRIPT } from "@/lib/theme";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -40,13 +41,15 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
       </head>
       <body>
         <NextIntlClientProvider>
-          <AppShell theme={theme}>
-            {process.env.NEXT_PUBLIC_API_MOCKING === "enabled" ? (
-              <ApiMocking>{children}</ApiMocking>
-            ) : (
-              children
-            )}
-          </AppShell>
+          <QueryProvider>
+            <AppShell theme={theme}>
+              {process.env.NEXT_PUBLIC_API_MOCKING === "enabled" ? (
+                <ApiMocking>{children}</ApiMocking>
+              ) : (
+                children
+              )}
+            </AppShell>
+          </QueryProvider>
         </NextIntlClientProvider>
       </body>
     </html>
