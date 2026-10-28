@@ -389,3 +389,66 @@ describe("the console", () => {
     expect(consoleOf().getByText("ожидаем поток…")).toBeInTheDocument();
   });
 });
+
+describe("the tests", () => {
+  const testsTab = () => screen.getByRole("tab", { name: /^Тесты/ });
+
+  it("count the passed tests of all on the tab", () => {
+    renderPanel(stateOf(finished("wrong-answer")));
+    expect(testsTab()).toHaveTextContent("Тесты1/2");
+    expect(within(testsTab()).getByText("1/2")).toHaveClass("text-er");
+  });
+
+  it("count the hidden tests of Submit too", () => {
+    renderPanel(stateOf(finished("accepted")));
+    expect(within(testsTab()).getByText("4/4")).toHaveClass("text-ok");
+  });
+
+  it("have no counter before the tests start", () => {
+    renderPanel(stateOf(queuedCheck(scenarios.accepted), { connection: { state: "open" } }));
+    expect(testsTab()).toHaveTextContent(/^Тесты$/);
+  });
+
+  it("show the failed test with its mismatch, the hint and the seed", async () => {
+    renderPanel(stateOf(finished("wrong-answer")));
+    await userEvent.click(testsTab());
+    const list = screen.getByRole("region", { name: "Открытые тесты · Run" });
+    expect(within(list).getByText("первое расхождение останавливает прогон")).toBeInTheDocument();
+    expect(within(list).getByText("Тест 1 · запись и чтение по порядку")).toBeInTheDocument();
+    const failed = within(list).getByRole("button", {
+      name: /Тест 2 · заполнение до full и опустошение/,
+    });
+    expect(failed).toHaveAttribute("aria-expanded", "true");
+    expect(within(failed).getByText("упал на такте 30")).toBeInTheDocument();
+    const mismatch = within(list).getByRole("row", { name: /full @30/ });
+    expect(within(mismatch).getByText("1'h1")).toHaveClass("text-er");
+    expect(
+      within(list).getByText("Подсказка: full = 1, когда в очереди DEPTH слов"),
+    ).toBeInTheDocument();
+    expect(
+      within(list).getByText("Тест «заполнение до full и опустошение» · сид 20261026"),
+    ).toBeInTheDocument();
+    expect(within(list).getByText("Скрытые тесты · 2")).toBeInTheDocument();
+    expect(
+      within(list).getByText(
+        "запускаются только на Submit; подробности расхождений не показываются",
+      ),
+    ).toBeInTheDocument();
+  });
+
+  it("show only the number of a failed hidden test", async () => {
+    renderPanel(stateOf(finished("wrong-answer-hidden")));
+    await userEvent.click(testsTab());
+    const list = screen.getByRole("region", { name: "Открытые и скрытые тесты · Submit" });
+    expect(within(list).getByText("Тесты 1–2")).toBeInTheDocument();
+    expect(within(list).getByText("упал скрытый тест 1 · пройдено 0 из 2")).toBeInTheDocument();
+    expect(within(list).queryByRole("table")).not.toBeInTheDocument();
+  });
+
+  it("tell why the tests did not run", async () => {
+    renderPanel(stateOf(finished("compile-error")));
+    await userEvent.click(testsTab());
+    expect(screen.getByText("Тесты 1–2")).toBeInTheDocument();
+    expect(screen.getByText("не запускались: предыдущий этап не пройден")).toBeInTheDocument();
+  });
+});

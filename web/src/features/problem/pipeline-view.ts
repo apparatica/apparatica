@@ -42,7 +42,8 @@ export interface BlockView {
   durationMs: number | null;
 }
 
-function pendingStage(key: string, type: string, ordinal: number): Stage {
+/** A stage of the pipeline the check has not started. */
+export function pendingStage(key: string, type: string, ordinal: number): Stage {
   return {
     key,
     type,

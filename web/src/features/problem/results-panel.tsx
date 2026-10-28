@@ -2,10 +2,10 @@
 
 // The results panel of a problem page (specs/08 §3): the pipeline with the total time, the banner
 // of the check and the result tabs under it, and before the first check a hint on Run and Submit
-// (mock-up BenchEmpty). The tabs of the tests and the waves come in T1.16–T1.17.
+// (mock-up BenchEmpty). The tab of the waves comes in T1.17.
 import { SquareTerminal } from "lucide-react";
 import { useTranslations } from "next-intl";
-import type { ReactNode } from "react";
+import { type ReactNode, useState } from "react";
 
 import { useSeconds } from "@/components/domain/duration";
 import { Pipeline, type StageView } from "@/components/domain/pipeline";
@@ -19,14 +19,18 @@ import { useNow } from "./clock";
 import { type BlockDetail, type BlockView, pipelineView } from "./pipeline-view";
 import { ResultBanner } from "./result-banner";
 import { ResultsConsole } from "./results-console";
+import { ResultsTests, TestsCounter } from "./results-tests";
 import { ResultsSkeleton } from "./skeletons";
 import { RUN_KEYS, SUBMIT_KEYS } from "./shortcuts";
+import { testsCount, testsView } from "./tests-view";
 
 const strong = (chunks: ReactNode) => <strong className="font-medium text-tx">{chunks}</strong>;
 
 // The running time ticks by tenths; the countdown of a reconnect by seconds.
 const RUNNING_TICK_MS = 100;
 const WAITING_TICK_MS = 250;
+
+type ResultsTab = "console" | "tests";
 
 export type ResultsProblem = Pick<Schemas["ProblemDetail"], "pipeline" | "tests" | "language">;
 
@@ -82,6 +86,8 @@ export function ResultsPanel({ submission, problem, busy, onCheck, onReveal }: R
   const tv = useTranslations("domain.verdict");
   const detailOf = useDetail();
   const now = useNow(tickOf(submission));
+  // The console is open at first (specs/08 §3); the chosen tab stays for the next checks.
+  const [tab, setTab] = useState<ResultsTab>("console");
   const { check } = submission;
 
   if (check === null && submission.restoring) {
@@ -101,6 +107,8 @@ export function ResultsPanel({ submission, problem, busy, onCheck, onReveal }: R
     durationMs,
     title: detail?.kind === "caption" ? detail.text : undefined,
   }));
+  const tests = check === null ? [] : testsView(check, problem);
+  const count = testsCount(tests);
   return (
     <section aria-label={t("label")} className="flex h-full min-h-0 flex-col bg-sf">
       <div className="flex flex-none flex-col gap-2.5 px-3.5 pt-3 pb-3.5">
@@ -128,9 +136,19 @@ export function ResultsPanel({ submission, problem, busy, onCheck, onReveal }: R
         </p>
       </div>
       {check !== null && (
-        <Tabs value="console" className="flex min-h-0 flex-1 flex-col">
+        <Tabs
+          value={tests.length === 0 ? "console" : tab}
+          onValueChange={(value) => setTab(value as ResultsTab)}
+          className="flex min-h-0 flex-1 flex-col"
+        >
           <TabsList aria-label={t("tabs.label")} className="flex-none px-3.5">
             <TabsTrigger value="console">{t("tabs.console")}</TabsTrigger>
+            {tests.length > 0 && (
+              <TabsTrigger value="tests">
+                {t("tabs.tests")}
+                {count !== null && <TestsCounter count={count} />}
+              </TabsTrigger>
+            )}
           </TabsList>
           <TabsContent value="console" className="min-h-0 flex-1">
             <ResultsConsole
@@ -140,6 +158,9 @@ export function ResultsPanel({ submission, problem, busy, onCheck, onReveal }: R
               runningMs={runningMs}
               onReveal={onReveal}
             />
+          </TabsContent>
+          <TabsContent value="tests" className="min-h-0 flex-1">
+            <ResultsTests check={check} sections={tests} />
           </TabsContent>
         </Tabs>
       )}

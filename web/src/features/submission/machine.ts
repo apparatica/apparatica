@@ -25,6 +25,8 @@ export interface Check {
   id: string;
   problem: string;
   kind: Submission["kind"];
+  /** The 64-bit seed of the stimuli, a decimal string. */
+  seed: string;
   /** queued, running, then the status of `finalized` (or of the stored submission). */
   status: Status;
   queue: { position: number; etaS: number | null } | null;
@@ -79,6 +81,7 @@ export function checkOf(submission: Submission): Check {
     id: submission.id,
     problem: submission.problem,
     kind: submission.kind,
+    seed: submission.seed,
     status: submission.status,
     queue:
       submission.queue_position === null

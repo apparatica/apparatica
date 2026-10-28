@@ -143,6 +143,18 @@
       "copyFailed": "Не удалось скопировать вывод",
       "follow": "Прокрутка за выводом",
       "bottom": "Вниз"
+    },
+    "tests": {
+      "status": {
+        "passed": "пройден",
+        "running": "выполняется",
+        "failed": "упал",
+        "notRun": "не запускался"
+      },
+      "hidden": "скрытые тесты, {status}",
+      "signal": "Сигнал",
+      "expected": "Ожидалось",
+      "actual": "Получено"
     }
   },
   "errors": {
@@ -319,7 +331,44 @@
       },
       "tabs": {
         "label": "Результаты",
-        "console": "Консоль"
+        "console": "Консоль",
+        "tests": "Тесты"
+      },
+      "tests": {
+        "titleRun": "Открытые тесты · Run",
+        "titleSubmit": "Открытые и скрытые тесты · Submit",
+        "titleSubmitOpen": "Открытые тесты · Submit",
+        "titleStage": "{title} · {stage}",
+        "firstFailure": "первое расхождение останавливает прогон",
+        "one": "Тест {index} · {name}",
+        "oneUnnamed": "Тест {index}",
+        "range": "Тесты {from}–{to}",
+        "passed": "пройден",
+        "running": "выполняется…",
+        "failed": "не пройден",
+        "failedCycle": "упал на такте {cycle}",
+        "cycle": "такт {cycle}",
+        "hint": "Подсказка: {hint}",
+        "seed": "Тест «{name}» · сид {seed}",
+        "waiting": "{count, plural, one {ожидает запуска} other {ожидают запуска}}",
+        "notRun": "{count, plural, one {не запускался} other {не запускались}}: {why}",
+        "interrupted": "прерван: {why}",
+        "why": {
+          "waiting": "ещё не дошла очередь",
+          "afterFailure": "прогон остановлен после расхождения",
+          "afterFailureAt": "прогон остановлен на тесте {index}",
+          "skipped": "предыдущий этап не пройден",
+          "cancelled": "проверка отменена",
+          "stopped": "этап остановлен"
+        },
+        "hiddenTitle": "Скрытые тесты · {total}",
+        "hidden": {
+          "submitOnly": "запускаются только на Submit; подробности расхождений не показываются",
+          "running": "выполняется тест {index} · пройдено {passed} из {total}",
+          "passed": "пройдено {total} из {total}",
+          "failed": "упал скрытый тест {index} · пройдено {passed} из {total}",
+          "rest": "пройдено {passed} из {total}, остальные не запускались: {why}"
+        }
       },
       "console": {
         "empty": "Вывод появится, когда проверка начнётся.",
