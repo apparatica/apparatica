@@ -11,6 +11,10 @@ under a row lock of the submission, so that a redelivered or reordered record ch
   with the judge core; `attempt_failed` ends the check with internal_error;
 - a finished submission takes no more records; a final record for it publishes `finalized` again,
   in case the first publication was lost.
+
+A `waveform` record ends a recreated FST (FR-WAV-05) under a row lock of its `waveforms` row: the
+FST becomes an artifact and the row `ready`, or the row is `failed`. Only a ready row is final, so
+a worker that reports after the watchdog gave up still delivers the file.
 """
 
 import uuid
@@ -31,7 +35,7 @@ from apparatica.core.db import Database
 from apparatica.core.ids import uuid7
 from apparatica.judging.retention import Retention
 from apparatica.submissions.events import FinalizedEvent
-from apparatica.submissions.models import Artifact, Submission
+from apparatica.submissions.models import Artifact, Submission, Waveform
 from apparatica.submissions.models import StageResult as StageResultRow
 from apparatica.submissions.tokens import InvalidJobTokenError, JobTokens
 from judge.core.jobs import (
@@ -41,6 +45,7 @@ from judge.core.jobs import (
     ResultRecord,
     StageEndRecord,
     StoredArtifact,
+    WaveformRecord,
 )
 from judge.core.stage import StageResult, SubmissionKind
 from judge.core.verdict import SubmissionStatus, Verdict, VerdictDetail, aggregate
@@ -49,6 +54,8 @@ log = structlog.get_logger(__name__)
 
 FINAL_STATUSES = frozenset(get_args(SubmissionStatus))
 EMPTY_PIPELINE = "EMPTY_PIPELINE"  # a `done` without stage results: nothing was checked
+FOREIGN_ARTIFACT = "FOREIGN_ARTIFACT"  # a waveform record with a file of something else
+type CheckRecord = AttemptStartedRecord | StageEndRecord | DoneRecord | AttemptFailedRecord
 # Columns of a stage result that a later record of the same attempt replaces.
 _STAGE_COLUMNS = (
     "stage_type",
@@ -94,6 +101,9 @@ class Ingestor:
             raise InvalidRecordError(f"job token: {error}") from error
         try:
             async with self.database.sessions.begin() as session:
+                if isinstance(record, WaveformRecord):
+                    await self._apply_waveform(session, record)
+                    return None
                 return await self._apply(session, record)
         except (IntegrityError, DataError) as error:  # e.g. a stage result the schema refuses
             raise InvalidRecordError(f"refused by the database: {error.orig}") from error
@@ -108,7 +118,42 @@ class Ingestor:
             log.info("waiting check cancelled", submission_id=str(submission_id))
             return finalize(submission, Verdict(status="cancelled"), self.clock())
 
-    async def _apply(self, session: AsyncSession, record: ResultRecord) -> FinalizedEvent | None:
+    async def _apply_waveform(self, session: AsyncSession, record: WaveformRecord) -> None:
+        waveform = await session.get(Waveform, record.waveform_id, with_for_update=True)
+        if waveform is None or waveform.submission_id != record.submission_id:
+            raise InvalidRecordError("no such waveform")  # deleted with an old guest submission
+        if waveform.status == "ready":  # a redelivered record
+            return
+        submission = await session.get(Submission, record.submission_id)
+        assert submission is not None  # the waveform row is deleted with it
+        now, artifact = self.clock(), record.artifact
+        if artifact is not None and _waveform_file(artifact, waveform):
+            row = Artifact(
+                id=uuid7(),
+                submission_id=submission.id,
+                stage_key=artifact.stage,
+                kind=artifact.kind,
+                storage_key=artifact.key,
+                size_bytes=artifact.size_bytes,
+                sha256=artifact.sha256,
+                expires_at=self.retention.expires_at(_kind(submission), artifact.kind, now),
+            )
+            session.add(row)
+            await session.flush()  # before the row that refers to it
+            waveform.status, waveform.artifact_id, waveform.error_code = "ready", row.id, None
+        else:
+            waveform.status = "failed"
+            waveform.error_code = record.error_code or FOREIGN_ARTIFACT
+        waveform.finished_at = now
+        log.info(
+            "waveform finished",
+            submission_id=str(submission.id),
+            waveform_id=str(waveform.id),
+            status=waveform.status,
+            error_code=waveform.error_code,
+        )
+
+    async def _apply(self, session: AsyncSession, record: CheckRecord) -> FinalizedEvent | None:
         submission = await session.get(Submission, record.submission_id, with_for_update=True)
         if submission is None:  # deleted meanwhile, e.g. an old guest submission
             raise InvalidRecordError("no such submission")
@@ -228,6 +273,20 @@ def _owned(artifact: StoredArtifact, record: DoneRecord) -> bool:
     log.warning(
         "foreign artifact dropped", submission_id=str(record.submission_id), key=artifact.key
     )
+    return False
+
+
+def _waveform_file(artifact: StoredArtifact, waveform: Waveform) -> bool:
+    """The FST of this waveform job: `<yyyy>/<mm>/<id>/w-<waveform id>/…` of the traced stage."""
+    parts = artifact.key.split("/")
+    folder = [str(waveform.submission_id), f"w-{waveform.id}"]
+    if (
+        parts[2:4] == folder
+        and len(parts) > 4
+        and (artifact.kind, artifact.stage) == ("fst", waveform.stage_key)
+    ):
+        return True
+    log.warning("foreign artifact dropped", waveform_id=str(waveform.id), key=artifact.key)
     return False
 
 

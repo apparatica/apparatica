@@ -118,12 +118,37 @@ it("redirects to the artifact files", async () => {
   const file = await fetch(redirect.headers.get("Location") ?? "");
   expect((await file.arrayBuffer()).byteLength).toBe(trace?.size_bytes);
 
-  const pending = await client.POST("/api/v1/submissions/{id}/waveform", {
+  const kept = await client.POST("/api/v1/submissions/{id}/waveform", {
     params: { path: { id } },
     body: { scope: "failure_window", test: null },
   });
+  expect(kept.data?.state).toBe("ready"); // as it is: nothing to recreate
+});
+
+it("recreates an expired trace", async () => {
+  configureMocks({ speed: Infinity });
+  const { data } = await submit("// mock: wrong-answer\n// mock-fst: expired");
+  const id = data?.id ?? "";
+  const trace = async () => {
+    const { data } = await client.GET("/api/v1/submissions/{id}", { params: { path: { id } } });
+    return data?.artifacts.find((artifact) => artifact.kind === "fst");
+  };
+  expect(await trace()).toMatchObject({ state: "expired", waveform: { cursor_time_ps: 300 } });
+  const missing = await fetch(`${BASE}/api/v1/submissions/${id}/artifacts/fst?stage=sim_run`, {
+    redirect: "manual",
+  });
+  expect(missing.status).toBe(404);
+
+  const request = (scope: "failure_window" | "full_test") =>
+    client.POST("/api/v1/submissions/{id}/waveform", {
+      params: { path: { id } },
+      body: { scope, test: null },
+    });
+  expect((await request("full_test")).error?.code).toBe("UNAUTHENTICATED");
+  const pending = await request("failure_window");
   expect(pending.response.status).toBe(202);
   expect(pending.data?.state).toBe("pending");
+  expect((await trace())?.state).toBe("ready"); // at Infinity speed the job is done at once
 });
 
 it("limits the checks of a guest", async () => {

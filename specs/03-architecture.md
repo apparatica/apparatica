@@ -124,7 +124,7 @@ judge/src/judge/
       diagnostics.py разбор сообщений Verilator, Yosys, slang в file:line:col
   cli.py             judge validate | run | metrics | pack | new
 worker/src/apparatica_worker/
-  broker.py          брокер Dramatiq и актор judge_submission
+  broker.py          брокер Dramatiq и акторы judge_submission, judge_waveform
   main.py            apparatica-worker: пулы слотов основных очередей и judge.rejudge
   orchestrator.py    попытка проверки: позиция, аренда, попытки, пакет, песочница, пайплайн, артефакты
   lease.py           аренда lease:<id> с продлением

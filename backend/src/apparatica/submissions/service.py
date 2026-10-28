@@ -26,15 +26,20 @@ from apparatica.core.errors import ApiError, ErrorCode
 from apparatica.core.ids import uuid7
 from apparatica.core.platform import SolutionLimits
 from apparatica.problems.models import Problem, ProblemVersion
+from apparatica.submissions.artifacts import DOWNLOADABLE_ARTIFACT_KINDS, list_artifacts
 from apparatica.submissions.live import Watched
 from apparatica.submissions.models import Artifact, StageResult, ToolchainProfile
 from apparatica.submissions.models import Submission as SubmissionRow
-from apparatica.submissions.queue import Job, JobQueue, QueueUnavailableError
+from apparatica.submissions.models import Waveform as WaveformRow
+from apparatica.submissions.queue import (
+    QUEUE_UNAVAILABLE,
+    Job,
+    JobQueue,
+    QueueUnavailableError,
+)
 from apparatica.submissions.quotas import Author, Quotas
 from apparatica.submissions.schemas import (
-    ArtifactKind,
     Submission,
-    SubmissionArtifact,
     SubmissionCreate,
     SubmissionCreated,
     SubmissionStage,
@@ -47,10 +52,6 @@ from judge.core.verdict import SubmissionStatus, VerdictDetail
 
 log = structlog.get_logger(__name__)
 
-# Kinds a user may download; the testbench result file with the expected values of hidden tests
-# is not one of them (specs/07 §4.4).
-DOWNLOADABLE_ARTIFACT_KINDS: tuple[str, ...] = get_args(ArtifactKind)
-QUEUE_UNAVAILABLE = "QUEUE_UNAVAILABLE"  # error code of a submission that was never queued
 FINAL_STATUSES = frozenset(get_args(SubmissionStatus))
 
 
@@ -226,19 +227,30 @@ async def get_submission(
     if found is None:
         return None
     submission, version, slug = found
-    stages = await session.scalars(
-        select(StageResult)
-        .where(StageResult.submission_id == submission_id)
-        .order_by(StageResult.ordinal)
-    )
-    artifacts = await session.scalars(
-        select(Artifact)
-        .where(
-            Artifact.submission_id == submission_id,
-            Artifact.kind.in_(DOWNLOADABLE_ARTIFACT_KINDS),
+    stages = (
+        await session.scalars(
+            select(StageResult)
+            .where(StageResult.submission_id == submission_id)
+            .order_by(StageResult.ordinal)
         )
-        .order_by(Artifact.created_at, Artifact.kind)
-    )
+    ).all()
+    artifacts = (
+        await session.scalars(
+            select(Artifact)
+            .where(
+                Artifact.submission_id == submission_id,
+                Artifact.kind.in_(DOWNLOADABLE_ARTIFACT_KINDS),
+            )
+            .order_by(Artifact.created_at, Artifact.kind)
+        )
+    ).all()
+    waveforms = (
+        await session.scalars(
+            select(WaveformRow)
+            .where(WaveformRow.submission_id == submission_id)
+            .order_by(WaveformRow.created_at)
+        )
+    ).all()
     now = datetime.now(UTC)
     return Submission(
         id=submission.id,
@@ -281,18 +293,7 @@ async def get_submission(
             )
             for stage in stages
         ],
-        artifacts=[
-            SubmissionArtifact(
-                kind=artifact.kind,  # type: ignore[arg-type]  # filtered by the query
-                stage=artifact.stage_key,
-                state="expired"
-                if artifact.expires_at is not None and artifact.expires_at <= now
-                else "ready",
-                size_bytes=artifact.size_bytes,
-                waveform=None,  # trace windows are stored with the worker artifacts (T1.2b)
-            )
-            for artifact in artifacts
-        ],
+        artifacts=list_artifacts(artifacts, waveforms, stages, now),
     )
 
 

@@ -114,6 +114,8 @@ PostgreSQL 17+. Первичные ключи — UUIDv7 (сортируемы �
 
 `guest_id` есть с Ф0. Добавляется очистка гостевых отправок старше 14 дней (решение ОВ-13).
 
+**`waveforms`**: `id uuid pk`, `submission_id fk` (каскад), `stage_key text`, `status text` (`pending`, `ready`, `failed`), `error_code text null`, `artifact_id fk null` (FST, когда `ready`), `created_at`, `finished_at null`. Пересоздание FST по запросу (FR-WAV-05): заявка и задание воркера; одна заявка в `pending` на этап.
+
 **`problem_stats`**: `problem_id pk fk`, `authors int` (авторы хотя бы одного Submit с вердиктом), `accepted_authors int` (авторы принятого Submit), `updated_at`. Процент принятых каталога (FR-CAT-04); пересчитывается ингестором по `submissions` всех версий задачи. Гости учитываются, пока хранятся их отправки.
 
 ### Ф2 — пользователи
@@ -163,7 +165,7 @@ PostgreSQL 17+. Первичные ключи — UUIDv7 (сортируемы �
 |---|---|
 | `precheck/v1` | `code_hash`, `ast_hash` (`n<версия>:<sha256>`), `normalization_version`, `module`, `ports_ok`, `state_bits` |
 | `lint/v1` | `warnings`, `errors`, `rules: {CODE: count}` |
-| `sim/v1` | `tests_total`, `tests_passed`, `cycles`, `seed`, `first_failure: {test, cycle, signal}` (скрытый тест — `hidden-N`), `trace` (`recorded`, `too_large`, `missing`, `nondeterministic`, `failed`), `trace_window: [from, to]` |
+| `sim/v1` | `tests_total`, `tests_passed`, `cycles`, `seed`, `first_failure: {test, cycle, signal}` (скрытый тест — `hidden-N`), `trace` (`recorded`, `too_large`, `missing`, `nondeterministic`, `failed`), `trace_window: [from, to]`, `trace_cursor_ps` (время первого расхождения в FST), `trace_signals: [{path, port, role}]` (сигналы для Surfer: `clock`, `input`, `output`, `expected`) |
 | `synth/v1` | `critical_path_ns`, `fmax_mhz`, `area_um2`, `cells`, `flops`, `latches`, `logic_depth`, `liberty` |
 | `formal/v1` | `properties_total`, `proved`, `failed`, `unknown`, `depth` |
 

@@ -16,6 +16,7 @@ from judge.core.package import Slug
 from judge.core.stage import StageResult, SubmissionKind
 
 ACTOR = "judge_submission"
+WAVEFORM_ACTOR = "judge_waveform"
 REJUDGE_QUEUE = "judge.rejudge"
 RESOURCE_CLASS_QUEUES = {"light": "judge.light", "heavy": "judge.heavy"}
 QUEUES = (*RESOURCE_CLASS_QUEUES.values(), REJUDGE_QUEUE)
@@ -99,6 +100,30 @@ class JudgeJob(BaseModel):
     toolchain_image: str = Field(description="Image with its digest: <image>@sha256:<digest>")
 
 
+class TraceKey(BaseModel):
+    """The first mismatch a trace window is centered on: a recorded window must reproduce it."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    test: str
+    cycle: Annotated[int, Field(ge=0)]
+    signal: str
+
+
+class WaveformJob(BaseModel):
+    """The payload of a `judge_waveform` message: record the trace window of a finished check
+    again, with its seed, after the FST expired (FR-WAV-05). The pipeline runs up to the traced
+    stage without events; only the FST of that stage is kept."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    waveform_id: uuid.UUID = Field(description="The pending FST artifact: the key of the job")
+    check: JudgeJob = Field(description="The finished check, with a fresh job token")
+    stage: str = Field(description="Key of the traced stage")
+    stages: tuple[str, ...] = Field(description="Stages to run: the pipeline up to `stage`")
+    first_failure: TraceKey
+
+
 class _Record(BaseModel):
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -156,8 +181,21 @@ class AttemptFailedRecord(_Record):
     error_code: str
 
 
+class WaveformRecord(BaseModel):
+    """A waveform job ended: the recorded FST, or why there is none."""
+
+    model_config = ConfigDict(extra="forbid", frozen=True)
+
+    type: Literal["waveform"] = "waveform"
+    submission_id: uuid.UUID
+    token: str = Field(description="The job token of the waveform job")
+    waveform_id: uuid.UUID
+    artifact: StoredArtifact | None
+    error_code: str | None = Field(default=None, description="Why no FST was recorded")
+
+
 type ResultRecord = Annotated[
-    AttemptStartedRecord | StageEndRecord | DoneRecord | AttemptFailedRecord,
+    AttemptStartedRecord | StageEndRecord | DoneRecord | AttemptFailedRecord | WaveformRecord,
     Field(discriminator="type"),
 ]
 RESULT_RECORD: TypeAdapter[ResultRecord] = TypeAdapter(ResultRecord)

@@ -17,6 +17,7 @@ from apparatica.submissions.models import Artifact, StageResult, Submission, Too
 from apparatica.submissions.profiles import ProfileSpec, add_profile
 from apparatica.submissions.queue import Job, QueueUnavailableError
 from conftest import CONFIG_DIR, PROBLEMS, Postgres, repo_version
+from judge.core.jobs import WaveformJob
 
 PROBLEM = "application/problem+json"
 PROFILE = ProfileSpec(
@@ -37,6 +38,7 @@ class RecordingQueue:
 
     def __init__(self) -> None:
         self.jobs: list[Job] = []
+        self.waveforms: list[tuple[str, WaveformJob]] = []
         self.cancels: list[tuple[uuid.UUID, str]] = []
         self.unavailable = False
 
@@ -44,6 +46,11 @@ class RecordingQueue:
         if self.unavailable:
             raise QueueUnavailableError("connection refused")
         self.jobs.append(job)
+
+    async def enqueue_waveform(self, queue: str, job: WaveformJob) -> None:
+        if self.unavailable:
+            raise QueueUnavailableError("connection refused")
+        self.waveforms.append((queue, job))
 
     async def position(self, queue: str, submission_id: uuid.UUID) -> int | None:
         waiting = [job.submission_id for job in self.jobs if job.queue == queue]
@@ -344,6 +351,6 @@ def test_a_finished_submission(api: TestClient, database_url: str) -> None:
     # The testbench result file holds hidden expected values: never listed (specs/07 §4.4).
     common = {"stage": "sim_full", "size_bytes": 100, "waveform": None}
     assert body["artifacts"] == [
-        {"kind": "fst", "state": "expired", **common},
         {"kind": "log", "state": "ready", **common},
+        {"kind": "fst", "state": "expired", **common},
     ]

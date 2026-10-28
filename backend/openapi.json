@@ -886,7 +886,7 @@
           "submissions"
         ],
         "summary": "Get Artifact",
-        "description": "Download an artifact of a submission; NOT_FOUND also when it has expired.",
+        "description": "Download the latest file of an artifact of the caller's submission: `stage` names the\nstage of a log or an FST, events have none. NOT_FOUND also when it has expired.",
         "operationId": "get_artifact",
         "parameters": [
           {
@@ -974,16 +974,6 @@
                 }
               }
             }
-          },
-          "501": {
-            "description": "Not Implemented",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
           }
         },
         "x-phase": 1
@@ -995,7 +985,7 @@
           "submissions"
         ],
         "summary": "Request Waveform",
-        "description": "Recreate an expired FST or record a whole test with the seed of the submission\n(FR-WAV-05); the FST artifact is pending until GET /submissions/{id} shows it ready.",
+        "description": "Recreate an expired FST of the failure window with the seed of the submission (FR-WAV-05);\nit is pending until GET /submissions/{id} shows it ready or failed. A kept or pending FST is\nanswered as it is, without spending the quota. NOT_FOUND: no such submission or no trace\nwindow in it; UNAUTHENTICATED: `full_test` is for signed-in users; RATE_LIMITED:\n`params.quota` is `waveforms`.",
         "operationId": "request_waveform",
         "parameters": [
           {
@@ -1080,8 +1070,8 @@
               }
             }
           },
-          "501": {
-            "description": "Not Implemented",
+          "503": {
+            "description": "Service Unavailable",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2885,7 +2875,7 @@
               "failed"
             ],
             "title": "State",
-            "description": "expired: removed by the retention rules (an FST can be recreated); pending, failed: a recreated FST (POST /submissions/{id}/waveform)"
+            "description": "expired: removed by the retention rules (an FST can be recreated); pending, failed: an FST being recreated or not recreated (POST /submissions/{id}/waveform). One FST per stage: the latest"
           },
           "size_bytes": {
             "anyOf": [
@@ -3710,6 +3700,26 @@
             ],
             "title": "Cursor Cycle",
             "description": "Cycle of the first mismatch"
+          },
+          "cursor_time_ps": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Cursor Time Ps",
+            "description": "FST time of the first mismatch in picoseconds: the axis of the viewer is in time, not in cycles"
+          },
+          "signals": {
+            "items": {
+              "$ref": "#/components/schemas/WaveformSignal"
+            },
+            "type": "array",
+            "title": "Signals",
+            "description": "Empty for a trace recorded before the list existed: the viewer picks"
           }
         },
         "type": "object",
@@ -3718,7 +3728,9 @@
           "scope",
           "from_cycle",
           "to_cycle",
-          "cursor_cycle"
+          "cursor_cycle",
+          "cursor_time_ps",
+          "signals"
         ],
         "title": "Waveform",
         "description": "What an FST trace covers (ADR-0004)."
@@ -3750,6 +3762,44 @@
         },
         "type": "object",
         "title": "WaveformRequest"
+      },
+      "WaveformSignal": {
+        "properties": {
+          "path": {
+            "type": "string",
+            "title": "Path",
+            "description": "Full name in the FST",
+            "examples": [
+              "tb_top.exp_rdata"
+            ]
+          },
+          "port": {
+            "type": "string",
+            "title": "Port",
+            "description": "Port of the problem interface",
+            "examples": [
+              "rdata"
+            ]
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "clock",
+              "input",
+              "output",
+              "expected"
+            ],
+            "title": "Role"
+          }
+        },
+        "type": "object",
+        "required": [
+          "path",
+          "port",
+          "role"
+        ],
+        "title": "WaveformSignal",
+        "description": "A signal to show, in the order of the viewer (ADR-0004): the clock, the inputs, then every\noutput followed by the value the model expected."
       },
       "ErrorCode": {
         "enum": [

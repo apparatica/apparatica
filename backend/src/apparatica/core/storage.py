@@ -3,6 +3,10 @@
 Buckets are separate per kind of data because Garage grants keys per bucket; the API writes
 `packages` (problem import) and reads event journals from `artifacts`, the ingestor deletes
 expired `artifacts`. Calls are blocking: async code runs them in a thread.
+
+Browsers download artifacts by presigned URLs (specs/07 §4.4). The host is part of the signature,
+so they are signed for the public endpoint (`s3_public_url`), which the API itself may not reach;
+signing needs no network.
 """
 
 from functools import cached_property
@@ -25,11 +29,19 @@ class Storage:
     def _client(self) -> "S3Client":
         """Made on first use: without keys botocore looks for credentials, also on the network
         (instance metadata), and a process that never touches the storage must not wait for it."""
+        return self._make_client(self._settings.s3_endpoint_url)
+
+    @cached_property
+    def _public(self) -> "S3Client":
+        settings = self._settings
+        return self._make_client(settings.s3_public_url or settings.s3_endpoint_url)
+
+    def _make_client(self, endpoint_url: str | None) -> "S3Client":
         settings = self._settings
         secret = settings.s3_secret_access_key
         return boto3.client(
             "s3",
-            endpoint_url=settings.s3_endpoint_url,
+            endpoint_url=endpoint_url,
             region_name=settings.s3_region,
             aws_access_key_id=settings.s3_access_key_id,
             aws_secret_access_key=secret.get_secret_value() if secret else None,
@@ -47,6 +59,19 @@ class Storage:
 
     def get(self, bucket: str, key: str) -> bytes:
         return self._client.get_object(Bucket=bucket, Key=key)["Body"].read()
+
+    def download_url(self, bucket: str, key: str, filename: str, expires_s: int) -> str:
+        """A presigned GET of the public endpoint that saves the object as `filename`."""
+        return self._public.generate_presigned_url(
+            "get_object",
+            Params={
+                "Bucket": bucket,
+                "Key": key,
+                "ResponseContentType": "application/octet-stream",
+                "ResponseContentDisposition": f'attachment; filename="{filename}"',
+            },
+            ExpiresIn=expires_s,
+        )
 
     def delete(self, bucket: str, key: str) -> None:
         """Deleting a missing object succeeds: retried deletes are harmless."""

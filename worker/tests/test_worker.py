@@ -10,10 +10,10 @@ from typing import Any
 from dramatiq import Message
 from dramatiq.brokers.redis import RedisBroker
 
-from apparatica_worker.broker import Handler
+from apparatica_worker.broker import Handler, WaveformHandler
 from apparatica_worker.main import create_workers, run
 from apparatica_worker.settings import WorkerSettings
-from judge.core.jobs import ACTOR, QUEUES, JudgeJob
+from judge.core.jobs import ACTOR, QUEUES, WAVEFORM_ACTOR, JudgeJob, TraceKey, WaveformJob
 
 
 def job() -> JudgeJob:
@@ -50,10 +50,12 @@ def wait_for(condition: Callable[[], bool], timeout: float = 15) -> None:
 
 
 @contextmanager
-def worker(url: str, handler: Handler, **settings: Any) -> Iterator[None]:
+def worker(
+    url: str, handler: Handler, waveforms: WaveformHandler | None = None, **settings: Any
+) -> Iterator[None]:
     stop = threading.Event()
     thread = threading.Thread(
-        target=run, args=(WorkerSettings(queue_url=url, **settings), stop, handler)
+        target=run, args=(WorkerSettings(queue_url=url, **settings), stop, handler, waveforms)
     )
     thread.start()
     try:
@@ -72,6 +74,41 @@ def test_the_worker_serves_every_queue(valkey_url: str) -> None:
         wait_for(lambda: len(taken) == len(QUEUES))
     assert sorted(taken, key=str) == sorted(
         ((payload.submission_id, queue) for queue, payload in jobs.items()), key=str
+    )
+
+
+def test_waveform_jobs_share_the_queues(valkey_url: str) -> None:
+    taken: list[tuple[str, uuid.UUID, str]] = []
+    check = job()
+    waveform = WaveformJob(
+        waveform_id=uuid.uuid4(),
+        check=check,
+        stage="sim_run",
+        stages=("precheck", "lint", "sim_run"),
+        first_failure=TraceKey(test="t1", cycle=12, signal="y"),
+    )
+    with worker(
+        valkey_url,
+        lambda j, q: taken.append(("check", j.submission_id, q)),
+        lambda j, q: taken.append(("waveform", j.waveform_id, q)),
+        slots=1,
+    ):
+        broker = RedisBroker(url=valkey_url, middleware=[])
+        broker.declare_queue("judge.light")
+        args = (str(waveform.waveform_id), waveform.model_dump(mode="json"))
+        message: Message[None] = Message(
+            queue_name="judge.light", actor_name=WAVEFORM_ACTOR, args=args, kwargs={}, options={}
+        )
+        broker.enqueue(message)
+        broker.close()
+        send(valkey_url, "judge.light", check)
+        wait_for(lambda: len(taken) == 2)
+    assert sorted(taken, key=str) == sorted(
+        [
+            ("waveform", waveform.waveform_id, "judge.light"),
+            ("check", check.submission_id, "judge.light"),
+        ],
+        key=str,
     )
 
 

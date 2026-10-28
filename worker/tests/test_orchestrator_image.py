@@ -20,7 +20,7 @@ from moto import mock_aws
 from stream_helpers import read_stream
 
 from apparatica_worker.cancel import CancelListener
-from apparatica_worker.orchestrator import Orchestrator
+from apparatica_worker.orchestrator import TRACE_NOT_REPRODUCED, Orchestrator
 from apparatica_worker.report import AttemptReport
 from apparatica_worker.sandboxd.client import SandboxdClient, SandboxExecutor
 from apparatica_worker.sandboxd.server import MAX_REQUEST, DockerCli, Policy, Sandboxd, repository
@@ -33,6 +33,9 @@ from judge.core.jobs import (
     RESULTS_STREAM,
     JudgeJob,
     StageEndRecord,
+    TraceKey,
+    WaveformJob,
+    WaveformRecord,
     cancel_key,
     lease_key,
     submission_stream_key,
@@ -85,18 +88,10 @@ def s3() -> Iterator["S3Client"]:
         yield client
 
 
-def attempt(
-    sandboxd: SandboxdClient,
-    s3: "S3Client",
-    valkey_url: str,
-    tmp_path: Path,
-    slug: str,
-    code: str,
-    cancel_after_s: float | None = None,
-) -> AttemptReport:
+def check(s3: "S3Client", slug: str, code: str) -> JudgeJob:
     files = package_files(ROOT / "problems" / slug)
     s3.put_object(Bucket="packages", Key=f"{slug}/1.tar.zst", Body=pack(files))
-    job = JudgeJob(
+    return JudgeJob(
         submission_id=uuid.UUID(int=(time.time_ns() // 1_000_000 << 80) | (7 << 76) | (2 << 62)),
         token="v1.token",
         problem=slug,
@@ -110,18 +105,37 @@ def attempt(
         toolchain_profile="sv-dev",
         toolchain_image=IMAGE,
     )
-    reports = Reports()
+
+
+def make_orchestrator(
+    sandboxd: SandboxdClient, s3: "S3Client", valkey_url: str, tmp_path: Path
+) -> Orchestrator:
     valkey = redis.Redis.from_url(valkey_url)
-    orchestrator = Orchestrator(
+    return Orchestrator(
         valkey=valkey,
         packages=PackageCache(s3, "packages", tmp_path),
         artifacts=ArtifactStore(s3, "artifacts"),
         executor=lambda job, limits: SandboxExecutor(sandboxd, job.toolchain_image, limits),
         classes=load_resource_classes(ROOT / "config" / "resource-classes.yaml"),
         results=ResultsStream(valkey),
-        reporter=reports,
+        reporter=Reports(),
         owner="worker-test",
     )
+
+
+def attempt(
+    sandboxd: SandboxdClient,
+    s3: "S3Client",
+    valkey_url: str,
+    tmp_path: Path,
+    slug: str,
+    code: str,
+    cancel_after_s: float | None = None,
+) -> AttemptReport:
+    job = check(s3, slug, code)
+    orchestrator = make_orchestrator(sandboxd, s3, valkey_url, tmp_path)
+    valkey, reports = orchestrator.valkey, orchestrator.reporter
+    assert isinstance(reports, Reports)
     if cancel_after_s is None:
         orchestrator(job, "judge.light")
     else:  # as the API does it: the key, then the message
@@ -215,3 +229,44 @@ def test_a_wrong_answer_keeps_its_trace(
     assert data
     assert trace.size_bytes == len(data)
     assert any(a.kind == "tb_result" for a in report.artifacts)
+
+
+def test_an_expired_trace_is_recorded_again(
+    sandboxd: SandboxdClient, s3: "S3Client", valkey_url: str, tmp_path: Path
+) -> None:
+    mutant = ROOT / "problems" / "sync-fifo" / "mutants" / "m01_full_off_by_one.sv"
+    job = check(s3, "sync-fifo", mutant.read_text("utf-8"))
+    orchestrator = make_orchestrator(sandboxd, s3, valkey_url, tmp_path)
+    orchestrator(job, "judge.light")
+    assert isinstance(orchestrator.reporter, Reports)
+    [report] = orchestrator.reporter.items
+    events = len(read_stream(orchestrator.valkey, submission_stream_key(job.submission_id)))
+    sim = report.results[-1]
+    failure = TraceKey.model_validate(sim.metrics["first_failure"])
+    waveform = WaveformJob(
+        waveform_id=uuid.uuid4(),
+        check=job,
+        stage="sim_run",
+        stages=("precheck", "lint", "sim_run"),
+        first_failure=failure,
+    )
+    orchestrator.record_waveform(waveform, "judge.light")
+    moved = failure.model_copy(update={"cycle": failure.cycle + 1})
+    orchestrator.record_waveform(
+        waveform.model_copy(update={"waveform_id": uuid.uuid4(), "first_failure": moved}),
+        "judge.light",
+    )
+    records = [
+        RESULT_RECORD.validate_python(record)
+        for _, record in read_stream(orchestrator.valkey, RESULTS_STREAM)
+    ]
+    recorded, refused = [r for r in records if isinstance(r, WaveformRecord)]
+    assert recorded.error_code is None
+    assert recorded.artifact is not None
+    assert recorded.artifact.key.endswith(f"/w-{waveform.waveform_id}/sim_run/trace.fst")
+    assert (recorded.artifact.kind, recorded.artifact.stage) == ("fst", "sim_run")
+    assert recorded.artifact.size_bytes == len(read(s3, recorded.artifact.key)) > 0
+    assert (refused.artifact, refused.error_code) == (None, TRACE_NOT_REPRODUCED)
+    # No events: the finished check keeps its stream as it was.
+    stream = read_stream(orchestrator.valkey, submission_stream_key(job.submission_id))
+    assert len(stream) == events

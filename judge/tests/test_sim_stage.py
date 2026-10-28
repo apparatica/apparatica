@@ -17,7 +17,12 @@ from judge.core.stage import (
     StagePlan,
     StageResult,
 )
-from judge.languages.systemverilog.stages.sim import SimConfig, SimStage, verilator_seed
+from judge.languages.systemverilog.stages.sim import (
+    SimConfig,
+    SimStage,
+    trace_signals,
+    verilator_seed,
+)
 
 PACKAGE = Path(__file__).parent / "data" / "packages" / "counter"
 CANONICAL = b"module counter; endmodule\n"
@@ -231,6 +236,14 @@ def test_open_failure_with_recorded_trace() -> None:
     assert outcome.artifacts == {"tb_result.jsonl": OPEN_FAIL, "trace.fst": b"FST"}
     assert outcome.metrics["trace"] == "recorded"
     assert outcome.metrics["trace_window"] == [0, 34]
+    assert outcome.metrics["trace_cursor_ps"] == 180_000
+    assert [(s["path"], s["role"]) for s in outcome.metrics["trace_signals"]] == [
+        ("tb_top.clk", "clock"),
+        ("tb_top.rst", "input"),
+        ("tb_top.en", "input"),
+        ("tb_top.count", "output"),
+        ("tb_top.exp_count", "expected"),
+    ]
     assert outcome.metrics["first_failure"] == {"test": "t2", "cycle": 18, "signal": "count"}
     t2 = outcome.summary.tests[1]
     assert (t2.status, t2.cycle, t2.mismatches[0].hint) == ("failed", 18, "После 9 — 0")
@@ -258,6 +271,20 @@ def test_trace_problems_keep_the_verdict(trace_run: ExecResult, status: str) -> 
     outcome = outcome_of(context(), run_with(OPEN_FAIL), trace_run)
     assert (outcome.failure_kind, outcome.metrics["trace"]) == ("wrong", status)
     assert set(outcome.artifacts) == {"tb_result.jsonl"}
+    assert "trace_signals" not in outcome.metrics
+
+
+def test_a_design_without_a_clock_port_is_traced_with_the_testbench_clock() -> None:
+    problem = load_manifest(PACKAGE)
+    ports = [p for p in problem.interface.ports if p.role != "clock"]
+    combinational = problem.model_copy(
+        update={"interface": problem.interface.model_copy(update={"ports": ports})}
+    )
+    signals = trace_signals(combinational, problem.testbenches[0])
+    assert [(s.path, s.port, s.role) for s in signals][:2] == [
+        ("tb_top.clk", "clk", "clock"),
+        ("tb_top.rst", "rst", "input"),
+    ]
 
 
 def test_no_trace_when_disabled_or_for_a_netlist() -> None:

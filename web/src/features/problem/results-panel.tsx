@@ -2,7 +2,7 @@
 
 // The results panel of a problem page (specs/08 §3): the pipeline with the total time, the banner
 // of the check and the result tabs under it, and before the first check a hint on Run and Submit
-// (mock-up BenchEmpty). The tab of the waves comes in T1.17.
+// (mock-up BenchEmpty). The tab of the waves comes in T1.17c.
 import { SquareTerminal } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { type ReactNode, useState } from "react";

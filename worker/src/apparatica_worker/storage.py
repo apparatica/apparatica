@@ -91,9 +91,10 @@ class PackageCache:
         log.info("package cached", package=job.package_uri, content_hash=job.content_hash)
 
 
-def artifact_key(submission_id: uuid.UUID, attempt: int, name: str) -> str:
+def artifact_key(submission_id: uuid.UUID, attempt: int | str, name: str) -> str:
     """`<yyyy>/<mm>/<submission_id>/<attempt>/<name>` (specs/07 §4.4): the month of the submission,
-    read from its UUIDv7, so that every attempt of a check lands in one place."""
+    read from its UUIDv7, so that every attempt of a check lands in one place. A recorded waveform
+    takes `w-<waveform id>` for the attempt (FR-WAV-05)."""
     created = (
         datetime.fromtimestamp((submission_id.int >> 80) / 1000, UTC)
         if submission_id.version == 7
@@ -110,7 +111,7 @@ class ArtifactStore:
     def put(
         self,
         job: JudgeJob,
-        attempt: int,
+        attempt: int | str,
         kind: ArtifactKind,
         stage: str | None,
         name: str,

@@ -212,7 +212,8 @@ export interface paths {
         };
         /**
          * Get Artifact
-         * @description Download an artifact of a submission; NOT_FOUND also when it has expired.
+         * @description Download the latest file of an artifact of the caller's submission: `stage` names the
+         *     stage of a log or an FST, events have none. NOT_FOUND also when it has expired.
          */
         get: operations["get_artifact"];
         put?: never;
@@ -234,8 +235,11 @@ export interface paths {
         put?: never;
         /**
          * Request Waveform
-         * @description Recreate an expired FST or record a whole test with the seed of the submission
-         *     (FR-WAV-05); the FST artifact is pending until GET /submissions/{id} shows it ready.
+         * @description Recreate an expired FST of the failure window with the seed of the submission (FR-WAV-05);
+         *     it is pending until GET /submissions/{id} shows it ready or failed. A kept or pending FST is
+         *     answered as it is, without spending the quota. NOT_FOUND: no such submission or no trace
+         *     window in it; UNAUTHENTICATED: `full_test` is for signed-in users; RATE_LIMITED:
+         *     `params.quota` is `waveforms`.
          */
         post: operations["request_waveform"];
         delete?: never;
@@ -1011,7 +1015,7 @@ export interface components {
             stage: string | null;
             /**
              * State
-             * @description expired: removed by the retention rules (an FST can be recreated); pending, failed: a recreated FST (POST /submissions/{id}/waveform)
+             * @description expired: removed by the retention rules (an FST can be recreated); pending, failed: an FST being recreated or not recreated (POST /submissions/{id}/waveform). One FST per stage: the latest
              * @enum {string}
              */
             state: "ready" | "expired" | "pending" | "failed";
@@ -1339,6 +1343,16 @@ export interface components {
              * @description Cycle of the first mismatch
              */
             cursor_cycle: number | null;
+            /**
+             * Cursor Time Ps
+             * @description FST time of the first mismatch in picoseconds: the axis of the viewer is in time, not in cycles
+             */
+            cursor_time_ps: number | null;
+            /**
+             * Signals
+             * @description Empty for a trace recorded before the list existed: the viewer picks
+             */
+            signals: components["schemas"]["WaveformSignal"][];
         };
         /** WaveformRequest */
         WaveformRequest: {
@@ -1354,6 +1368,30 @@ export interface components {
              * @description Test id for full_test; the failed test by default
              */
             test?: string | null;
+        };
+        /**
+         * WaveformSignal
+         * @description A signal to show, in the order of the viewer (ADR-0004): the clock, the inputs, then every
+         *     output followed by the value the model expected.
+         */
+        WaveformSignal: {
+            /**
+             * Path
+             * @description Full name in the FST
+             * @example tb_top.exp_rdata
+             */
+            path: string;
+            /**
+             * Port
+             * @description Port of the problem interface
+             * @example rdata
+             */
+            port: string;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "clock" | "input" | "output" | "expected";
         };
         /**
          * ErrorCode
@@ -2046,15 +2084,6 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Error"];
                 };
             };
-            /** @description Not Implemented */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Error"];
-                };
-            };
         };
     };
     request_waveform: {
@@ -2126,8 +2155,8 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Error"];
                 };
             };
-            /** @description Not Implemented */
-            501: {
+            /** @description Service Unavailable */
+            503: {
                 headers: {
                     [name: string]: unknown;
                 };

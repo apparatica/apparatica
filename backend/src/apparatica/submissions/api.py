@@ -1,9 +1,8 @@
 """Submissions (specs/05 §3). The author is the guest of the `ap_guest` cookie, which the first
-submission sets (FR-GST-01); a submission of someone else is NOT_FOUND. Routes of the phase 1
-contract that are not implemented yet answer NOT_IMPLEMENTED."""
+submission sets (FR-GST-01); a submission of someone else is NOT_FOUND."""
 
 import uuid
-from typing import Annotated, NoReturn
+from typing import Annotated
 
 from fastapi import APIRouter, Depends, Header, Query, Request, Response, status
 from fastapi.responses import RedirectResponse
@@ -14,7 +13,7 @@ from apparatica.auth.throttle import throttle
 from apparatica.core.db import get_session
 from apparatica.core.errors import ApiError, ErrorCode, problem_responses
 from apparatica.core.http import PRIVATE, EventStreamResponse
-from apparatica.submissions import service
+from apparatica.submissions import artifacts, service
 from apparatica.submissions.events import SubmissionEvent
 from apparatica.submissions.live import archived_events, live_events
 from apparatica.submissions.quotas import Author
@@ -37,12 +36,6 @@ PHASE_1 = {"x-phase": 1}
 Session = Annotated[AsyncSession, Depends(get_session)]
 # A Valkey stream entry id: the SSE `id:` of an event.
 EventId = Annotated[str, Query(pattern=r"^\d+-\d+$")]
-
-
-def not_implemented(task: str) -> NoReturn:
-    raise ApiError(
-        ErrorCode.NOT_IMPLEMENTED, f"Declared by the phase 1 contract; arrives in {task}"
-    )
 
 
 @router.post(
@@ -217,19 +210,34 @@ async def cancel_submission(
             "description": "Redirect to a presigned URL of the file (attachment)",
             "headers": {"Location": {"schema": {"type": "string", "format": "uri"}}},
         },
-        **problem_responses(
-            ErrorCode.NOT_FOUND, ErrorCode.VALIDATION_ERROR, ErrorCode.NOT_IMPLEMENTED
-        ),
+        **problem_responses(ErrorCode.NOT_FOUND, ErrorCode.VALIDATION_ERROR),
     },
     openapi_extra=PHASE_1,
 )
 async def get_artifact(
+    request: Request,
+    session: Session,
+    guest: Guest,
     id: uuid.UUID,
     kind: ArtifactKind,
     stage: Annotated[str | None, Query(max_length=64, description="Key of the stage")] = None,
 ) -> RedirectResponse:
-    """Download an artifact of a submission; NOT_FOUND also when it has expired."""
-    not_implemented("T1.2b")
+    """Download the latest file of an artifact of the caller's submission: `stage` names the
+    stage of a log or an FST, events have none. NOT_FOUND also when it has expired."""
+    state = request.app.state
+    settings = state.settings
+    url = await artifacts.download_url(
+        session,
+        state.storage,
+        bucket=settings.s3_bucket_artifacts,
+        ttl_s=settings.artifact_url_ttl_s,
+        submission_id=id,
+        kind=kind,
+        stage=stage,
+        guest_id=guest,
+    )
+    headers = {"Cache-Control": PRIVATE}
+    return RedirectResponse(url, status_code=status.HTTP_302_FOUND, headers=headers)
 
 
 @router.post(
@@ -241,12 +249,26 @@ async def get_artifact(
         ErrorCode.UNAUTHENTICATED,
         ErrorCode.VALIDATION_ERROR,
         ErrorCode.RATE_LIMITED,
-        ErrorCode.NOT_IMPLEMENTED,
+        ErrorCode.JUDGE_UNAVAILABLE,
     ),
     dependencies=[Depends(throttle)],
     openapi_extra=PHASE_1,
 )
-async def request_waveform(id: uuid.UUID, body: WaveformRequest) -> SubmissionArtifact:
-    """Recreate an expired FST or record a whole test with the seed of the submission
-    (FR-WAV-05); the FST artifact is pending until GET /submissions/{id} shows it ready."""
-    not_implemented("T1.17")
+async def request_waveform(
+    request: Request, session: Session, guest: Guest, id: uuid.UUID, body: WaveformRequest
+) -> SubmissionArtifact:
+    """Recreate an expired FST of the failure window with the seed of the submission (FR-WAV-05);
+    it is pending until GET /submissions/{id} shows it ready or failed. A kept or pending FST is
+    answered as it is, without spending the quota. NOT_FOUND: no such submission or no trace
+    window in it; UNAUTHENTICATED: `full_test` is for signed-in users; RATE_LIMITED:
+    `params.quota` is `waveforms`."""
+    state = request.app.state
+    return await artifacts.request_waveform(
+        session,
+        id,
+        body,
+        guest_id=guest,
+        tokens=state.job_tokens,
+        queue=state.job_queue,
+        quotas=state.quotas,
+    )

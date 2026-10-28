@@ -400,6 +400,8 @@ def trace_window(results: Sequence[StageResult], stage: str) -> dict[str, Any]:
         "from_cycle": begin,
         "to_cycle": end,
         "cursor_cycle": failure["cycle"],
+        "cursor_time_ps": metrics["trace_cursor_ps"],
+        "signals": metrics["trace_signals"],
     }
 
 

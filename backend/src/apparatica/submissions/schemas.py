@@ -76,6 +76,18 @@ ArtifactState = Literal["ready", "expired", "pending", "failed"]
 WaveformScope = Literal["failure_window", "full_test"]
 
 
+WaveformSignalRole = Literal["clock", "input", "output", "expected"]
+
+
+class WaveformSignal(BaseModel):
+    """A signal to show, in the order of the viewer (ADR-0004): the clock, the inputs, then every
+    output followed by the value the model expected."""
+
+    path: str = Field(description="Full name in the FST", examples=["tb_top.exp_rdata"])
+    port: str = Field(description="Port of the problem interface", examples=["rdata"])
+    role: WaveformSignalRole
+
+
 class Waveform(BaseModel):
     """What an FST trace covers (ADR-0004)."""
 
@@ -84,6 +96,13 @@ class Waveform(BaseModel):
     from_cycle: int
     to_cycle: int
     cursor_cycle: int | None = Field(description="Cycle of the first mismatch")
+    cursor_time_ps: int | None = Field(
+        description="FST time of the first mismatch in picoseconds: the axis of the viewer is"
+        " in time, not in cycles"
+    )
+    signals: list[WaveformSignal] = Field(
+        description="Empty for a trace recorded before the list existed: the viewer picks"
+    )
 
 
 class SubmissionArtifact(BaseModel):
@@ -91,7 +110,8 @@ class SubmissionArtifact(BaseModel):
     stage: str | None
     state: ArtifactState = Field(
         description="expired: removed by the retention rules (an FST can be recreated);"
-        " pending, failed: a recreated FST (POST /submissions/{id}/waveform)"
+        " pending, failed: an FST being recreated or not recreated"
+        " (POST /submissions/{id}/waveform). One FST per stage: the latest"
     )
     size_bytes: int | None = Field(description="Null until the file exists")
     waveform: Waveform | None = Field(description="With kind=fst")

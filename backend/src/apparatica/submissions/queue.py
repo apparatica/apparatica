@@ -3,7 +3,8 @@
 A job is a Dramatiq message for the `judge_submission` actor on `valkey-queue`; the API sends it
 without the worker code (`judge.core.jobs` is the contract). The sorted set `queue:<queue>` keeps
 the waiting submissions by the time they were queued: the API adds a submission, the worker that
-takes it removes it, and the rank is the position in the queue.
+takes it removes it, and the rank is the position in the queue. A waveform job (FR-WAV-05) goes
+to the `judge_waveform` actor on the queue of the problem; it has no queue position.
 """
 
 import contextlib
@@ -24,13 +25,17 @@ from judge.core.jobs import (
     CANCEL_CHANNEL,
     CANCEL_TTL_S,
     QUEUES,
+    WAVEFORM_ACTOR,
     CancelReason,
     JudgeJob,
+    WaveformJob,
     cancel_key,
     position_key,
 )
 
 log = structlog.get_logger(__name__)
+
+QUEUE_UNAVAILABLE = "QUEUE_UNAVAILABLE"  # error code of a job that was never queued
 
 
 @dataclass(frozen=True)
@@ -52,6 +57,10 @@ class JobQueue(Protocol):
         """Raises QueueUnavailableError."""
         ...
 
+    async def enqueue_waveform(self, queue: str, job: WaveformJob) -> None:
+        """Raises QueueUnavailableError."""
+        ...
+
     async def position(self, queue: str, submission_id: uuid.UUID) -> int | None:
         """1 for the next submission to be taken; None when it is not waiting."""
         ...
@@ -69,6 +78,9 @@ class NoQueue:
 
     async def enqueue(self, job: Job) -> None:
         log.info("no job queue", submission_id=str(job.submission_id), queue=job.queue)
+
+    async def enqueue_waveform(self, queue: str, job: WaveformJob) -> None:
+        log.info("no job queue", waveform_id=str(job.waveform_id), queue=queue)
 
     async def position(self, queue: str, submission_id: uuid.UUID) -> int | None:
         return None
@@ -103,6 +115,19 @@ class DramatiqQueue:
             await anyio.to_thread.run_sync(self._broker.enqueue, message)
         except (redis.RedisError, BrokerError) as error:
             await self._forget(key, member)
+            raise QueueUnavailableError(str(error)) from error
+
+    async def enqueue_waveform(self, queue: str, job: WaveformJob) -> None:
+        message: Message[None] = Message(
+            queue_name=queue,
+            actor_name=WAVEFORM_ACTOR,
+            args=(str(job.waveform_id), job.model_dump(mode="json")),
+            kwargs={},
+            options={},
+        )
+        try:
+            await anyio.to_thread.run_sync(self._broker.enqueue, message)
+        except (redis.RedisError, BrokerError) as error:
             raise QueueUnavailableError(str(error)) from error
 
     async def _forget(self, key: str, member: str) -> None:

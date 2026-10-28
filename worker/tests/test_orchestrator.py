@@ -34,6 +34,9 @@ from judge.core.jobs import (
     AttemptFailedRecord,
     AttemptStartedRecord,
     JudgeJob,
+    TraceKey,
+    WaveformJob,
+    WaveformRecord,
     attempts_key,
     cancel_key,
     lease_key,
@@ -194,6 +197,55 @@ def test_a_check_has_two_attempts(orchestrator: Orchestrator) -> None:
         (3, ATTEMPTS_EXHAUSTED),
     ]
     assert len(BrokenSandbox.created) == 2  # the third attempt did not run
+
+
+def waveform(**fields: Any) -> WaveformJob:
+    return WaveformJob(
+        waveform_id=uuid.UUID(int=(1793003347000 << 80) | (7 << 76) | 99),
+        check=job(**fields),
+        stage="sim_run",
+        stages=("precheck", "lint", "sim_run"),
+        first_failure=TraceKey(test="t1", cycle=12, signal="y"),
+    )
+
+
+def waveform_records(orchestrator: Orchestrator) -> list[WaveformRecord]:
+    stream = read_stream(orchestrator.valkey, RESULTS_STREAM)
+    records = [RESULT_RECORD.validate_python(record) for _, record in stream]
+    assert all(isinstance(record, WaveformRecord) for record in records)
+    return records  # type: ignore[return-value]  # checked above
+
+
+def test_a_waveform_job_reports_why_it_recorded_nothing(orchestrator: Orchestrator) -> None:
+    payload = waveform()
+    orchestrator.record_waveform(payload, "judge.light")
+    orchestrator.record_waveform(waveform(content_hash="0" * 64), "judge.light")
+    assert [(r.waveform_id, r.artifact, r.error_code) for r in waveform_records(orchestrator)] == [
+        (payload.waveform_id, None, SANDBOX_UNAVAILABLE),
+        (payload.waveform_id, None, PACKAGE_UNAVAILABLE),
+    ]
+    [record, _] = waveform_records(orchestrator)
+    assert (record.submission_id, record.token) == (payload.check.submission_id, "v1.token")
+    # Keyed by the waveform: the attempts of the check are not touched.
+    assert int(orchestrator.valkey.get(attempts_key(payload.waveform_id)) or 0) == 2
+    assert orchestrator.valkey.get(attempts_key(payload.check.submission_id)) is None
+    assert reports(orchestrator) == []
+
+
+def test_a_waveform_job_has_two_attempts(orchestrator: Orchestrator) -> None:
+    payload = waveform()
+    orchestrator.valkey.set(attempts_key(payload.waveform_id), 2)
+    orchestrator.record_waveform(payload, "judge.light")
+    [record] = waveform_records(orchestrator)
+    assert record.error_code == ATTEMPTS_EXHAUSTED
+    assert BrokenSandbox.created == []
+
+
+def test_a_duplicate_waveform_message_is_dropped(orchestrator: Orchestrator) -> None:
+    payload = waveform()
+    orchestrator.valkey.set(lease_key(payload.waveform_id), "worker-b", px=15000)
+    orchestrator.record_waveform(payload, "judge.light")
+    assert read_stream(orchestrator.valkey, RESULTS_STREAM) == []
 
 
 @pytest.mark.parametrize(

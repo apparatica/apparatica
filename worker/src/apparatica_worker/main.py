@@ -16,7 +16,13 @@ import structlog
 from botocore.config import Config
 from dramatiq import Broker, Worker
 
-from apparatica_worker.broker import Handler, create_broker, declare_actor
+from apparatica_worker.broker import (
+    Handler,
+    WaveformHandler,
+    create_broker,
+    declare_actor,
+    declare_waveform_actor,
+)
 from apparatica_worker.cancel import CancelListener
 from apparatica_worker.logging import configure_logging
 from apparatica_worker.orchestrator import Orchestrator
@@ -88,14 +94,24 @@ def create_orchestrator(settings: WorkerSettings) -> Orchestrator:
     )
 
 
-def run(settings: WorkerSettings, stop: threading.Event, handler: Handler | None = None) -> None:
-    """Serve the queues until `stop` is set; the running checks finish first."""
+def run(
+    settings: WorkerSettings,
+    stop: threading.Event,
+    handler: Handler | None = None,
+    waveforms: WaveformHandler | None = None,
+) -> None:
+    """Serve the queues until `stop` is set; the running checks finish first. Checks go to
+    `handler` and waveform jobs to `waveforms`, both the orchestrator by default."""
     broker = create_broker(settings.queue_url)
-    handler = handler or create_orchestrator(settings)
+    if handler is None:
+        orchestrator = create_orchestrator(settings)
+        handler, waveforms = orchestrator, waveforms or orchestrator.record_waveform
     cancels = handler.cancels if isinstance(handler, Orchestrator) else None
     if cancels is not None:
         cancels.start()  # before the first check: a cancel must find it listening
     declare_actor(broker, handler)
+    if waveforms is not None:
+        declare_waveform_actor(broker, waveforms)
     workers = create_workers(broker, settings)
     logging.getLogger(f"dramatiq.broker.{type(broker).__name__}").addFilter(_SecondPoolWarning())
     for worker in workers:

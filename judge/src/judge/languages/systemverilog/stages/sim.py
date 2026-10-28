@@ -14,7 +14,7 @@ from typing import Annotated, ClassVar, Literal
 from pydantic import BaseModel, ConfigDict, Field, NonNegativeInt, PositiveInt, StringConstraints
 
 from judge.core.executor import check_relative
-from judge.core.package import Testbench
+from judge.core.package import Problem, Testbench
 from judge.core.stage import (
     Command,
     ExecResult,
@@ -65,6 +65,18 @@ class FirstFailure(BaseModel):
     signal: str
 
 
+TraceStatus = Literal["recorded", "too_large", "missing", "nondeterministic", "failed"]
+
+
+class TraceSignal(BaseModel):
+    """A signal of the trace window in the order of the viewer (ADR-0004): the clock, the inputs,
+    then every output with the expected value of the model."""
+
+    path: str = Field(description="Full name in the FST, e.g. tb_top.exp_rdata")
+    port: str
+    role: Literal["clock", "input", "output", "expected"]
+
+
 class SimMetrics(BaseModel):
     """`sim/v1` (specs/04 §5)."""
 
@@ -73,13 +85,34 @@ class SimMetrics(BaseModel):
     cycles: int
     seed: int
     first_failure: FirstFailure | None = None
-    trace: Literal["recorded", "too_large", "missing", "nondeterministic", "failed"] | None = None
+    trace: TraceStatus | None = None
     trace_window: tuple[int, int] | None = None
+    trace_cursor_ps: int | None = Field(
+        default=None, description="FST time of the first mismatch: where the cursor goes"
+    )
+    trace_signals: list[TraceSignal] | None = None
 
 
 def verilator_seed(seed: int) -> int:
     """+verilator+seed takes a positive int; 0 would mean a random seed."""
     return seed % (2**31 - 1) + 1
+
+
+def trace_signals(problem: Problem, testbench: Testbench) -> list[TraceSignal]:
+    """The testbench names its signals after the ports and the outputs of the model `exp_<port>`
+    (specs/06 §3.1); a design without a clock port is still clocked by the testbench `clk`."""
+    top, ports = testbench.top, problem.interface.ports
+    clocks = [p.name for p in ports if p.role == "clock"] or ["clk"]
+    signals = [TraceSignal(path=f"{top}.{name}", port=name, role="clock") for name in clocks]
+    signals += [
+        TraceSignal(path=f"{top}.{p.name}", port=p.name, role="input")
+        for p in ports
+        if p.dir != "output" and p.role != "clock"
+    ]
+    for port in (p for p in ports if p.dir == "output"):
+        signals.append(TraceSignal(path=f"{top}.{port.name}", port=port.name, role="output"))
+        signals.append(TraceSignal(path=f"{top}.exp_{port.name}", port=port.name, role="expected"))
+    return signals
 
 
 def _testbench(ctx: StageContext, config: SimConfig) -> Testbench:
@@ -240,7 +273,7 @@ class SimStage:
                 collect_limit=max(RESULT_LIMIT, ctx.limits.fst_bytes),
                 line_filter=_hide_all,  # the console already has this run
             )
-        return self._with_trace(outcome, result, runs[1], window)
+        return self._with_trace(ctx, outcome, result, runs[1], window)
 
     def _outcome(
         self, ctx: StageContext, run: ExecResult
@@ -375,12 +408,14 @@ class SimStage:
 
     def _with_trace(
         self,
+        ctx: StageContext,
         outcome: StageOutcome,
         result: tbproto.TbResult | None,
         trace_run: ExecResult,
         window: tuple[int, int],
     ) -> StageOutcome:
-        status: Literal["recorded", "too_large", "missing", "nondeterministic", "failed"]
+        assert isinstance(ctx.config, SimConfig)
+        status: TraceStatus
         artifacts = dict(outcome.artifacts)
         try:
             traced = tbproto.parse_result(trace_run.files.get(RESULT, b""), max_bytes=RESULT_LIMIT)
@@ -400,7 +435,12 @@ class SimStage:
             artifacts[TRACE] = trace_run.files[TRACE]
         metrics = {**outcome.metrics, "trace": status}
         if status == "recorded":
+            assert result is not None
+            assert result.first_mismatch is not None
+            signals = trace_signals(ctx.problem, _testbench(ctx, ctx.config))
             metrics["trace_window"] = list(window)
+            metrics["trace_cursor_ps"] = result.first_mismatch.time_ps
+            metrics["trace_signals"] = [signal.model_dump() for signal in signals]
         return outcome.model_copy(update={"metrics": metrics, "artifacts": artifacts})
 
 

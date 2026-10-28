@@ -21,7 +21,7 @@ from apparatica.judging.ingest import Ingestor, InvalidRecordError
 from apparatica.judging.retention import load_retention
 from apparatica.problems.models import Problem, ProblemVersion
 from apparatica.submissions.events import FinalizedEvent
-from apparatica.submissions.models import Artifact, StageResult, Submission
+from apparatica.submissions.models import Artifact, StageResult, Submission, Waveform
 from apparatica.submissions.profiles import add_profile
 from apparatica.submissions.tokens import JobTokens
 from conftest import CONFIG_DIR, GUEST, Postgres
@@ -33,6 +33,7 @@ from judge.core.jobs import (
     ResultRecord,
     StageEndRecord,
     StoredArtifact,
+    WaveformRecord,
     submission_stream_key,
 )
 from judge.core.stage import StageResult as Result
@@ -270,6 +271,90 @@ def test_records_without_a_valid_token_or_with_foreign_files_are_refused(
         assert [name for _, name, _ in (await state(database, submission))["artifacts"]] == [
             "lint.log.zst"
         ]
+
+    run(database_url, scenario)
+
+
+async def new_waveform(
+    database: Database, submission_id: uuid.UUID, stage: str = "sim_run", **values: Any
+) -> uuid.UUID:
+    async with database.sessions.begin() as session:
+        waveform = Waveform(id=uuid7(), submission_id=submission_id, stage_key=stage, **values)
+        session.add(waveform)
+    return waveform.id
+
+
+def recorded(submission_id: uuid.UUID, waveform_id: uuid.UUID, **fields: Any) -> WaveformRecord:
+    stored = artifact(submission_id, "fst", "sim_run/trace.fst").model_copy(
+        update={"key": f"2026/10/{submission_id}/w-{waveform_id}/sim_run/trace.fst"}
+    )
+    return WaveformRecord.model_validate(
+        {
+            "submission_id": submission_id,
+            "token": TOKENS.issue(submission_id),
+            "waveform_id": waveform_id,
+            "artifact": stored,
+        }
+        | fields
+    )
+
+
+async def waveform_state(database: Database, waveform_id: uuid.UUID) -> tuple[Any, ...]:
+    async with database.sessions() as session:
+        waveform = await session.get(Waveform, waveform_id)
+        assert waveform is not None
+        artifact = (
+            await session.get(Artifact, waveform.artifact_id) if waveform.artifact_id else None
+        )
+        return (
+            waveform.status,
+            waveform.error_code,
+            waveform.finished_at,
+            artifact and (artifact.kind, artifact.stage_key, artifact.expires_at),
+        )
+
+
+def test_a_recorded_waveform_becomes_an_artifact(database_url: str) -> None:
+    async def scenario(database: Database) -> None:
+        submission = await new_submission(database)
+        ingest = ingestor(database).ingest
+        waveform = await new_waveform(database, submission)
+        assert await ingest(recorded(submission, waveform)) is None  # no `finalized`
+        await ingest(recorded(submission, waveform))  # redelivered
+        # A Run keeps its FST 7 days (config/retention.yaml).
+        ready = ("ready", None, NOW, ("fst", "sim_run", NOW + timedelta(days=7)))
+        assert await waveform_state(database, waveform) == ready
+        assert len((await state(database, submission))["artifacts"]) == 1
+
+        # The watchdog gave up, then the worker delivered: the file is still taken.
+        late = await new_waveform(database, submission, status="failed", error_code="WATCHDOG")
+        await ingest(recorded(submission, late))
+        assert (await waveform_state(database, late))[0] == "ready"
+
+    run(database_url, scenario)
+
+
+def test_a_waveform_without_its_file_fails(database_url: str) -> None:
+    async def scenario(database: Database) -> None:
+        submission, other = await new_submission(database), await new_submission(database)
+        ingest = ingestor(database).ingest
+        nothing = await new_waveform(database, submission)
+        await ingest(
+            recorded(submission, nothing, artifact=None, error_code="TRACE_NOT_REPRODUCED")
+        )
+        assert (await waveform_state(database, nothing))[:2] == ("failed", "TRACE_NOT_REPRODUCED")
+        # The file of another waveform, or of another stage, is not this one.
+        foreign = await new_waveform(database, submission)
+        await ingest(recorded(submission, foreign, artifact=recorded(submission, nothing).artifact))
+        stage = await new_waveform(database, submission, stage="sim_full")
+        await ingest(recorded(submission, stage))
+        for waveform in (foreign, stage):
+            assert (await waveform_state(database, waveform))[:2] == ("failed", "FOREIGN_ARTIFACT")
+        with pytest.raises(InvalidRecordError):  # not a waveform of this submission
+            await ingest(recorded(other, nothing))
+        with pytest.raises(InvalidRecordError):  # its submission was deleted
+            await ingest(recorded(submission, uuid.uuid4()))
+        assert (await state(database, submission))["artifacts"] == []
 
     run(database_url, scenario)
 

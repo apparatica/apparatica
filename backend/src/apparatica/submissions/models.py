@@ -144,3 +144,40 @@ class Artifact(Base):
     expires_at: Mapped[datetime | None]
     purged_at: Mapped[datetime | None]  # the file was deleted when it expired; the row stays
     created_at: Mapped[datetime] = created_at()
+
+
+WAVEFORM_STATUSES = ("pending", "ready", "failed")
+
+
+class Waveform(Base):
+    """A trace window recorded again after its FST expired (FR-WAV-05): a job of the worker that
+    ends with an FST artifact (`ready`) or without one (`failed`)."""
+
+    __tablename__ = "waveforms"
+    __table_args__ = (
+        CheckConstraint(_one_of("status", WAVEFORM_STATUSES), name="status_known"),
+        CheckConstraint(
+            "(status = 'ready') = (artifact_id IS NOT NULL)", name="artifact_iff_ready"
+        ),
+        # One job at a time per traced stage: a repeated request finds the pending one.
+        Index(
+            "uq_waveforms_pending",
+            "submission_id",
+            "stage_key",
+            unique=True,
+            postgresql_where=text("status = 'pending'"),
+        ),
+    )
+
+    id: Mapped[uuid.UUID] = uuid_pk()
+    submission_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("submissions.id", ondelete="CASCADE"), index=True
+    )
+    stage_key: Mapped[str]
+    status: Mapped[str] = mapped_column(server_default="pending")
+    error_code: Mapped[str | None]
+    artifact_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("artifacts.id", ondelete="SET NULL")
+    )
+    created_at: Mapped[datetime] = created_at()
+    finished_at: Mapped[datetime | None]

@@ -2,7 +2,8 @@
 
 - **Watchdog** — insurance only: a check `running` for longer than the limits of all its attempts
   plus a grace, with no lease held by a worker, ends with internal_error (`WATCHDOG_TIMEOUT`).
-  It never requeues: the broker requeues the message of a dead worker.
+  It never requeues: the broker requeues the message of a dead worker. A recreated FST pending as
+  long since it was requested fails the same way (FR-WAV-05).
 - **Retention** — the files of expired artifacts are deleted from the `artifacts` bucket; the
   rows stay (`purged_at`), so a submission still lists an expired trace.
 - **Guests** — finished guest submissions older than `guest_submissions_days` are deleted with
@@ -36,7 +37,7 @@ from apparatica.judging.publish import publish_finalized
 from apparatica.problems.models import Problem as ProblemRow
 from apparatica.problems.models import ProblemStats, ProblemVersion
 from apparatica.submissions.events import FinalizedEvent
-from apparatica.submissions.models import Artifact, Submission
+from apparatica.submissions.models import Artifact, Submission, Waveform
 from judge.core.jobs import ATTEMPT_MAX, lease_key
 from judge.core.limits import ResourceClasses, check_timeout_s
 from judge.core.package import Problem
@@ -64,7 +65,7 @@ class Watchdog:
     clock: Clock = field(default=_now)
 
     async def __call__(self) -> int:
-        """Ends the stuck checks; returns how many."""
+        """Ends the stuck checks and waveform jobs; returns how many."""
         async with self.database.sessions() as session:
             rows = (
                 await session.execute(
@@ -88,7 +89,35 @@ class Watchdog:
                 stuck += 1
                 log.warning("stuck check ended", submission_id=str(submission_id))
                 await publish_finalized(self.valkey, submission_id, event)
-        return stuck
+        return stuck + await self._waveforms(now)
+
+    async def _waveforms(self, now: datetime) -> int:
+        """The queue wait counts too: a waveform job has no running state."""
+        async with self.database.sessions() as session:
+            rows = (
+                await session.execute(
+                    select(Waveform.id, Waveform.created_at, Submission.kind, ProblemVersion)
+                    .join(Submission, Submission.id == Waveform.submission_id)
+                    .join(ProblemVersion, ProblemVersion.id == Submission.problem_version_id)
+                    .where(Waveform.status == "pending")
+                )
+            ).all()
+        stuck = []
+        for waveform_id, created_at, kind, version in rows:
+            deadline = created_at + timedelta(seconds=self._limit_s(version, kind))
+            if now >= deadline and not await self.valkey.exists(lease_key(waveform_id)):
+                stuck.append(waveform_id)
+        if not stuck:
+            return 0
+        async with self.database.sessions.begin() as session:
+            result = await session.execute(
+                update(Waveform)
+                .where(Waveform.id.in_(stuck), Waveform.status == "pending")
+                .values(status="failed", error_code=WATCHDOG_TIMEOUT, finished_at=now)
+            )
+        failed = result.rowcount if isinstance(result, CursorResult) else 0
+        log.warning("stuck waveforms failed", count=failed)
+        return failed
 
     def _limit_s(self, version: ProblemVersion, kind: str) -> float:
         """Every attempt may run its whole limit; the grace covers the requeue between them."""

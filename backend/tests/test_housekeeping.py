@@ -15,7 +15,7 @@ import redis.asyncio
 from botocore.exceptions import ClientError
 from moto import mock_aws
 from sqlalchemy import delete, func, select, update
-from test_ingest import NOW, new_submission, run
+from test_ingest import NOW, new_submission, new_waveform, run
 
 from apparatica.core.db import Database
 from apparatica.core.ids import uuid7
@@ -33,7 +33,7 @@ from apparatica.judging.housekeeping import (
 )
 from apparatica.judging.leader import LEADER_KEY, Leadership
 from apparatica.problems.models import Problem, ProblemStats
-from apparatica.submissions.models import Artifact, StageResult, Submission
+from apparatica.submissions.models import Artifact, StageResult, Submission, Waveform
 from conftest import CONFIG_DIR, Postgres
 from judge.core.jobs import ATTEMPT_MAX, lease_key, submission_stream_key
 from judge.core.limits import CHECK_OVERHEAD_S, load_resource_classes
@@ -121,6 +121,33 @@ def test_the_watchdog_ends_stuck_checks_only(database_url: str, valkey: str) -> 
         )
         assert [json.loads(fields[b"e"])["status"] for _, fields in entries] == ["internal_error"]
         assert await watchdog() == 0  # nothing left
+        await client.aclose()
+
+    run(database_url, scenario)
+
+
+def test_the_watchdog_fails_stuck_waveforms(database_url: str, valkey: str) -> None:
+    async def scenario(database: Database) -> None:
+        client = redis.asyncio.Redis.from_url(valkey)
+        submission = await new_submission(database)
+        await set_state(database, submission, status="wrong_answer")
+        late = NOW - DEADLINE - timedelta(seconds=1)
+        stuck = await new_waveform(database, submission, created_at=late)
+        held = await new_waveform(database, submission, "sim_full", created_at=late)
+        recent = await new_waveform(
+            database, submission, "x", created_at=NOW - DEADLINE + timedelta(seconds=1)
+        )
+        await client.set(lease_key(held), "worker-a")
+
+        watchdog = Watchdog(database, client, CLASSES, GRACE_S, clock=lambda: NOW)
+        assert await watchdog() == 1
+        async with database.sessions() as session:
+            rows = {w.id: (w.status, w.error_code) for w in await session.scalars(select(Waveform))}
+        assert rows == {
+            stuck: ("failed", WATCHDOG_TIMEOUT),
+            held: ("pending", None),
+            recent: ("pending", None),
+        }
         await client.aclose()
 
     run(database_url, scenario)

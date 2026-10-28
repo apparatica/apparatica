@@ -1,6 +1,7 @@
 // Submissions of the mock API. A check replays a recorded scenario (scenarios.ts) in real time from
 // its creation: a reload or a reconnect finds it where the real check would be. The scenario is
-// picked by a `mock: <name>` mark in the code, e.g. `// mock: wrong-answer` (docs/frontend.md).
+// picked by a `mock: <name>` mark in the code, e.g. `// mock: wrong-answer`; `mock-fst: expired`
+// shows its FST expired until it is recreated (docs/frontend.md).
 import { http, HttpResponse } from "msw";
 
 import type { Schemas } from "@/lib/api/client";
@@ -21,6 +22,7 @@ type SubmissionCreate = Schemas["SubmissionCreate"];
 /** Presigned URLs of artifacts point here. */
 export const STORAGE = "https://storage.mock/artifacts";
 const MARK = /\bmock:\s*([\w-]+)/;
+const EXPIRED_MARK = /\bmock-fst:\s*expired\b/;
 const DEFAULT_SCENARIO: Record<SubmissionCreate["kind"], ScenarioName> = {
   run: "run-passed",
   submit: "accepted",
@@ -40,7 +42,8 @@ interface Check {
   request: SubmissionCreate;
   created: number;
   cancelled?: number;
-  waveform?: number;
+  expired: boolean; // the FST, until it is recreated
+  waveform?: number; // when it was recreated
 }
 
 const options = { speed: 1 };
@@ -121,13 +124,15 @@ function submissionOf(check: Check, now = Date.now()): Submission {
         started_at: at(stage.started_at),
         finished_at: at(stage.finished_at),
       })),
-      artifacts: final.artifacts.map((artifact) =>
-        artifact.kind === "fst" &&
-        check.waveform !== undefined &&
-        now - check.waveform < WAVEFORM_MS / options.speed
+      artifacts: final.artifacts.map((artifact) => {
+        if (artifact.kind !== "fst") return artifact;
+        if (check.waveform === undefined) {
+          return check.expired ? { ...artifact, state: "expired" } : artifact;
+        }
+        return now - check.waveform < WAVEFORM_MS / options.speed
           ? { ...artifact, state: "pending", size_bytes: null }
-          : artifact,
-      ),
+          : artifact;
+      }),
     };
   }
   const started = seen.some(({ event }) => event.type === "stage_start");
@@ -310,6 +315,7 @@ export const submissionHandlers = [
       scenario: scenarioFor(body),
       request: body,
       created: Date.now(),
+      expired: EXPIRED_MARK.test(body.code),
     };
     checks.set(check.id, check);
     const created: Schemas["SubmissionCreated"] = { ...submissionOf(check), quota: quota() };
@@ -390,12 +396,20 @@ export const submissionHandlers = [
     });
   }),
 
-  http.post(api("/api/v1/submissions/:id/waveform"), ({ params }) => {
+  http.post(api("/api/v1/submissions/:id/waveform"), async ({ params, request }) => {
     const check = checks.get(String(params.id));
     if (check === undefined) return notFound(String(params.id));
-    const trace = check.scenario.submission.artifacts.find((artifact) => artifact.kind === "fst");
-    if (trace === undefined || submissionOf(check).finished_at === null) {
-      return problem(422, "VALIDATION_ERROR", "The submission has no failed test to trace");
+    const body = (await request.json()) as Schemas["WaveformRequest"];
+    if (body.scope === "full_test") {
+      return problem(401, "UNAUTHENTICATED", "A whole test is recorded for signed-in users");
+    }
+    const submission = submissionOf(check);
+    const trace = submission.artifacts.find((artifact) => artifact.kind === "fst");
+    if (trace === undefined || submission.finished_at === null) {
+      return problem(404, "NOT_FOUND", "The submission has no trace window");
+    }
+    if (trace.state === "ready" || trace.state === "pending") {
+      return HttpResponse.json(trace, { status: 202 }); // as it is: no quota spent
     }
     const waves = quota().waveforms;
     if (waves.remaining === 0) {

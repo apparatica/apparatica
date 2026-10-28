@@ -39,6 +39,14 @@ class Settings(BaseSettings):
     s3_secret_access_key: SecretStr | None = None
     s3_bucket_packages: str = "packages"
     s3_bucket_artifacts: str = "artifacts"
+    s3_public_url: str | None = Field(
+        default=None,
+        description="S3 endpoint as browsers reach it, for presigned URLs; unset means"
+        " s3_endpoint_url",
+    )
+    artifact_url_ttl_s: PositiveInt = Field(
+        default=300, description="Lifetime of a presigned URL of an artifact"
+    )
 
     # valkey-queue (ADR-0002): the Dramatiq broker, queue positions. Required in production; unset
     # elsewhere means no workers: a submission stays queued.
