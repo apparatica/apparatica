@@ -65,12 +65,12 @@ class PipelineInfo(BaseModel):
 
 
 class ProblemVersionDetail(BaseModel):
-    """A version of a problem: its data never changes once published."""
+    """A version of a problem: its data never changes once published, so nothing here depends on
+    later versions (which one is current is the `version` of GET /problems/{slug})."""
 
     slug: str
     number: int
     version: int
-    current_version: int = Field(description="The version that new submissions are checked on")
     title: str
     difficulty: str
     tags: list[str]
@@ -89,7 +89,8 @@ class ProblemVersionDetail(BaseModel):
 
 
 class ProblemDetail(ProblemVersionDetail):
-    """The current version of a problem and its statistics, which change between versions."""
+    """The current version of a problem, the one new submissions are checked on, and its
+    statistics, which change between versions."""
 
     acceptance: float | None = Field(
         ge=0,

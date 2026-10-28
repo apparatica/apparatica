@@ -1896,11 +1896,6 @@
             "type": "integer",
             "title": "Version"
           },
-          "current_version": {
-            "type": "integer",
-            "title": "Current Version",
-            "description": "The version that new submissions are checked on"
-          },
           "title": {
             "type": "string",
             "title": "Title"
@@ -2003,7 +1998,6 @@
           "slug",
           "number",
           "version",
-          "current_version",
           "title",
           "difficulty",
           "tags",
@@ -2020,7 +2014,7 @@
           "acceptance"
         ],
         "title": "ProblemDetail",
-        "description": "The current version of a problem and its statistics, which change between versions."
+        "description": "The current version of a problem, the one new submissions are checked on, and its\nstatistics, which change between versions."
       },
       "ProblemListItem": {
         "properties": {
@@ -2136,11 +2130,6 @@
             "type": "integer",
             "title": "Version"
           },
-          "current_version": {
-            "type": "integer",
-            "title": "Current Version",
-            "description": "The version that new submissions are checked on"
-          },
           "title": {
             "type": "string",
             "title": "Title"
@@ -2226,7 +2215,6 @@
           "slug",
           "number",
           "version",
-          "current_version",
           "title",
           "difficulty",
           "tags",
@@ -2242,7 +2230,7 @@
           "published_at"
         ],
         "title": "ProblemVersionDetail",
-        "description": "A version of a problem: its data never changes once published."
+        "description": "A version of a problem: its data never changes once published, so nothing here depends on\nlater versions (which one is current is the `version` of GET /problems/{slug})."
       },
       "QueueEvent": {
         "properties": {

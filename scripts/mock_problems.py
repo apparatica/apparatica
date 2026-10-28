@@ -44,7 +44,6 @@ def detail(path: Path) -> dict[str, Any]:
         "slug": manifest.id,
         "number": manifest.number,
         "version": manifest.version,
-        "current_version": manifest.version,
         "title": manifest.title,
         "difficulty": manifest.difficulty,
         "tags": list(manifest.tags),

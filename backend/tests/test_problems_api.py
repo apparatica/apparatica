@@ -221,7 +221,7 @@ def test_problem_is_its_current_version(api: TestClient) -> None:
     assert response.headers["cache-control"] == PUBLIC
     problem: dict[str, Any] = response.json()
     # The next version is imported, not published.
-    assert (problem["version"], problem["current_version"]) == (MUX4, MUX4)
+    assert problem["version"] == MUX4
     assert problem["title"] == "Мультиплексор 4:1"
     assert problem["language"] == "systemverilog"
     assert problem["resource_class"] == "light"
@@ -264,7 +264,9 @@ def test_versions_up_to_the_current_one(api: TestClient) -> None:
     old = api.get(f"{path}/versions/{COUNTER}")
     assert old.status_code == 200
     assert old.headers["cache-control"] == IMMUTABLE
-    assert (old.json()["version"], old.json()["current_version"]) == (COUNTER, COUNTER + 1)
+    assert old.json()["version"] == COUNTER
+    # Nothing that a later version changes: the answer is cached for a year.
+    assert "current_version" not in old.json()
     etag = old.headers["etag"]
     cached = api.get(f"{path}/versions/{COUNTER}", headers={"If-None-Match": etag})
     assert cached.status_code == 304

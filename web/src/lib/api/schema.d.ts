@@ -582,7 +582,8 @@ export interface components {
         };
         /**
          * ProblemDetail
-         * @description The current version of a problem and its statistics, which change between versions.
+         * @description The current version of a problem, the one new submissions are checked on, and its
+         *     statistics, which change between versions.
          */
         ProblemDetail: {
             /** Slug */
@@ -591,11 +592,6 @@ export interface components {
             number: number;
             /** Version */
             version: number;
-            /**
-             * Current Version
-             * @description The version that new submissions are checked on
-             */
-            current_version: number;
             /** Title */
             title: string;
             /** Difficulty */
@@ -700,7 +696,8 @@ export interface components {
         };
         /**
          * ProblemVersionDetail
-         * @description A version of a problem: its data never changes once published.
+         * @description A version of a problem: its data never changes once published, so nothing here depends on
+         *     later versions (which one is current is the `version` of GET /problems/{slug}).
          */
         ProblemVersionDetail: {
             /** Slug */
@@ -709,11 +706,6 @@ export interface components {
             number: number;
             /** Version */
             version: number;
-            /**
-             * Current Version
-             * @description The version that new submissions are checked on
-             */
-            current_version: number;
             /** Title */
             title: string;
             /** Difficulty */

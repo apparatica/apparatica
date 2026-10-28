@@ -155,7 +155,7 @@ async def get_problem(session: AsyncSession, slug: str) -> ProblemDetail | None:
     if row is None:
         return None
     problem, version, rate = row
-    detail = _detail(problem, version, current_version=version.version)
+    detail = _detail(problem, version)
     acceptance = None if rate is None else round(float(rate), 4)
     return ProblemDetail(**detail.model_dump(), acceptance=acceptance)
 
@@ -167,7 +167,7 @@ async def get_problem_version(
     current = aliased(ProblemVersion)
     row = (
         await session.execute(
-            select(Problem, ProblemVersion, current.version)
+            select(Problem, ProblemVersion)
             .join(current, current.id == Problem.current_version_id)
             .join(ProblemVersion, ProblemVersion.problem_id == Problem.id)
             .where(
@@ -180,19 +180,16 @@ async def get_problem_version(
     ).one_or_none()
     if row is None:
         return None
-    problem, found, current_version = row
-    return _detail(problem, found, current_version=current_version)
+    problem, found = row
+    return _detail(problem, found)
 
 
-def _detail(
-    problem: Problem, found: ProblemVersion, *, current_version: int
-) -> ProblemVersionDetail:
+def _detail(problem: Problem, found: ProblemVersion) -> ProblemVersionDetail:
     manifest: dict[str, Any] = found.manifest
     return ProblemVersionDetail(
         slug=problem.slug,
         number=problem.number,
         version=found.version,
-        current_version=current_version,
         title=found.title,
         difficulty=found.difficulty,
         tags=found.tags,
