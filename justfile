@@ -71,9 +71,10 @@ test-py:
     poetry -C worker run pytest
     poetry -C judge run pytest ../scripts
 
-# Run frontend tests (Vitest, MSW)
+# Run frontend tests (Vitest, MSW) and the checks of the waveview site that need no build
 test-js:
     pnpm -C web test
+    pnpm -C waveview test
 
 # Build the frontend for production (next build)
 build-js:
@@ -179,3 +180,19 @@ toolchain-build:
 toolchain-test:
     poetry -C judge run pytest ../toolchain/tests -v
     poetry -C worker run pytest -m image -v
+
+waveview_image := "apparatica-waveview:dev"
+# Base image overrides for networks without Docker Hub access; keep the digests from the Dockerfile,
+# e.g. WAVEVIEW_RUST_IMAGE=mirror.gcr.io/library/rust:1.95-trixie@sha256:<digest>
+waveview_rust := env("WAVEVIEW_RUST_IMAGE", "")
+waveview_runtime := env("WAVEVIEW_RUNTIME_IMAGE", "")
+waveview_args := (if waveview_rust != "" { "--build-arg RUST_IMAGE=" + waveview_rust } else { "" }) + " " + (if waveview_runtime != "" { "--build-arg RUNTIME_IMAGE=" + waveview_runtime } else { "" })
+
+# Build the waveview site image (docs/waveview.md) and its files in waveview/dist for the test
+waveview-build:
+    docker build {{ waveview_args }} -t {{ waveview_image }} waveview
+    docker build {{ waveview_args }} --target export -o waveview/dist waveview
+
+# Open the built viewer in a browser through the adapter (WAVEVIEW_BROWSER: chrome, msedge)
+waveview-test:
+    pnpm -C waveview test:build

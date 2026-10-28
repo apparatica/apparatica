@@ -40,6 +40,7 @@ class ProfileSpec:
     image_digest: str
     tools: dict[str, str]
     normalization_version: int
+    waveview: str | None = None  # the version of the waveview site (waveview/versions.lock)
 
 
 async def add_profile(
@@ -59,6 +60,7 @@ async def add_profile(
             image_digest=spec.image_digest,
             tools=spec.tools,
             normalization_version=spec.normalization_version,
+            waveview=spec.waveview,
         )
         session.add(existing)
         await session.flush()
@@ -70,6 +72,7 @@ async def add_profile(
             image_digest=existing.image_digest,
             tools=existing.tools,
             normalization_version=existing.normalization_version,
+            waveview=existing.waveview,
         )
         if stored != spec:
             raise ProfileRefusedError(

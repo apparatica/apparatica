@@ -1,0 +1,14 @@
+{
+  "name": "@apparatica/waveview",
+  "version": "0.0.0",
+  "private": true,
+  "license": "AGPL-3.0-or-later",
+  "type": "module",
+  "scripts": {
+    "test": "node --test tests/consistency.test.mjs",
+    "test:build": "node --test tests/regression.test.mjs"
+  },
+  "devDependencies": {
+    "playwright-core": "1.64.1"
+  }
+}

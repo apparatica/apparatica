@@ -125,6 +125,7 @@ def test_a_submission_is_queued(api: TestClient, queue: RecordingQueue) -> None:
         "status": "queued",
         "code": CODE,
         "toolchain_profile": "sv-2026.10.2",
+        "waveview_url": None,  # the profile names no viewer
         "queue_position": 1,
         "eta_s": None,
         "started_at": None,

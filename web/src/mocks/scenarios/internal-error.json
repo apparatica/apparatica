@@ -18,6 +18,7 @@
     "code": "module mux4 #(\n  parameter int WIDTH = 8\n) (\n  input  logic [1:0]       sel,\n  input  logic [WIDTH-1:0] d0,\n  input  logic [WIDTH-1:0] d1,\n  input  logic [WIDTH-1:0] d2,\n  input  logic [WIDTH-1:0] d3,\n  output logic [WIDTH-1:0] y\n);\n  always_comb begin\n    unique case (sel)\n      2'd0: y = d0;\n      2'd1: y = d1;\n      2'd2: y = d2;\n      2'd3: y = d3;\n    endcase\n  end\nendmodule\n",
     "seed": "20261026",
     "toolchain_profile": "sv-dev",
+    "waveview_url": null,
     "queue_position": null,
     "eta_s": null,
     "started_at": "2026-10-26T08:31:49.802851+00:00",

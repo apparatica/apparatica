@@ -2770,6 +2770,21 @@
               "sv-2026.10.2"
             ]
           },
+          "waveview_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Waveview Url",
+            "description": "Page of the waveform viewer of this toolchain profile, for an isolated frame (ADR-0004); null: no viewer",
+            "examples": [
+              "https://waveview.apparatica.app/2026.10.1/index.html"
+            ]
+          },
           "queue_position": {
             "anyOf": [
               {
@@ -2836,6 +2851,7 @@
           "code",
           "seed",
           "toolchain_profile",
+          "waveview_url",
           "queue_position",
           "eta_s",
           "started_at",
@@ -3054,6 +3070,21 @@
               "sv-2026.10.2"
             ]
           },
+          "waveview_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Waveview Url",
+            "description": "Page of the waveform viewer of this toolchain profile, for an isolated frame (ADR-0004); null: no viewer",
+            "examples": [
+              "https://waveview.apparatica.app/2026.10.1/index.html"
+            ]
+          },
           "queue_position": {
             "anyOf": [
               {
@@ -3131,6 +3162,7 @@
           "code",
           "seed",
           "toolchain_profile",
+          "waveview_url",
           "queue_position",
           "eta_s",
           "started_at",

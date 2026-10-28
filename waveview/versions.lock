@@ -1,0 +1,17 @@
+# The waveview build (ADR-0004): Surfer at a pinned commit with the themes of Apparatica and our page
+# around it. KEY=value lines, sourced by the Dockerfile. Bump WAVEVIEW_VERSION on every change of the
+# build (this file, Dockerfile, themes/, site/): it names the immutable image tag and the path in the
+# waveview bucket, and a toolchain profile names the viewer by it.
+
+WAVEVIEW_VERSION=2026.10.1
+
+SURFER_TAG=v0.7.0
+SURFER_COMMIT=bd749b1f786c1c62cd67893ca71346cbe6983915
+
+# Trunk and the tools it runs, pinned: trunk would download the last two itself.
+TRUNK_VERSION=v0.21.14
+TRUNK_SHA256=f2b4680cd239693a646a2795e4633c625328d7b2a044fbe749fa3a2fe9e7036b
+WASM_BINDGEN_VERSION=0.2.118
+WASM_BINDGEN_SHA256=00b519c9fc2d6e087265da1a00f29160bfcc6a823993482bc2e691910287427b
+BINARYEN_VERSION=version_123
+BINARYEN_SHA256=e959f2170af4c20c552e9de3a0253704d6a9d2766e8fdb88e4d6ac4bae9388fe

@@ -352,6 +352,7 @@ def scenario_document(name: str, scenario: Scenario, image: str) -> dict[str, An
         "code": code,
         "seed": str(SEED),
         "toolchain_profile": PROFILE,
+        "waveview_url": None,  # recordings name no viewer
         "queue_position": None,
         "eta_s": None,
         "started_at": started.isoformat(),

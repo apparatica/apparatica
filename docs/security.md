@@ -64,6 +64,10 @@ Verilator превращает решение в C++ и исполняет ег�
 
 **Токен задания.** API подписывает `{submission_id, attempt_max, exp}` своим ключом и кладёт токен в задание ([api.md](api.md#отправки-ф0)). Воркер прикладывает его к каждой записи `judge:results` ([architecture.md](architecture.md#стримы-проверки)). Ингестор принимает результат только с действительным токеном этой отправки ([architecture.md](architecture.md#ingest)); без `APX_JOB_TOKEN_KEY` он не запускается. Скомпрометированный воркер может испортить только те проверки, которые получил сам.
 
+## Просмотрщик волн
+
+FST пишет код пользователя, а разбирает его Surfer в браузере: файл недоверенный (ADR-0004). Поэтому Surfer живёт на отдельном origin (`waveview`) и открывается в iframe с `sandbox="allow-scripts"` без `allow-same-origin`. Origin фрейма — `null`: ошибка в разборе FST не даёт доступа к cookie, DOM, хранилищу и сети сайта. CSP origin `waveview` разрешает только свои скрипты и WASM, без сети наружу (`connect-src 'self'`), а встраивать его может только сайт (`frame-ancestors`). Страница задачи сама скачивает FST по presigned URL и передаёт байты; адаптер принимает сообщения только от родителя. Подробно — [waveview.md](waveview.md).
+
 ## Проверки
 
 | Что | Где |
@@ -72,7 +76,8 @@ Verilator превращает решение в C++ и исполняет ег�
 | Исполнитель: лимиты, отмена, выжившие процессы | `toolchain/tests/test_executor.py`, `worker/tests/test_sandbox_image.py` |
 | Протокол и политика `apx-sandboxd` | `worker/tests/test_sandboxd.py` |
 | ACL Valkey | `worker/tests/test_valkey_acl.py` |
-| Ключи хранилища | `just stand-check` |
+| Ключи хранилища, заголовки origin `waveview` | `just stand-check` |
+| Изоляция просмотрщика волн: origin `null`, нет доступа к родителю, cookie, хранилищу, сети | `just waveview-test` (`waveview/tests/regression.test.mjs`) |
 | Набор атак под gVisor в CI | `tests/security/` (T1.8) |
 
 Тесты образа и песочницы гоняются под `runc` локально и в CI (`just toolchain-test`). Под `runsc` их запускают с `JUDGE_SANDBOX_RUNTIME=runsc` на хосте с gVisor; так проверен профиль 2026.10.3 на VPS воркера.

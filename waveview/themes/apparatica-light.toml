@@ -1,0 +1,33 @@
+# Apparatica light: tokens.css :root. Lines tx, clock ac, buses in on ins, cursor er.
+foreground = "141a15"
+alt_text_color = "141a15" # Surfer picks it for text on canvas rows; keep it dark here
+border_color = "c3c9bf"
+selected_elements_colors = { background = "e9ece4", foreground = "141a15" }
+canvas_colors = { background = "fbfcf9", alt_background = "f6f7f3", foreground = "141a15" }
+primary_ui_color = { background = "f6f7f3", foreground = "141a15" }
+secondary_ui_color = { background = "fbfcf9", foreground = "505a52" }
+accent_info = { background = "0e7490", foreground = "ffffff" }
+accent_warn = { background = "f8ecc9", foreground = "7a4f00" }
+accent_error = { background = "fbe6e2", foreground = "b42318" }
+clock_highlight_line = { color = "c3c9bf", width = 1 }
+clock_highlight_cycle = "f6f7f3"
+variable_default = "141a15"
+variable_undef = "b42318"
+variable_highimp = "7a4f00"
+variable_dontcare = "505a52"
+variable_weak = "505a52"
+variable_parameter = "505a52"
+waveform_opacity = 0.15
+wide_opacity = 0.0
+cursor = { color = "b42318", width = 1 }
+highlight_background = "e0f1f5"
+
+[colors]
+Clock = "0e7490"
+Bus = "1d4ed8"
+Expected = "505a52"
+Error = "b42318"
+
+[ticks]
+style = { color = "e9ece4", width = 1 }
+density = 1

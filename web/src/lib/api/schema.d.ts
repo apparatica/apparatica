@@ -985,6 +985,12 @@ export interface components {
              */
             toolchain_profile: string;
             /**
+             * Waveview Url
+             * @description Page of the waveform viewer of this toolchain profile, for an isolated frame (ADR-0004); null: no viewer
+             * @example https://waveview.apparatica.app/2026.10.1/index.html
+             */
+            waveview_url: string | null;
+            /**
              * Queue Position
              * @description Position in the queue while queued
              */
@@ -1103,6 +1109,12 @@ export interface components {
              * @example sv-2026.10.2
              */
             toolchain_profile: string;
+            /**
+             * Waveview Url
+             * @description Page of the waveform viewer of this toolchain profile, for an isolated frame (ADR-0004); null: no viewer
+             * @example https://waveview.apparatica.app/2026.10.1/index.html
+             */
+            waveview_url: string | null;
             /**
              * Queue Position
              * @description Position in the queue while queued

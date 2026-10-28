@@ -113,6 +113,7 @@ def _add_profile(args: argparse.Namespace) -> int:
             image_digest=args.digest,
             tools=tool_versions(args.versions.read_text(encoding="utf-8")),
             normalization_version=args.normalization_version,
+            waveview=args.waveview,
         )
     except OSError as error:
         print(f"FAIL {args.versions}: {error.strerror}")
@@ -176,6 +177,11 @@ def main(argv: Sequence[str] | None = None) -> int:
         type=int,
         required=True,
         help="AST hash normalization of the judge (n<version>: in precheck metrics)",
+    )
+    add.add_argument(
+        "--waveview",
+        metavar="VERSION",
+        help="WAVEVIEW_VERSION of waveview/versions.lock: the viewer of its traces (ADR-0004)",
     )
     add.add_argument(
         "--default", action="store_true", help="check new submissions of the language with it"

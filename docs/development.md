@@ -203,11 +203,12 @@ poetry -C backend run apparatica-admin problems import --publish ../problems   #
 ```sh
 poetry -C backend run apparatica-admin toolchain add sv-2026.10.2 \
   --image ghcr.io/<owner>/apparatica-toolchain --digest sha256:<digest> \
-  --versions ../toolchain/versions.lock --normalization-version 1 --default
+  --versions ../toolchain/versions.lock --normalization-version 1   --waveview 2026.10.1 --default
 ```
 
 - **Версии инструментов** берутся из ключей `*_VERSION` файла `versions.lock` того образа (`{"verilator": "5.052", …}`).
 - **`--normalization-version`** — версия нормализации AST-хэша судьи (`n<версия>:` в метриках `precheck`).
+- **`--waveview`** — версия просмотрщика волн (`WAVEVIEW_VERSION` из `waveview/versions.lock`), которым открываются трассы этого профиля: формат FST, который пишет Verilator, и Surfer обновляются вместе ([waveview.md](waveview.md)). Без неё у отправок профиля нет `waveview_url`.
 - **Неизменяемость.** Профиль неизменяем, как тег образа. Повторный `add` с теми же данными ничего не меняет, с другими — отказ.
 - **По умолчанию.** `--default` делает профиль профилем по умолчанию для языка; у прежнего профиля по умолчанию флаг снимается. Повторный `add` с `--default` переключает профиль.
 

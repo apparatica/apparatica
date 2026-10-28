@@ -158,6 +158,11 @@ class Submission(SubmissionSummary):
     code: str
     seed: str = Field(description="64-bit seed as a decimal string", examples=["41917"])
     toolchain_profile: str = Field(examples=["sv-2026.10.2"])
+    waveview_url: str | None = Field(
+        description="Page of the waveform viewer of this toolchain profile, for an isolated frame"
+        " (ADR-0004); null: no viewer",
+        examples=["https://waveview.apparatica.app/2026.10.1/index.html"],
+    )
     queue_position: int | None = Field(description="Position in the queue while queued")
     eta_s: int | None = Field(description="Estimated wait in the queue, seconds")
     started_at: datetime | None

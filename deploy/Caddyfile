@@ -30,7 +30,28 @@ http://s3.localhost {
 	reverse_proxy garage:3900
 }
 
-# The waveview bucket as a website: Surfer on its own origin (ADR-0004).
+# The waveview bucket as a website: Surfer on its own origin, embedded by the site in an isolated
+# frame (ADR-0004, docs/waveview.md). The frame has the opaque origin "null", so its module and WASM
+# are CORS requests; some antivirus software adds headers to them, which needs an answer to OPTIONS.
 http://waveview.web.localhost {
-	reverse_proxy garage:3902
+	@preflight method OPTIONS
+	handle @preflight {
+		header Access-Control-Allow-Methods "GET, HEAD, OPTIONS"
+		header Access-Control-Allow-Headers *
+		respond 204
+	}
+	handle {
+		encode zstd gzip
+		reverse_proxy garage:3902
+	}
+	header {
+		Content-Security-Policy "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; connect-src 'self'; img-src 'self' data: blob:; font-src 'self'; frame-ancestors {$SITE_ORIGIN}"
+		Access-Control-Allow-Origin *
+		X-Content-Type-Options nosniff
+		Referrer-Policy no-referrer
+		-Server
+	}
+	# A published version never changes (waveview/versions.lock).
+	@versioned path_regexp ^/\d{4}\.\d+\.\d+/
+	header @versioned Cache-Control "public, max-age=31536000, immutable"
 }

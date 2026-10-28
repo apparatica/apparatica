@@ -87,6 +87,15 @@ services:
       retries: 30
     restart: unless-stopped
 
+  # The waveview site (ADR-0004): the image the CI builds from waveview/, copied out for garage-setup
+  # to publish. WAVEVIEW_IMAGE=apparatica-waveview:dev takes a local build (`just waveview-build`).
+  waveview:
+    image: ${WAVEVIEW_IMAGE:-ghcr.io/apparatica/waveview:2026.10.1}
+    command: ["sh", "-c", "rm -rf /site/* && cp -R /srv/waveview/. /site/"]
+    volumes:
+      - waveview-site:/site
+    restart: "no"
+
   # One-shot setup, idempotent: run on every `up`.
   garage-setup:
     <<: *api-image
@@ -96,7 +105,8 @@ services:
       GARAGE_ADMIN_TOKEN: ${GARAGE_ADMIN_TOKEN:-71c6cd204d58198a322ae55d545e36225687389c5bb0e54a}
       GARAGE_S3_URL: http://garage:3900
       GARAGE_CAPACITY_GB: ${GARAGE_CAPACITY_GB:-10}
-      CORS_ORIGINS: http://localhost:${HTTP_PORT:-8080},http://waveview.web.localhost:${HTTP_PORT:-8080}
+      CORS_ORIGINS: http://localhost:${HTTP_PORT:-8080}
+      WAVEVIEW_DIR: /opt/waveview
       KEY_API_ID: ${S3_API_KEY_ID:-GKa62ffff5803d2dfabefd25b6}
       KEY_API_SECRET: ${S3_API_KEY_SECRET:-ebf9a4900fe670897d3173d6d0083909c70442874266971e109c3132efa6d05d}
       KEY_WORKER_ID: ${S3_WORKER_KEY_ID:-GK9a64760795929c9d10aae242}
@@ -105,9 +115,12 @@ services:
       KEY_INGEST_SECRET: ${S3_INGEST_KEY_SECRET:-83880593275b8ccdee7eabf3eea0e5a9e7ee64ee0da5f3fa5bc3d56f301a2a34}
     volumes:
       - ./garage:/opt/apparatica/deploy/garage:ro
+      - waveview-site:/opt/waveview:ro
     depends_on:
       garage:
         condition: service_healthy
+      waveview:
+        condition: service_completed_successfully
     restart: "no"
 
   migrate:
@@ -143,6 +156,7 @@ services:
       APX_CAPTCHA_KEY: ${APX_CAPTCHA_KEY:-e81b4d7a2c9f6e3b0d5a8c1f4e7b2d9a6c3f0e5b8d1a4c7f2e9b6d3a0c5f8e1b}
       # Presigned URLs of artifacts are signed for the storage as the browser reaches it (Caddy).
       APX_S3_PUBLIC_URL: http://s3.localhost:${HTTP_PORT:-8080}
+      APX_WAVEVIEW_URL: http://waveview.web.localhost:${HTTP_PORT:-8080}
       # The stand is served over plain HTTP: a Secure cookie would not come back from
       # an address other than localhost.
       APX_COOKIE_SECURE: ${APX_COOKIE_SECURE:-false}
@@ -208,7 +222,9 @@ services:
     environment:
       S3_URL: http://s3.localhost:${HTTP_PORT:-8080}
       WEB_URL: http://waveview.web.localhost:${HTTP_PORT:-8080}
-      ALLOWED_ORIGINS: http://localhost:${HTTP_PORT:-8080},http://waveview.web.localhost:${HTTP_PORT:-8080}
+      ALLOWED_ORIGINS: http://localhost:${HTTP_PORT:-8080}
+      SITE_URL: http://localhost:${HTTP_PORT:-8080}
+      WAVEVIEW_VERSION: 2026.10.1
       KEY_API_ID: ${S3_API_KEY_ID:-GKa62ffff5803d2dfabefd25b6}
       KEY_API_SECRET: ${S3_API_KEY_SECRET:-ebf9a4900fe670897d3173d6d0083909c70442874266971e109c3132efa6d05d}
       KEY_WORKER_ID: ${S3_WORKER_KEY_ID:-GK9a64760795929c9d10aae242}
@@ -227,6 +243,8 @@ services:
 
   caddy:
     image: ${CADDY_IMAGE:-caddy:2-alpine}
+    environment:
+      SITE_ORIGIN: http://localhost:${HTTP_PORT:-8080}  # who may embed the waveview site
     ports:
       - "${HTTP_PORT:-8080}:80"
     volumes:
@@ -247,3 +265,4 @@ volumes:
   garage-meta:
   garage-data:
   caddy-data:
+  waveview-site:

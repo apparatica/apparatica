@@ -137,5 +137,9 @@ def test_toolchain_profiles(
         assert "is immutable" in capsys.readouterr().out
         assert add("sv-2026.10.3", digest="b" * 64) == 1
         assert "sha256:<hex>" in capsys.readouterr().out
+        # The viewer of the traces is a part of the profile too.
+        assert add("sv-2026.10.4", "--waveview", "2026.10.1") == 0
+        assert add("sv-2026.10.4", "--waveview", "2026.10.2") == 1
+        assert "is immutable" in capsys.readouterr().out
     finally:
         get_settings.cache_clear()

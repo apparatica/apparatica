@@ -82,6 +82,7 @@ async def create_submission(
     quotas: Quotas,
     captcha: Captcha,
     author: Author,
+    waveview: str | None = None,
 ) -> SubmissionCreated:
     check_size(request.code, limits)
     row = await session.execute(
@@ -160,7 +161,7 @@ async def create_submission(
         raise ApiError(ErrorCode.JUDGE_UNAVAILABLE, "The queue of checks is unavailable") from error
     if submission.kind == "run":
         await preempt_runs(session, submission, version.problem_id, queue)
-    result = await get_submission(session, submission.id, queue, author.guest_id)
+    result = await get_submission(session, submission.id, queue, author.guest_id, waveview=waveview)
     assert result is not None
     return SubmissionCreated(**dict(result), quota=await quotas.status(session, author.guest_id))
 
@@ -212,21 +213,27 @@ async def cancel_submission(
 
 
 async def get_submission(
-    session: AsyncSession, submission_id: uuid.UUID, queue: JobQueue, guest_id: uuid.UUID | None
+    session: AsyncSession,
+    submission_id: uuid.UUID,
+    queue: JobQueue,
+    guest_id: uuid.UUID | None,
+    *,
+    waveview: str | None = None,
 ) -> Submission | None:
-    """The submission if `guest_id` is its author."""
+    """The submission if `guest_id` is its author; `waveview` is the origin of the viewer site."""
     if guest_id is None:  # `== None` would match the submissions without an author
         return None
     row = await session.execute(
-        select(SubmissionRow, ProblemVersion, Problem.slug)
+        select(SubmissionRow, ProblemVersion, Problem.slug, ToolchainProfile.waveview)
         .join(ProblemVersion, ProblemVersion.id == SubmissionRow.problem_version_id)
         .join(Problem, Problem.id == ProblemVersion.problem_id)
+        .join(ToolchainProfile, ToolchainProfile.id == SubmissionRow.toolchain_profile_id)
         .where(SubmissionRow.id == submission_id, SubmissionRow.guest_id == guest_id)
     )
     found = row.one_or_none()
     if found is None:
         return None
-    submission, version, slug = found
+    submission, version, slug, viewer = found
     stages = (
         await session.scalars(
             select(StageResult)
@@ -262,6 +269,9 @@ async def get_submission(
         code=submission.code,
         seed=str(submission.seed),
         toolchain_profile=submission.toolchain_profile_id,
+        waveview_url=(
+            f"{waveview.rstrip('/')}/{viewer}/index.html" if waveview and viewer else None
+        ),
         queue_position=(
             await queue.position(queue_name(submission.queue_class), submission.id)
             if submission.status == "queued"

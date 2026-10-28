@@ -23,7 +23,7 @@ just down          # остановить; данные в томах остаю
 |---|---|
 | http://localhost:8080 | сайт; `/api/*` — API (документация — `/api/v1/docs`) |
 | http://s3.localhost:8080 | S3 API хранилища: по нему браузер скачивает артефакты по presigned URL |
-| http://waveview.web.localhost:8080 | бакет `waveview` как сайт: просмотрщик волн на своём origin (Ф1; пока заглушка) |
+| http://waveview.web.localhost:8080 | бакет `waveview` как сайт: просмотрщик волн на своём origin, `/<версия>/index.html` ([waveview.md](waveview.md)) |
 | `127.0.0.1:5432` | Postgres (`apparatica` / `apparatica`), только с `compose.dev.yaml` |
 | `127.0.0.1:6379`, `6380` | `valkey-queue`, `valkey-cache`, только с `compose.dev.yaml` |
 | `127.0.0.1:3900` | S3 API Garage напрямую, только с `compose.dev.yaml` |
@@ -34,7 +34,7 @@ just down          # остановить; данные в томах остаю
 
 | Сервис | Что делает |
 |---|---|
-| `caddy` | proxy: `localhost` — сайт и API (`/api` без буферизации, для SSE), `s3.localhost` и `waveview.web.localhost` — Garage; заголовки безопасности. Только HTTP: TLS — со staging (T1.23) |
+| `caddy` | proxy: `localhost` — сайт и API (`/api` без буферизации, для SSE), `s3.localhost` и `waveview.web.localhost` — Garage; заголовки безопасности, у `waveview` — свои (CSP с `frame-ancestors` сайта, CORS, ответ на `OPTIONS`). Только HTTP: TLS — со staging (T1.23) |
 | `api` | FastAPI (`backend/Dockerfile`) |
 | `ingest` | `apparatica ingest` из того же образа: результаты проверок в Postgres, `finalized`, watchdog, сроки хранения артефактов, процент принятых. С ключом хранилища `ingest` и пользователем Valkey `ingest` |
 | `web` | Next.js, standalone-сервер (`web/Dockerfile`); серверный рендер читает `api` напрямую (`API_URL=http://api:8000`) и стартует после него |
@@ -42,7 +42,8 @@ just down          # остановить; данные в томах остаю
 | `valkey-queue` | очереди и стримы: AOF, без вытеснения. Пользователи и их ключи — `deploy/valkey/queue-users.acl.in` ([security.md](security.md#права-компонентов)); пароли — `VALKEY_QUEUE_API_PASSWORD`, `VALKEY_QUEUE_WORKER_PASSWORD`, `VALKEY_QUEUE_INGEST_PASSWORD`. API ставит в него проверки как `api`, ингестор читает результаты как `ingest`; воркера на стенде пока нет (T1.21), поэтому отправки остаются в очереди |
 | `valkey-cache` | кэш и rate limit: без сохранения на диск, LRU. API хранит в нём счётчики rate limit и квоты волн ([api.md](api.md#гости-и-лимиты-ф1)) |
 | `garage` | S3-хранилище (ADR-0013), один узел |
-| `garage-setup` | одноразовый: раскладка узла, бакеты, ключи компонентов и их права, сайт `waveview`, CORS, правила жизненного цикла (`deploy/garage/setup.py`) |
+| `waveview` | одноразовый: копирует сайт просмотрщика из образа `WAVEVIEW_IMAGE` (по умолчанию `ghcr.io/apparatica/waveview:<версия>`) в том для `garage-setup`; локальная сборка — `WAVEVIEW_IMAGE=apparatica-waveview:dev` ([waveview.md](waveview.md)) |
+| `garage-setup` | одноразовый: раскладка узла, бакеты, ключи компонентов и их права, сайт `waveview` и загрузка в него новых версий просмотрщика, CORS, правила жизненного цикла (`deploy/garage/setup.py`) |
 | `migrate` | одноразовый: `apparatica migrate` |
 | `demo-problems` | одноразовый: `apparatica-admin problems import --publish` для `problems/` |
 | `storage-check` | проверка хранилища, запускается только `just stand-check` (профиль `check`) |
@@ -53,7 +54,7 @@ just down          # остановить; данные в томах остаю
 
 ## Хранилище
 
-`garage-setup` создаёт бакеты `packages`, `artifacts`, `build-cache`, `waveview` и импортирует ключи `api`, `worker`, `ingest` с правами по ADR-0013. CORS бакета `artifacts` разрешает GET и HEAD с сайта и с `waveview`, по одному правилу на origin. Правила жизненного цикла:
+`garage-setup` создаёт бакеты `packages`, `artifacts`, `build-cache`, `waveview` и импортирует ключи `api`, `worker`, `ingest` с правами по ADR-0013. CORS бакета `artifacts` разрешает GET и HEAD с сайта: страница задачи сама скачивает FST и передаёт байты просмотрщику, iframe `waveview` в хранилище не ходит. Правила жизненного цикла:
 - незавершённые multipart-загрузки удаляются через сутки во всех бакетах;
 - `build-cache` очищается через сутки.
 

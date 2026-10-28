@@ -3,10 +3,12 @@
     just stand-check        # the stand of deploy/compose.yaml, through Caddy
 
 Checks: the permissions of the component keys, presigned GET with an attachment disposition,
-CORS of the artifacts bucket, the waveview website. Lifecycle rules are readable only by the
-owner of a bucket: garage-setup reads them back after setting them. Exit code 1 on a failure.
-Environment: S3_URL, WEB_URL (the waveview website), ALLOWED_ORIGINS (comma-separated) and the
-keys of the components, KEY_<COMPONENT>_ID / KEY_<COMPONENT>_SECRET.
+CORS of the artifacts bucket, the waveview website and the viewer on it. Lifecycle rules are
+readable only by the owner of a bucket: garage-setup reads them back after setting them. Exit code
+1 on a failure.
+Environment: S3_URL, WEB_URL (the waveview website), ALLOWED_ORIGINS (comma-separated), SITE_URL
+(who may embed waveview), WAVEVIEW_VERSION (the published viewer) and the keys of the components,
+KEY_<COMPONENT>_ID / KEY_<COMPONENT>_SECRET.
 """
 
 import os
@@ -154,6 +156,26 @@ def main() -> int:
         assert b"apparatica-waveview" in data, data[:200]
 
     check("waveview website serves its index", website)
+
+    def viewer() -> None:
+        # The published build with the headers of its origin (deploy/Caddyfile, ADR-0004).
+        base = f"{os.environ['WEB_URL']}/{os.environ['WAVEVIEW_VERSION']}"
+        status, headers, data = http(f"{base}/index.html")
+        assert status == 200, status
+        assert b"adapter.js" in data, data[:200]
+        csp = headers.get("content-security-policy", "")
+        assert "'wasm-unsafe-eval'" in csp, csp
+        assert f"frame-ancestors {os.environ['SITE_URL']}" in csp, csp
+        assert headers.get("access-control-allow-origin") == "*", headers
+        assert "immutable" in headers.get("cache-control", ""), headers
+        status, headers, _ = http(f"{base}/surfer_bg.wasm", "HEAD", {"Accept-Encoding": "gzip"})
+        assert status == 200, status
+        assert headers.get("content-type") == "application/wasm", headers
+        status, headers, _ = http(f"{base}/surfer_bg.wasm", "OPTIONS", {"Origin": "null"})
+        assert status == 204, status
+        assert headers.get("access-control-allow-origin") == "*", headers
+
+    check("waveview serves the viewer with its headers", viewer)
 
     for name, s3, bucket in (("api", api, "packages"), ("worker", worker, "artifacts")):
         try:

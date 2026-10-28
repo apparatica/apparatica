@@ -47,6 +47,11 @@ class Settings(BaseSettings):
     artifact_url_ttl_s: PositiveInt = Field(
         default=300, description="Lifetime of a presigned URL of an artifact"
     )
+    waveview_url: str | None = Field(
+        default=None,
+        description="Origin of the waveview site as browsers reach it (ADR-0004); unset means no"
+        " waveform viewer",
+    )
 
     # valkey-queue (ADR-0002): the Dramatiq broker, queue positions. Required in production; unset
     # elsewhere means no workers: a submission stays queued.

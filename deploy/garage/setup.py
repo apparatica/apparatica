@@ -1,11 +1,14 @@
-"""Set up the Garage of the stand (ADR-0013): layout, buckets, keys, website, CORS, lifecycle.
+"""Set up the Garage of the stand (ADR-0013): layout, buckets, keys, website, CORS, lifecycle,
+the waveview site.
 
 Idempotent: run on every `docker compose up` by the `garage-setup` service (the api image: Python
 and boto3). The cluster is configured through the admin API; CORS and lifecycle rules through the
-S3 API, as the application would, with a temporary key that owns the buckets.
+S3 API, as the application would, with a temporary key that owns the buckets. The same key uploads
+the waveview builds of WAVEVIEW_DIR (the `waveview` service copies them out of their image).
 
 Environment: GARAGE_ADMIN_URL, GARAGE_ADMIN_TOKEN, GARAGE_S3_URL, GARAGE_CAPACITY_GB, CORS_ORIGINS
-(comma-separated) and the keys of the components, KEY_<COMPONENT>_ID / KEY_<COMPONENT>_SECRET.
+(comma-separated), WAVEVIEW_DIR and the keys of the components, KEY_<COMPONENT>_ID /
+KEY_<COMPONENT>_SECRET.
 """
 
 import json
@@ -14,10 +17,12 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from pathlib import Path
 from typing import Any
 
 import boto3
 from botocore.config import Config
+from botocore.exceptions import ClientError
 
 BUCKETS = ("packages", "artifacts", "build-cache", "waveview")
 # Who may do what (ADR-0013). The ingestor deletes expired artifacts: in Garage that is `write`.
@@ -32,10 +37,18 @@ PERMISSIONS: dict[str, dict[str, set[str]]] = {
 EXPIRATION_DAYS = {"build-cache": 1}
 ABORT_UPLOADS_DAYS = 1
 SETUP_KEY = "apparatica-setup"
-# Until Surfer is published to the bucket (phase 1), the website serves this page.
+# The root of the website; the viewer lives under its version, <version>/index.html.
 PLACEHOLDER = b"""<!doctype html><meta charset="utf-8"><title>waveview</title>
-<!-- apparatica-waveview: Surfer is published here in phase 1 -->
+<!-- apparatica-waveview: the waveform viewer of Apparatica, under /<version>/ -->
 """
+# Content types of the waveview files: the website serves what is stored.
+WAVEVIEW_TYPES = {
+    ".html": "text/html; charset=utf-8",
+    ".js": "text/javascript; charset=utf-8",
+    ".css": "text/css; charset=utf-8",
+    ".wasm": "application/wasm",
+    ".txt": "text/plain; charset=utf-8",
+}
 
 
 def admin(method: str, endpoint: str, body: object | None = None, **query: str) -> Any:
@@ -151,7 +164,7 @@ def configure_buckets(buckets: dict[str, str]) -> None:
             ),
         )
         origins = [o.strip() for o in os.environ.get("CORS_ORIGINS", "").split(",") if o.strip()]
-        # Surfer on the waveview origin and the problem page read FST and logs by presigned URL.
+        # The problem page reads FST by presigned URL; the waveview frame gets the bytes from it.
         # One rule per origin: Garage answers with every origin of the matching rule joined by
         # commas, which browsers reject.
         s3.put_bucket_cors(
@@ -193,13 +206,46 @@ def configure_buckets(buckets: dict[str, str]) -> None:
             stored = s3.get_bucket_lifecycle_configuration(Bucket=alias)["Rules"]
             if sorted(rule["ID"] for rule in stored) != sorted(rule["ID"] for rule in rules):
                 sys.exit(f"lifecycle rules of {alias} were not stored: {stored}")
-        if "Contents" not in s3.list_objects_v2(Bucket="waveview", MaxKeys=1):
+        if not exists(s3, "waveview", "index.html"):
             s3.put_object(
                 Bucket="waveview", Key="index.html", Body=PLACEHOLDER, ContentType="text/html"
             )
         print(f"buckets: CORS for {', '.join(origins) or 'no origins'}; lifecycle rules stored")
+        publish_waveview(s3, Path(os.environ.get("WAVEVIEW_DIR", "/nonexistent")))
     finally:
         admin("POST", "DeleteKey", id=key["accessKeyId"])
+
+
+def exists(s3: Any, bucket: str, key: str) -> bool:
+    try:
+        s3.head_object(Bucket=bucket, Key=key)
+    except ClientError as error:
+        if error.response["Error"]["Code"] in ("404", "NoSuchKey"):
+            return False
+        raise
+    return True
+
+
+def publish_waveview(s3: Any, root: Path) -> None:
+    """Every version of the waveview site in `root` (<version>/...) that the bucket lacks. A version
+    is immutable: its index.html goes last and marks it published."""
+    versions = sorted(d for d in root.glob("*") if (d / "index.html").is_file())
+    for version in versions:
+        if exists(s3, "waveview", f"{version.name}/index.html"):
+            print(f"waveview: {version.name} already published")
+            continue
+        files = sorted(p for p in version.rglob("*") if p.is_file())
+        files.sort(key=lambda p: p.name == "index.html")
+        for path in files:
+            s3.put_object(
+                Bucket="waveview",
+                Key=f"{version.name}/{path.relative_to(version).as_posix()}",
+                Body=path.read_bytes(),
+                ContentType=WAVEVIEW_TYPES.get(path.suffix, "application/octet-stream"),
+            )
+        print(f"waveview: {version.name} published ({len(files)} files)")
+    if not versions:
+        print("waveview: no build to publish")
 
 
 def main() -> None:

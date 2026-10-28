@@ -50,6 +50,8 @@ class ToolchainProfile(Base):
     image_digest: Mapped[str]
     tools: Mapped[dict[str, Any]]  # tool versions
     liberty: Mapped[str | None]  # the synthesis library, from Ф3
+    # WAVEVIEW_VERSION of the viewer of its traces (ADR-0004): FST format and Surfer move together.
+    waveview: Mapped[str | None]
     normalization_version: Mapped[int]
     is_default: Mapped[bool] = mapped_column(server_default="false")
     created_at: Mapped[datetime] = created_at()

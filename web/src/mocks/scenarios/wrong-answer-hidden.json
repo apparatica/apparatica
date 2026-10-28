@@ -22,6 +22,7 @@
     "code": "module counter_mod_n #(\n  parameter int N = 10\n) (\n  input  logic                 clk,\n  input  logic                 rst,\n  input  logic                 en,\n  output logic [$clog2(N)-1:0] count,\n  output logic                 wrap\n);\n  localparam int W = $clog2(N);\n  localparam logic [W-1:0] LAST = W'(N - 1);\n\n  assign wrap = count == LAST;\n\n  always_ff @(posedge clk)\n    if (rst) count <= '0;\n    else if (en && wrap) count <= '0;\n    else if (en) count <= count + 1'b1;\nendmodule\n",
     "seed": "20261026",
     "toolchain_profile": "sv-dev",
+    "waveview_url": null,
     "queue_position": null,
     "eta_s": null,
     "started_at": "2026-10-26T08:30:58.259131+00:00",

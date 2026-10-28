@@ -1,0 +1,34 @@
+# Apparatica dark: tokens.css [data-theme="dark"]. Lines tx, clock ac, buses in on ins,
+# cursor er (FR-WAV-04, components.md CmpC).
+foreground = "dfe6df"
+alt_text_color = "090c0a"
+border_color = "222a25"
+selected_elements_colors = { background = "151a17", foreground = "dfe6df" }
+canvas_colors = { background = "090c0a", alt_background = "0d100e", foreground = "dfe6df" }
+primary_ui_color = { background = "0d100e", foreground = "dfe6df" }
+secondary_ui_color = { background = "090c0a", foreground = "8f9b92" }
+accent_info = { background = "22d3ee", foreground = "04222a" }
+accent_warn = { background = "2a2107", foreground = "e3b341" }
+accent_error = { background = "2b1311", foreground = "ff7b72" }
+clock_highlight_line = { color = "222a25", width = 1 }
+clock_highlight_cycle = "0d100e"
+variable_default = "dfe6df"
+variable_undef = "ff7b72"
+variable_highimp = "e3b341"
+variable_dontcare = "8f9b92"
+variable_weak = "8f9b92"
+variable_parameter = "8f9b92"
+waveform_opacity = 0.15
+wide_opacity = 0.0
+cursor = { color = "ff7b72", width = 1 }
+highlight_background = "0b2a31"
+
+[colors]
+Clock = "22d3ee"
+Bus = "79c0ff"
+Expected = "8f9b92"
+Error = "ff7b72"
+
+[ticks]
+style = { color = "151a17", width = 1 }
+density = 1

@@ -3,6 +3,7 @@ FR-WAV-05, FR-WAV-06)."""
 
 import uuid
 from collections.abc import Iterator
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 from typing import Any
 from urllib.parse import parse_qs, urlsplit
@@ -59,7 +60,7 @@ def database_url(postgres: Postgres, catalogue_template: str) -> str:
 
     async def profile(database: Database) -> None:
         async with database.sessions.begin() as session:
-            await add_profile(session, PROFILE, default=True)
+            await add_profile(session, replace(PROFILE, waveview="2026.10.1"), default=True)
 
     run(url, profile)
     return url
@@ -82,6 +83,7 @@ def api(database_url: str, queue: RecordingQueue) -> Iterator[TestClient]:
         s3_public_url="http://s3.localhost:8080",
         s3_access_key_id="GK0000",
         s3_secret_access_key="secret",  # type: ignore[arg-type]
+        waveview_url="http://waveview.web.localhost:8080/",
     )
     app = create_app(settings, job_queue=queue)
     with TestClient(app, raise_server_exceptions=False) as client:
@@ -156,6 +158,8 @@ def test_an_expired_trace_is_recorded_again(
 ) -> None:
     expired = datetime.now(UTC) - timedelta(days=1)
     submission_id = failed_run(api, database_url, fst_expires=expired)
+    viewer = api.get(f"/api/v1/submissions/{submission_id}").json()["waveview_url"]
+    assert viewer == "http://waveview.web.localhost:8080/2026.10.1/index.html"
     assert artifacts(api, submission_id) == [
         {"kind": "events", "stage": None, "state": "ready", "size_bytes": 100, "waveform": None},
         {"kind": "log", "stage": "sim_run", "state": "ready", "size_bytes": 100, "waveform": None},

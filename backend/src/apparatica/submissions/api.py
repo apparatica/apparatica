@@ -73,6 +73,7 @@ async def create_submission(
         quotas=state.quotas,
         captcha=state.captcha,
         author=author,
+        waveview=state.settings.waveview_url,
     )
     if guest is None:
         state.guest_cookies.set(response, author.guest_id)
@@ -118,7 +119,10 @@ async def get_submission(
     request: Request, response: Response, session: Session, guest: Guest, id: uuid.UUID
 ) -> Submission:
     """A submission of the caller with its stages and artifacts."""
-    submission = await service.get_submission(session, id, request.app.state.job_queue, guest)
+    state = request.app.state
+    submission = await service.get_submission(
+        session, id, state.job_queue, guest, waveview=state.settings.waveview_url
+    )
     if submission is None:
         raise ApiError(ErrorCode.NOT_FOUND, f"No submission {id}")
     response.headers["Cache-Control"] = PRIVATE
