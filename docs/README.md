@@ -7,7 +7,7 @@
 | [architecture.md](architecture.md) | компоненты, как они общаются, путь проверки | целевая архитектура; уточняется по мере реализации |
 | [glossary.md](glossary.md) | термины проекта | актуален |
 | [adr/](adr/README.md) | архитектурные решения и их причины | актуален |
-| [spikes/](spikes/) | отчёты спайков из [spikes-and-risks.md](../specs/plan/spikes-and-risks.md): цифры и рекомендации | S2, S5, S6, S7 |
+| [spikes/](spikes/) | отчёты спайков из [spikes-and-risks.md](../specs/plan/spikes-and-risks.md): цифры и рекомендации | S2, S3, S5, S6, S7 |
 | [judge.md](judge.md) | ядро судьи: этапы, пайплайн, исполнители, события, лимиты, вердикт | актуален; этапы SV добавятся в T0.7a–T0.9 |
 | [development.md](development.md) | установка окружения, команды `just`, структура репозитория, git-хуки | актуален; запуск стенда добавится в T0.19 |
 | [configuration.md](configuration.md) | переменные окружения, файлы `config/`, feature flags, логи | актуален |
