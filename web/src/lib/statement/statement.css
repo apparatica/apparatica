@@ -1,0 +1,158 @@
+/* The text of a statement (mock-up Bench): Markdown, formulas, timing diagrams, code. Colours are
+   the design tokens only, so both themes come from tokens.css. */
+
+.statement {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  font-size: 13.5px;
+  line-height: 22px;
+  overflow-wrap: anywhere;
+}
+
+.statement > * {
+  margin: 0;
+}
+
+.statement h1,
+.statement h2,
+.statement h3,
+.statement h4 {
+  margin-top: 4px;
+  font-weight: 600;
+}
+.statement h1,
+.statement h2 {
+  font-size: 17px;
+  line-height: 26px;
+}
+.statement h3,
+.statement h4 {
+  font-size: 13.5px;
+}
+
+.statement ul,
+.statement ol {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-left: 22px;
+}
+.statement ul {
+  list-style: disc;
+}
+.statement ol {
+  list-style: decimal;
+}
+.statement li::marker {
+  color: var(--mu);
+}
+.statement li > ul,
+.statement li > ol {
+  margin-top: 4px;
+}
+
+.statement a {
+  color: var(--ac);
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.statement strong {
+  font-weight: 600;
+}
+.statement blockquote {
+  border-left: 2px solid var(--bd);
+  padding-left: 12px;
+  color: var(--mu);
+}
+.statement hr {
+  border: 0;
+  border-top: 1px solid var(--bd);
+}
+.statement img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 3px;
+}
+
+/* Inline code: a chip, as in the mock-up. */
+.statement :not(pre) > code {
+  padding: 0 4px;
+  border: 1px solid var(--bd);
+  border-radius: 2px;
+  background: var(--sf2);
+  font-family: var(--mono);
+  font-size: 12px;
+  font-variant-ligatures: none;
+}
+
+.statement pre {
+  overflow-x: auto;
+  padding: 8px 12px;
+  border: 1px solid var(--bd);
+  border-radius: 3px;
+  background: var(--ed);
+  color: var(--tx);
+  font-family: var(--mono);
+  font-size: 12.5px;
+  line-height: 19px;
+  font-variant-ligatures: none;
+}
+
+.statement table {
+  width: 100%;
+  border: 1px solid var(--bd);
+  border-collapse: collapse;
+  font-size: 12.5px;
+  line-height: 18px;
+}
+.statement th,
+.statement td {
+  padding: 4px 10px;
+  border-bottom: 1px solid var(--bd);
+  text-align: left;
+}
+.statement th {
+  background: var(--sf2);
+  color: var(--mu);
+  font-weight: 500;
+}
+
+/* Formulas: a display formula scrolls instead of widening the panel. */
+.statement .katex {
+  font-size: 1.1em;
+}
+.statement .katex-display {
+  margin: 0;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding: 2px 0;
+}
+
+/* Timing diagrams. The shapes carry their own styles with the tokens (wavedrom.ts); here are the
+   frame and the text. */
+.statement .wavedrom {
+  overflow-x: auto;
+  padding: 10px 12px;
+  border: 1px solid var(--bd);
+  border-radius: 3px;
+  background: var(--ed);
+}
+.wavedrom svg {
+  display: block;
+  max-width: none;
+  height: auto;
+}
+.wavedrom text {
+  fill: var(--tx);
+  font-family: var(--mono);
+  font-size: 11px;
+}
+.wavedrom .h1,
+.wavedrom .h2,
+.wavedrom .h3,
+.wavedrom .h4,
+.wavedrom .h5,
+.wavedrom .h6 {
+  font-weight: 600;
+}

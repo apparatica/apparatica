@@ -27,9 +27,11 @@ from apparatica.problems.models import Problem, ProblemVersion
 from apparatica.submissions.models import Submission
 from apparatica.submissions.profiles import add_profile
 from apparatica.submissions.quotas import Quotas
-from conftest import CONFIG_DIR, Postgres, as_guest
+from conftest import CONFIG_DIR, Postgres, as_guest, repo_version
 
 KEY = b"k" * 32
+
+MUX4 = repo_version("mux4")
 
 
 def request(cookie: str | None = None, host: str | None = "203.0.113.7") -> Request:
@@ -173,7 +175,7 @@ def api(database_url: str, queue: RecordingQueue) -> Iterator[TestClient]:
 
 
 def submit(api: TestClient, **fields: Any) -> Any:
-    body = {"problem": "mux4", "version": 1, "kind": "run", "code": CODE} | fields
+    body = {"problem": "mux4", "version": MUX4, "kind": "run", "code": CODE} | fields
     return api.post("/api/v1/submissions", json=body)
 
 

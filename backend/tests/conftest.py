@@ -21,6 +21,7 @@ from apparatica.core.settings import Settings
 from apparatica.core.storage import Storage
 from apparatica.main import create_app
 from apparatica.problems.importer import import_packages, load_tags, read_package
+from judge.core.package import load_manifest
 
 CONFIG_DIR = Path(__file__).parents[2] / "config"
 PROBLEMS = Path(__file__).parents[2] / "problems"
@@ -28,6 +29,13 @@ PROBLEMS = Path(__file__).parents[2] / "problems"
 POSTGRES_IMAGE = os.environ.get("APX_TEST_POSTGRES_IMAGE", "postgres:17-alpine")
 VALKEY_IMAGE = os.environ.get("APX_TEST_VALKEY_IMAGE", "valkey/valkey:8-alpine")
 POSTGRES_INITDB_ARGS = "--encoding=UTF8 --locale-provider=builtin --builtin-locale=C.UTF-8"
+
+
+def repo_version(slug: str) -> int:
+    """The version of a problem in the repository: the tests follow the updates of packages."""
+    return load_manifest(PROBLEMS / slug).version
+
+
 # The author of the submissions that tests store directly.
 GUEST = uuid.UUID("0190f1e2-0000-7000-8000-000000000001")
 

@@ -16,7 +16,7 @@ from apparatica.main import create_app
 from apparatica.submissions.models import Artifact, StageResult, Submission, ToolchainProfile
 from apparatica.submissions.profiles import ProfileSpec, add_profile
 from apparatica.submissions.queue import Job, QueueUnavailableError
-from conftest import CONFIG_DIR, PROBLEMS, Postgres
+from conftest import CONFIG_DIR, PROBLEMS, Postgres, repo_version
 
 PROBLEM = "application/problem+json"
 PROFILE = ProfileSpec(
@@ -28,6 +28,8 @@ PROFILE = ProfileSpec(
     normalization_version=1,
 )
 CODE = (PROBLEMS / "mux4" / "reference" / "mux4.sv").read_text(encoding="utf-8")
+
+MUX4 = repo_version("mux4")
 
 
 class RecordingQueue:
@@ -96,7 +98,7 @@ def api(database_url: str, queue: RecordingQueue) -> Iterator[TestClient]:
 
 
 def submit(api: TestClient, **fields: Any) -> Any:
-    body = {"problem": "mux4", "version": 1, "kind": "run", "code": CODE} | fields
+    body = {"problem": "mux4", "version": MUX4, "kind": "run", "code": CODE} | fields
     return api.post("/api/v1/submissions", json=body)
 
 
@@ -111,7 +113,7 @@ def test_a_submission_is_queued(api: TestClient, queue: RecordingQueue) -> None:
     assert {key: body[key] for key in body if key not in {"id", "seed", "created_at"}} == {
         "problem": "mux4",
         "problem_title": "Мультиплексор 4:1",
-        "version": 1,
+        "version": MUX4,
         "kind": "submit",
         "status": "queued",
         "code": CODE,
@@ -137,12 +139,12 @@ def test_a_submission_is_queued(api: TestClient, queue: RecordingQueue) -> None:
     # Everything the worker needs: it has no access to the database.
     assert (payload.problem, payload.version, payload.kind, payload.code) == (
         "mux4",
-        1,
+        MUX4,
         "submit",
         CODE,
     )
     assert str(payload.seed) == body["seed"]
-    assert payload.package_uri.startswith("mux4/1-")
+    assert payload.package_uri.startswith(f"mux4/{MUX4}-")
     assert payload.resource_class == "light"
     assert payload.toolchain_image == f"{PROFILE.image}@{PROFILE.image_digest}"
 
@@ -184,11 +186,11 @@ def test_an_unavailable_queue_fails_the_submission(
 
 
 def test_submissions_check_the_current_version(api: TestClient, database_url: str) -> None:
-    outdated = submit(api, version=2)
+    outdated = submit(api, version=MUX4 + 1)
     assert outdated.status_code == 409
     assert outdated.headers["content-type"] == PROBLEM
     assert outdated.json()["code"] == "PROBLEM_VERSION_OUTDATED"
-    assert outdated.json()["params"] == {"current_version": 1}
+    assert outdated.json()["params"] == {"current_version": MUX4}
     assert submit(api, problem="no-such-problem").json()["code"] == "NOT_FOUND"
 
     async def no_default(database: Database) -> None:
@@ -246,7 +248,7 @@ def test_bad_requests(api: TestClient, fields: dict[str, Any]) -> None:
 
 def test_code_must_be_unicode_text(api: TestClient) -> None:
     # A lone surrogate is valid JSON but not UTF-8 text: the client library cannot send it.
-    body = '{"problem": "mux4", "version": 1, "kind": "run", "code": "module \\ud800;"}'
+    body = f'{{"problem": "mux4", "version": {MUX4}, "kind": "run", "code": "module \\ud800;"}}'
     response = api.post(
         "/api/v1/submissions", content=body, headers={"Content-Type": "application/json"}
     )

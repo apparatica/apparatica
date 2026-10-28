@@ -5,7 +5,7 @@ The checks run the package through the same pipelines as submissions:
 1. `problem.yaml` against the schema and its cross references;
 2. the language module, stage plugins and stage configs, stage limits of the resource class;
 3. the files the manifest names exist inside the package;
-4. the statement is UTF-8 (rendering with KaTeX and WaveDrom is checked from T1.10);
+4. the statement is UTF-8 and renders: KaTeX, WaveDrom, pictures from assets/ (`statement`);
 5. the starter template passes the stages the language checks templates with (precheck);
 6. every reference solution is `accepted` by the submit pipeline on several seeds — this also
    checks the number of tests per group: the sim stage fails a run whose groups do not match
@@ -31,6 +31,7 @@ from judge.core.package import ManifestError, Problem, load_manifest
 from judge.core.pipeline import Job, PipelineConfigError, plan_stages, run_pipeline
 from judge.core.registry import LanguageModule, UnknownLanguageError, get_language
 from judge.core.stage import StageResult
+from judge.core.statement import StatementCheckError
 from judge.core.verdict import Verdict, aggregate
 
 DEFAULT_SEEDS = 3
@@ -92,6 +93,7 @@ class PackageValidator:
         on_check: Callable[[Check], None] | None = None,
         sink_factory: Callable[[str], EventSink] | None = None,
         language_lookup: Callable[[str], LanguageModule] = get_language,
+        statement_check: Callable[[Path, Sequence[str]], list[str]] | None = None,
     ) -> None:
         self.executor_factory = executor_factory
         self.resource_classes = resource_classes
@@ -100,6 +102,7 @@ class PackageValidator:
         self.on_check = on_check or (lambda check: None)
         self.sink_factory = sink_factory or (lambda title: _NullSink())
         self.language_lookup = language_lookup
+        self.statement_check = statement_check
 
     def validate(self, package_dir: Path) -> list[Check]:
         checks: list[Check] = []
@@ -184,7 +187,15 @@ class PackageValidator:
                 (package_dir / name).read_text(encoding="utf-8")
             except UnicodeDecodeError:
                 return Check("fail", "условие", f"{name}: не UTF-8")
-        return Check("skip", "условие", "рендер KaTeX и WaveDrom проверяется с T1.10")
+        if self.statement_check is None:
+            return Check("skip", "условие", "рендер не проверен: нет --statement-check")
+        try:
+            problems = self.statement_check(package_dir, names)
+        except StatementCheckError as error:
+            return Check("fail", "условие", f"проверка рендера не запустилась: {error}")
+        if problems:
+            return Check("fail", "условие", "; ".join(problems))
+        return Check("ok", "условие")
 
     def _template(self, package_dir: Path, problem: Problem, language: LanguageModule) -> Check:
         what = f"шаблон {problem.files.template}"

@@ -2,7 +2,8 @@
 schema: 1
 id: seq-detector
 number: 4
-version: 1
+version: 2
+changelog: Таблица портов перенесена из условия в интерфейс задачи; текст и тесты не изменились.
 leaderboard_epoch: 1
 language: systemverilog
 kind: design

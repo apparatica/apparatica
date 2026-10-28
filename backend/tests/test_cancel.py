@@ -30,7 +30,7 @@ from apparatica.submissions.queue import DramatiqQueue
 from apparatica.submissions.quotas import Author, Quotas
 from apparatica.submissions.schemas import SubmissionCreate
 from apparatica.submissions.tokens import JobTokens
-from conftest import CONFIG_DIR, Postgres, as_guest
+from conftest import CONFIG_DIR, Postgres, as_guest, repo_version
 from judge.core.jobs import CANCEL_CHANNEL, DoneRecord, cancel_key, submission_stream_key
 from judge.core.verdict import VerdictDetail
 
@@ -90,7 +90,7 @@ def test_a_new_run_preempts_the_unfinished_runs_of_its_author(database_url: str)
     async def scenario(database: Database) -> list[uuid.UUID]:
         async def create(kind: str, author: uuid.UUID, problem: str = "mux4") -> uuid.UUID:
             request = SubmissionCreate.model_validate(
-                {"problem": problem, "version": 1, "kind": kind, "code": CODE}
+                {"problem": problem, "version": repo_version(problem), "kind": kind, "code": CODE}
             )
             async with database.sessions() as session:
                 created = await service.create_submission(

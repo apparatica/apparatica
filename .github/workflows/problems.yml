@@ -1,9 +1,9 @@
 name: Problems
 
 # judge validate of the problem packages in the toolchain image (FR-PKG-05, specs/09 §4.1):
-# changed packages on a pull request; every package when the judge, the image or the resource
-# classes change, on a schedule and on demand — the regression of references, mutants and
-# determinism.
+# changed packages on a pull request; every package when the judge, the image, the resource
+# classes or the statement renderer change, on a schedule and on demand — the regression of
+# references, mutants, determinism and statements.
 on:
   push:
     branches: [master]
@@ -13,6 +13,8 @@ on:
       - judge/poetry.lock
       - toolchain/**
       - config/resource-classes.yaml
+      - web/src/lib/statement/**
+      - web/scripts/statement-check.ts
       - scripts/changed_problems.py
       - .github/workflows/problems.yml
   pull_request:
@@ -22,6 +24,8 @@ on:
       - judge/poetry.lock
       - toolchain/**
       - config/resource-classes.yaml
+      - web/src/lib/statement/**
+      - web/scripts/statement-check.ts
       - scripts/changed_problems.py
       - .github/workflows/problems.yml
   schedule:
@@ -73,6 +77,18 @@ jobs:
           pipx install "poetry==${POETRY_VERSION}"
           poetry -C judge install --only main
 
+      # The statements render with the code of the site (web/scripts/statement-check.ts).
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+        if: steps.select.outputs.packages != ''
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        if: steps.select.outputs.packages != ''
+        with:
+          node-version: "24"
+          cache: pnpm
+      - name: Install the statement renderer
+        if: steps.select.outputs.packages != ''
+        run: pnpm install --frozen-lockfile --filter @apparatica/web
+
       # The image of this revision: a change of toolchain/ is validated with the image it makes.
       # The layer cache is shared with the toolchain workflow.
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
@@ -94,4 +110,5 @@ jobs:
           paths=""
           for package in $PACKAGES; do paths="$paths ../$package"; done
           # shellcheck disable=SC2086 # one argument per package
-          poetry -C judge run judge validate --determinism $paths
+          poetry -C judge run judge validate --determinism \
+            --statement-check "pnpm -C ../web --silent statement:check" $paths

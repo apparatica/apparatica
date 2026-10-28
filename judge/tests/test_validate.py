@@ -21,6 +21,7 @@ from judge.core.stage import (
     StagePlan,
     StageSummary,
 )
+from judge.core.statement import StatementCommand
 from judge.core.validate import (
     Check,
     PackageValidator,
@@ -123,13 +124,19 @@ def write_package(root: Path, **changes: object) -> Path:
     return package
 
 
-def validate(package: Path, seeds: int = 2, determinism: bool = False) -> list[Check]:
+def validate(
+    package: Path,
+    seeds: int = 2,
+    determinism: bool = False,
+    statement_check: StatementCommand | None = None,
+) -> list[Check]:
     validator = PackageValidator(
         lambda problem: HostExecutor(),
         RESOURCE_CLASSES,
         seeds=seeds,
         determinism=determinism,
         language_lookup=lambda name: FAKE,
+        statement_check=statement_check,
     )
     return validator.validate(package)
 
@@ -186,6 +193,64 @@ def test_statement_must_be_utf8(tmp_path: Path) -> None:
     package = write_package(tmp_path)
     (package / "statement.md").write_bytes(b"\xff\xfe")
     assert failures(validate(package)) == ["условие: statement.md: не UTF-8"]
+
+
+def checker(tmp_path: Path, code: str) -> StatementCommand:
+    """A statement check command: a Python script that gets the package and the files. It
+    writes UTF-8, as Node.js does, whatever the console encoding."""
+    script = tmp_path / "check.py"
+    prelude = "import sys\nsys.stdout.reconfigure(encoding='utf-8')\n"
+    script.write_text(prelude + code, encoding="utf-8")
+    return StatementCommand((sys.executable, str(script)))
+
+
+def statement_check(checks: list[Check]) -> tuple[str, str | None]:
+    check = next(c for c in checks if c.what == "условие")
+    return check.status, check.detail
+
+
+def test_statement_render_is_checked_by_the_command(tmp_path: Path) -> None:
+    package = write_package(tmp_path)
+    # Without a command the render is not checked.
+    assert statement_check(validate(package)) == (
+        "skip",
+        "рендер не проверен: нет --statement-check",
+    )
+    # The command gets the package directory and the statement files.
+    passes = checker(
+        tmp_path,
+        "from pathlib import Path\n"
+        "ok = Path(sys.argv[1], 'problem.yaml').is_file() and sys.argv[2:] == ['statement.md']\n"
+        "sys.exit(0 if ok else 3)",
+    )
+    assert statement_check(validate(package, statement_check=passes)) == ("ok", "")
+    problems = checker(
+        tmp_path,
+        "print('statement.md:3:1: KaTeX: Undefined control sequence')\n"
+        "print('statement.md: нет файла assets/a.png')\nsys.exit(1)",
+    )
+    assert statement_check(validate(package, statement_check=problems)) == (
+        "fail",
+        "statement.md:3:1: KaTeX: Undefined control sequence; statement.md: нет файла assets/a.png",
+    )
+
+
+def test_a_statement_check_that_fails_to_run(tmp_path: Path) -> None:
+    package = write_package(tmp_path)
+    crash = checker(tmp_path, "sys.stderr.write('Cannot find module tsx\\n'); sys.exit(2)")
+    assert statement_check(validate(package, statement_check=crash)) == (
+        "fail",
+        "проверка рендера не запустилась: exit code 2: Cannot find module tsx",
+    )
+    missing = StatementCommand(("no-such-program-apparatica",))
+    status, detail = statement_check(validate(package, statement_check=missing))
+    assert status == "fail"
+    assert detail is not None
+    assert detail.startswith("проверка рендера не запустилась: ")
+    command = StatementCommand.parse('pnpm -C "my web" check')
+    assert command.argv == ["pnpm", "-C", "my web", "check"]
+    with pytest.raises(ValueError, match="empty"):
+        StatementCommand.parse("  ")
 
 
 def test_failing_template(tmp_path: Path) -> None:

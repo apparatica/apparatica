@@ -1,8 +1,8 @@
 """Problem packages that CI must validate for a change (FR-PKG-05, specs/09 §4.1).
 
 A change of a package validates that package. A change of anything that judges packages — the
-judge, the toolchain image, the resource classes, the workflow — validates all of them: that is
-the regression of references and mutants.
+judge, the toolchain image, the resource classes, the statement renderer, the workflow — validates
+all of them: that is the regression of references, mutants and statements.
 
     python scripts/changed_problems.py <base-ref>   # changed files: git diff <base-ref>...HEAD
     python scripts/changed_problems.py --all
@@ -24,6 +24,8 @@ REGRESSION_PATHS = (
     "judge/poetry.lock",
     "toolchain/",
     "config/resource-classes.yaml",
+    "web/src/lib/statement/",
+    "web/scripts/statement-check.ts",
     ".github/workflows/problems.yml",
     "scripts/changed_problems.py",
 )

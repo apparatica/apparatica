@@ -14,10 +14,11 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from apparatica.admin.cli import main
 from apparatica.core.settings import get_settings
-from conftest import CONFIG_DIR
+from conftest import CONFIG_DIR, repo_version
 from judge.core.pack import content_hash, unpack
 
 PROBLEMS = Path(__file__).parents[2] / "problems"
+V = repo_version("mux4")  # the version of mux4 in the repository
 REGION = "us-east-1"
 
 
@@ -78,12 +79,9 @@ def test_import_of_the_repository(s3: Any, capsys: pytest.CaptureFixture[str]) -
         "SELECT p.slug, p.number, p.is_published, v.version, v.title, v.package_uri"
         " FROM problems p JOIN problem_versions v ON v.id = p.current_version_id ORDER BY p.number"
     )
+    slugs = ["mux4", "counter-mod-n", "carry-adder", "seq-detector", "sync-fifo"]
     assert [row[:4] for row in problems] == [
-        ("mux4", 1, True, 1),
-        ("counter-mod-n", 2, True, 1),
-        ("carry-adder", 3, True, 1),
-        ("seq-detector", 4, True, 1),
-        ("sync-fifo", 5, True, 1),
+        (slug, number, True, repo_version(slug)) for number, slug in enumerate(slugs, start=1)
     ]
     assert problems[0][4] == "Мультиплексор 4:1"
 
@@ -122,23 +120,23 @@ def test_a_published_version_is_immutable(
     statement.write_bytes(statement.read_bytes() + "Уточнение.\n".encode())
     assert main(["problems", "import", str(repo / "mux4")]) == 1
     out = capsys.readouterr().out
-    assert "FAIL mux4 v1: the version is already imported with content hash" in out
+    assert f"FAIL mux4 v{V}: the version is already imported with content hash" in out
     assert "increase `version`" in out
 
-    replace(repo / "mux4" / "problem.yaml", "version: 1", "version: 2")
+    replace(repo / "mux4" / "problem.yaml", f"version: {V}", f"version: {V + 1}")
     assert main(["problems", "import", str(repo / "mux4")]) == 0
     current = (
         "SELECT v.version FROM problems p JOIN problem_versions v ON v.id = p.current_version_id"
     )
-    assert query(current) == [(1,)]  # without --publish the new version is not current
+    assert query(current) == [(V,)]  # without --publish the new version is not current
     assert main(["problems", "import", "--publish", str(repo / "mux4")]) == 0
-    assert query(current) == [(2,)]
+    assert query(current) == [(V + 1,)]
     assert len(keys(s3)) == 2
 
-    replace(repo / "mux4" / "problem.yaml", "version: 2", "version: 1")
+    replace(repo / "mux4" / "problem.yaml", f"version: {V + 1}", f"version: {V}")
     replace(statement, "Уточнение.\n", "")
     assert main(["problems", "import", "--publish", str(repo / "mux4")]) == 1
-    assert "FAIL mux4 v1: older than the current version 2" in capsys.readouterr().out
+    assert f"FAIL mux4 v{V}: older than the current version {V + 1}" in capsys.readouterr().out
 
 
 def test_an_import_is_all_or_nothing(
@@ -151,7 +149,7 @@ def test_an_import_is_all_or_nothing(
         main(["problems", "import", str(repo / "counter-mod-n"), str(repo / "mux4"), str(clone)])
         == 1
     )
-    assert "FAIL mux4-clone v1: number 1 belongs to 'mux4'" in capsys.readouterr().out
+    assert f"FAIL mux4-clone v{V}: number 1 belongs to 'mux4'" in capsys.readouterr().out
     assert query("SELECT count(*) FROM problems") == [(0,)]
     assert query("SELECT count(*) FROM tags") == [(0,)]
     assert keys(s3) == []
@@ -160,8 +158,9 @@ def test_an_import_is_all_or_nothing(
     replace(repo / "carry-adder" / "problem.yaml", "arithmetic]", "adders]")
     assert main(["problems", "import", str(repo)]) == 1
     out = capsys.readouterr().out
-    assert "FAIL mux4 v1: difficulty 'trivial' is not in difficulties.yaml" in out
-    assert "FAIL carry-adder v1: tags not in tags.yaml: adders" in out
+    assert f"FAIL mux4 v{V}: difficulty 'trivial' is not in difficulties.yaml" in out
+    adder = repo_version("carry-adder")
+    assert f"FAIL carry-adder v{adder}: tags not in tags.yaml: adders" in out
 
 
 def test_broken_packages_and_catalogues(

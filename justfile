@@ -131,9 +131,10 @@ record-scenarios *names:
 dev-mocks $NEXT_PUBLIC_API_MOCKING="enabled":
     pnpm -C web dev
 
-# Validate every problem package in the toolchain image, with the determinism check of CI
+# Validate every problem package in the toolchain image, with the determinism and statement
+# checks of CI
 validate-problems:
-    poetry -C judge run judge validate --determinism ../problems
+    poetry -C judge run judge validate --determinism --statement-check "pnpm -C ../web --silent statement:check" ../problems
 
 # Everything CI runs (the toolchain image has its own workflow: toolchain-build, toolchain-test)
 check: check-locks check-licenses check-api lint typecheck test

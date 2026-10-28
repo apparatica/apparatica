@@ -92,8 +92,10 @@ export function followEvents(options: FollowOptions): Follower {
       onConnection({ state: "closed" });
       return;
     }
+    // One reading of the clock: the wait is counted from the moment of the loss.
+    const now = Date.now();
     if (lostAt === null) {
-      lostAt = Date.now();
+      lostAt = now;
       onLost(lostAt);
     }
     const delay = delays[retry];
@@ -102,7 +104,7 @@ export function followEvents(options: FollowOptions): Follower {
       return;
     }
     retry += 1;
-    onConnection({ state: "waiting", retry, at: Date.now() + delay, lostAt });
+    onConnection({ state: "waiting", retry, at: now + delay, lostAt });
     timer = setTimeout(() => void connect(), delay);
   }
 

@@ -14,11 +14,15 @@ from apparatica.core.db import Database
 from apparatica.core.settings import Settings
 from apparatica.main import create_app
 from apparatica.problems.models import Problem, ProblemStats
-from conftest import CONFIG_DIR, PROBLEMS, Postgres, import_problems
+from conftest import CONFIG_DIR, PROBLEMS, Postgres, import_problems, repo_version
+from judge.core.package import load_manifest
 
 PUBLIC = "public, max-age=60, stale-while-revalidate=300"
 IMMUTABLE = "public, max-age=31536000, immutable"
 PROBLEM = "application/problem+json"
+# The versions in the repository; the catalogue adds one to each of these two.
+MUX4 = repo_version("mux4")
+COUNTER = repo_version("counter-mod-n")
 
 
 def _edit(path: Path, old: str, new: str) -> None:
@@ -31,12 +35,12 @@ def _edit(path: Path, old: str, new: str) -> None:
 def catalogue(
     postgres: Postgres, catalogue_template: str, tmp_path_factory: pytest.TempPathFactory
 ) -> str:
-    """The five problems published; counter-mod-n v2 published over v1; mux4 v2 imported but
-    not published; a problem `draft` imported but never published."""
+    """The five problems published; counter-mod-n COUNTER + 1 published over COUNTER; mux4
+    MUX4 + 1 imported but not published; a problem `draft` v1 imported but never published."""
     root = tmp_path_factory.mktemp("problems")
     for name, slug, number, version in (
-        ("counter-mod-n", "counter-mod-n", 2, 2),
-        ("mux4", "mux4", 1, 2),
+        ("counter-mod-n", "counter-mod-n", 2, COUNTER + 1),
+        ("mux4", "mux4", 1, MUX4 + 1),
         ("mux4", "draft", 99, 1),
     ):
         copy = root / f"{slug}-{version}" / slug
@@ -44,11 +48,12 @@ def catalogue(
         manifest = copy / "problem.yaml"
         _edit(manifest, f"id: {name}", f"id: {slug}")
         _edit(manifest, "number: 1\n" if name == "mux4" else "number: 2\n", f"number: {number}\n")
-        _edit(manifest, "version: 1", f"version: {version}")
+        _edit(manifest, f"version: {repo_version(name)}\n", f"version: {version}\n")
 
     url = postgres.create_database(template=catalogue_template)
-    import_problems(url, [root / "counter-mod-n-2" / "counter-mod-n"], publish=True)
-    import_problems(url, [root / "mux4-2" / "mux4", root / "draft-1" / "draft"], publish=False)
+    import_problems(url, [root / f"counter-mod-n-{COUNTER + 1}" / "counter-mod-n"], publish=True)
+    newer = [root / f"mux4-{MUX4 + 1}" / "mux4", root / "draft-1" / "draft"]
+    import_problems(url, newer, publish=False)
     return url
 
 
@@ -211,7 +216,8 @@ def test_problem_is_its_current_version(api: TestClient) -> None:
     assert response.status_code == 200
     assert response.headers["cache-control"] == PUBLIC
     problem: dict[str, Any] = response.json()
-    assert (problem["version"], problem["current_version"]) == (1, 1)  # v2 is not published
+    # The next version is imported, not published.
+    assert (problem["version"], problem["current_version"]) == (MUX4, MUX4)
     assert problem["title"] == "Мультиплексор 4:1"
     assert problem["language"] == "systemverilog"
     assert problem["resource_class"] == "light"
@@ -243,20 +249,21 @@ def test_problem_is_its_current_version(api: TestClient) -> None:
         ],
     }
     assert problem["tests"] == {"public": 2, "hidden": 2}
-    assert problem["changelog"] is None
+    assert problem["changelog"] == load_manifest(PROBLEMS / "mux4").changelog
     assert problem["published_at"].endswith("Z") or "+00:00" in problem["published_at"]
 
 
 def test_versions_up_to_the_current_one(api: TestClient) -> None:
-    assert api.get("/api/v1/problems/counter-mod-n").json()["version"] == 2
-    old = api.get("/api/v1/problems/counter-mod-n/versions/1")
+    path = "/api/v1/problems/counter-mod-n"
+    assert api.get(path).json()["version"] == COUNTER + 1
+    old = api.get(f"{path}/versions/{COUNTER}")
     assert old.status_code == 200
     assert old.headers["cache-control"] == IMMUTABLE
-    assert (old.json()["version"], old.json()["current_version"]) == (1, 2)
+    assert (old.json()["version"], old.json()["current_version"]) == (COUNTER, COUNTER + 1)
     etag = old.headers["etag"]
-    cached = api.get("/api/v1/problems/counter-mod-n/versions/1", headers={"If-None-Match": etag})
+    cached = api.get(f"{path}/versions/{COUNTER}", headers={"If-None-Match": etag})
     assert cached.status_code == 304
-    assert api.get("/api/v1/problems/counter-mod-n/versions/2").json()["version"] == 2
+    assert api.get(f"{path}/versions/{COUNTER + 1}").json()["version"] == COUNTER + 1
 
 
 @pytest.mark.parametrize(
@@ -265,8 +272,8 @@ def test_versions_up_to_the_current_one(api: TestClient) -> None:
         ("/problems/no-such-problem", 404),
         ("/problems/draft", 404),  # never published
         ("/problems/draft/versions/1", 404),
-        ("/problems/mux4/versions/2", 404),  # imported, newer than the current version
-        ("/problems/mux4/versions/3", 404),
+        (f"/problems/mux4/versions/{MUX4 + 1}", 404),  # imported, newer than the current one
+        (f"/problems/mux4/versions/{MUX4 + 2}", 404),
         ("/problems/mux4/versions/0", 422),
         ("/problems/Mux_4", 422),
     ],

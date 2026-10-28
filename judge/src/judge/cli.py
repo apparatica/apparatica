@@ -29,6 +29,7 @@ from judge.core.package import (
 from judge.core.pipeline import Job, PipelineConfigError, run_pipeline
 from judge.core.registry import UnknownLanguageError, get_language
 from judge.core.scaffold import ScaffoldError, create_package
+from judge.core.statement import StatementCommand
 from judge.core.validate import DEFAULT_SEEDS, Check, PackageValidator, describe
 from judge.core.verdict import aggregate
 from judge.languages.systemverilog.tbproto import tb_result_json_schema
@@ -85,6 +86,16 @@ def _executor_factory(
     )
 
 
+def _statement_check(args: argparse.Namespace) -> StatementCommand | None:
+    command = args.statement_check or os.environ.get("JUDGE_STATEMENT_CHECK")
+    if not command:
+        return None
+    try:
+        return StatementCommand.parse(command)
+    except ValueError as error:
+        raise UsageError(f"--statement-check: {error}") from None
+
+
 def _load(package: Path) -> Problem:
     try:
         return load_manifest(package)
@@ -130,6 +141,7 @@ def _validate(args: argparse.Namespace) -> int:
         determinism=args.determinism,
         on_check=_print_check,
         sink_factory=(lambda title: ConsoleSink()) if args.verbose else None,
+        statement_check=_statement_check(args),
     )
     failed = []
     for package in packages:
@@ -264,6 +276,12 @@ def _parser() -> argparse.ArgumentParser:
         "--determinism",
         action="store_true",
         help="repeat the first reference run with its seed; results must match byte for byte",
+    )
+    validate.add_argument(
+        "--statement-check",
+        metavar="COMMAND",
+        help="command that checks the statements render (JUDGE_STATEMENT_CHECK), "
+        'e.g. "pnpm -C web --silent statement:check"; without it the render is not checked',
     )
     validate.add_argument("-v", "--verbose", action="store_true", help="print the stage consoles")
     _executor_options(validate)
