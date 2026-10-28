@@ -41,6 +41,7 @@ def test_config(client: TestClient) -> None:
     assert body["catalog"] == {"per_page": 12}
     assert body["limits"]["solution"] == {"max_bytes": 65536, "max_lines": 2000}
     assert body["limits"]["quotas"]["guest"]["checks_per_hour"] == 10
+    assert body["limits"]["waveforms"] == {"view_max_mb": 5}
     assert body["auth_providers"] == []
     assert response.headers["cache-control"] == "public, max-age=60, stale-while-revalidate=300"
 

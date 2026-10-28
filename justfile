@@ -196,3 +196,8 @@ waveview-build:
 # Open the built viewer in a browser through the adapter (WAVEVIEW_BROWSER: chrome, msedge)
 waveview-test:
     pnpm -C waveview test:build
+
+# Serve the built viewer (waveview/dist) to the problem page of `just dev-mocks`; start dev-mocks
+# with NEXT_PUBLIC_MOCK_WAVEVIEW_URL=http://localhost:<port>/<version>/index.html (docs/frontend.md)
+waveview-serve port="3901" origin="http://localhost:3000":
+    node waveview/tests/serve.mjs waveview/dist {{ port }} {{ origin }}

@@ -1,6 +1,6 @@
 # Просмотрщик волн (`waveview`)
 
-Временные диаграммы показывает Surfer — web-сборка (WASM) на отдельном origin, встроенная в страницу задачи изолированным iframe (ADR-0004, отчёт [S3](spikes/s3.md)). Каталог [`waveview/`](../waveview) собирает этот сайт: Surfer закреплённой версии с двумя темами Apparatica и своя страница с адаптером `postMessage`. Встраивание в страницу задачи — T1.17c.
+Временные диаграммы показывает Surfer — web-сборка (WASM) на отдельном origin, встроенная в страницу задачи изолированным iframe (ADR-0004, отчёт [S3](spikes/s3.md)). Каталог [`waveview/`](../waveview) собирает этот сайт: Surfer закреплённой версии с двумя темами Apparatica и своя страница с адаптером `postMessage`. Вкладку волн страницы задачи и клиент адаптера (`web/src/features/waveview/`) описывает [frontend.md](frontend.md#страница-задачи).
 
 ## Состав
 
@@ -44,6 +44,8 @@
 
 Адаптер принимает сообщения только от `window.parent` и отвечает с `targetOrigin "*"`: у iframe origin `null`, а встраивать сайт может только страница из `frame-ancestors` CSP.
 
+Surfer работает на кадрах анимации (eframe): браузер не рисует iframe чужого origin, скрытый через `display: none` или `visibility: hidden`, и такой просмотрщик не запускается и не отвечает. Страница прячет его под непрозрачным слоем, а не средствами CSS.
+
 ## Origin и заголовки
 
 Сайт — бакет `waveview`, отданный Garage как website, за своим поддоменом (на стенде `http://waveview.web.localhost:8080`, `deploy/Caddyfile`). iframe страницы задачи — `sandbox="allow-scripts"` без `allow-same-origin`: код внутри не достаёт до cookie, DOM и сети сайта (проверено в S3 и регрессией). Заголовки origin:
@@ -63,6 +65,7 @@ Caddy сжимает ответы (`encode zstd gzip`). Production-заголо�
 ```sh
 just waveview-build   # образ apparatica-waveview:dev и файлы в waveview/dist (6–10 минут)
 just waveview-test    # регрессия: сборка в браузере через адаптер
+just waveview-serve   # сборка на http://localhost:3901 для страницы задачи в just dev-mocks
 ```
 
 Сборке нужны Docker Hub (образ Rust), gitlab.com (исходники Surfer), github.com (trunk и инструменты), crates.io. На медленной сети — `WAVEVIEW_RUST_IMAGE=mirror.gcr.io/library/rust:1.95-trixie@sha256:<digest из Dockerfile>` (и `WAVEVIEW_RUNTIME_IMAGE` для busybox).

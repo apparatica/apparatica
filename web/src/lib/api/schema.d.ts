@@ -479,6 +479,7 @@ export interface components {
         Limits: {
             solution: components["schemas"]["SolutionLimits"];
             quotas: components["schemas"]["Quotas"];
+            waveforms: components["schemas"]["WaveformLimits"];
         };
         /**
          * LogEvent
@@ -1365,6 +1366,14 @@ export interface components {
              * @description Empty for a trace recorded before the list existed: the viewer picks
              */
             signals: components["schemas"]["WaveformSignal"][];
+        };
+        /** WaveformLimits */
+        WaveformLimits: {
+            /**
+             * View Max Mb
+             * @description A larger FST is offered for download only, not shown (FR-WAV-02)
+             */
+            view_max_mb: number;
         };
         /** WaveformRequest */
         WaveformRequest: {

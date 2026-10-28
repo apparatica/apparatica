@@ -2,7 +2,7 @@
 
 // The results panel of a problem page (specs/08 §3): the pipeline with the total time, the banner
 // of the check and the result tabs under it, and before the first check a hint on Run and Submit
-// (mock-up BenchEmpty). The tab of the waves comes in T1.17c.
+// (mock-up BenchEmpty). The viewer of the waves outlives the checks: it is made once and kept.
 import { SquareTerminal } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { type ReactNode, useState } from "react";
@@ -13,6 +13,7 @@ import { Shortcut } from "@/components/ui/kbd";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { type Check, isFinished, type Submission } from "@/features/submission/machine";
 import type { SubmissionState } from "@/features/submission/use-submission";
+import { Viewer } from "@/features/waveview/viewer";
 import type { Schemas } from "@/lib/api/client";
 
 import { useNow } from "./clock";
@@ -20,9 +21,11 @@ import { type BlockDetail, type BlockView, pipelineView } from "./pipeline-view"
 import { ResultBanner } from "./result-banner";
 import { ResultsConsole } from "./results-console";
 import { ResultsTests, TestsCounter } from "./results-tests";
+import { ResultsWaves } from "./results-waves";
 import { ResultsSkeleton } from "./skeletons";
 import { RUN_KEYS, SUBMIT_KEYS } from "./shortcuts";
 import { testsCount, testsView } from "./tests-view";
+import { tracedTest, wavesView } from "./waves-view";
 
 const strong = (chunks: ReactNode) => <strong className="font-medium text-tx">{chunks}</strong>;
 
@@ -30,9 +33,12 @@ const strong = (chunks: ReactNode) => <strong className="font-medium text-tx">{c
 const RUNNING_TICK_MS = 100;
 const WAITING_TICK_MS = 250;
 
-type ResultsTab = "console" | "tests";
+type ResultsTab = "console" | "tests" | "waves";
 
-export type ResultsProblem = Pick<Schemas["ProblemDetail"], "pipeline" | "tests" | "language">;
+export type ResultsProblem = Pick<
+  Schemas["ProblemDetail"],
+  "pipeline" | "tests" | "language" | "interface"
+>;
 
 export interface ResultsPanelProps {
   submission: SubmissionState;
@@ -88,7 +94,15 @@ export function ResultsPanel({ submission, problem, busy, onCheck, onReveal }: R
   const now = useNow(tickOf(submission));
   // The console is open at first (specs/08 §3); the chosen tab stays for the next checks.
   const [tab, setTab] = useState<ResultsTab>("console");
+  const [viewer] = useState(() => new Viewer());
   const { check } = submission;
+  // The frame of the viewer is made when a test fails or the tab opens, before the trace is read:
+  // Surfer boots meanwhile. Then it stays.
+  const [viewerWanted, setViewerWanted] = useState(false);
+  const failed = check?.stages.some((stage) =>
+    stage.summary.tests.some((test) => test.status === "failed"),
+  );
+  if (!viewerWanted && (tab === "waves" || failed === true)) setViewerWanted(true);
 
   if (check === null && submission.restoring) {
     return (
@@ -109,6 +123,14 @@ export function ResultsPanel({ submission, problem, busy, onCheck, onReveal }: R
   }));
   const tests = check === null ? [] : testsView(check, problem);
   const count = testsCount(tests);
+  const open = tests.length === 0 ? "console" : tab;
+  // Only whether a trace exists: the size limit of the viewer does not matter here.
+  const traced =
+    check === null ? null : tracedTest(wavesView(check, submission.submission, Infinity));
+  const showWaves = () => {
+    setTab("waves");
+    viewer.focus();
+  };
   return (
     <section aria-label={t("label")} className="flex h-full min-h-0 flex-col bg-sf">
       <div className="flex flex-none flex-col gap-2.5 px-3.5 pt-3 pb-3.5">
@@ -129,6 +151,7 @@ export function ResultsPanel({ submission, problem, busy, onCheck, onReveal }: R
             busy={busy}
             onCheck={onCheck}
             onReveal={onReveal}
+            onShowWaves={traced === null ? null : showWaves}
           />
         )}
         <p aria-live="polite" className="sr-only">
@@ -137,7 +160,7 @@ export function ResultsPanel({ submission, problem, busy, onCheck, onReveal }: R
       </div>
       {check !== null && (
         <Tabs
-          value={tests.length === 0 ? "console" : tab}
+          value={open}
           onValueChange={(value) => setTab(value as ResultsTab)}
           className="flex min-h-0 flex-1 flex-col"
         >
@@ -149,19 +172,44 @@ export function ResultsPanel({ submission, problem, busy, onCheck, onReveal }: R
                 {count !== null && <TestsCounter count={count} />}
               </TabsTrigger>
             )}
+            {tests.length > 0 && <TabsTrigger value="waves">{t("tabs.waves")}</TabsTrigger>}
           </TabsList>
-          <TabsContent value="console" className="min-h-0 flex-1">
-            <ResultsConsole
-              check={check}
-              connection={submission.connection}
-              problem={problem}
-              runningMs={runningMs}
-              onReveal={onReveal}
-            />
-          </TabsContent>
-          <TabsContent value="tests" className="min-h-0 flex-1">
-            <ResultsTests check={check} sections={tests} />
-          </TabsContent>
+          {/* The tabs over each other: a covered viewer keeps running (results-waves.tsx). */}
+          <div className="relative isolate min-h-0 flex-1">
+            <TabsContent value="console" className="absolute inset-0 z-10 bg-sf">
+              <ResultsConsole
+                check={check}
+                connection={submission.connection}
+                problem={problem}
+                runningMs={runningMs}
+                onReveal={onReveal}
+              />
+            </TabsContent>
+            <TabsContent value="tests" className="absolute inset-0 z-10 bg-sf">
+              <ResultsTests
+                check={check}
+                sections={tests}
+                traced={traced}
+                onShowWaves={showWaves}
+              />
+            </TabsContent>
+            {/* Always mounted, under the open tab: the viewer keeps its frame and its file. */}
+            <TabsContent
+              value="waves"
+              forceMount
+              inert={open !== "waves"}
+              aria-hidden={open !== "waves"}
+              className="absolute inset-0 z-0 data-[state=active]:z-20"
+            >
+              <ResultsWaves
+                check={check}
+                submission={submission}
+                ports={problem.interface.ports}
+                viewer={viewer}
+                wanted={viewerWanted}
+              />
+            </TabsContent>
+          </div>
         </Tabs>
       )}
       {check === null && (

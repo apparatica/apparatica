@@ -1613,13 +1613,17 @@
           },
           "quotas": {
             "$ref": "#/components/schemas/Quotas"
+          },
+          "waveforms": {
+            "$ref": "#/components/schemas/WaveformLimits"
           }
         },
         "additionalProperties": false,
         "type": "object",
         "required": [
           "solution",
-          "quotas"
+          "quotas",
+          "waveforms"
         ],
         "title": "Limits"
       },
@@ -3766,6 +3770,22 @@
         ],
         "title": "Waveform",
         "description": "What an FST trace covers (ADR-0004)."
+      },
+      "WaveformLimits": {
+        "properties": {
+          "view_max_mb": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "View Max Mb",
+            "description": "A larger FST is offered for download only, not shown (FR-WAV-02)"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "view_max_mb"
+        ],
+        "title": "WaveformLimits"
       },
       "WaveformRequest": {
         "properties": {

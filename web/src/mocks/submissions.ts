@@ -1,7 +1,8 @@
 // Submissions of the mock API. A check replays a recorded scenario (scenarios.ts) in real time from
 // its creation: a reload or a reconnect finds it where the real check would be. The scenario is
 // picked by a `mock: <name>` mark in the code, e.g. `// mock: wrong-answer`; `mock-fst: expired`
-// shows its FST expired until it is recreated (docs/frontend.md).
+// shows its FST expired until it is recreated, `mock-fst: large` too large to view. The viewer of
+// the waves is NEXT_PUBLIC_MOCK_WAVEVIEW_URL, none without it (docs/frontend.md).
 import { http, HttpResponse } from "msw";
 
 import type { Schemas } from "@/lib/api/client";
@@ -23,6 +24,8 @@ type SubmissionCreate = Schemas["SubmissionCreate"];
 export const STORAGE = "https://storage.mock/artifacts";
 const MARK = /\bmock:\s*([\w-]+)/;
 const EXPIRED_MARK = /\bmock-fst:\s*expired\b/;
+const LARGE_MARK = /\bmock-fst:\s*large\b/;
+const LARGE_FST_BYTES = 48 * 1024 * 1024;
 const DEFAULT_SCENARIO: Record<SubmissionCreate["kind"], ScenarioName> = {
   run: "run-passed",
   submit: "accepted",
@@ -43,10 +46,16 @@ interface Check {
   created: number;
   cancelled?: number;
   expired: boolean; // the FST, until it is recreated
+  large: boolean; // the FST is reported too large to view
   waveform?: number; // when it was recreated
 }
 
-const options = { speed: 1 };
+const defaults = {
+  speed: 1,
+  /** The page of the waveform viewer every submission names. */
+  waveviewUrl: process.env.NEXT_PUBLIC_MOCK_WAVEVIEW_URL || null,
+};
+const options = { ...defaults };
 const checks = new Map<string, Check>();
 
 /** `speed: Infinity` finishes every check at once (unit tests). */
@@ -56,7 +65,7 @@ export function configureMocks(update: Partial<typeof options>): void {
 
 export function resetMocks(): void {
   checks.clear();
-  options.speed = 1;
+  Object.assign(options, defaults);
 }
 
 const msOf = (id: string) => Number(id.split("-")[0]);
@@ -102,6 +111,7 @@ function submissionOf(check: Check, now = Date.now()): Submission {
     problem: check.request.problem,
     version: check.request.version,
     code: check.request.code,
+    waveview_url: options.waveviewUrl,
     created_at: new Date(check.created).toISOString(),
     started_at: at(final.started_at),
   };
@@ -126,6 +136,7 @@ function submissionOf(check: Check, now = Date.now()): Submission {
       })),
       artifacts: final.artifacts.map((artifact) => {
         if (artifact.kind !== "fst") return artifact;
+        if (check.large) return { ...artifact, size_bytes: LARGE_FST_BYTES };
         if (check.waveform === undefined) {
           return check.expired ? { ...artifact, state: "expired" } : artifact;
         }
@@ -316,6 +327,7 @@ export const submissionHandlers = [
       request: body,
       created: Date.now(),
       expired: EXPIRED_MARK.test(body.code),
+      large: LARGE_MARK.test(body.code),
     };
     checks.set(check.id, check);
     const created: Schemas["SubmissionCreated"] = { ...submissionOf(check), quota: quota() };

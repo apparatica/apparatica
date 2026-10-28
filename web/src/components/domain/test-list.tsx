@@ -15,7 +15,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { type ComponentProps, useId, useState } from "react";
+import { type ComponentProps, type ReactNode, useId, useState } from "react";
 
 import { cn } from "@/lib/utils";
 
@@ -45,6 +45,8 @@ export interface TestRowView {
   mismatches?: readonly TestMismatch[] | undefined;
   /** Under the mismatches: the seed, the hints of the author. */
   notes?: readonly string[] | undefined;
+  /** Under the mismatches, before the notes: "Показать на диаграмме". */
+  action?: ReactNode;
 }
 
 export interface TestListProps extends ComponentProps<"section"> {
@@ -66,12 +68,19 @@ function Mismatches({
   id,
   mismatches,
   notes,
+  action,
 }: {
   id: string;
   mismatches: readonly TestMismatch[];
   notes: readonly string[];
+  action: ReactNode;
 }) {
   const t = useTranslations("domain.tests");
+  const lines = notes.map((note) => (
+    <p key={note} className="text-caption text-mu">
+      {note}
+    </p>
+  ));
   return (
     <div id={id} className="flex flex-col gap-2 pt-2 pr-3.5 pb-3 pl-[37px]">
       {mismatches.length > 0 && (
@@ -104,11 +113,14 @@ function Mismatches({
           </tbody>
         </table>
       )}
-      {notes.map((note) => (
-        <p key={note} className="text-caption text-mu">
-          {note}
-        </p>
-      ))}
+      {action == null ? (
+        lines
+      ) : (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
+          {action}
+          {lines}
+        </div>
+      )}
     </div>
   );
 }
@@ -121,7 +133,7 @@ function Row({ row }: { row: TestRowView }) {
   const Icon = row.hidden === true ? Lock : icon;
   const mismatches = row.mismatches ?? [];
   const notes = row.notes ?? [];
-  const opens = mismatches.length > 0 || notes.length > 0;
+  const opens = mismatches.length > 0 || notes.length > 0 || row.action != null;
 
   const body = (
     <>
@@ -188,7 +200,7 @@ function Row({ row }: { row: TestRowView }) {
       )}
       {opens && (
         <div hidden={!open} className="bg-sf">
-          <Mismatches id={detailsId} mismatches={mismatches} notes={notes} />
+          <Mismatches id={detailsId} mismatches={mismatches} notes={notes} action={row.action} />
         </div>
       )}
     </li>

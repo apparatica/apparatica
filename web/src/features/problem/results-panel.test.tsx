@@ -1,14 +1,18 @@
-import { screen, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import { http, HttpResponse } from "msw";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { applyEvent, type Check, checkOf, markLost } from "@/features/submission/machine";
 import type { SubmissionState } from "@/features/submission/use-submission";
 import type { Schemas } from "@/lib/api/client";
+import { api } from "@/mocks/http";
 import versions from "@/mocks/problem-versions.json";
 import { type ScenarioName, scenarios } from "@/mocks/scenarios";
+import { server } from "@/mocks/server";
 import { eventsUntil, playCheck, queuedCheck } from "@/test/checks";
 import { renderWithProviders } from "@/test/render";
+import { fakeAdapter } from "@/test/waveview";
 
 import { ResultsPanel } from "./results-panel";
 
@@ -450,5 +454,134 @@ describe("the tests", () => {
     await userEvent.click(testsTab());
     expect(screen.getByText("Тесты 1–2")).toBeInTheDocument();
     expect(screen.getByText("не запускались: предыдущий этап не пройден")).toBeInTheDocument();
+  });
+});
+
+describe("the waves", () => {
+  const VIEWER = "https://waveview.test/2026.10.1/index.html";
+  const wavesTab = () => screen.getByRole("tab", { name: "Временные диаграммы" });
+  const waves = () => screen.getByRole("region", { name: "Волны" });
+  const frame = () => screen.getByTitle<HTMLIFrameElement>("Просмотрщик временных диаграмм");
+
+  /** The stored submission of a finished scenario with a viewer, its FST changed. */
+  function stored(
+    name: ScenarioName,
+    fst: Partial<Schemas["SubmissionArtifact"]> = {},
+    viewer: string | null = VIEWER,
+  ): Schemas["Submission"] {
+    const { submission } = scenarios[name];
+    return {
+      ...submission,
+      waveview_url: viewer,
+      artifacts: submission.artifacts.map((artifact) =>
+        artifact.kind === "fst" ? { ...artifact, ...fst } : artifact,
+      ),
+    };
+  }
+
+  function serveFst() {
+    const fst = Uint8Array.from(atob(scenarios["wrong-answer"].files?.fst ?? ""), (char) =>
+      char.charCodeAt(0),
+    );
+    server.use(
+      http.get(api("/api/v1/submissions/:id/artifacts/fst"), () =>
+        HttpResponse.arrayBuffer(fst.buffer),
+      ),
+    );
+  }
+
+  it("open from the banner with the trace of the failed test in the viewer", async () => {
+    serveFst();
+    renderPanel(stateOf(finished("wrong-answer"), { submission: stored("wrong-answer") }));
+    // A test failed: the viewer boots before anyone asks for it.
+    expect(frame()).toHaveAttribute("sandbox", "allow-scripts");
+    expect(frame()).toHaveAttribute("src", VIEWER);
+    const adapter = fakeAdapter(frame());
+
+    await userEvent.click(screen.getByRole("button", { name: "Показать на диаграмме" }));
+    expect(wavesTab()).toHaveAttribute("aria-selected", "true");
+    expect(waves()).toHaveAttribute("data-state", "loading");
+    expect(within(waves()).getByRole("heading", { level: 3 })).toHaveTextContent(
+      "Такты 0–46 · окно вокруг первого расхождения",
+    );
+    expect(within(waves()).getByText("47 тактов · FST 2,4 кБ")).toBeInTheDocument();
+
+    adapter.ready();
+    await waitFor(() => expect(waves()).toHaveAttribute("data-state", "normal"));
+    expect(adapter.received.find(({ type }) => type === "theme")).toMatchObject({
+      name: "apparatica-light",
+    });
+    expect(adapter.received.find(({ type }) => type === "signals")?.["items"]).toContainEqual({
+      path: "tb_top.exp_full",
+      color: "Expected",
+      label: "full ожидалось",
+    });
+    expect(adapter.received.find(({ type }) => type === "marker")).toMatchObject({
+      time: 300,
+      name: "такт 30",
+    });
+    expect(within(waves()).getByRole("link", { name: "Скачать FST" })).toHaveAttribute(
+      "href",
+      expect.stringMatching(/\/artifacts\/fst\?stage=sim_run$/),
+    );
+    await userEvent.click(within(waves()).getByRole("button", { name: "К расхождению" }));
+    await waitFor(() =>
+      expect(adapter.received.at(-1)).toMatchObject({ type: "center", time: 300 }),
+    );
+  });
+
+  it("open from the failed test", async () => {
+    renderPanel(stateOf(finished("wrong-answer"), { submission: stored("wrong-answer") }));
+    await userEvent.click(screen.getByRole("tab", { name: /^Тесты/ }));
+    const list = screen.getByRole("region", { name: "Открытые тесты · Run" });
+    await userEvent.click(within(list).getByRole("button", { name: "Показать на диаграмме" }));
+    expect(wavesTab()).toHaveAttribute("aria-selected", "true");
+  });
+
+  it("make a new viewer after a failure", async () => {
+    serveFst();
+    renderPanel(stateOf(finished("wrong-answer"), { submission: stored("wrong-answer") }));
+    const first = frame();
+    fakeAdapter(first, { fail: "load" }).ready();
+    await userEvent.click(wavesTab());
+    expect(await within(waves()).findByText("Просмотрщик не смог открыть файл.")).toBeVisible();
+    await userEvent.click(within(waves()).getByRole("button", { name: "Повторить" }));
+    expect(frame()).not.toBe(first);
+    expect(waves()).toHaveAttribute("data-state", "loading");
+  });
+
+  it("offer a file too large to view for download", async () => {
+    renderPanel(
+      stateOf(finished("wrong-answer"), {
+        submission: stored("wrong-answer", { size_bytes: 48 * 1024 * 1024 }),
+      }),
+    );
+    await userEvent.click(wavesTab());
+    expect(await within(waves()).findByText("Файл волн 48 МБ")).toBeInTheDocument();
+    expect(within(waves()).getByRole("link", { name: "Скачать FST" })).toBeInTheDocument();
+  });
+
+  it("offer the file for download without a viewer", async () => {
+    renderPanel(
+      stateOf(finished("wrong-answer"), { submission: stored("wrong-answer", {}, null) }),
+    );
+    expect(screen.queryByTitle("Просмотрщик временных диаграмм")).not.toBeInTheDocument();
+    await userEvent.click(wavesTab());
+    expect(await within(waves()).findByText("Просмотрщик волн недоступен")).toBeInTheDocument();
+    expect(within(waves()).getByRole("link", { name: "Скачать FST" })).toBeInTheDocument();
+  });
+
+  it("tell why a check has none", async () => {
+    renderPanel(stateOf(finished("accepted"), { submission: stored("accepted") }));
+    expect(screen.queryByRole("button", { name: "Показать на диаграмме" })).not.toBeInTheDocument();
+    await userEvent.click(wavesTab());
+    expect(within(waves()).getByText("Волн пока нет")).toBeInTheDocument();
+    expect(
+      within(waves()).getByText(
+        "Волны записываются для первого упавшего открытого теста, а в этой проверке такого нет.",
+      ),
+    ).toBeInTheDocument();
+    // Nothing failed and the tab was opened only now: the viewer is made for later checks.
+    expect(frame()).toBeInTheDocument();
   });
 });

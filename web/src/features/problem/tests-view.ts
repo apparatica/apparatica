@@ -26,6 +26,8 @@ export type TestsRow =
   | {
       kind: "failed";
       index: number;
+      /** The id of the test: the trace of the check names it. */
+      id: string;
       name: string;
       cycle: number | null;
       mismatches: Schemas["Mismatch"][];
@@ -145,6 +147,7 @@ function openRows(check: Check, stage: Stage, groups: Record<string, number>): T
         rows.push({
           kind: "failed",
           index,
+          id: test.id,
           name: nameOf(test),
           cycle: test.mismatches[0]?.cycle ?? test.cycle ?? null,
           mismatches: test.mismatches,

@@ -220,3 +220,32 @@ it("stays ready for a new check when one could not start", async () => {
   await waitFor(() => expect(screen.getByRole("button", { name: /Run/ })).toBeEnabled());
   expect(screen.getByText("Результатов пока нет")).toBeInTheDocument();
 });
+
+it("recreates expired waves and then offers them", async () => {
+  configureMocks({ speed: Infinity });
+  writeDraft("sync-fifo", {
+    code: "// mock: wrong-answer\n// mock-fst: expired\nmodule sync_fifo; endmodule",
+    version: FIFO.version,
+  });
+  renderBench();
+  await editor();
+  await userEvent.click(screen.getByRole("button", { name: /Run/ }));
+  const results = screen.getByRole("region", { name: "Результаты проверки" });
+  await userEvent.click(
+    await within(results).findByRole("button", { name: "Показать на диаграмме" }),
+  );
+  const waves = within(results).getByRole("region", { name: "Волны" });
+  expect(await within(waves).findByText("Волны удалены по сроку хранения")).toBeInTheDocument();
+  expect(
+    within(waves).getByText(/пересоздавать можно не больше 5 раз в час\.$/),
+  ).toBeInTheDocument();
+
+  await userEvent.click(within(waves).getByRole("button", { name: "Пересоздать волны" }));
+  expect(
+    await within(waves).findByRole("status", { name: /^Волны пересоздаются/ }),
+  ).toBeInTheDocument();
+  // Polled until ready; the mocks name no viewer without NEXT_PUBLIC_MOCK_WAVEVIEW_URL.
+  expect(
+    await within(waves).findByText("Просмотрщик волн недоступен", {}, { timeout: 5000 }),
+  ).toBeInTheDocument();
+});

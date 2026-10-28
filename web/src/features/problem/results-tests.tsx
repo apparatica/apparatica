@@ -1,17 +1,23 @@
 "use client";
 
 // The tests tab of the results (FR-TST-*, sheets CmpB and ResultTabs): the rows of the tests in
-// words, the counter of the tab.
+// words, the counter of the tab; the traced test leads to the waves (FR-WAV-03).
 import { useTranslations } from "next-intl";
 
 import { useSeconds } from "@/components/domain/duration";
 import { TestList, type TestRowView } from "@/components/domain/test-list";
+import { Button } from "@/components/ui/button";
 import type { Check } from "@/features/submission/machine";
 import { cn } from "@/lib/utils";
 
 import type { HiddenView, NotRunReason, TestsCount, TestsRow, TestsSection } from "./tests-view";
 
-function useRows(seed: string): (row: TestsRow, at: number) => TestRowView {
+/** `traced`: the id of the test with a trace, `onShowWaves` opens it. */
+function useRows(
+  seed: string,
+  traced: string | null,
+  onShowWaves: () => void,
+): (row: TestsRow, at: number) => TestRowView {
   const t = useTranslations("problem.results.tests");
   const seconds = useSeconds();
   const titleOf = (index: number, name: string | undefined) =>
@@ -85,6 +91,8 @@ function useRows(seed: string): (row: TestsRow, at: number) => TestRowView {
           aside: row.cycle === null ? undefined : t("cycle", { cycle: row.cycle }),
           mismatches: row.mismatches,
           notes: [...hints, t("seed", { name: row.name, seed })],
+          action:
+            row.id === traced ? <Button onClick={onShowWaves}>{t("showWaves")}</Button> : undefined,
         };
       }
       case "notRun": {
@@ -137,11 +145,14 @@ export function TestsCounter({ count }: { count: TestsCount }) {
 export interface ResultsTestsProps {
   check: Check;
   sections: readonly TestsSection[];
+  /** The id of the test the check traced. */
+  traced: string | null;
+  onShowWaves: () => void;
 }
 
-export function ResultsTests({ check, sections }: ResultsTestsProps) {
+export function ResultsTests({ check, sections, traced, onShowWaves }: ResultsTestsProps) {
   const t = useTranslations("problem.results.tests");
-  const rowOf = useRows(check.seed);
+  const rowOf = useRows(check.seed, traced, onShowWaves);
   const titleOf = (section: TestsSection) => {
     const hidden = check.kind === "submit" && section.rows.some((row) => row.kind === "hidden");
     const title = t(check.kind === "run" ? "titleRun" : hidden ? "titleSubmit" : "titleSubmitOpen");

@@ -9,6 +9,20 @@ export function useKilobytes(): (kb: number) => string {
       : format.number(kb, { style: "unit", unit: "kilobyte" });
 }
 
+/** Formats the size of a file in kilobytes or megabytes with at most one decimal: "2,4 кБ",
+ * "48 МБ". */
+export function useFileSize(): (bytes: number) => string {
+  const format = useFormatter();
+  return (bytes) => {
+    const mb = bytes >= 1024 * 1024;
+    return format.number(bytes / (mb ? 1024 * 1024 : 1024), {
+      style: "unit",
+      unit: mb ? "megabyte" : "kilobyte",
+      maximumFractionDigits: 1,
+    });
+  };
+}
+
 /** Formats a duration in seconds with one decimal, as the pipeline writes it: "1,4 с". */
 export function useSeconds(): (ms: number) => string {
   const format = useFormatter();

@@ -50,9 +50,17 @@ class Quotas(_Model):
     user: Quota
 
 
+class WaveformLimits(_Model):
+    view_max_mb: Annotated[
+        int,
+        Field(ge=1, description="A larger FST is offered for download only, not shown (FR-WAV-02)"),
+    ]
+
+
 class Limits(_Model):
     solution: SolutionLimits
     quotas: Quotas
+    waveforms: WaveformLimits
 
 
 class Window(_Model):

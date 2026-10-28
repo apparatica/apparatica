@@ -16,6 +16,7 @@ export const config: Schemas["ConfigResponse"] = {
       guest: { checks_per_hour: 10, concurrent: 1, heavy_per_day: 0, waveforms_per_hour: 5 },
       user: { checks_per_hour: 60, concurrent: 2, heavy_per_day: 20, waveforms_per_hour: 20 },
     },
+    waveforms: { view_max_mb: 5 },
   },
   auth_providers: [],
 };

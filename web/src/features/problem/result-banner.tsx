@@ -96,6 +96,8 @@ export interface ResultBannerProps {
   onCheck: (kind: Submission["kind"]) => void;
   /** Puts the cursor of the editor on a line of the solution. */
   onReveal: (line: number, column: number) => void;
+  /** "Show on the diagram": the check has a trace of the failed test (FR-WAV-03). */
+  onShowWaves?: (() => void) | null | undefined;
 }
 
 export function ResultBanner(props: ResultBannerProps) {
@@ -232,7 +234,7 @@ function AcceptedBanner({ check, busy, onCheck }: ResultBannerProps) {
   );
 }
 
-function WrongBanner({ check }: ResultBannerProps) {
+function WrongBanner({ check, onShowWaves }: ResultBannerProps) {
   const t = useTranslations("problem.results.banner");
   const failure = failureOf(check);
   let body: ReactNode;
@@ -269,6 +271,9 @@ function WrongBanner({ check }: ResultBannerProps) {
       tone="er"
       icon={CircleX}
       title={check.kind === "run" ? t("wrongRun") : t("wrongSubmit")}
+      actions={
+        onShowWaves == null ? undefined : <Button onClick={onShowWaves}>{t("showWaves")}</Button>
+      }
     >
       {body}
     </Banner>

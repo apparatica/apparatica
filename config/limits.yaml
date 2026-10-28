@@ -1,4 +1,5 @@
-# Solution size and check quotas (specs/02 NFR-LIM-01/08, specs/07 §3; decision ОВ-11).
+# Solution size, check quotas and the waveform viewer (specs/02 NFR-LIM-01/08, specs/07 §3,
+# FR-WAV-02; decision ОВ-11).
 # Served to the frontend by GET /api/v1/config and enforced by the API (docs/api.md).
 solution:
   max_bytes: 65536
@@ -14,3 +15,7 @@ quotas:
     concurrent: 2
     heavy_per_day: 20
     waveforms_per_hour: 20
+# The waveform viewer of the problem page: a larger FST is offered for download only. Surfer parses
+# about 5 MB in 2 s in the browser (docs/spikes/s3.md).
+waveforms:
+  view_max_mb: 5

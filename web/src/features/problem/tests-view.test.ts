@@ -90,6 +90,7 @@ describe("the open tests", () => {
       {
         kind: "failed",
         index: 2,
+        id: "t2",
         name: "заполнение до full и опустошение",
         cycle: 30,
         mismatches: [
@@ -130,7 +131,7 @@ describe("the open tests", () => {
         names: ["name t1", "name t2", "name t3"],
         durationMs: 600,
       },
-      { kind: "failed", index: 4, name: "name t4", cycle: 143, mismatches: [] },
+      { kind: "failed", index: 4, id: "t4", name: "name t4", cycle: 143, mismatches: [] },
       {
         kind: "notRun",
         from: 5,

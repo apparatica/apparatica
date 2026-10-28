@@ -38,6 +38,7 @@ export type BenchProblem = Pick<
   | "template"
   | "top"
   | "language"
+  | "interface"
   | "changelog"
   | "pipeline"
   | "tests"
