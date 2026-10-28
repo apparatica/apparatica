@@ -127,6 +127,10 @@ check-api:
 record-scenarios *names:
     poetry -C judge run python ../scripts/record_scenarios.py {{ names }}
 
+# Write the demo problems of the mocks from problems/ (web/src/mocks/problem-versions.json)
+mock-problems:
+    poetry -C judge run python ../scripts/mock_problems.py
+
 # Run the frontend on the mock API, without the backend (http://localhost:3000; docs/frontend.md)
 dev-mocks $NEXT_PUBLIC_API_MOCKING="enabled":
     pnpm -C web dev

@@ -5,6 +5,7 @@ submissions refer to them), newer imported ones are not visible until they are p
 """
 
 from collections.abc import Sequence
+from decimal import Decimal
 from typing import Any
 
 from sqlalchemy import (
@@ -31,6 +32,7 @@ from apparatica.problems.schemas import (
     ProblemDetail,
     ProblemListItem,
     ProblemPage,
+    ProblemVersionDetail,
     Sort,
     TagList,
 )
@@ -98,7 +100,7 @@ async def list_problems(
         ),
         len(difficulty_order) + 1,
     )
-    acceptance = cast(ProblemStats.accepted_authors, Float) / func.nullif(ProblemStats.authors, 0)
+    acceptance = _acceptance()
     keys = {"number": Problem.number, "difficulty": level, "acceptance": acceptance}
     key = keys[sort.removeprefix("-")]
     order = [(key.desc() if sort.startswith("-") else key.asc()).nulls_last(), Problem.number]
@@ -135,29 +137,58 @@ async def list_problems(
     )
 
 
-async def get_problem(
-    session: AsyncSession, slug: str, version: int | None = None
-) -> ProblemDetail | None:
-    """The current version, or the given one if it is not newer than the current one."""
-    current = aliased(ProblemVersion)
-    statement = (
-        select(Problem, ProblemVersion, current.version)
-        .join(current, current.id == Problem.current_version_id)
-        .join(ProblemVersion, ProblemVersion.problem_id == Problem.id)
-        .where(Problem.slug == slug, Problem.is_published)
-    )
-    if version is None:
-        statement = statement.where(ProblemVersion.id == Problem.current_version_id)
-    else:
-        statement = statement.where(
-            ProblemVersion.version == version, ProblemVersion.version <= current.version
+def _acceptance() -> ColumnElement[float | Decimal]:
+    """Accepted authors of the problem among the authors with a judged Submit; null without one."""
+    return cast(ProblemStats.accepted_authors, Float) / func.nullif(ProblemStats.authors, 0)
+
+
+async def get_problem(session: AsyncSession, slug: str) -> ProblemDetail | None:
+    """The current version of a published problem and its acceptance rate."""
+    row = (
+        await session.execute(
+            select(Problem, ProblemVersion, _acceptance())
+            .join(ProblemVersion, ProblemVersion.id == Problem.current_version_id)
+            .outerjoin(ProblemStats, ProblemStats.problem_id == Problem.id)
+            .where(Problem.slug == slug, Problem.is_published)
         )
-    row = (await session.execute(statement)).one_or_none()
+    ).one_or_none()
+    if row is None:
+        return None
+    problem, version, rate = row
+    detail = _detail(problem, version, current_version=version.version)
+    acceptance = None if rate is None else round(float(rate), 4)
+    return ProblemDetail(**detail.model_dump(), acceptance=acceptance)
+
+
+async def get_problem_version(
+    session: AsyncSession, slug: str, version: int
+) -> ProblemVersionDetail | None:
+    """A version of a published problem, if it is not newer than the current one."""
+    current = aliased(ProblemVersion)
+    row = (
+        await session.execute(
+            select(Problem, ProblemVersion, current.version)
+            .join(current, current.id == Problem.current_version_id)
+            .join(ProblemVersion, ProblemVersion.problem_id == Problem.id)
+            .where(
+                Problem.slug == slug,
+                Problem.is_published,
+                ProblemVersion.version == version,
+                ProblemVersion.version <= current.version,
+            )
+        )
+    ).one_or_none()
     if row is None:
         return None
     problem, found, current_version = row
+    return _detail(problem, found, current_version=current_version)
+
+
+def _detail(
+    problem: Problem, found: ProblemVersion, *, current_version: int
+) -> ProblemVersionDetail:
     manifest: dict[str, Any] = found.manifest
-    return ProblemDetail(
+    return ProblemVersionDetail(
         slug=problem.slug,
         number=problem.number,
         version=found.version,

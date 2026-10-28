@@ -1,0 +1,588 @@
+[
+  {
+    "slug": "mux4",
+    "number": 1,
+    "version": 2,
+    "current_version": 2,
+    "title": "Мультиплексор 4:1",
+    "difficulty": "easy",
+    "tags": [
+      "combinational",
+      "multiplexer"
+    ],
+    "language": "systemverilog",
+    "resource_class": "light",
+    "statement_md": "Реализуйте мультиплексор 4:1: выход `y` повторяет вход, номер которого задаёт `sel`.\n\n| `sel` | `y` |\n|---|---|\n| 0 | `d0` |\n| 1 | `d1` |\n| 2 | `d2` |\n| 3 | `d3` |\n\nСхема комбинационная: `y` меняется сразу вслед за входами, без тактового сигнала и памяти.\n\nПараметр `WIDTH` — разрядность данных, по умолчанию 8.\n",
+    "template": "module mux4 #(\n  parameter int WIDTH = 8\n) (\n  input  logic [1:0]       sel,\n  input  logic [WIDTH-1:0] d0,\n  input  logic [WIDTH-1:0] d1,\n  input  logic [WIDTH-1:0] d2,\n  input  logic [WIDTH-1:0] d3,\n  output logic [WIDTH-1:0] y\n);\n  // Ваше решение\nendmodule\n",
+    "top": "mux4",
+    "interface": {
+      "parameters": [
+        {
+          "name": "WIDTH",
+          "type": "int",
+          "default": 8,
+          "description": "Разрядность данных"
+        }
+      ],
+      "ports": [
+        {
+          "name": "sel",
+          "dir": "input",
+          "width": "2",
+          "signed": false,
+          "role": "data",
+          "reset": null,
+          "description": "Номер выбираемого входа"
+        },
+        {
+          "name": "d0",
+          "dir": "input",
+          "width": "WIDTH",
+          "signed": false,
+          "role": "data",
+          "reset": null,
+          "description": "Вход 0"
+        },
+        {
+          "name": "d1",
+          "dir": "input",
+          "width": "WIDTH",
+          "signed": false,
+          "role": "data",
+          "reset": null,
+          "description": "Вход 1"
+        },
+        {
+          "name": "d2",
+          "dir": "input",
+          "width": "WIDTH",
+          "signed": false,
+          "role": "data",
+          "reset": null,
+          "description": "Вход 2"
+        },
+        {
+          "name": "d3",
+          "dir": "input",
+          "width": "WIDTH",
+          "signed": false,
+          "role": "data",
+          "reset": null,
+          "description": "Вход 3"
+        },
+        {
+          "name": "y",
+          "dir": "output",
+          "width": "WIDTH",
+          "signed": false,
+          "role": "data",
+          "reset": null,
+          "description": "Выбранный вход"
+        }
+      ]
+    },
+    "pipeline": {
+      "run": [
+        {
+          "key": "precheck",
+          "type": "precheck"
+        },
+        {
+          "key": "lint",
+          "type": "lint"
+        },
+        {
+          "key": "sim_run",
+          "type": "sim"
+        }
+      ],
+      "submit": [
+        {
+          "key": "precheck",
+          "type": "precheck"
+        },
+        {
+          "key": "lint",
+          "type": "lint"
+        },
+        {
+          "key": "sim_full",
+          "type": "sim"
+        }
+      ]
+    },
+    "tests": {
+      "public": 2,
+      "hidden": 2
+    },
+    "changelog": "Таблица портов перенесена из условия в интерфейс задачи; текст и тесты не изменились.",
+    "published_at": "2026-10-01T00:00:00Z"
+  },
+  {
+    "slug": "counter-mod-n",
+    "number": 2,
+    "version": 2,
+    "current_version": 2,
+    "title": "Счётчик по модулю N",
+    "difficulty": "easy",
+    "tags": [
+      "sequential",
+      "counter"
+    ],
+    "language": "systemverilog",
+    "resource_class": "light",
+    "statement_md": "Реализуйте счётчик по модулю `N`: он считает 0, 1, …, N − 1 и снова 0.\n\nПо переднему фронту `clk`:\n\n- если `rst = 1`, счётчик обнуляется (сброс синхронный и важнее `en`);\n- иначе, если `en = 1`, счётчик увеличивается на 1, а из N − 1 переходит в 0;\n- иначе счётчик хранит значение.\n\nВыход `wrap` комбинационный: он равен 1, когда `count = N − 1` и `en = 1`, то есть на следующем фронте счётчик перейдёт в 0. Если на этом фронте придёт сброс, переход всё равно случится, поэтому `rst` на `wrap` не влияет. Цепочка таких счётчиков образует делитель частоты: `wrap` одного разрешает счёт следующего.\n\nПример при `N = 3`:\n\n```wavedrom\n{\"signal\": [\n  {\"name\": \"clk\",   \"wave\": \"p.......\"},\n  {\"name\": \"en\",    \"wave\": \"1....0.1\"},\n  {\"name\": \"count\", \"wave\": \"======..\", \"data\": [\"0\", \"1\", \"2\", \"0\", \"1\", \"2\"]},\n  {\"name\": \"wrap\",  \"wave\": \"0.10...1\"}\n]}\n```\n\nПараметр `N ≥ 2` — модуль счёта, по умолчанию 10. Ширина `count` — `$clog2(N)`.\n",
+    "template": "module counter_mod_n #(\n  parameter int N = 10\n) (\n  input  logic                 clk,\n  input  logic                 rst,\n  input  logic                 en,\n  output logic [$clog2(N)-1:0] count,\n  output logic                 wrap\n);\n  // Ваше решение\nendmodule\n",
+    "top": "counter_mod_n",
+    "interface": {
+      "parameters": [
+        {
+          "name": "N",
+          "type": "int",
+          "default": 10,
+          "description": "Модуль счёта, N ≥ 2"
+        }
+      ],
+      "ports": [
+        {
+          "name": "clk",
+          "dir": "input",
+          "width": "1",
+          "signed": false,
+          "role": "clock",
+          "reset": null,
+          "description": "Тактовый сигнал"
+        },
+        {
+          "name": "rst",
+          "dir": "input",
+          "width": "1",
+          "signed": false,
+          "role": "reset",
+          "reset": {
+            "active": "high",
+            "sync": true
+          },
+          "description": "Синхронный сброс, активный 1"
+        },
+        {
+          "name": "en",
+          "dir": "input",
+          "width": "1",
+          "signed": false,
+          "role": "data",
+          "reset": null,
+          "description": "Разрешение счёта"
+        },
+        {
+          "name": "count",
+          "dir": "output",
+          "width": "$clog2(N)",
+          "signed": false,
+          "role": "data",
+          "reset": null,
+          "description": "Текущее значение, от 0 до N − 1"
+        },
+        {
+          "name": "wrap",
+          "dir": "output",
+          "width": "1",
+          "signed": false,
+          "role": "data",
+          "reset": null,
+          "description": "1, если на следующем фронте счётчик перейдёт из N − 1 в 0"
+        }
+      ]
+    },
+    "pipeline": {
+      "run": [
+        {
+          "key": "precheck",
+          "type": "precheck"
+        },
+        {
+          "key": "lint",
+          "type": "lint"
+        },
+        {
+          "key": "sim_run",
+          "type": "sim"
+        }
+      ],
+      "submit": [
+        {
+          "key": "precheck",
+          "type": "precheck"
+        },
+        {
+          "key": "lint",
+          "type": "lint"
+        },
+        {
+          "key": "sim_full",
+          "type": "sim"
+        }
+      ]
+    },
+    "tests": {
+      "public": 2,
+      "hidden": 2
+    },
+    "changelog": "Таблица портов перенесена из условия в интерфейс задачи; текст и тесты не изменились.",
+    "published_at": "2026-10-01T00:00:00Z"
+  },
+  {
+    "slug": "carry-adder",
+    "number": 3,
+    "version": 2,
+    "current_version": 2,
+    "title": "Сумматор с переносом",
+    "difficulty": "easy",
+    "tags": [
+      "combinational",
+      "arithmetic"
+    ],
+    "language": "systemverilog",
+    "resource_class": "light",
+    "statement_md": "Реализуйте сумматор двух `WIDTH`-разрядных беззнаковых чисел с входным и выходным переносом:\n\n$$\\{\\mathtt{cout}, \\mathtt{sum}\\} = \\mathtt{a} + \\mathtt{b} + \\mathtt{cin}$$\n\n`sum` — младшие `WIDTH` бит результата, `cout` — его старший бит: он равен 1, когда сумма не помещается в `WIDTH` бит. Два таких сумматора соединяются в один вдвое шире: `cout` младшего подаётся на `cin` старшего.\n\nСхема комбинационная: выходы меняются сразу вслед за входами.\n\nПараметр `WIDTH` — разрядность, по умолчанию 8.\n",
+    "template": "module carry_adder #(\n  parameter int WIDTH = 8\n) (\n  input  logic [WIDTH-1:0] a,\n  input  logic [WIDTH-1:0] b,\n  input  logic             cin,\n  output logic [WIDTH-1:0] sum,\n  output logic             cout\n);\n  // Ваше решение\nendmodule\n",
+    "top": "carry_adder",
+    "interface": {
+      "parameters": [
+        {
+          "name": "WIDTH",
+          "type": "int",
+          "default": 8,
+          "description": "Разрядность слагаемых"
+        }
+      ],
+      "ports": [
+        {
+          "name": "a",
+          "dir": "input",
+          "width": "WIDTH",
+          "signed": false,
+          "role": "data",
+          "reset": null,
+          "description": "Первое слагаемое"
+        },
+        {
+          "name": "b",
+          "dir": "input",
+          "width": "WIDTH",
+          "signed": false,
+          "role": "data",
+          "reset": null,
+          "description": "Второе слагаемое"
+        },
+        {
+          "name": "cin",
+          "dir": "input",
+          "width": "1",
+          "signed": false,
+          "role": "data",
+          "reset": null,
+          "description": "Входной перенос"
+        },
+        {
+          "name": "sum",
+          "dir": "output",
+          "width": "WIDTH",
+          "signed": false,
+          "role": "data",
+          "reset": null,
+          "description": "Младшие WIDTH бит суммы"
+        },
+        {
+          "name": "cout",
+          "dir": "output",
+          "width": "1",
+          "signed": false,
+          "role": "data",
+          "reset": null,
+          "description": "Выходной перенос"
+        }
+      ]
+    },
+    "pipeline": {
+      "run": [
+        {
+          "key": "precheck",
+          "type": "precheck"
+        },
+        {
+          "key": "lint",
+          "type": "lint"
+        },
+        {
+          "key": "sim_run",
+          "type": "sim"
+        }
+      ],
+      "submit": [
+        {
+          "key": "precheck",
+          "type": "precheck"
+        },
+        {
+          "key": "lint",
+          "type": "lint"
+        },
+        {
+          "key": "sim_full",
+          "type": "sim"
+        }
+      ]
+    },
+    "tests": {
+      "public": 2,
+      "hidden": 2
+    },
+    "changelog": "Таблица портов перенесена из условия в интерфейс задачи; текст и тесты не изменились.",
+    "published_at": "2026-10-01T00:00:00Z"
+  },
+  {
+    "slug": "seq-detector",
+    "number": 4,
+    "version": 2,
+    "current_version": 2,
+    "title": "Детектор последовательности 1011",
+    "difficulty": "medium",
+    "tags": [
+      "sequential",
+      "fsm"
+    ],
+    "language": "systemverilog",
+    "resource_class": "light",
+    "statement_md": "На вход `din` по одному биту за такт приходит последовательный поток: схема принимает бит по каждому переднему фронту `clk`. Реализуйте детектор, который находит в потоке последовательность `1011` (первым приходит левый бит).\n\n- `found` равен 1 ровно один такт — после фронта, на котором принят последний бит `1011`; в остальное время `found = 0`. Выход регистровый: он зависит только от принятых битов, а не от текущего значения `din`.\n- Вхождения могут **перекрываться**: в потоке `1011011` последовательность встречается дважды, и `found` срабатывает дважды.\n- Синхронный сброс `rst = 1` забывает принятые биты и обнуляет `found`; биты до сброса не участвуют в поиске.\n\nПример: поток `1, 0, 1, 1, 0, 1, 1` даёт `found = 1` после 4-го и после 7-го бита.\n\n```wavedrom\n{\"signal\": [\n  {\"name\": \"clk\",   \"wave\": \"p.......\"},\n  {\"name\": \"din\",   \"wave\": \"101.01.0\"},\n  {\"name\": \"found\", \"wave\": \"0...10.1\"}\n]}\n```\n",
+    "template": "module seq_detector (\n  input  logic clk,\n  input  logic rst,\n  input  logic din,\n  output logic found\n);\n  // Ваше решение\nendmodule\n",
+    "top": "seq_detector",
+    "interface": {
+      "parameters": [],
+      "ports": [
+        {
+          "name": "clk",
+          "dir": "input",
+          "width": "1",
+          "signed": false,
+          "role": "clock",
+          "reset": null,
+          "description": "Тактовый сигнал"
+        },
+        {
+          "name": "rst",
+          "dir": "input",
+          "width": "1",
+          "signed": false,
+          "role": "reset",
+          "reset": {
+            "active": "high",
+            "sync": true
+          },
+          "description": "Синхронный сброс, активный 1"
+        },
+        {
+          "name": "din",
+          "dir": "input",
+          "width": "1",
+          "signed": false,
+          "role": "data",
+          "reset": null,
+          "description": "Последовательный вход, бит за такт"
+        },
+        {
+          "name": "found",
+          "dir": "output",
+          "width": "1",
+          "signed": false,
+          "role": "data",
+          "reset": null,
+          "description": "1 в течение такта после приёма последнего бита 1011"
+        }
+      ]
+    },
+    "pipeline": {
+      "run": [
+        {
+          "key": "precheck",
+          "type": "precheck"
+        },
+        {
+          "key": "lint",
+          "type": "lint"
+        },
+        {
+          "key": "sim_run",
+          "type": "sim"
+        }
+      ],
+      "submit": [
+        {
+          "key": "precheck",
+          "type": "precheck"
+        },
+        {
+          "key": "lint",
+          "type": "lint"
+        },
+        {
+          "key": "sim_full",
+          "type": "sim"
+        }
+      ]
+    },
+    "tests": {
+      "public": 2,
+      "hidden": 2
+    },
+    "changelog": "Таблица портов перенесена из условия в интерфейс задачи; текст и тесты не изменились.",
+    "published_at": "2026-10-01T00:00:00Z"
+  },
+  {
+    "slug": "sync-fifo",
+    "number": 5,
+    "version": 2,
+    "current_version": 2,
+    "title": "Синхронный FIFO",
+    "difficulty": "medium",
+    "tags": [
+      "sequential",
+      "memory",
+      "fifo"
+    ],
+    "language": "systemverilog",
+    "resource_class": "light",
+    "statement_md": "Реализуйте синхронную очередь FIFO на `DEPTH` слов по `WIDTH` бит. Запись и чтение идут по одному тактовому сигналу `clk`.\n\nПо переднему фронту `clk`:\n\n- если `rst_n = 0`, очередь опустошается (сброс синхронный; содержимое памяти обнулять не нужно);\n- если `push = 1` и очередь не полна, `wdata` добавляется в конец;\n- если `pop = 1` и очередь не пуста, слово с вершины удаляется;\n- `push` и `pop` в одном такте выполняются оба, если каждый допустим сам по себе: в полной очереди выполняется только `pop`, в пустой — только `push`. Запись в полную очередь и чтение из пустой игнорируются.\n\nВыходы:\n\n- `rdata` — слово на вершине очереди, видно сразу, без отдельного такта чтения (first-word fall-through): `pop` удаляет то слово, которое сейчас на `rdata`. Пока очередь пуста, значение `rdata` не важно;\n- `empty = 1`, когда в очереди нет слов; `full = 1`, когда в ней `DEPTH` слов.\n\nПараметры: `WIDTH` — разрядность слова (по умолчанию 8), `DEPTH` — ёмкость, степень двойки (по умолчанию 16).\n",
+    "template": "module sync_fifo #(\n  parameter int WIDTH = 8,\n  parameter int DEPTH = 16\n) (\n  input  logic             clk,\n  input  logic             rst_n,\n  input  logic             push,\n  input  logic [WIDTH-1:0] wdata,\n  input  logic             pop,\n  output logic [WIDTH-1:0] rdata,\n  output logic             full,\n  output logic             empty\n);\n  // Ваше решение\nendmodule\n",
+    "top": "sync_fifo",
+    "interface": {
+      "parameters": [
+        {
+          "name": "WIDTH",
+          "type": "int",
+          "default": 8,
+          "description": "Разрядность слова"
+        },
+        {
+          "name": "DEPTH",
+          "type": "int",
+          "default": 16,
+          "description": "Ёмкость в словах, степень двойки"
+        }
+      ],
+      "ports": [
+        {
+          "name": "clk",
+          "dir": "input",
+          "width": "1",
+          "signed": false,
+          "role": "clock",
+          "reset": null,
+          "description": "Общий тактовый сигнал"
+        },
+        {
+          "name": "rst_n",
+          "dir": "input",
+          "width": "1",
+          "signed": false,
+          "role": "reset",
+          "reset": {
+            "active": "low",
+            "sync": true
+          },
+          "description": "Синхронный сброс, активный 0"
+        },
+        {
+          "name": "push",
+          "dir": "input",
+          "width": "1",
+          "signed": false,
+          "role": "data",
+          "reset": null,
+          "description": "Записать wdata"
+        },
+        {
+          "name": "wdata",
+          "dir": "input",
+          "width": "WIDTH",
+          "signed": false,
+          "role": "data",
+          "reset": null,
+          "description": "Записываемое слово"
+        },
+        {
+          "name": "pop",
+          "dir": "input",
+          "width": "1",
+          "signed": false,
+          "role": "data",
+          "reset": null,
+          "description": "Удалить слово с вершины"
+        },
+        {
+          "name": "rdata",
+          "dir": "output",
+          "width": "WIDTH",
+          "signed": false,
+          "role": "data",
+          "reset": null,
+          "description": "Слово на вершине очереди"
+        },
+        {
+          "name": "full",
+          "dir": "output",
+          "width": "1",
+          "signed": false,
+          "role": "data",
+          "reset": null,
+          "description": "Очередь заполнена"
+        },
+        {
+          "name": "empty",
+          "dir": "output",
+          "width": "1",
+          "signed": false,
+          "role": "data",
+          "reset": null,
+          "description": "Очередь пуста"
+        }
+      ]
+    },
+    "pipeline": {
+      "run": [
+        {
+          "key": "precheck",
+          "type": "precheck"
+        },
+        {
+          "key": "lint",
+          "type": "lint"
+        },
+        {
+          "key": "sim_run",
+          "type": "sim"
+        }
+      ],
+      "submit": [
+        {
+          "key": "precheck",
+          "type": "precheck"
+        },
+        {
+          "key": "lint",
+          "type": "lint"
+        },
+        {
+          "key": "sim_full",
+          "type": "sim"
+        }
+      ]
+    },
+    "tests": {
+      "public": 2,
+      "hidden": 2
+    },
+    "changelog": "Таблица портов перенесена из условия в интерфейс задачи; текст и тесты не изменились.",
+    "published_at": "2026-10-01T00:00:00Z"
+  }
+]

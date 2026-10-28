@@ -64,7 +64,9 @@ class PipelineInfo(BaseModel):
     submit: list[PipelineStage]
 
 
-class ProblemDetail(BaseModel):
+class ProblemVersionDetail(BaseModel):
+    """A version of a problem: its data never changes once published."""
+
     slug: str
     number: int
     version: int
@@ -84,3 +86,15 @@ class ProblemDetail(BaseModel):
     )
     changelog: str | None = Field(description="What changed since the previous version")
     published_at: datetime
+
+
+class ProblemDetail(ProblemVersionDetail):
+    """The current version of a problem and its statistics, which change between versions."""
+
+    acceptance: float | None = Field(
+        ge=0,
+        le=1,
+        examples=[0.41],
+        description="As in the catalogue: the share of the authors with a judged Submit whose "
+        "Submit was accepted; null before the first one (FR-CAT-04)",
+    )

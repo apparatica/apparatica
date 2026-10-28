@@ -197,6 +197,10 @@ def test_catalogue_acceptance_rates(api: TestClient, catalogue: str) -> None:
             "counter-mod-n",
             "seq-detector",
         ]
+        # The page of a problem shows the same rate; a version, whose data never changes, does not.
+        assert api.get("/api/v1/problems/mux4").json()["acceptance"] == 0.75
+        assert api.get("/api/v1/problems/seq-detector").json()["acceptance"] is None
+        assert "acceptance" not in api.get(f"/api/v1/problems/mux4/versions/{MUX4}").json()
     finally:
         run(catalogue, clear_stats)
 
@@ -251,6 +255,7 @@ def test_problem_is_its_current_version(api: TestClient) -> None:
     assert problem["tests"] == {"public": 2, "hidden": 2}
     assert problem["changelog"] == load_manifest(PROBLEMS / "mux4").changelog
     assert problem["published_at"].endswith("Z") or "+00:00" in problem["published_at"]
+    assert problem["acceptance"] is None  # no stats yet
 
 
 def test_versions_up_to_the_current_one(api: TestClient) -> None:

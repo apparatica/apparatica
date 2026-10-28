@@ -10,7 +10,6 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { NextIntlClientProvider } from "next-intl";
 import { getTranslations } from "next-intl/server";
-import type { ReactNode } from "react";
 
 import { AppShell } from "@/components/shell/app-shell";
 import { Toaster } from "@/components/ui/toast";
@@ -28,7 +27,7 @@ export async function generateMetadata(): Promise<Metadata> {
   };
 }
 
-export default async function RootLayout({ children }: { children: ReactNode }) {
+export default async function RootLayout({ children, breadcrumbs, statusbar }: LayoutProps<"/">) {
   const theme = parseTheme((await cookies()).get(THEME_COOKIE)?.value);
   return (
     // An explicit choice is rendered by the server; "system" is set by THEME_SCRIPT before the
@@ -45,7 +44,7 @@ export default async function RootLayout({ children }: { children: ReactNode }) 
         <NextIntlClientProvider>
           <QueryProvider>
             <TooltipProvider>
-              <AppShell theme={theme}>
+              <AppShell theme={theme} breadcrumbs={breadcrumbs} statusbar={statusbar}>
                 {process.env.NEXT_PUBLIC_API_MOCKING === "enabled" ? (
                   <ApiMocking>{children}</ApiMocking>
                 ) : (

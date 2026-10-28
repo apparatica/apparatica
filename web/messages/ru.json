@@ -166,5 +166,60 @@
       "inout": "двунаправленный",
       "signed": "{width}, со знаком"
     }
+  },
+  "problem": {
+    "acceptance": "принято <value>{percent}%</value>",
+    "acceptanceUnknown": "принято <value>—</value>",
+    "acceptanceHint": "Доля участников, чей Submit принят, среди всех, кто отправлял Submit",
+    "tabs": {
+      "label": "Разделы задачи",
+      "statement": "Условие"
+    },
+    "panels": {
+      "columns": "Ширина условия",
+      "rows": "Высота редактора"
+    },
+    "editor": {
+      "label": "Код решения {file}",
+      "saved": "Черновик сохранён",
+      "loading": "Загружаем редактор…",
+      "reset": "Сбросить к шаблону",
+      "run": "Run",
+      "runHint": "Run: открытые тесты",
+      "submit": "Submit",
+      "submitHint": "Submit: полная проверка"
+    },
+    "resetDialog": {
+      "title": "Сбросить к шаблону?",
+      "description": "Код в редакторе заменится шаблоном задачи. Вернуть его можно через {undo}.",
+      "confirm": "Сбросить",
+      "cancel": "Отмена"
+    },
+    "updated": {
+      "title": "Задача обновлена до версии {version}",
+      "description": "Черновик написан для версии {draft}, с тех пор шаблон изменился.",
+      "changes": "Что изменилось",
+      "reset": "Сбросить к шаблону",
+      "dismiss": "Оставить черновик"
+    },
+    "results": {
+      "label": "Результаты проверки",
+      "emptyTitle": "Результатов пока нет",
+      "emptyDescription": "Напишите решение в редакторе и нажмите <b>Run</b>: проверка пойдёт на открытых тестах. <b>Submit</b> запускает полную проверку.",
+      "runShortcut": "— Run",
+      "submitShortcut": "— Submit",
+      "cancel": "Отменить",
+      "startFailed": "Проверку не удалось запустить"
+    },
+    "status": {
+      "label": "Строка состояния",
+      "mode": "Практика",
+      "saved": "Автосохранение {time}",
+      "cursor": "Стр {line}, Стлб {column}",
+      "loading": "Загружаем задачу…"
+    },
+    "language": {
+      "systemverilog": "SystemVerilog"
+    }
   }
 }

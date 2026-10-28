@@ -1,21 +1,27 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
+import Link from "next/link";
 import { expect, it, vi } from "vitest";
 
 import { Button } from "./button";
 import { Shortcut } from "./kbd";
 
-it("has the four looks of sheet CmpD", () => {
+it("has the four looks of sheet CmpD and the outline of Run", () => {
   render(
     <>
       <Button variant="primary">Submit</Button>
       <Button>Run</Button>
+      <Button variant="outline">Run на открытых</Button>
       <Button variant="ghost">Сбросить</Button>
       <Button variant="selected">Режим</Button>
     </>,
   );
   expect(screen.getByRole("button", { name: "Submit" })).toHaveClass("bg-ac", "text-acx");
   expect(screen.getByRole("button", { name: "Run" })).toHaveClass("bg-sf", "border-bc");
+  expect(screen.getByRole("button", { name: "Run на открытых" })).toHaveClass(
+    "border-ac",
+    "text-ac",
+  );
   expect(screen.getByRole("button", { name: "Сбросить" })).toHaveClass("border-transparent");
   expect(screen.getByRole("button", { name: "Режим" })).toHaveClass("bg-acs", "border-ac");
 });
@@ -48,7 +54,7 @@ it("is an icon button with a label, and a link when asked", () => {
         <svg aria-hidden="true" />
       </Button>
       <Button asChild variant="primary">
-        <a href="/problems">К задачам</a>
+        <Link href="/problems">К задачам</Link>
       </Button>
     </>,
   );

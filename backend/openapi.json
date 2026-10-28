@@ -263,7 +263,7 @@
           "problems"
         ],
         "summary": "Get Problem",
-        "description": "The current version of a published problem.",
+        "description": "The current version of a published problem and its acceptance rate.",
         "operationId": "get_problem",
         "parameters": [
           {
@@ -329,7 +329,7 @@
           "problems"
         ],
         "summary": "Get Problem Version",
-        "description": "A version up to the current one; its data never changes, so it is cached for a year.",
+        "description": "A version up to the current one; its data never changes, so it is cached for a year (the\nacceptance rate, which changes, is only in `GET /problems/{slug}`).",
         "operationId": "get_problem_version",
         "parameters": [
           {
@@ -360,7 +360,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/ProblemDetail"
+                  "$ref": "#/components/schemas/ProblemVersionDetail"
                 }
               }
             }
@@ -1979,6 +1979,23 @@
             "type": "string",
             "format": "date-time",
             "title": "Published At"
+          },
+          "acceptance": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 1.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Acceptance",
+            "description": "As in the catalogue: the share of the authors with a judged Submit whose Submit was accepted; null before the first one (FR-CAT-04)",
+            "examples": [
+              0.41
+            ]
           }
         },
         "type": "object",
@@ -1999,9 +2016,11 @@
           "pipeline",
           "tests",
           "changelog",
-          "published_at"
+          "published_at",
+          "acceptance"
         ],
-        "title": "ProblemDetail"
+        "title": "ProblemDetail",
+        "description": "The current version of a problem and its statistics, which change between versions."
       },
       "ProblemListItem": {
         "properties": {
@@ -2102,6 +2121,128 @@
           "progress"
         ],
         "title": "ProblemPage"
+      },
+      "ProblemVersionDetail": {
+        "properties": {
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "number": {
+            "type": "integer",
+            "title": "Number"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "current_version": {
+            "type": "integer",
+            "title": "Current Version",
+            "description": "The version that new submissions are checked on"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "difficulty": {
+            "type": "string",
+            "title": "Difficulty"
+          },
+          "tags": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Tags"
+          },
+          "language": {
+            "type": "string",
+            "title": "Language",
+            "examples": [
+              "systemverilog"
+            ]
+          },
+          "resource_class": {
+            "type": "string",
+            "title": "Resource Class",
+            "description": "heavy: not for guests",
+            "examples": [
+              "light"
+            ]
+          },
+          "statement_md": {
+            "type": "string",
+            "title": "Statement Md"
+          },
+          "template": {
+            "type": "string",
+            "title": "Template"
+          },
+          "top": {
+            "type": "string",
+            "title": "Top",
+            "description": "Name of the module the solution defines"
+          },
+          "interface": {
+            "$ref": "#/components/schemas/Interface"
+          },
+          "pipeline": {
+            "$ref": "#/components/schemas/PipelineInfo"
+          },
+          "tests": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Tests",
+            "description": "Number of tests per group, e.g. public and hidden",
+            "examples": [
+              {
+                "public": 4
+              }
+            ]
+          },
+          "changelog": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Changelog",
+            "description": "What changed since the previous version"
+          },
+          "published_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Published At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "slug",
+          "number",
+          "version",
+          "current_version",
+          "title",
+          "difficulty",
+          "tags",
+          "language",
+          "resource_class",
+          "statement_md",
+          "template",
+          "top",
+          "interface",
+          "pipeline",
+          "tests",
+          "changelog",
+          "published_at"
+        ],
+        "title": "ProblemVersionDetail",
+        "description": "A version of a problem: its data never changes once published."
       },
       "QueueEvent": {
         "properties": {

@@ -5,3 +5,4 @@ storybook-static/
 src/lib/api/schema.d.ts
 public/mockServiceWorker.js
 src/mocks/scenarios/
+src/mocks/problem-versions.json

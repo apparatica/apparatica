@@ -3,6 +3,7 @@ import { render, type RenderOptions } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { type ReactElement, type ReactNode, useState } from "react";
 
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { createQueryClient } from "@/lib/query";
 
 import messages from "../../messages/ru.json";
@@ -19,7 +20,9 @@ export function Providers({ children }: { children: ReactNode }) {
   const [client] = useState(testQueryClient);
   return (
     <NextIntlClientProvider locale="ru" messages={messages} timeZone="Europe/Moscow">
-      <QueryClientProvider client={client}>{children}</QueryClientProvider>
+      <QueryClientProvider client={client}>
+        <TooltipProvider>{children}</TooltipProvider>
+      </QueryClientProvider>
     </NextIntlClientProvider>
   );
 }

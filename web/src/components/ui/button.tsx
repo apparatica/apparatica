@@ -6,6 +6,7 @@ import type { ComponentProps } from "react";
 import { cn } from "@/lib/utils";
 
 // components.md, sheet CmpD: 30 px high (44 px on touch screens), radius 3 px, 12.5 px text.
+// `outline` is the accent outline of Run on the problem page (mock-up Bench).
 export const buttonVariants = cva(
   "inline-flex h-[30px] cursor-pointer items-center justify-center gap-[7px] rounded-md border px-2.5 text-[12.5px] whitespace-nowrap transition-colors disabled:cursor-not-allowed disabled:opacity-45 aria-disabled:cursor-not-allowed aria-disabled:opacity-45 pointer-coarse:h-11 [&_svg]:size-4 [&_svg]:shrink-0",
   {
@@ -13,6 +14,7 @@ export const buttonVariants = cva(
       variant: {
         primary: "border-ac bg-ac font-medium text-acx enabled:hover:opacity-90",
         default: "border-bc bg-sf text-tx enabled:hover:bg-sf2",
+        outline: "border-ac bg-sf text-ac enabled:hover:bg-acs",
         ghost:
           "border-transparent bg-transparent text-mu enabled:hover:bg-sf2 enabled:hover:text-tx",
         selected: "border-ac bg-acs text-ac",

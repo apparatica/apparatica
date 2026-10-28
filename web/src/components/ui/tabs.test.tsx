@@ -4,7 +4,7 @@ import { expect, it } from "vitest";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "./tabs";
 
-function Panel({ variant }: { variant?: "line" | "segmented" }) {
+function Panel({ variant }: { variant?: "line" | "segmented" | "panel" }) {
   return (
     <Tabs defaultValue="statement">
       <TabsList variant={variant} aria-label="Вкладки">
@@ -34,7 +34,7 @@ it("switches tabs by click and by arrows, skipping a disabled one", async () => 
   expect(screen.getByRole("tab", { name: "Рейтинг" })).toBeDisabled();
 });
 
-it("underlines the active tab or fills the chosen segment", () => {
+it("underlines the active tab, fills the chosen segment or lifts the active panel", () => {
   const { unmount } = render(<Panel />);
   expect(screen.getByRole("tablist")).toHaveClass("border-b");
   expect(screen.getByRole("tab", { name: "Условие" })).toHaveClass(
@@ -42,7 +42,16 @@ it("underlines the active tab or fills the chosen segment", () => {
   );
   unmount();
 
-  render(<Panel variant="segmented" />);
+  const segmented = render(<Panel variant="segmented" />);
   expect(screen.getByRole("tablist")).toHaveClass("rounded-md", "border-bc");
   expect(screen.getByRole("tab", { name: "Условие" })).toHaveClass("data-[state=active]:bg-acs");
+  segmented.unmount();
+
+  render(<Panel variant="panel" />);
+  expect(screen.getByRole("tablist")).toHaveClass("bg-sf2", "border-b");
+  expect(screen.getByRole("tab", { name: "Условие" })).toHaveClass(
+    "h-9",
+    "data-[state=active]:bg-sf",
+    "data-[state=active]:shadow-[inset_0_2px_0_var(--ac)]",
+  );
 });

@@ -81,7 +81,7 @@ export interface paths {
         };
         /**
          * Get Problem
-         * @description The current version of a published problem.
+         * @description The current version of a published problem and its acceptance rate.
          */
         get: operations["get_problem"];
         put?: never;
@@ -101,7 +101,8 @@ export interface paths {
         };
         /**
          * Get Problem Version
-         * @description A version up to the current one; its data never changes, so it is cached for a year.
+         * @description A version up to the current one; its data never changes, so it is cached for a year (the
+         *     acceptance rate, which changes, is only in `GET /problems/{slug}`).
          */
         get: operations["get_problem_version"];
         put?: never;
@@ -579,7 +580,10 @@ export interface components {
             /** Description */
             description?: string | null;
         };
-        /** ProblemDetail */
+        /**
+         * ProblemDetail
+         * @description The current version of a problem and its statistics, which change between versions.
+         */
         ProblemDetail: {
             /** Slug */
             slug: string;
@@ -640,6 +644,12 @@ export interface components {
              * Format: date-time
              */
             published_at: string;
+            /**
+             * Acceptance
+             * @description As in the catalogue: the share of the authors with a judged Submit whose Submit was accepted; null before the first one (FR-CAT-04)
+             * @example 0.41
+             */
+            acceptance: number | null;
         };
         /** ProblemListItem */
         ProblemListItem: {
@@ -687,6 +697,71 @@ export interface components {
              * @description Per level, in the order of the levels; solved counts arrive in phase 2
              */
             progress: components["schemas"]["DifficultyTotal"][];
+        };
+        /**
+         * ProblemVersionDetail
+         * @description A version of a problem: its data never changes once published.
+         */
+        ProblemVersionDetail: {
+            /** Slug */
+            slug: string;
+            /** Number */
+            number: number;
+            /** Version */
+            version: number;
+            /**
+             * Current Version
+             * @description The version that new submissions are checked on
+             */
+            current_version: number;
+            /** Title */
+            title: string;
+            /** Difficulty */
+            difficulty: string;
+            /** Tags */
+            tags: string[];
+            /**
+             * Language
+             * @example systemverilog
+             */
+            language: string;
+            /**
+             * Resource Class
+             * @description heavy: not for guests
+             * @example light
+             */
+            resource_class: string;
+            /** Statement Md */
+            statement_md: string;
+            /** Template */
+            template: string;
+            /**
+             * Top
+             * @description Name of the module the solution defines
+             */
+            top: string;
+            interface: components["schemas"]["Interface"];
+            pipeline: components["schemas"]["PipelineInfo"];
+            /**
+             * Tests
+             * @description Number of tests per group, e.g. public and hidden
+             * @example {
+             *       "public": 4
+             *     }
+             */
+            tests: {
+                [key: string]: number;
+            };
+            /**
+             * Changelog
+             * @description What changed since the previous version
+             */
+            changelog: string | null;
+            /**
+             * Published At
+             * Format: date-time
+             */
+            published_at: string;
         };
         /**
          * QueueEvent
@@ -1562,7 +1637,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ProblemDetail"];
+                    "application/json": components["schemas"]["ProblemVersionDetail"];
                 };
             };
             /** @description Not Found */

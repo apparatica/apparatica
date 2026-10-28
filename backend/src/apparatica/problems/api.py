@@ -9,7 +9,13 @@ from apparatica.core.db import get_session
 from apparatica.core.errors import ApiError, ErrorCode, problem_responses
 from apparatica.core.http import IMMUTABLE, cached_json
 from apparatica.problems import service
-from apparatica.problems.schemas import ProblemDetail, ProblemPage, Sort, Tag
+from apparatica.problems.schemas import (
+    ProblemDetail,
+    ProblemPage,
+    ProblemVersionDetail,
+    Sort,
+    Tag,
+)
 
 router = APIRouter(tags=["problems"])
 
@@ -68,7 +74,7 @@ async def list_problems(
     openapi_extra=PHASE_0,
 )
 async def get_problem(request: Request, session: Session, slug: SlugPath) -> Response:
-    """The current version of a published problem."""
+    """The current version of a published problem and its acceptance rate."""
     problem = await service.get_problem(session, slug)
     if problem is None:
         raise ApiError(ErrorCode.NOT_FOUND, f"No published problem {slug!r}")
@@ -77,15 +83,16 @@ async def get_problem(request: Request, session: Session, slug: SlugPath) -> Res
 
 @router.get(
     "/problems/{slug}/versions/{version}",
-    response_model=ProblemDetail,
+    response_model=ProblemVersionDetail,
     responses=problem_responses(ErrorCode.NOT_FOUND, ErrorCode.VALIDATION_ERROR),
     openapi_extra=PHASE_0,
 )
 async def get_problem_version(
     request: Request, session: Session, slug: SlugPath, version: Annotated[int, Path(ge=1)]
 ) -> Response:
-    """A version up to the current one; its data never changes, so it is cached for a year."""
-    problem = await service.get_problem(session, slug, version)
+    """A version up to the current one; its data never changes, so it is cached for a year (the
+    acceptance rate, which changes, is only in `GET /problems/{slug}`)."""
+    problem = await service.get_problem_version(session, slug, version)
     if problem is None:
         raise ApiError(ErrorCode.NOT_FOUND, f"No published version {version} of {slug!r}")
     return cached_json(request, problem, IMMUTABLE)

@@ -27,8 +27,17 @@ function Logo() {
   );
 }
 
+export interface AppShellProps {
+  theme: Theme;
+  /** The path after the logo; a slot that pages fill. */
+  breadcrumbs?: ReactNode;
+  /** The status bar under the window, of the problem page only; a slot too. */
+  statusbar?: ReactNode;
+  children: ReactNode;
+}
+
 /** Header, left rail (bottom bar below 640 px) and the page; the layout of the mock-ups. */
-export function AppShell({ theme, children }: { theme: Theme; children: ReactNode }) {
+export function AppShell({ theme, breadcrumbs, statusbar, children }: AppShellProps) {
   const t = useTranslations("shell");
   return (
     <ThemeProvider initial={theme}>
@@ -38,6 +47,7 @@ export function AppShell({ theme, children }: { theme: Theme; children: ReactNod
             <Logo />
             <span>{t("brand")}</span>
           </Link>
+          {breadcrumbs}
           <div className="flex-1" />
           <CommandPalette />
           <GuestMenu />
@@ -46,6 +56,7 @@ export function AppShell({ theme, children }: { theme: Theme; children: ReactNod
           <Rail />
           <main className="min-w-0 flex-1 bg-sf pb-14 sm:pb-0">{children}</main>
         </div>
+        {statusbar}
         <BottomNav />
       </div>
     </ThemeProvider>

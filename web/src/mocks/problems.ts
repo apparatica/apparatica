@@ -1,11 +1,20 @@
 // The problem catalogue of the mock API: the demo problems, filtered and sorted like GET /problems
-// does it (a search in the title and the tags, levels, tags, sorts, pages), and the tags.
+// does it (a search in the title and the tags, levels, tags, sorts, pages), the tags and the pages
+// of the problems: their current versions from problems/ (scripts/mock_problems.py).
 import { http, HttpResponse } from "msw";
 
 import type { Schemas } from "@/lib/api/client";
 
 import * as fixtures from "./fixtures";
-import { api } from "./http";
+import { api, problem as apiProblem } from "./http";
+import versions from "./problem-versions.json";
+
+/** A backend test validates the file against the API schema, which makes the cast safe. */
+const details = versions as Schemas["ProblemVersionDetail"][];
+
+function findVersion(slug: string): Schemas["ProblemVersionDetail"] | undefined {
+  return details.find((detail) => detail.slug === slug);
+}
 
 type Problem = Schemas["ProblemListItem"];
 
@@ -67,5 +76,21 @@ export const problemHandlers = [
       })),
     };
     return HttpResponse.json(body);
+  }),
+  http.get(api("/api/v1/problems/:slug"), ({ params }) => {
+    const slug = String(params.slug);
+    const found = findVersion(slug);
+    if (found === undefined) return apiProblem(404, "NOT_FOUND", `No published problem '${slug}'`);
+    const acceptance = fixtures.problems.find((item) => item.slug === slug)?.acceptance ?? null;
+    const body: Schemas["ProblemDetail"] = { ...found, acceptance };
+    return HttpResponse.json(body);
+  }),
+  http.get(api("/api/v1/problems/:slug/versions/:version"), ({ params }) => {
+    const slug = String(params.slug);
+    const found = findVersion(slug);
+    if (found === undefined || String(found.version) !== params.version) {
+      return apiProblem(404, "NOT_FOUND", `No published version ${String(params.version)}`);
+    }
+    return HttpResponse.json(found);
   }),
 ];

@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { act, renderHook, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
@@ -7,7 +7,7 @@ import { renderWithProviders } from "@/test/render";
 
 import { CommandPalette } from "./command-palette";
 import { GuestMenu } from "./guest-menu";
-import { ThemeProvider } from "./theme";
+import { ThemeProvider, useResolvedTheme } from "./theme";
 
 const router = vi.hoisted(() => ({ push: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => router }));
@@ -109,4 +109,17 @@ it("closes the palette by Escape and by Ctrl+K, and starts it empty", async () =
   expect(screen.getByRole("combobox")).toHaveValue("");
   await user.keyboard("{Control>}k{/Control}");
   expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+});
+
+it("follows the theme on screen for what CSS cannot colour", async () => {
+  const { result } = renderHook(() => useResolvedTheme());
+  expect(result.current).toBe("light"); // no attribute yet
+  act(() => {
+    document.documentElement.dataset["theme"] = "dark";
+  });
+  await waitFor(() => expect(result.current).toBe("dark"));
+  act(() => {
+    document.documentElement.dataset["theme"] = "light";
+  });
+  await waitFor(() => expect(result.current).toBe("light"));
 });
