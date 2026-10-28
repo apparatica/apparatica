@@ -112,7 +112,7 @@ it("runs the code of the editor on Ctrl+Enter, from the editor too", async () =>
   // The editor got no new line: the shortcut stopped there.
   expect(area.value).toBe(`${FIFO.template}// mine`);
   const results = screen.getByRole("region", { name: "Результаты проверки" });
-  expect(await within(results).findByText("Принято")).toBeInTheDocument();
+  expect(await within(results).findByText("Открытые тесты пройдены")).toBeInTheDocument();
   // The draft was saved before the check.
   expect(readDraft("sync-fifo")?.code).toBe(`${FIFO.template}// mine`);
 });
@@ -136,7 +136,7 @@ it("shows the progress of a check on its button and waits with the other one", a
   await editor();
   await userEvent.click(screen.getByRole("button", { name: /Submit/ }));
   const results = screen.getByRole("region", { name: "Результаты проверки" });
-  expect(await within(results).findByText(/В очереди/)).toBeInTheDocument();
+  expect(await within(results).findByText(/^В очереди/)).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /Submit/ })).toHaveAttribute("aria-busy", "true");
   expect(screen.getByRole("button", { name: /Run/ })).toBeDisabled();
   await userEvent.click(within(results).getByRole("button", { name: "Отменить" }));

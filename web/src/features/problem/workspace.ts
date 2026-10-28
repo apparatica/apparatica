@@ -20,6 +20,8 @@ export type SolutionEditor = Pick<
   | "onDidChangeModelContent"
   | "onDidChangeCursorPosition"
   | "focus"
+  | "setPosition"
+  | "revealLineInCenter"
 >;
 
 export interface WorkspaceSnapshot {
@@ -116,6 +118,15 @@ export class Workspace {
     editor.pushUndoStop();
     editor.focus();
     this.acknowledge();
+  }
+
+  /** Puts the cursor on a line of the solution and scrolls to it: links in the results. */
+  reveal(line: number, column = 1): void {
+    const editor = this.editor;
+    if (editor === null) return;
+    editor.setPosition({ lineNumber: line, column });
+    editor.revealLineInCenter(line);
+    editor.focus();
   }
 
   /** The notice about the new version was read: the draft is saved for the current version. */

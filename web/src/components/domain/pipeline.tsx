@@ -48,6 +48,8 @@ export interface StageView {
   detail?: string | undefined;
   /** The time of the stage; of a running stage, the time so far. */
   durationMs?: number | null | undefined;
+  /** The whole detail on hover, when the block is too narrow for it. */
+  title?: string | undefined;
 }
 
 export type PipelineStageProps = StageView & ComponentProps<"div">;

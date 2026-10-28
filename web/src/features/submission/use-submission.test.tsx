@@ -125,7 +125,7 @@ it("waits between reconnects", async () => {
 
   act(() => result.current.start({ kind: "run", code: CODE }));
   await waitFor(() => expect(result.current.connection?.state).toBe("waiting"));
-  expect(result.current.connection).toMatchObject({ state: "waiting", retry: 1 });
+  expect(result.current.connection).toMatchObject({ state: "waiting", retry: 1, retries: 1 });
   const waiting = result.current.connection;
   if (waiting?.state === "waiting") expect(waiting.at - waiting.lostAt).toBe(60_000);
 });
@@ -137,8 +137,10 @@ it("cancels the check", async () => {
   act(() => result.current.start({ kind: "run", code: CODE }));
   await waitFor(() => expect(result.current.check?.status).toBe("running"));
 
+  expect(result.current.cancelRequested).toBe(false);
   act(() => result.current.cancel());
   await waitFor(() => expect(result.current.check?.status).toBe("cancelled"));
+  expect(result.current.cancelRequested).toBe(true);
   expect(result.current.cancelling).toBe(false);
   expect(result.current.error).toBeNull();
   expect(result.current.check?.stages.some((stage) => stage.status === "running")).toBe(false);
@@ -161,6 +163,26 @@ it("restores the last submission of the problem and replays its console", async 
   expect(linesOf(result)).toEqual(recordedLines("wrong-answer"));
   expect(result.current.submission?.id).toBe(result.current.check?.id);
   expect(readHistory()["sync-fifo"]?.status).toBe("attempted");
+});
+
+it("follows a newer submission of the problem on request", async () => {
+  configureMocks({ speed: Infinity });
+  const { result } = setup();
+  await ready(result);
+  act(() => result.current.start({ kind: "run", code: CODE }));
+  await waitFor(() => expect(result.current.connection?.state).toBe("closed"));
+  const shown = result.current.check?.id;
+  await expect(act(() => result.current.showLatest())).resolves.toBe(false);
+  expect(result.current.check?.id).toBe(shown);
+
+  // Another tab checks the problem.
+  const client = createApiClient({ baseUrl: "http://localhost" });
+  const created = await client.POST("/api/v1/submissions", {
+    body: { problem: "sync-fifo", version: 1, kind: "submit", code: CODE },
+  });
+  await expect(act(() => result.current.showLatest())).resolves.toBe(true);
+  expect(result.current.check?.id).toBe(created.data?.id);
+  await waitFor(() => expect(result.current.check?.status).toBe("accepted"));
 });
 
 it("an accepted Submit solves the problem in the local history", async () => {

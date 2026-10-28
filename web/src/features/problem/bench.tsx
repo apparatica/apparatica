@@ -31,7 +31,15 @@ import { Workspace } from "./workspace";
 
 export type BenchProblem = Pick<
   Schemas["ProblemDetail"],
-  "slug" | "version" | "difficulty" | "template" | "top" | "language" | "changelog"
+  | "slug"
+  | "version"
+  | "difficulty"
+  | "template"
+  | "top"
+  | "language"
+  | "changelog"
+  | "pipeline"
+  | "tests"
 >;
 
 export interface BenchProps {
@@ -164,7 +172,13 @@ export function Bench({ problem, layout, children }: BenchProps) {
           </Panel>
           <ResizeHandle label={t("panels.rows")} vertical />
           <Panel id="results" minSize="15%">
-            <ResultsPanel submission={submission} />
+            <ResultsPanel
+              submission={submission}
+              problem={problem}
+              busy={busy !== null}
+              onCheck={start}
+              onReveal={(line, column) => workspace.reveal(line, column)}
+            />
           </Panel>
         </Group>
       </Panel>

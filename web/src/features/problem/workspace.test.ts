@@ -15,6 +15,8 @@ class FakeEditor {
   undoStops = 0;
   edits: unknown[] = [];
   focused = false;
+  position: { lineNumber: number; column: number } | null = null;
+  revealed: number | null = null;
   private readonly content = new Set<Listener<unknown>>();
   private readonly cursor = new Set<Listener<CursorEvent>>();
 
@@ -56,6 +58,12 @@ class FakeEditor {
       onDidChangeCursorPosition: subscribe(this.cursor),
       focus: () => {
         this.focused = true;
+      },
+      setPosition: (position: { lineNumber: number; column: number }) => {
+        this.position = position;
+      },
+      revealLineInCenter: (line: number) => {
+        this.revealed = line;
       },
     };
     return editor as unknown as SolutionEditor;
@@ -134,6 +142,17 @@ it("resets to the template as one undoable edit and focuses the editor", () => {
   expect(editor.value).toBe(TEMPLATE);
   expect(editor.edits).toEqual([{ range: "all", text: TEMPLATE, forceMoveMarkers: true }]);
   expect(editor.undoStops).toBe(2);
+  expect(editor.focused).toBe(true);
+});
+
+it("puts the cursor on a line and shows it", () => {
+  const space = workspace();
+  space.reveal(3); // no editor yet: nothing to do
+  const editor = new FakeEditor(space.initialCode());
+  space.attach(editor.asEditor());
+  space.reveal(3, 5);
+  expect(editor.position).toEqual({ lineNumber: 3, column: 5 });
+  expect(editor.revealed).toBe(3);
   expect(editor.focused).toBe(true);
 });
 

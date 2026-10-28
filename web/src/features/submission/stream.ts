@@ -12,8 +12,8 @@ export type Connection =
   /** `lostAt` is set while the stream is being restored after a loss. */
   | { state: "connecting"; lostAt: number | null }
   | { state: "open" }
-  /** Reconnect number `retry` at `at`. */
-  | { state: "waiting"; retry: number; at: number; lostAt: number }
+  /** Reconnect number `retry` of `retries` at `at`. */
+  | { state: "waiting"; retry: number; retries: number; at: number; lostAt: number }
   /** Given up: `error` when the API refused the stream (the submission is gone). */
   | { state: "failed"; lostAt: number | null; error: ApiError | null }
   /** `finalized` came: the stream is over. */
@@ -104,7 +104,7 @@ export function followEvents(options: FollowOptions): Follower {
       return;
     }
     retry += 1;
-    onConnection({ state: "waiting", retry, at: now + delay, lostAt });
+    onConnection({ state: "waiting", retry, retries: delays.length, at: now + delay, lostAt });
     timer = setTimeout(() => void connect(), delay);
   }
 

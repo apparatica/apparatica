@@ -44,12 +44,17 @@ export interface SubmissionState {
   /** The kind being created: Run or Submit shows its progress. */
   starting: Submission["kind"] | null;
   cancelling: boolean;
+  /** This page asked to cancel the check (and not another tab or a newer check). */
+  cancelRequested: boolean;
   /** The last start or cancel failed: `problem+json` from the API or a network error. */
   error: ApiError | Error | null;
   start: (input: StartInput) => void;
   cancel: () => void;
   /** "Connect now" after a lost connection. */
   reconnect: () => void;
+  /** "See the new one": follows the last submission of the problem if it is not the shown one.
+   * Resolves to false when there is none. */
+  showLatest: () => Promise<boolean>;
 }
 
 export function useSubmission({
@@ -141,11 +146,20 @@ export function useSubmission({
     restoring: check === null && latest.isPending,
     starting: create.isPending ? create.variables.kind : null,
     cancelling: cancel.isPending,
+    cancelRequested: id !== null && cancel.variables === id,
     error: create.error ?? cancel.error,
     start: (input) => create.mutate(input),
     cancel: () => {
       if (id !== null) cancel.mutate(id);
     },
     reconnect: () => store.reconnect(),
+    showLatest: async () => {
+      const { data } = await latest.refetch();
+      const found = data?.submission;
+      if (found == null || found.id === id) return false;
+      queryClient.setQueryData(submissionKeys.detail(found.id), found);
+      store.start(found);
+      return true;
+    },
   };
 }

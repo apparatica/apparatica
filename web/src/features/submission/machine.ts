@@ -28,6 +28,9 @@ export interface Check {
   stages: Stage[];
   /** The last heartbeat of the running stage. */
   heartbeat: Heartbeat | null;
+  /** When the running stage began, in `Date.now()` time of the browser: set by `stage_start`,
+   * moved by each heartbeat to its elapsed time. */
+  runningSince: number | null;
   console: ConsoleEntry[];
   /** The worker finished the pipeline; the verdict waits for `finalized`. */
   done: boolean;
@@ -78,6 +81,7 @@ export function checkOf(submission: Submission): Check {
     attempt: 0,
     stages: submission.stages.map(stageOf),
     heartbeat: null,
+    runningSince: null,
     console: [],
     done: finished,
     verdict: submission.verdict_detail,
@@ -97,8 +101,14 @@ function linesOf(event: Schemas["LogEvent"]): ConsoleEntry[] {
   return lines.map((text) => ({ kind: "line", stage: event.stage, ch: event.ch, text }));
 }
 
-/** The check after one event of its stream; `id` is the SSE id (null for `queue`). */
-export function applyEvent(check: Check, id: string | null, event: SubmissionEvent): Check {
+/** The check after one event of its stream; `id` is the SSE id (null for `queue`), `now` is when
+ * the event came. */
+export function applyEvent(
+  check: Check,
+  id: string | null,
+  event: SubmissionEvent,
+  now: number = Date.now(),
+): Check {
   if (id !== null && check.lastEventId !== null && compareEventIds(id, check.lastEventId) <= 0) {
     return check; // already applied: a replay after a reconnect
   }
@@ -110,6 +120,7 @@ export function applyEvent(check: Check, id: string | null, event: SubmissionEve
       attempt: event.attempt,
       stages: [],
       heartbeat: null,
+      runningSince: null,
       console: [],
       done: false,
     };
@@ -126,6 +137,7 @@ export function applyEvent(check: Check, id: string | null, event: SubmissionEve
         status: next.status === "queued" ? "running" : next.status,
         queue: null,
         heartbeat: null,
+        runningSince: now,
         stages: putStage(next.stages, {
           key: event.stage,
           type: event.stage_type,
@@ -145,7 +157,7 @@ export function applyEvent(check: Check, id: string | null, event: SubmissionEve
     case "log":
       return { ...next, console: [...next.console, ...linesOf(event)] };
     case "heartbeat":
-      return { ...next, heartbeat: event };
+      return { ...next, heartbeat: event, runningSince: now - event.elapsed_ms };
     case "test":
       return {
         ...next,
@@ -174,6 +186,7 @@ export function applyEvent(check: Check, id: string | null, event: SubmissionEve
       return {
         ...next,
         heartbeat: next.heartbeat?.stage === event.result.key ? null : next.heartbeat,
+        runningSince: null,
         stages: putStage(next.stages, event.result),
       };
     case "done":
@@ -186,6 +199,7 @@ export function applyEvent(check: Check, id: string | null, event: SubmissionEve
         verdict: event.verdict_detail,
         queue: null,
         heartbeat: null,
+        runningSince: null,
         done: true,
         stages: next.stages.map((stage) =>
           stage.status === "running"
