@@ -2,7 +2,7 @@ import { screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { applyEvent, type Check, checkOf } from "@/features/submission/machine";
+import { applyEvent, type Check, checkOf, markLost } from "@/features/submission/machine";
 import type { SubmissionState } from "@/features/submission/use-submission";
 import type { Schemas } from "@/lib/api/client";
 import versions from "@/mocks/problem-versions.json";
@@ -63,6 +63,9 @@ const finished = (name: ScenarioName) => playCheck(scenarios[name]);
 const pipeline = () => screen.getByRole("list", { name: "Конвейер проверки" });
 const stageOf = (title: string) =>
   within(pipeline()).getByText(title).closest<HTMLElement>("[data-status]");
+/** The buttons of the banner: not the controls of the result tabs. */
+const actions = () =>
+  screen.queryAllByRole("button").filter((button) => button.closest("[role=tabpanel]") === null);
 
 it("shows the pipeline that has not run and the hint before the first check", () => {
   renderPanel(stateOf(null));
@@ -142,7 +145,7 @@ describe("the verdict", () => {
     renderPanel(stateOf(finished("accepted")));
     expect(screen.getByText("Принято")).toBeInTheDocument();
     expect(screen.getByText("Все этапы пройдены, задача решена.")).toBeInTheDocument();
-    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    expect(actions()).toEqual([]);
   });
 
   it("of an accepted Submit with lint warnings", () => {
@@ -224,7 +227,7 @@ describe("a cancelled check", () => {
     expect(screen.getByText("Вы остановили проверку до вердикта.")).toBeInTheDocument();
     expect(stageOf("Симуляция")).toHaveTextContent("отменено");
     expect(screen.getByText(/^остановлено на \d+,\d с$/)).toBeInTheDocument();
-    expect(screen.queryByRole("button")).not.toBeInTheDocument();
+    expect(actions()).toEqual([]);
   });
 
   it("cancelled elsewhere leads to the new check", async () => {
@@ -317,4 +320,72 @@ describe("a lost stream", () => {
 it("tells screen readers the status of the check", () => {
   renderPanel(stateOf(finished("wrong-answer")));
   expect(screen.getByText("Проверка: Неверный ответ")).toHaveAttribute("aria-live", "polite");
+});
+
+describe("the console", () => {
+  const consoleOf = () => within(screen.getByRole("log", { name: "Вывод проверки" }));
+
+  it("tells the stages and the tests in words", () => {
+    renderPanel(stateOf(finished("wrong-answer")));
+    expect(screen.getByRole("tab", { name: "Консоль" })).toHaveAttribute("aria-selected", "true");
+    const output = consoleOf();
+    expect(output.getByText("── precheck")).toBeInTheDocument();
+    expect(output.getByText(/^precheck: пройден · \d+,\d с$/)).toHaveClass("text-ok");
+    expect(output.getByText("тест 1 из 2 пройден")).toHaveClass("text-ok");
+    expect(
+      output.getByText(
+        "тест 2 из 2 «заполнение до full и опустошение» упал на такте 30: full — ожидалось 1'h0, получено 1'h1",
+      ),
+    ).toHaveClass("text-er");
+    expect(
+      output.getByText(/^sim_run: упал тест заполнение до full и опустошение, такт 30 · /),
+    ).toHaveClass("text-er");
+  });
+
+  it("leads from a diagnostic to the line in the editor", async () => {
+    const { onReveal } = renderPanel(stateOf(finished("compile-error")));
+    const output = consoleOf();
+    expect(output.getByText(/^precheck: ошибка компиляции · /)).toHaveClass("text-er");
+    await userEvent.click(output.getByRole("button", { name: "solution.sv:16:19" }));
+    expect(onReveal).toHaveBeenCalledWith(16, 19);
+  });
+
+  it("tells the output limit", () => {
+    renderPanel(stateOf(finished("output-limit")));
+    const output = consoleOf();
+    expect(output.getByText("… вывод усечён на 16 кБ: этап остановлен")).toHaveClass("text-wn");
+    expect(output.getByText(/^sim_run: превышен лимит вывода · /)).toHaveClass("text-er");
+  });
+
+  it("shows the running test and the time of the step", () => {
+    const scenario = scenarios["run-passed"];
+    const check = playCheck(
+      scenario,
+      eventsUntil(scenario, (event) => event.type === "test"),
+    );
+    renderPanel(
+      stateOf({ ...check, runningSince: Date.now() - 1400 }, { connection: { state: "open" } }),
+    );
+    expect(consoleOf().getByText("тест 1 из 2 выполняется…")).toBeInTheDocument();
+    expect(consoleOf().getByText("sim_run · 1,4 с")).toBeInTheDocument();
+  });
+
+  it("marks the time the stream was lost and waits for it", () => {
+    const scenario = scenarios["run-passed"];
+    const check = markLost(
+      playCheck(
+        scenario,
+        eventsUntil(scenario, (event) => event.type === "test"),
+      ),
+      Date.now(),
+    );
+    const now = Date.now();
+    renderPanel(
+      stateOf(check, {
+        connection: { state: "waiting", retry: 1, retries: 5, at: now + 1000, lostAt: now },
+      }),
+    );
+    expect(consoleOf().getByText("┄┄ соединение потеряно в 12:30:00 ┄┄")).toBeInTheDocument();
+    expect(consoleOf().getByText("ожидаем поток…")).toBeInTheDocument();
+  });
 });

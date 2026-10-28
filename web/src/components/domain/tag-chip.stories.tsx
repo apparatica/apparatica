@@ -1,4 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
+import Link from "next/link";
 
 import { TagChip } from "./tag-chip";
 
@@ -15,5 +16,5 @@ export const Selected: Story = { args: { children: "CDC", selected: true } };
 export const Removable: Story = { args: { children: "FSM", removable: true } };
 /** A filter as a link: the chip look on the child. */
 export const AsLink: Story = {
-  args: { children: <a href="/problems?tag=fifo">FIFO</a>, asChild: true },
+  args: { children: <Link href="/problems?tag=fifo">FIFO</Link>, asChild: true },
 };

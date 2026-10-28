@@ -9,10 +9,16 @@ export type Status = Submission["status"];
 export type Stage = Schemas["StageResult"];
 export type Heartbeat = Schemas["HeartbeatEvent"];
 
-/** A row of the console: a line of a stage, the output limit, or a lost connection. */
+export type TestCase = Schemas["TestCase"];
+
+/** A row of the console in the order of the stream: the start of a stage, a line of its output, a
+ * finished test, the output limit, the end of a stage, or a lost connection. */
 export type ConsoleEntry =
+  | { kind: "stage"; stage: string }
   | { kind: "line"; stage: string; ch: Schemas["LogEvent"]["ch"]; text: string }
+  | { kind: "test"; stage: string; test: TestCase }
   | { kind: "truncated"; stage: string; limitKb: number }
+  | { kind: "end"; stage: Stage }
   | { kind: "lost"; at: number };
 
 export interface Check {
@@ -101,6 +107,15 @@ function linesOf(event: Schemas["LogEvent"]): ConsoleEntry[] {
   return lines.map((text) => ({ kind: "line", stage: event.stage, ch: event.ch, text }));
 }
 
+/** The console rows of a stage result: a stage reported without its start (taken from the cache)
+ * opens its section too; a skipped stage has no rows. */
+function endOf(console: readonly ConsoleEntry[], stage: Stage): ConsoleEntry[] {
+  if (stage.status === "skipped" || stage.status === "pending") return [];
+  const started = console.some((entry) => entry.kind === "stage" && entry.stage === stage.key);
+  const end: ConsoleEntry = { kind: "end", stage };
+  return started ? [end] : [{ kind: "stage", stage: stage.key }, end];
+}
+
 /** The check after one event of its stream; `id` is the SSE id (null for `queue`), `now` is when
  * the event came. */
 export function applyEvent(
@@ -138,6 +153,7 @@ export function applyEvent(
         queue: null,
         heartbeat: null,
         runningSince: now,
+        console: [...next.console, { kind: "stage", stage: event.stage }],
         stages: putStage(next.stages, {
           key: event.stage,
           type: event.stage_type,
@@ -161,6 +177,10 @@ export function applyEvent(
     case "test":
       return {
         ...next,
+        console:
+          event.test.status === "passed" || event.test.status === "failed"
+            ? [...next.console, { kind: "test", stage: event.stage, test: event.test }]
+            : next.console,
         stages: next.stages.map((stage) => {
           if (stage.key !== event.stage) return stage;
           const tests = stage.summary.tests;
@@ -187,12 +207,18 @@ export function applyEvent(
         ...next,
         heartbeat: next.heartbeat?.stage === event.result.key ? null : next.heartbeat,
         runningSince: null,
+        console: [...next.console, ...endOf(next.console, event.result)],
         stages: putStage(next.stages, event.result),
       };
     case "done":
       return { ...next, done: true };
-    case "finalized":
+    case "finalized": {
       // A check cancelled or lost before its stage ended leaves the stage running.
+      const stopped = event.status === "cancelled" ? "cancelled" : "error";
+      const stages = next.stages.map((stage): Stage =>
+        stage.status === "running" ? { ...stage, status: stopped } : stage,
+      );
+      const ended = stages.filter((stage, index) => stage !== next.stages[index]);
       return {
         ...next,
         status: event.status,
@@ -201,12 +227,10 @@ export function applyEvent(
         heartbeat: null,
         runningSince: null,
         done: true,
-        stages: next.stages.map((stage) =>
-          stage.status === "running"
-            ? { ...stage, status: event.status === "cancelled" ? "cancelled" : "error" }
-            : stage,
-        ),
+        console: [...next.console, ...ended.flatMap((stage) => endOf(next.console, stage))],
+        stages,
       };
+    }
   }
 }
 

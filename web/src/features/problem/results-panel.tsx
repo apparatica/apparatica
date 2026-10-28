@@ -1,8 +1,8 @@
 "use client";
 
 // The results panel of a problem page (specs/08 §3): the pipeline with the total time, the banner
-// of the check, and before the first check a hint on Run and Submit (mock-up BenchEmpty). The
-// result tabs come below the banner in T1.15b–T1.17.
+// of the check and the result tabs under it, and before the first check a hint on Run and Submit
+// (mock-up BenchEmpty). The tabs of the tests and the waves come in T1.16–T1.17.
 import { SquareTerminal } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
@@ -10,6 +10,7 @@ import type { ReactNode } from "react";
 import { useSeconds } from "@/components/domain/duration";
 import { Pipeline, type StageView } from "@/components/domain/pipeline";
 import { Shortcut } from "@/components/ui/kbd";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { type Check, isFinished, type Submission } from "@/features/submission/machine";
 import type { SubmissionState } from "@/features/submission/use-submission";
 import type { Schemas } from "@/lib/api/client";
@@ -17,6 +18,7 @@ import type { Schemas } from "@/lib/api/client";
 import { useNow } from "./clock";
 import { type BlockDetail, type BlockView, pipelineView } from "./pipeline-view";
 import { ResultBanner } from "./result-banner";
+import { ResultsConsole } from "./results-console";
 import { ResultsSkeleton } from "./skeletons";
 import { RUN_KEYS, SUBMIT_KEYS } from "./shortcuts";
 
@@ -125,6 +127,22 @@ export function ResultsPanel({ submission, problem, busy, onCheck, onReveal }: R
           {check !== null && t("announce", { status: tv(check.status) })}
         </p>
       </div>
+      {check !== null && (
+        <Tabs value="console" className="flex min-h-0 flex-1 flex-col">
+          <TabsList aria-label={t("tabs.label")} className="flex-none px-3.5">
+            <TabsTrigger value="console">{t("tabs.console")}</TabsTrigger>
+          </TabsList>
+          <TabsContent value="console" className="min-h-0 flex-1">
+            <ResultsConsole
+              check={check}
+              connection={submission.connection}
+              problem={problem}
+              runningMs={runningMs}
+              onReveal={onReveal}
+            />
+          </TabsContent>
+        </Tabs>
+      )}
       {check === null && (
         <div className="flex flex-1 flex-col items-center justify-center gap-2.5 border-t border-bd bg-ed px-10 text-center">
           <SquareTerminal size={22} className="text-mu" aria-hidden="true" />

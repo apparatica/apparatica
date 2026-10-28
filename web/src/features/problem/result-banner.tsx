@@ -18,7 +18,7 @@ import {
 import { useFormatter, useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
-import { useSeconds } from "@/components/domain/duration";
+import { useKilobytes, useSeconds } from "@/components/domain/duration";
 import { Button } from "@/components/ui/button";
 import { notify } from "@/components/ui/toast";
 import { isSolutionFile } from "@/features/editor/languages";
@@ -314,19 +314,14 @@ function CompileBanner({ check, problem, onReveal }: ResultBannerProps) {
 
 function LimitBanner({ check, submission }: ResultBannerProps) {
   const t = useTranslations("problem.results.banner");
-  const format = useFormatter();
+  const kilobytes = useKilobytes();
   const stage = failedStage(check);
   const limit = (stage === null ? null : limitOf(stage, check.verdict)) ?? check.verdict?.limit;
   const key = limit ?? "other";
   let title = t(`limit.${key}`);
   const truncated = check.console.findLast((entry) => entry.kind === "truncated");
   if (limit === "output" && truncated?.kind === "truncated") {
-    const kb = truncated.limitKb;
-    const size =
-      kb % 1024 === 0
-        ? format.number(kb / 1024, { style: "unit", unit: "megabyte" })
-        : format.number(kb, { style: "unit", unit: "kilobyte" });
-    title = t("limitOf", { title, size });
+    title = t("limitOf", { title, size: kilobytes(truncated.limitKb) });
   }
   const log = submission.submission?.artifacts.find(
     (artifact) =>

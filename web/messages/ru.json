@@ -135,6 +135,14 @@
     },
     "tag": {
       "remove": "сбросить"
+    },
+    "console": {
+      "label": "Вывод проверки",
+      "copy": "Копировать",
+      "copied": "Вывод скопирован",
+      "copyFailed": "Не удалось скопировать вывод",
+      "follow": "Прокрутка за выводом",
+      "bottom": "Вниз"
     }
   },
   "errors": {
@@ -308,6 +316,42 @@
         "connect": "Подключиться сейчас",
         "gone": "Проверка недоступна",
         "goneBody": "Сервер не нашёл эту отправку: возможно, её уже удалили по сроку хранения."
+      },
+      "tabs": {
+        "label": "Результаты",
+        "console": "Консоль"
+      },
+      "console": {
+        "empty": "Вывод появится, когда проверка начнётся.",
+        "diagnostic": "{at}: {message}",
+        "passedOne": "тест {index} из {total} пройден",
+        "passedRange": "тесты {from}–{to} из {total} пройдены",
+        "hiddenPassedOne": "скрытый тест {index} из {total} пройден",
+        "hiddenPassedRange": "скрытые тесты {from}–{to} из {total} пройдены",
+        "failed": "тест {index} из {total} «{name}» не пройден",
+        "failedCycle": "тест {index} из {total} «{name}» упал на такте {cycle}",
+        "failedMismatch": "тест {index} из {total} «{name}» упал на такте {cycle}: {signal} — ожидалось {expected}, получено {actual}",
+        "hiddenFailed": "скрытый тест {index} из {total} не пройден",
+        "running": "тест {index} из {total} выполняется…",
+        "hiddenRunning": "скрытый тест {index} из {total} выполняется…",
+        "step": "{name} · {time}",
+        "truncated": "… вывод усечён на {size}: этап остановлен",
+        "lost": "соединение потеряно в {time}",
+        "waiting": "ожидаем поток…",
+        "end": {
+          "line": "{stage}: {outcome}",
+          "timed": "{stage}: {outcome} · {time}",
+          "passed": "пройден",
+          "warnings": "{count, plural, one {# замечание} few {# замечания} many {# замечаний} other {# замечания}}",
+          "compile": "ошибка компиляции",
+          "forbidden": "запрещённая конструкция",
+          "wrong": "неверный ответ",
+          "limit": "превышен {limit}",
+          "limitOther": "остановлен по лимиту",
+          "cancelled": "отменён",
+          "error": "сбой платформы",
+          "errorCode": "сбой платформы · {code}"
+        }
       }
     },
     "status": {

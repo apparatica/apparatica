@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 
 import { type Scenario, type ScenarioName, scenarios } from "@/mocks/scenarios";
-import { foldEvents, queuedCheck } from "@/test/checks";
+import { foldEvents, playCheck, queuedCheck } from "@/test/checks";
 
-import { applyEvent, checkOf, compareEventIds, markLost } from "./machine";
+import { applyEvent, type Check, checkOf, compareEventIds, markLost } from "./machine";
 
 /** The console lines of the last attempt of a scenario. */
 function linesOf(scenario: Scenario): string[] {
@@ -86,7 +86,11 @@ it("starts the results over on a new attempt", () => {
   ]);
 
   const after = foldEvents(before, scenario.events.slice(second, second + 1));
-  expect(after).toMatchObject({ attempt: 2, status: "running", console: [] });
+  expect(after).toMatchObject({
+    attempt: 2,
+    status: "running",
+    console: [{ kind: "stage", stage: "precheck" }],
+  });
   expect(after.stages.map((stage) => [stage.key, stage.status])).toEqual([["precheck", "running"]]);
 });
 
@@ -140,13 +144,73 @@ it("times the running stage from its start, then from its heartbeats", () => {
   expect(check.runningSince).toBeNull();
 });
 
+/** The console without the output lines: kinds and stages. */
+const rows = (check: Check) =>
+  check.console.flatMap((entry) => {
+    switch (entry.kind) {
+      case "line":
+        return [];
+      case "lost":
+        return [`lost ${entry.at}`];
+      case "test":
+        return [`test ${entry.test.id} ${entry.test.status}`];
+      case "end":
+        return [`end ${entry.stage.key} ${entry.stage.status}`];
+      default:
+        return [`${entry.kind} ${entry.stage}`];
+    }
+  });
+
 it("keeps the output limit and the lost connection in the console", () => {
   const scenario = scenarios["output-limit"];
   const check = markLost(foldEvents(queuedCheck(scenario), scenario.events), 1000);
-  expect(check.console.filter((entry) => entry.kind !== "line")).toEqual([
-    { kind: "truncated", stage: "sim_run", limitKb: 16 },
-    { kind: "lost", at: 1000 },
+  expect(rows(check)).toEqual([
+    "stage precheck",
+    "end precheck passed",
+    "stage lint",
+    "end lint passed",
+    "stage sim_run",
+    "truncated sim_run",
+    "end sim_run failed",
+    "lost 1000",
   ]);
+});
+
+it("puts the stages and the finished tests into the console, not the skipped stages", () => {
+  expect(rows(playCheck(scenarios["wrong-answer-hidden"]))).toEqual([
+    "stage precheck",
+    "end precheck passed",
+    "stage lint",
+    "end lint passed",
+    "stage sim_full",
+    "test t1 passed",
+    "test t2 passed",
+    "test hidden-1 failed",
+    "end sim_full failed",
+  ]);
+  expect(rows(playCheck(scenarios["compile-error"]))).toEqual([
+    "stage precheck",
+    "end precheck failed",
+  ]);
+});
+
+it("ends in the console the stage a cancel or a platform failure stopped", () => {
+  expect(rows(playCheck(scenarios.cancelled)).slice(-2)).toEqual([
+    "stage sim_run",
+    "end sim_run cancelled",
+  ]);
+  expect(rows(playCheck(scenarios["internal-error"])).slice(-1)).toEqual(["end sim_run error"]);
+});
+
+it("opens the section of a stage reported without its start", () => {
+  const [precheck] = scenarios.accepted.submission.stages;
+  if (precheck === undefined) throw new Error("no precheck stage");
+  const check = applyEvent(queuedCheck(scenarios.accepted), "1-0", {
+    type: "stage_end",
+    result: { ...precheck, limit: null, cached: true },
+    attempt: 1,
+  });
+  expect(rows(check)).toEqual(["stage precheck", "end precheck passed"]);
 });
 
 it("restores a finished check and replays its console over it", () => {

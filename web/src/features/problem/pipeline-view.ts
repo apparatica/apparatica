@@ -6,6 +6,7 @@ import {
   type PipelineBlock,
   type StageStatus,
 } from "@/components/domain/pipeline";
+import { isSolutionFile } from "@/features/editor/languages";
 import type { Check, Stage } from "@/features/submission/machine";
 import type { Schemas } from "@/lib/api/client";
 
@@ -211,6 +212,15 @@ export function firstError(check: Check): Schemas["Diagnostic"] | null {
 /** Lint warnings of an accepted check. */
 export function lintWarnings(check: Check): number {
   return countWarnings(check.stages.filter((stage) => BLOCKS[stage.type] === "lint"));
+}
+
+/** The diagnostics of precheck and lint on lines of the solution: the markers of the editor
+ * (FR-EDT-05). */
+export function editorDiagnostics(check: Check | null, language: string): Schemas["Diagnostic"][] {
+  return (check?.stages ?? [])
+    .filter((stage) => BLOCKS[stage.type] === "lint")
+    .flatMap((stage) => stage.summary.diagnostics)
+    .filter((item) => item.line != null && isSolutionFile(item.file ?? null, language));
 }
 
 /** "Test N of M" of a running simulation: the tests reported so far and how many there are. */

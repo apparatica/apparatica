@@ -6,7 +6,14 @@ import versions from "@/mocks/problem-versions.json";
 import { type ScenarioName, scenarios } from "@/mocks/scenarios";
 import { eventsUntil, playCheck, queuedCheck } from "@/test/checks";
 
-import { failureOf, firstError, lintWarnings, pipelineView, testProgress } from "./pipeline-view";
+import {
+  editorDiagnostics,
+  failureOf,
+  firstError,
+  lintWarnings,
+  pipelineView,
+  testProgress,
+} from "./pipeline-view";
 
 const FIFO = versions.find(
   (problem) => problem.slug === "sync-fifo",
@@ -175,6 +182,18 @@ it("finds the first error of a compile error", () => {
     message: "expected ';'",
     file: "solution.sv",
   });
+});
+
+it("marks in the editor the diagnostics of precheck and lint on the solution", () => {
+  expect(editorDiagnostics(playCheck(scenarios["compile-error"]), "systemverilog")).toEqual([
+    expect.objectContaining({ severity: "error", line: 16, col: 19, file: "solution.sv" }),
+  ]);
+  expect(
+    editorDiagnostics(playCheck(scenarios["accepted-with-warnings"]), "systemverilog"),
+  ).toEqual([expect.objectContaining({ severity: "warning", line: 13, code: "WIDTHTRUNC" })]);
+  // Another language knows no solution file; no check, no markers.
+  expect(editorDiagnostics(playCheck(scenarios["compile-error"]), "vhdl")).toEqual([]);
+  expect(editorDiagnostics(null, "systemverilog")).toEqual([]);
 });
 
 it("counts the lint warnings", () => {

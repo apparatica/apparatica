@@ -25,6 +25,7 @@ import { cn } from "@/lib/utils";
 import { clearEditorStatus } from "./editor-status";
 import { EditorPane, type VersionUpdate } from "./editor-pane";
 import { type BenchLayout, saveBenchLayout } from "./layout";
+import { editorDiagnostics } from "./pipeline-view";
 import { ResultsPanel } from "./results-panel";
 import { useCheckShortcuts } from "./shortcuts";
 import { Workspace } from "./workspace";
@@ -167,6 +168,7 @@ export function Bench({ problem, layout, children }: BenchProps) {
               problem={problem}
               update={update}
               busy={busy}
+              markers={editorDiagnostics(check, problem.language)}
               onCheck={start}
             />
           </Panel>

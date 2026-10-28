@@ -1,5 +1,6 @@
-// The editor language of a problem by its `language` (ADR-0011): the Monaco language and the
-// extension of the file. Monaco ships the Monarch grammar of SystemVerilog.
+// The editor language of a problem by its `language` (ADR-0011): the Monaco language, the
+// extension of the file and how the tools of the language mark their messages in the console.
+// Monaco ships the Monarch grammar of SystemVerilog.
 
 export interface EditorLanguage {
   /** The Monaco language id. */
@@ -7,13 +8,29 @@ export interface EditorLanguage {
   extension: string;
   /** The solution file as the judge names it in diagnostics; null if unknown. */
   judgeFile: string | null;
+  /** Output lines that are warnings or errors of the tools, by their start. */
+  outputTones: readonly { start: RegExp; tone: "warning" | "error" }[];
 }
 
 const LANGUAGES: Record<string, EditorLanguage> = {
-  systemverilog: { monaco: "systemverilog", extension: "sv", judgeFile: "solution.sv" },
+  systemverilog: {
+    monaco: "systemverilog",
+    extension: "sv",
+    judgeFile: "solution.sv",
+    // Verilator: `%Warning-WIDTHTRUNC: …`, `%Error: …`.
+    outputTones: [
+      { start: /^%Error\b/, tone: "error" },
+      { start: /^%Warning\b/, tone: "warning" },
+    ],
+  },
 };
 
-const PLAIN: EditorLanguage = { monaco: "plaintext", extension: "txt", judgeFile: null };
+const PLAIN: EditorLanguage = {
+  monaco: "plaintext",
+  extension: "txt",
+  judgeFile: null,
+  outputTones: [],
+};
 
 export function editorLanguage(language: string): EditorLanguage {
   return LANGUAGES[language] ?? PLAIN;

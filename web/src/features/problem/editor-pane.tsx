@@ -19,6 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { Shortcut, useApple } from "@/components/ui/kbd";
 import { Tooltip } from "@/components/ui/tooltip";
+import type { Diagnostic } from "@/features/editor/code-editor";
 import { editorLanguage, solutionFile } from "@/features/editor/languages";
 import { ariaKeys, formatKeys } from "@/lib/shortcuts";
 
@@ -45,10 +46,19 @@ export interface EditorPaneProps {
   update: VersionUpdate | null;
   /** The kind being started or checked: its button shows progress, the other one waits. */
   busy: "run" | "submit" | null;
+  /** Diagnostics of the last check on lines of the solution. */
+  markers: readonly Diagnostic[];
   onCheck: (kind: "run" | "submit") => void;
 }
 
-export function EditorPane({ workspace, problem, update, busy, onCheck }: EditorPaneProps) {
+export function EditorPane({
+  workspace,
+  problem,
+  update,
+  busy,
+  markers,
+  onCheck,
+}: EditorPaneProps) {
   const t = useTranslations("problem");
   const apple = useApple();
   const [confirming, setConfirming] = useState(false);
@@ -127,6 +137,7 @@ export function EditorPane({ workspace, problem, update, busy, onCheck }: Editor
           path={`${problem.slug}/${file}`}
           label={t("editor.label", { file })}
           loading={<EditorSkeleton />}
+          markers={markers}
           onMount={(editor) => workspace.attach(editor)}
         />
       </div>
