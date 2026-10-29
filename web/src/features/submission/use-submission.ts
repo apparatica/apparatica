@@ -8,9 +8,10 @@ import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/reac
 import { useEffect, useState, useSyncExternalStore } from "react";
 
 import { recordCheck } from "@/features/guest/history";
+import { rememberSubmissions } from "@/features/guest/submissions";
 import type { ApiError, Schemas } from "@/lib/api/client";
 
-import { api, eventsUrl, getLatest, getSubmission, submissionKeys } from "./api";
+import { api, eventsUrl, getRecent, getSubmission, submissionKeys } from "./api";
 import { type Check, isFinished, type Submission } from "./machine";
 import { SubmissionStore } from "./store";
 import type { Connection } from "./stream";
@@ -27,6 +28,8 @@ export interface UseSubmissionOptions {
   version: number;
   /** The level of the problem, for the local history. */
   difficulty: string;
+  /** The page was opened for this submission (`?submission=`): it is restored, not the last one. */
+  wanted?: string | null | undefined;
   /** Delays of the reconnects; RECONNECT_DELAYS_MS by default. */
   reconnectDelaysMs?: readonly number[] | undefined;
 }
@@ -55,12 +58,16 @@ export interface SubmissionState {
   /** "See the new one": follows the last submission of the problem if it is not the shown one.
    * Resolves to false when there is none. */
   showLatest: () => Promise<boolean>;
+  /** Shows a submission of the problem from the list: its results, its stream. The shown one
+   * stays as it is. */
+  show: (submission: Submission) => void;
 }
 
 export function useSubmission({
   problem,
   version,
   difficulty,
+  wanted = null,
   reconnectDelaysMs,
 }: UseSubmissionOptions): SubmissionState {
   const queryClient = useQueryClient();
@@ -89,10 +96,12 @@ export function useSubmission({
     if (finished !== null) recordCheck({ ...finished, difficulty });
   }, [finished, difficulty]);
 
-  // Not cached between visits: the last submission may have changed meanwhile.
+  // Not cached between visits: the last submission may have changed meanwhile. The query also
+  // brings the local history up to date with the server.
+  const [opened] = useState(wanted);
   const latest = useQuery({
-    queryKey: submissionKeys.latest(problem),
-    queryFn: () => getLatest(problem),
+    queryKey: submissionKeys.recent(problem, opened),
+    queryFn: () => getRecent(problem, opened),
     gcTime: 0,
     refetchOnWindowFocus: false,
     refetchOnReconnect: false,
@@ -103,6 +112,24 @@ export function useSubmission({
     queryFn: id === null ? skipToken : () => getSubmission(id),
     staleTime: Infinity,
   });
+
+  // The shown submission goes to the local history with the status of its live check: queued,
+  // running, then the verdict of `finalized`.
+  const shown = detail.data;
+  const live = check?.id === shown?.id ? check : null;
+  const status = live?.status;
+  const verdict = live?.verdict;
+  useEffect(() => {
+    if (shown === undefined) return;
+    rememberSubmissions([
+      { ...shown, status: status ?? shown.status, verdict_detail: verdict ?? shown.verdict_detail },
+    ]);
+  }, [shown, status, verdict]);
+
+  const follow = (found: Submission) => {
+    queryClient.setQueryData(submissionKeys.detail(found.id), found);
+    store.start(found);
+  };
 
   const create = useMutation({
     mutationFn: async (input: StartInput) => {
@@ -154,12 +181,13 @@ export function useSubmission({
     },
     reconnect: () => store.reconnect(),
     showLatest: async () => {
-      const { data } = await latest.refetch();
-      const found = data?.submission;
-      if (found == null || found.id === id) return false;
-      queryClient.setQueryData(submissionKeys.detail(found.id), found);
-      store.start(found);
+      const found = (await getRecent(problem)).submission;
+      if (found === null || found.id === id) return false;
+      follow(found);
       return true;
+    },
+    show: (found) => {
+      if (found.id !== id) follow(found);
     },
   };
 }

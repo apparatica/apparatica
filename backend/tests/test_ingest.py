@@ -200,7 +200,7 @@ def test_redelivery_and_late_records_change_nothing(database_url: str) -> None:
         assert finalized is not None
         assert finalized.status == "wrong_answer"
         assert finalized.verdict_detail.first_failure == FirstFailure(
-            stage="sim_run", test="t2", cycle=7
+            stage="sim_run", test="t2", cycle=7, test_number=1
         )
         before = await state(database, submission)
         assert before["artifacts"] == [("log", "sim_run.log.zst", None)]  # Submit: kept

@@ -1,296 +1,320 @@
 {
-  "name": "forbidden-construct",
-  "submission": {
-    "id": "01a17755-dbf0-7689-849a-798276f2db38",
-    "problem": "counter-mod-n",
-    "problem_title": "Счётчик по модулю N",
-    "version": 1,
-    "kind": "run",
+ "name": "forbidden-construct",
+ "submission": {
+  "id": "01a18770-d080-7acd-9f4e-60fcfe0cf336",
+  "problem": "counter-mod-n",
+  "problem_title": "Счётчик по модулю N",
+  "version": 2,
+  "kind": "run",
+  "status": "forbidden_construct",
+  "verdict_detail": {
+   "first_failure": {
+    "stage": "precheck",
+    "test": null,
+    "cycle": null,
+    "test_number": null,
+    "hidden": null,
+    "diagnostic": {
+     "severity": "error",
+     "message": "конструкция TimingControlExpression: задержки и события в присваивании (<= #1 …) не синтезируются",
+     "code": "CONSTRUCT",
+     "file": "solution.sv",
+     "line": 16,
+     "col": 23,
+     "end_line": null,
+     "end_col": null
+    }
+   },
+   "limit": null,
+   "warnings": [],
+   "error_codes": []
+  },
+  "created_at": "2026-10-29T11:34:40+00:00",
+  "finished_at": "2026-10-29T11:34:43.951000+00:00",
+  "code": "module counter_mod_n #(\n  parameter int N = 10\n) (\n  input  logic                 clk,\n  input  logic                 rst,\n  input  logic                 en,\n  output logic [$clog2(N)-1:0] count,\n  output logic                 wrap\n);\n  localparam int W = $clog2(N);\n  localparam logic [W-1:0] LAST = W'(N - 1);\n\n  assign wrap = en && count == LAST;\n\n  always_ff @(posedge clk)\n    if (rst) count <= #1 '0;\n    else if (wrap) count <= #1 '0;\n    else if (en) count <= #1 count + 1'b1;\nendmodule\n",
+  "seed": "20261026",
+  "toolchain_profile": "sv-dev",
+  "waveview_url": null,
+  "queue_position": null,
+  "eta_s": null,
+  "started_at": "2026-10-29T11:34:40.970654+00:00",
+  "stages": [
+   {
+    "key": "precheck",
+    "type": "precheck",
+    "ordinal": 0,
+    "status": "failed",
+    "failure_kind": "forbidden",
+    "error_code": null,
+    "started_at": "2026-10-29T11:34:40.970654Z",
+    "duration_ms": 1943,
+    "metrics_schema": "precheck/v1",
+    "metrics": {},
+    "summary": {
+     "caption": null,
+     "skip_reason": null,
+     "diagnostics": [
+      {
+       "severity": "error",
+       "message": "конструкция TimingControlExpression: задержки и события в присваивании (<= #1 …) не синтезируются",
+       "code": "CONSTRUCT",
+       "file": "solution.sv",
+       "line": 16,
+       "col": 23,
+       "end_line": null,
+       "end_col": null
+      },
+      {
+       "severity": "error",
+       "message": "конструкция DelayControl: задержки # не синтезируются",
+       "code": "CONSTRUCT",
+       "file": "solution.sv",
+       "line": 16,
+       "col": 23,
+       "end_line": null,
+       "end_col": null
+      }
+     ],
+     "tests": [],
+     "hidden_tests": null
+    },
+    "finished_at": "2026-10-29T11:34:42.913654+00:00"
+   },
+   {
+    "key": "lint",
+    "type": "lint",
+    "ordinal": 1,
+    "status": "skipped",
+    "failure_kind": null,
+    "error_code": null,
+    "started_at": null,
+    "duration_ms": null,
+    "metrics_schema": null,
+    "metrics": {},
+    "summary": {
+     "caption": null,
+     "skip_reason": "previous_failed",
+     "diagnostics": [],
+     "tests": [],
+     "hidden_tests": null
+    },
+    "finished_at": null
+   },
+   {
+    "key": "sim_run",
+    "type": "sim",
+    "ordinal": 2,
+    "status": "skipped",
+    "failure_kind": null,
+    "error_code": null,
+    "started_at": null,
+    "duration_ms": null,
+    "metrics_schema": null,
+    "metrics": {},
+    "summary": {
+     "caption": null,
+     "skip_reason": "previous_failed",
+     "diagnostics": [],
+     "tests": [],
+     "hidden_tests": null
+    },
+    "finished_at": null
+   }
+  ],
+  "artifacts": [
+   {
+    "kind": "log",
+    "stage": "precheck",
+    "state": "ready",
+    "size_bytes": 0,
+    "waveform": null
+   },
+   {
+    "kind": "events",
+    "stage": null,
+    "state": "ready",
+    "size_bytes": 2888,
+    "waveform": null
+   }
+  ]
+ },
+ "events": [
+  {
+   "id": "1793273680000-0",
+   "event": {
+    "type": "queue",
+    "position": 2,
+    "eta_s": 4
+   }
+  },
+  {
+   "id": "1793273680600-0",
+   "event": {
+    "type": "queue",
+    "position": 1,
+    "eta_s": 2
+   }
+  },
+  {
+   "id": "1793273681888-0",
+   "event": {
+    "type": "stage_start",
+    "stage": "precheck",
+    "stage_type": "precheck",
+    "ordinal": 0,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1793273682888-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "precheck",
+    "elapsed_ms": 1000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1793273683831-0",
+   "event": {
+    "type": "stage_end",
+    "result": {
+     "key": "precheck",
+     "type": "precheck",
+     "ordinal": 0,
+     "status": "failed",
+     "failure_kind": "forbidden",
+     "limit": null,
+     "error_code": null,
+     "started_at": "2026-10-29T11:34:40.970654Z",
+     "duration_ms": 1943,
+     "metrics_schema": "precheck/v1",
+     "metrics": {},
+     "cached": false,
+     "summary": {
+      "caption": null,
+      "skip_reason": null,
+      "diagnostics": [
+       {
+        "severity": "error",
+        "message": "конструкция TimingControlExpression: задержки и события в присваивании (<= #1 …) не синтезируются",
+        "code": "CONSTRUCT",
+        "file": "solution.sv",
+        "line": 16,
+        "col": 23,
+        "end_line": null,
+        "end_col": null
+       },
+       {
+        "severity": "error",
+        "message": "конструкция DelayControl: задержки # не синтезируются",
+        "code": "CONSTRUCT",
+        "file": "solution.sv",
+        "line": 16,
+        "col": 23,
+        "end_line": null,
+        "end_col": null
+       }
+      ],
+      "tests": [],
+      "hidden_tests": null
+     }
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1793273683831-1",
+   "event": {
+    "type": "stage_end",
+    "result": {
+     "key": "lint",
+     "type": "lint",
+     "ordinal": 1,
+     "status": "skipped",
+     "failure_kind": null,
+     "limit": null,
+     "error_code": null,
+     "started_at": null,
+     "duration_ms": null,
+     "metrics_schema": null,
+     "metrics": {},
+     "cached": false,
+     "summary": {
+      "caption": null,
+      "skip_reason": "previous_failed",
+      "diagnostics": [],
+      "tests": [],
+      "hidden_tests": null
+     }
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1793273683831-2",
+   "event": {
+    "type": "stage_end",
+    "result": {
+     "key": "sim_run",
+     "type": "sim",
+     "ordinal": 2,
+     "status": "skipped",
+     "failure_kind": null,
+     "limit": null,
+     "error_code": null,
+     "started_at": null,
+     "duration_ms": null,
+     "metrics_schema": null,
+     "metrics": {},
+     "cached": false,
+     "summary": {
+      "caption": null,
+      "skip_reason": "previous_failed",
+      "diagnostics": [],
+      "tests": [],
+      "hidden_tests": null
+     }
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1793273683831-3",
+   "event": {
+    "type": "done",
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1793273683951-0",
+   "event": {
+    "type": "finalized",
     "status": "forbidden_construct",
     "verdict_detail": {
-      "first_failure": {
-        "stage": "precheck",
-        "test": null,
-        "cycle": null
-      },
-      "limit": null,
-      "warnings": [],
-      "error_codes": []
-    },
-    "created_at": "2026-10-26T08:31:18+00:00",
-    "finished_at": "2026-10-26T08:31:21.603000+00:00",
-    "code": "module counter_mod_n #(\n  parameter int N = 10\n) (\n  input  logic                 clk,\n  input  logic                 rst,\n  input  logic                 en,\n  output logic [$clog2(N)-1:0] count,\n  output logic                 wrap\n);\n  localparam int W = $clog2(N);\n  localparam logic [W-1:0] LAST = W'(N - 1);\n\n  assign wrap = en && count == LAST;\n\n  always_ff @(posedge clk)\n    if (rst) count <= #1 '0;\n    else if (wrap) count <= #1 '0;\n    else if (en) count <= #1 count + 1'b1;\nendmodule\n",
-    "seed": "20261026",
-    "toolchain_profile": "sv-dev",
-    "waveview_url": null,
-    "queue_position": null,
-    "eta_s": null,
-    "started_at": "2026-10-26T08:31:19.098352+00:00",
-    "stages": [
-      {
-        "key": "precheck",
-        "type": "precheck",
-        "ordinal": 0,
-        "status": "failed",
-        "failure_kind": "forbidden",
-        "error_code": null,
-        "started_at": "2026-10-26T08:31:19.098352Z",
-        "duration_ms": 1745,
-        "metrics_schema": "precheck/v1",
-        "metrics": {},
-        "summary": {
-          "caption": null,
-          "skip_reason": null,
-          "diagnostics": [
-            {
-              "severity": "error",
-              "message": "конструкция TimingControlExpression: задержки и события в присваивании (<= #1 …) не синтезируются",
-              "code": "CONSTRUCT",
-              "file": "solution.sv",
-              "line": 16,
-              "col": 23,
-              "end_line": null,
-              "end_col": null
-            },
-            {
-              "severity": "error",
-              "message": "конструкция DelayControl: задержки # не синтезируются",
-              "code": "CONSTRUCT",
-              "file": "solution.sv",
-              "line": 16,
-              "col": 23,
-              "end_line": null,
-              "end_col": null
-            }
-          ],
-          "tests": [],
-          "hidden_tests": null
-        },
-        "finished_at": "2026-10-26T08:31:20.843352+00:00"
-      },
-      {
-        "key": "lint",
-        "type": "lint",
-        "ordinal": 1,
-        "status": "skipped",
-        "failure_kind": null,
-        "error_code": null,
-        "started_at": null,
-        "duration_ms": null,
-        "metrics_schema": null,
-        "metrics": {},
-        "summary": {
-          "caption": null,
-          "skip_reason": "previous_failed",
-          "diagnostics": [],
-          "tests": [],
-          "hidden_tests": null
-        },
-        "finished_at": null
-      },
-      {
-        "key": "sim_run",
-        "type": "sim",
-        "ordinal": 2,
-        "status": "skipped",
-        "failure_kind": null,
-        "error_code": null,
-        "started_at": null,
-        "duration_ms": null,
-        "metrics_schema": null,
-        "metrics": {},
-        "summary": {
-          "caption": null,
-          "skip_reason": "previous_failed",
-          "diagnostics": [],
-          "tests": [],
-          "hidden_tests": null
-        },
-        "finished_at": null
+     "first_failure": {
+      "stage": "precheck",
+      "test": null,
+      "cycle": null,
+      "test_number": null,
+      "hidden": null,
+      "diagnostic": {
+       "severity": "error",
+       "message": "конструкция TimingControlExpression: задержки и события в присваивании (<= #1 …) не синтезируются",
+       "code": "CONSTRUCT",
+       "file": "solution.sv",
+       "line": 16,
+       "col": 23,
+       "end_line": null,
+       "end_col": null
       }
-    ],
-    "artifacts": [
-      {
-        "kind": "log",
-        "stage": "precheck",
-        "state": "ready",
-        "size_bytes": 0,
-        "waveform": null
-      },
-      {
-        "kind": "events",
-        "stage": null,
-        "state": "ready",
-        "size_bytes": 2543,
-        "waveform": null
-      }
-    ]
-  },
-  "events": [
-    {
-      "id": "1793003478000-0",
-      "event": {
-        "type": "queue",
-        "position": 2,
-        "eta_s": 4
-      }
-    },
-    {
-      "id": "1793003478600-0",
-      "event": {
-        "type": "queue",
-        "position": 1,
-        "eta_s": 2
-      }
-    },
-    {
-      "id": "1793003479737-0",
-      "event": {
-        "type": "stage_start",
-        "stage": "precheck",
-        "stage_type": "precheck",
-        "ordinal": 0,
-        "attempt": 1
-      }
-    },
-    {
-      "id": "1793003480737-0",
-      "event": {
-        "type": "heartbeat",
-        "stage": "precheck",
-        "elapsed_ms": 1000,
-        "note": null,
-        "attempt": 1
-      }
-    },
-    {
-      "id": "1793003481483-0",
-      "event": {
-        "type": "stage_end",
-        "result": {
-          "key": "precheck",
-          "type": "precheck",
-          "ordinal": 0,
-          "status": "failed",
-          "failure_kind": "forbidden",
-          "limit": null,
-          "error_code": null,
-          "started_at": "2026-10-26T08:31:19.098352Z",
-          "duration_ms": 1745,
-          "metrics_schema": "precheck/v1",
-          "metrics": {},
-          "cached": false,
-          "summary": {
-            "caption": null,
-            "skip_reason": null,
-            "diagnostics": [
-              {
-                "severity": "error",
-                "message": "конструкция TimingControlExpression: задержки и события в присваивании (<= #1 …) не синтезируются",
-                "code": "CONSTRUCT",
-                "file": "solution.sv",
-                "line": 16,
-                "col": 23,
-                "end_line": null,
-                "end_col": null
-              },
-              {
-                "severity": "error",
-                "message": "конструкция DelayControl: задержки # не синтезируются",
-                "code": "CONSTRUCT",
-                "file": "solution.sv",
-                "line": 16,
-                "col": 23,
-                "end_line": null,
-                "end_col": null
-              }
-            ],
-            "tests": [],
-            "hidden_tests": null
-          }
-        },
-        "attempt": 1
-      }
-    },
-    {
-      "id": "1793003481483-1",
-      "event": {
-        "type": "stage_end",
-        "result": {
-          "key": "lint",
-          "type": "lint",
-          "ordinal": 1,
-          "status": "skipped",
-          "failure_kind": null,
-          "limit": null,
-          "error_code": null,
-          "started_at": null,
-          "duration_ms": null,
-          "metrics_schema": null,
-          "metrics": {},
-          "cached": false,
-          "summary": {
-            "caption": null,
-            "skip_reason": "previous_failed",
-            "diagnostics": [],
-            "tests": [],
-            "hidden_tests": null
-          }
-        },
-        "attempt": 1
-      }
-    },
-    {
-      "id": "1793003481483-2",
-      "event": {
-        "type": "stage_end",
-        "result": {
-          "key": "sim_run",
-          "type": "sim",
-          "ordinal": 2,
-          "status": "skipped",
-          "failure_kind": null,
-          "limit": null,
-          "error_code": null,
-          "started_at": null,
-          "duration_ms": null,
-          "metrics_schema": null,
-          "metrics": {},
-          "cached": false,
-          "summary": {
-            "caption": null,
-            "skip_reason": "previous_failed",
-            "diagnostics": [],
-            "tests": [],
-            "hidden_tests": null
-          }
-        },
-        "attempt": 1
-      }
-    },
-    {
-      "id": "1793003481483-3",
-      "event": {
-        "type": "done",
-        "attempt": 1
-      }
-    },
-    {
-      "id": "1793003481603-0",
-      "event": {
-        "type": "finalized",
-        "status": "forbidden_construct",
-        "verdict_detail": {
-          "first_failure": {
-            "stage": "precheck",
-            "test": null,
-            "cycle": null
-          },
-          "limit": null,
-          "warnings": [],
-          "error_codes": []
-        }
-      }
+     },
+     "limit": null,
+     "warnings": [],
+     "error_codes": []
     }
-  ]
+   }
+  }
+ ]
 }

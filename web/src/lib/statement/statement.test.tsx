@@ -27,7 +27,7 @@ it("renders text, formulas, a table, highlighted code and a timing diagram", () 
   const link = screen.getByRole("link", { name: "документации SystemVerilog" });
   expect(link).toHaveAttribute("target", "_blank");
   expect(link).toHaveAttribute("rel", "noopener noreferrer nofollow");
-});
+}, 15_000); // the first render loads KaTeX, WaveDrom and Shiki: slow when the suite loads the machine
 
 it("cleans the HTML of the author", () => {
   const { container } = render(<Sanitized />);

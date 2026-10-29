@@ -53,14 +53,32 @@ def test_first_failed_stage_in_pipeline_order_decides() -> None:
 
 
 def test_verdict_detail() -> None:
-    summary = stage.StageSummary(tests=[FAILED_TEST])
+    passed = FAILED_TEST.model_copy(update={"id": "t6", "status": "passed", "cycle": None})
+    summary = stage.StageSummary(tests=[passed, FAILED_TEST])
     detail = aggregate([result("sim", "failed", failure_kind="wrong", summary=summary)]).detail
-    assert detail.first_failure is not None
-    assert (detail.first_failure.test, detail.first_failure.cycle) == ("t7", 143)
+    first = detail.first_failure
+    assert first is not None
+    assert (first.test, first.cycle, first.test_number, first.hidden) == ("t7", 143, 2, None)
     warned = aggregate([result("lint", "warning"), result("sim", "passed", 1)]).detail
     assert warned.warnings == ["lint"]
     errors = aggregate([result("sim", "error", error_code="OUTPUT_INVALID")]).detail
     assert errors.error_codes == ["OUTPUT_INVALID"]
+
+
+def test_first_failure_hidden_test_and_error() -> None:
+    hidden = stage.HiddenTests(total=8, passed=2, failed_index=3)
+    summary = stage.StageSummary(tests=[], hidden_tests=hidden)
+    first = aggregate([result("sim", "failed", failure_kind="wrong", summary=summary)]).detail
+    assert first.first_failure is not None
+    assert (first.first_failure.test, first.first_failure.hidden) == (None, hidden)
+    errors = [
+        stage.Diagnostic(severity="warning", message="unused"),
+        stage.Diagnostic(severity="error", message="expected ';'", file="solution.sv", line=18),
+    ]
+    summary = stage.StageSummary(diagnostics=errors)
+    compiled = aggregate([result("lint", "failed", failure_kind="compile", summary=summary)])
+    assert compiled.detail.first_failure is not None
+    assert compiled.detail.first_failure.diagnostic == errors[1]
 
 
 @pytest.mark.parametrize(

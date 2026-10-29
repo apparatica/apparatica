@@ -47,6 +47,21 @@ const STATUSES: Record<VerdictStatus, { icon: LucideIcon; tone: keyof typeof TON
   internal_error: { icon: OctagonAlert, tone: "outline" },
 };
 
+const TEXT_TONES: Record<keyof typeof TONES, string> = {
+  ok: "text-ok",
+  er: "text-er",
+  wn: "text-wn",
+  in: "text-in",
+  neutral: "text-mu",
+  outline: "text-er",
+};
+
+/** The icon of a status and its colour as text: rows that name a status without a badge. */
+export function verdictMark(status: VerdictStatus): { icon: LucideIcon; tone: string } {
+  const { icon, tone } = STATUSES[status];
+  return { icon, tone: TEXT_TONES[tone] };
+}
+
 export type VerdictBadgeProps = {
   status: VerdictStatus;
   /** queued: the place in the queue, "В очереди · позиция 3". */

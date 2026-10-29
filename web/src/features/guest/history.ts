@@ -3,7 +3,7 @@
 // The local history of a guest (FR-CAT-03): which problems this browser solved or tried. Checks
 // write it when they end; the catalogue reads it for the statuses and the progress summary. It
 // lives in localStorage, so it outlives the guest submissions on the server (14 days, ОВ-13).
-import { useSyncExternalStore } from "react";
+import { localStore } from "./local-store";
 
 export const HISTORY_KEY = "ap_history";
 const ACCEPTED: ReadonlySet<string> = new Set(["accepted", "accepted_with_warnings"]);
@@ -20,8 +20,6 @@ export interface HistoryEntry {
 export type History = Readonly<Record<string, HistoryEntry>>;
 
 const EMPTY: History = Object.freeze({});
-const listeners = new Set<() => void>();
-let cached: { raw: string | null; history: History } = { raw: null, history: EMPTY };
 
 function isEntry(value: unknown): value is HistoryEntry {
   if (typeof value !== "object" || value === null) return false;
@@ -29,8 +27,7 @@ function isEntry(value: unknown): value is HistoryEntry {
   return (status === "solved" || status === "attempted") && typeof difficulty === "string";
 }
 
-function parse(raw: string | null): History {
-  if (raw === null) return EMPTY;
+function parse(raw: string): History {
   try {
     const data = JSON.parse(raw) as { v?: unknown; problems?: unknown } | null;
     const problems = data?.v === 1 ? data.problems : null;
@@ -41,37 +38,10 @@ function parse(raw: string | null): History {
   }
 }
 
-function readRaw(): string | null {
-  try {
-    return localStorage.getItem(HISTORY_KEY);
-  } catch {
-    return null; // storage disabled: no history
-  }
-}
+const store = localStore(HISTORY_KEY, parse, EMPTY);
 
 /** The history of this browser; the same object while it does not change. */
-export function readHistory(): History {
-  const raw = readRaw();
-  if (raw !== cached.raw) cached = { raw, history: parse(raw) };
-  return cached.history;
-}
-
-function notify(): void {
-  for (const listener of listeners) listener();
-}
-
-function subscribe(listener: () => void): () => void {
-  listeners.add(listener);
-  // Another tab changed the history.
-  const onStorage = (event: StorageEvent) => {
-    if (event.key === HISTORY_KEY || event.key === null) listener();
-  };
-  window.addEventListener("storage", onStorage);
-  return () => {
-    listeners.delete(listener);
-    window.removeEventListener("storage", onStorage);
-  };
-}
+export const readHistory = (): History => store.read();
 
 /** A check of the problem ended with `status`: an accepted Submit solves it, any other check
  * tries it. A solved problem stays solved. */
@@ -87,15 +57,10 @@ export function recordCheck(check: {
   const status: ProblemStatus = solved || before?.status === "solved" ? "solved" : "attempted";
   if (before?.status === status && before.difficulty === check.difficulty) return;
   const problems = { ...history, [check.problem]: { status, difficulty: check.difficulty } };
-  try {
-    localStorage.setItem(HISTORY_KEY, JSON.stringify({ v: 1, problems }));
-  } catch {
-    return; // full or disabled: the history stays as it was
-  }
-  notify();
+  store.write({ v: 1, problems }); // full or disabled: the history stays as it was
 }
 
 /** The history; null on the server and while the page hydrates, where it is unknown. */
 export function useHistory(): History | null {
-  return useSyncExternalStore<History | null>(subscribe, readHistory, () => null);
+  return store.useValue();
 }

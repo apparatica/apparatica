@@ -45,6 +45,8 @@ export class Workspace {
   private snapshot: WorkspaceSnapshot = { ready: false, savedAt: null, draftVersion: null };
   private readonly listeners = new Set<() => void>();
   private draft: Draft | null | undefined;
+  /** Code opened before the editor loaded. */
+  private opened: string | null = null;
   private editor: SolutionEditor | null = null;
   private disposers: (() => void)[] = [];
   private timer: ReturnType<typeof setTimeout> | null = null;
@@ -63,7 +65,7 @@ export class Workspace {
 
   /** The code the editor opens with: the draft, or the template without one. */
   initialCode(): string {
-    return this.readDraft()?.code ?? this.options.template;
+    return this.opened ?? this.readDraft()?.code ?? this.options.template;
   }
 
   /** The code to check: the editor, or what it is about to open with. */
@@ -108,12 +110,24 @@ export class Workspace {
 
   /** Replaces the code with the template as one edit, so Ctrl+Z brings the code back. */
   reset(): void {
+    this.replace(this.options.template);
+  }
+
+  /** Replaces the code with `code` (the template, the code of a submission) as one edit, so
+   * Ctrl+Z brings the code back. The draft is saved for the current version. */
+  replace(code: string): void {
     const editor = this.editor;
     const model = editor?.getModel();
-    if (editor == null || model == null) return;
+    if (editor == null || model == null) {
+      // The editor is still loading: it opens with the code, saved as the draft if it can be.
+      this.opened = code;
+      this.draft = writeDraft(this.options.problem, { code, version: this.options.version });
+      this.set({ ...this.snapshot }); // the editor renders again with it
+      return;
+    }
     editor.pushUndoStop();
-    editor.executeEdits("reset", [
-      { range: model.getFullModelRange(), text: this.options.template, forceMoveMarkers: true },
+    editor.executeEdits("replace", [
+      { range: model.getFullModelRange(), text: code, forceMoveMarkers: true },
     ]);
     editor.pushUndoStop();
     editor.focus();

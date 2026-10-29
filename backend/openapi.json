@@ -1461,6 +1461,40 @@
               }
             ],
             "title": "Cycle"
+          },
+          "test_number": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Test Number",
+            "description": "Number of the failed open test in run order, from 1"
+          },
+          "hidden": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/HiddenTests"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set when a hidden test failed"
+          },
+          "diagnostic": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/Diagnostic"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "First error of the stage"
           }
         },
         "additionalProperties": false,
@@ -1468,7 +1502,8 @@
         "required": [
           "stage"
         ],
-        "title": "FirstFailure"
+        "title": "FirstFailure",
+        "description": "Where the check failed first: enough for a short reason in a list of submissions."
       },
       "HealthResponse": {
         "properties": {

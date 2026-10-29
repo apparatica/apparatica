@@ -1,7 +1,7 @@
 {
  "name": "wrong-answer",
  "submission": {
-  "id": "01a18364-2d98-7fb5-951d-549cf107adcf",
+  "id": "01a18770-1cd0-7b82-8577-ae40708607cd",
   "problem": "sync-fifo",
   "problem_title": "Синхронный FIFO",
   "version": 2,
@@ -11,21 +11,24 @@
    "first_failure": {
     "stage": "sim_run",
     "test": "t2",
-    "cycle": 30
+    "cycle": 30,
+    "test_number": 2,
+    "hidden": null,
+    "diagnostic": null
    },
    "limit": null,
    "warnings": [],
    "error_codes": []
   },
-  "created_at": "2026-10-28T16:42:23+00:00",
-  "finished_at": "2026-10-28T16:42:43.090000+00:00",
+  "created_at": "2026-10-29T11:33:54+00:00",
+  "finished_at": "2026-10-29T11:34:17.090000+00:00",
   "code": "module sync_fifo #(\n  parameter int WIDTH = 8,\n  parameter int DEPTH = 16\n) (\n  input  logic             clk,\n  input  logic             rst_n,\n  input  logic             push,\n  input  logic [WIDTH-1:0] wdata,\n  input  logic             pop,\n  output logic [WIDTH-1:0] rdata,\n  output logic             full,\n  output logic             empty\n);\n  localparam int AW = $clog2(DEPTH);\n\n  logic [WIDTH-1:0] mem [DEPTH];\n  logic [AW-1:0] wptr, rptr;\n  logic [AW:0] count;\n\n  wire do_push = push && !full;\n  wire do_pop = pop && !empty;\n\n  assign full = count == (AW + 1)'(DEPTH - 1);\n  assign empty = count == '0;\n  assign rdata = mem[rptr];\n\n  always_ff @(posedge clk) begin\n    if (do_push) mem[wptr] <= wdata;\n    if (!rst_n) begin\n      wptr <= '0;\n      rptr <= '0;\n      count <= '0;\n    end else begin\n      if (do_push) wptr <= wptr + 1'b1;\n      if (do_pop) rptr <= rptr + 1'b1;\n      count <= count + (AW + 1)'(do_push) - (AW + 1)'(do_pop);\n    end\n  end\nendmodule\n",
   "seed": "20261026",
   "toolchain_profile": "sv-dev",
   "waveview_url": null,
   "queue_position": null,
   "eta_s": null,
-  "started_at": "2026-10-28T16:42:24.294410+00:00",
+  "started_at": "2026-10-29T11:33:55.290250+00:00",
   "stages": [
    {
     "key": "precheck",
@@ -34,8 +37,8 @@
     "status": "passed",
     "failure_kind": null,
     "error_code": null,
-    "started_at": "2026-10-28T16:42:24.294410Z",
-    "duration_ms": 2099,
+    "started_at": "2026-10-29T11:33:55.290250Z",
+    "duration_ms": 2456,
     "metrics_schema": "precheck/v1",
     "metrics": {
      "code_hash": "aafe7bda67ef9354842747f978aa483f7f3b9999d9b5e538b73d37430161b995",
@@ -52,7 +55,7 @@
      "tests": [],
      "hidden_tests": null
     },
-    "finished_at": "2026-10-28T16:42:26.393410+00:00"
+    "finished_at": "2026-10-29T11:33:57.746250+00:00"
    },
    {
     "key": "lint",
@@ -61,8 +64,8 @@
     "status": "passed",
     "failure_kind": null,
     "error_code": null,
-    "started_at": "2026-10-28T16:42:26.394047Z",
-    "duration_ms": 1587,
+    "started_at": "2026-10-29T11:33:57.746306Z",
+    "duration_ms": 2014,
     "metrics_schema": "lint/v1",
     "metrics": {
      "warnings": 0,
@@ -76,7 +79,7 @@
      "tests": [],
      "hidden_tests": null
     },
-    "finished_at": "2026-10-28T16:42:27.981047+00:00"
+    "finished_at": "2026-10-29T11:33:59.760306+00:00"
    },
    {
     "key": "sim_run",
@@ -85,8 +88,8 @@
     "status": "failed",
     "failure_kind": "wrong",
     "error_code": null,
-    "started_at": "2026-10-28T16:42:27.981415Z",
-    "duration_ms": 14328,
+    "started_at": "2026-10-29T11:33:59.759978Z",
+    "duration_ms": 16166,
     "metrics_schema": "sim/v1",
     "metrics": {
      "tests_total": 2,
@@ -196,7 +199,7 @@
      ],
      "hidden_tests": null
     },
-    "finished_at": "2026-10-28T16:42:42.309415+00:00"
+    "finished_at": "2026-10-29T11:34:15.925978+00:00"
    }
   ],
   "artifacts": [
@@ -296,14 +299,14 @@
     "kind": "events",
     "stage": null,
     "state": "ready",
-    "size_bytes": 7411,
+    "size_bytes": 7715,
     "waveform": null
    }
   ]
  },
  "events": [
   {
-   "id": "1793205743000-0",
+   "id": "1793273634000-0",
    "event": {
     "type": "queue",
     "position": 2,
@@ -311,7 +314,7 @@
    }
   },
   {
-   "id": "1793205743600-0",
+   "id": "1793273634600-0",
    "event": {
     "type": "queue",
     "position": 1,
@@ -319,7 +322,7 @@
    }
   },
   {
-   "id": "1793205744955-0",
+   "id": "1793273636334-0",
    "event": {
     "type": "stage_start",
     "stage": "precheck",
@@ -329,7 +332,7 @@
    }
   },
   {
-   "id": "1793205745955-0",
+   "id": "1793273637334-0",
    "event": {
     "type": "heartbeat",
     "stage": "precheck",
@@ -339,7 +342,7 @@
    }
   },
   {
-   "id": "1793205746955-0",
+   "id": "1793273638334-0",
    "event": {
     "type": "heartbeat",
     "stage": "precheck",
@@ -349,7 +352,7 @@
    }
   },
   {
-   "id": "1793205747055-0",
+   "id": "1793273638790-0",
    "event": {
     "type": "stage_end",
     "result": {
@@ -360,8 +363,8 @@
      "failure_kind": null,
      "limit": null,
      "error_code": null,
-     "started_at": "2026-10-28T16:42:24.294410Z",
-     "duration_ms": 2099,
+     "started_at": "2026-10-29T11:33:55.290250Z",
+     "duration_ms": 2456,
      "metrics_schema": "precheck/v1",
      "metrics": {
       "code_hash": "aafe7bda67ef9354842747f978aa483f7f3b9999d9b5e538b73d37430161b995",
@@ -384,7 +387,7 @@
    }
   },
   {
-   "id": "1793205747055-1",
+   "id": "1793273638790-1",
    "event": {
     "type": "stage_start",
     "stage": "lint",
@@ -394,17 +397,27 @@
    }
   },
   {
-   "id": "1793205748019-0",
+   "id": "1793273639790-0",
    "event": {
-    "type": "log",
+    "type": "heartbeat",
     "stage": "lint",
-    "ch": "out",
-    "text": "- V e r i l a t i o n   R e p o r t: Verilator 5.052 2026-09-05 rev vUNKNOWN-built20261026\n- Verilator: Built from 0.031 MB sources in 2 modules, into 0.023 MB in 3 C++ files needing 0.000 MB\n- Verilator: Walltime 0.011 s (elab=0.001, cvt=0.003, bld=0.000); cpu 0.010 s on 1 threads; allocated 17.312 MB\n",
+    "elapsed_ms": 1000,
+    "note": null,
     "attempt": 1
    }
   },
   {
-   "id": "1793205748642-0",
+   "id": "1793273639928-0",
+   "event": {
+    "type": "log",
+    "stage": "lint",
+    "ch": "out",
+    "text": "- V e r i l a t i o n   R e p o r t: Verilator 5.052 2026-09-05 rev vUNKNOWN-built20261026\n- Verilator: Built from 0.031 MB sources in 2 modules, into 0.023 MB in 3 C++ files needing 0.000 MB\n- Verilator: Walltime 0.011 s (elab=0.001, cvt=0.005, bld=0.000); cpu 0.011 s on 1 threads; allocated 17.223 MB\n",
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1793273640804-0",
    "event": {
     "type": "stage_end",
     "result": {
@@ -415,8 +428,8 @@
      "failure_kind": null,
      "limit": null,
      "error_code": null,
-     "started_at": "2026-10-28T16:42:26.394047Z",
-     "duration_ms": 1587,
+     "started_at": "2026-10-29T11:33:57.746306Z",
+     "duration_ms": 2014,
      "metrics_schema": "lint/v1",
      "metrics": {
       "warnings": 0,
@@ -436,7 +449,7 @@
    }
   },
   {
-   "id": "1793205748642-1",
+   "id": "1793273640804-1",
    "event": {
     "type": "stage_start",
     "stage": "sim_run",
@@ -446,7 +459,7 @@
    }
   },
   {
-   "id": "1793205749642-0",
+   "id": "1793273641804-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_run",
@@ -456,7 +469,7 @@
    }
   },
   {
-   "id": "1793205750642-0",
+   "id": "1793273642804-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_run",
@@ -466,7 +479,7 @@
    }
   },
   {
-   "id": "1793205751642-0",
+   "id": "1793273643804-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_run",
@@ -476,7 +489,7 @@
    }
   },
   {
-   "id": "1793205752642-0",
+   "id": "1793273644804-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_run",
@@ -486,7 +499,7 @@
    }
   },
   {
-   "id": "1793205753642-0",
+   "id": "1793273645804-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_run",
@@ -496,7 +509,7 @@
    }
   },
   {
-   "id": "1793205754642-0",
+   "id": "1793273646804-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_run",
@@ -506,7 +519,7 @@
    }
   },
   {
-   "id": "1793205755642-0",
+   "id": "1793273647804-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_run",
@@ -516,7 +529,7 @@
    }
   },
   {
-   "id": "1793205756642-0",
+   "id": "1793273648804-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_run",
@@ -526,7 +539,7 @@
    }
   },
   {
-   "id": "1793205757642-0",
+   "id": "1793273649804-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_run",
@@ -536,7 +549,7 @@
    }
   },
   {
-   "id": "1793205758642-0",
+   "id": "1793273650804-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_run",
@@ -546,7 +559,7 @@
    }
   },
   {
-   "id": "1793205759642-0",
+   "id": "1793273651804-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_run",
@@ -556,7 +569,7 @@
    }
   },
   {
-   "id": "1793205760642-0",
+   "id": "1793273652804-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_run",
@@ -566,7 +579,17 @@
    }
   },
   {
-   "id": "1793205760916-0",
+   "id": "1793273653804-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_run",
+    "elapsed_ms": 13000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1793273654334-0",
    "event": {
     "type": "test",
     "stage": "sim_run",
@@ -583,7 +606,7 @@
    }
   },
   {
-   "id": "1793205760916-1",
+   "id": "1793273654334-1",
    "event": {
     "type": "test",
     "stage": "sim_run",
@@ -600,7 +623,7 @@
    }
   },
   {
-   "id": "1793205760916-2",
+   "id": "1793273654334-2",
    "event": {
     "type": "test",
     "stage": "sim_run",
@@ -617,7 +640,7 @@
    }
   },
   {
-   "id": "1793205760916-3",
+   "id": "1793273654334-3",
    "event": {
     "type": "test",
     "stage": "sim_run",
@@ -634,27 +657,27 @@
    }
   },
   {
-   "id": "1793205761916-0",
+   "id": "1793273655334-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_run",
-    "elapsed_ms": 13274,
+    "elapsed_ms": 14530,
     "note": null,
     "attempt": 1
    }
   },
   {
-   "id": "1793205762916-0",
+   "id": "1793273656334-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_run",
-    "elapsed_ms": 14274,
+    "elapsed_ms": 15530,
     "note": null,
     "attempt": 1
    }
   },
   {
-   "id": "1793205762970-0",
+   "id": "1793273656970-0",
    "event": {
     "type": "stage_end",
     "result": {
@@ -665,8 +688,8 @@
      "failure_kind": "wrong",
      "limit": null,
      "error_code": null,
-     "started_at": "2026-10-28T16:42:27.981415Z",
-     "duration_ms": 14328,
+     "started_at": "2026-10-29T11:33:59.759978Z",
+     "duration_ms": 16166,
      "metrics_schema": "sim/v1",
      "metrics": {
       "tests_total": 2,
@@ -782,14 +805,14 @@
    }
   },
   {
-   "id": "1793205762970-1",
+   "id": "1793273656970-1",
    "event": {
     "type": "done",
     "attempt": 1
    }
   },
   {
-   "id": "1793205763090-0",
+   "id": "1793273657090-0",
    "event": {
     "type": "finalized",
     "status": "wrong_answer",
@@ -797,7 +820,10 @@
      "first_failure": {
       "stage": "sim_run",
       "test": "t2",
-      "cycle": 30
+      "cycle": 30,
+      "test_number": 2,
+      "hidden": null,
+      "diagnostic": null
      },
      "limit": null,
      "warnings": [],
@@ -807,6 +833,6 @@
   }
  ],
  "files": {
-  "fst": "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"
+  "fst": "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"
  }
 }

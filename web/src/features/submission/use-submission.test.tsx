@@ -3,6 +3,7 @@ import { http, HttpResponse } from "msw";
 import { expect, it } from "vitest";
 
 import { readHistory } from "@/features/guest/history";
+import { readSubmissions, rememberSubmissions } from "@/features/guest/submissions";
 import { createApiClient } from "@/lib/api/client";
 import { api } from "@/mocks/http";
 import { scenarios } from "@/mocks/scenarios";
@@ -91,7 +92,10 @@ it("resumes a dropped stream after the last event without duplicates", async () 
   await ready(result);
 
   act(() => result.current.start({ kind: "submit", code: `// mock: output-limit\n${CODE}` }));
-  await waitFor(() => expect(result.current.connection?.state).toBe("closed"));
+  // A reconnect every 4 events: more than the 1 s of waitFor on a loaded machine.
+  await waitFor(() => expect(result.current.connection?.state).toBe("closed"), {
+    timeout: 5000,
+  });
   expect(result.current.check?.status).toBe("limit_exceeded");
   expect(linesOf(result)).toEqual(recordedLines("output-limit"));
   const lost = result.current.check?.console.filter((entry) => entry.kind === "lost") ?? [];
@@ -183,6 +187,67 @@ it("follows a newer submission of the problem on request", async () => {
   await expect(act(() => result.current.showLatest())).resolves.toBe(true);
   expect(result.current.check?.id).toBe(created.data?.id);
   await waitFor(() => expect(result.current.check?.status).toBe("accepted"));
+});
+
+it("keeps the submissions of the problem in the local history", async () => {
+  configureMocks({ speed: Infinity });
+  // Deleted by the server when its time ran out.
+  rememberSubmissions([
+    {
+      id: "00000000-0000-4000-8000-000000000001",
+      problem: "sync-fifo",
+      version: 1,
+      kind: "run",
+      status: "accepted",
+      verdict_detail: null,
+      created_at: "2026-10-01T10:00:00Z",
+    },
+  ]);
+  const client = createApiClient({ baseUrl: "http://localhost" });
+  const other = await client.POST("/api/v1/submissions", {
+    body: { problem: "sync-fifo", version: 1, kind: "submit", code: CODE },
+  });
+  const { result } = setup();
+  await ready(result);
+  expect(result.current.check?.id).toBe(other.data?.id);
+  act(() =>
+    result.current.start({
+      kind: "run",
+      code: `// mock: wrong-answer
+${CODE}`,
+    }),
+  );
+  await waitFor(() => expect(result.current.submission?.status).toBe("wrong_answer"));
+  await waitFor(() => expect(readSubmissions()[0]?.status).toBe("wrong_answer"));
+  const items = readSubmissions();
+  expect(items.map((item) => [item.kind, item.status, item.gone ?? false])).toEqual([
+    ["run", "wrong_answer", false],
+    ["submit", "accepted", false],
+    ["run", "accepted", true],
+  ]);
+  expect(items[0]?.verdict_detail?.first_failure?.test_number).toBe(2);
+});
+
+it("opens the wanted submission, the last one when it is gone, and one from the list", async () => {
+  configureMocks({ speed: Infinity });
+  const client = createApiClient({ baseUrl: "http://localhost" });
+  const body = { problem: "sync-fifo", version: 1, code: CODE } as const;
+  const first = await client.POST("/api/v1/submissions", { body: { ...body, kind: "run" } });
+  const last = await client.POST("/api/v1/submissions", { body: { ...body, kind: "submit" } });
+  const wanted = first.data?.id;
+  const { result } = setup({ wanted });
+  await ready(result);
+  expect(result.current.check?.id).toBe(wanted);
+
+  const missing = "00000000-0000-4000-8000-000000000002";
+  rememberSubmissions([{ ...(first.data as NonNullable<typeof first.data>), id: missing }]);
+  const reopened = setup({ wanted: missing });
+  await ready(reopened.result);
+  expect(reopened.result.current.check?.id).toBe(last.data?.id);
+  expect(readSubmissions().find((item) => item.id === missing)?.gone).toBe(true);
+
+  act(() => reopened.result.current.show(first.data as NonNullable<typeof first.data>));
+  expect(reopened.result.current.check?.id).toBe(wanted);
 });
 
 it("an accepted Submit solves the problem in the local history", async () => {

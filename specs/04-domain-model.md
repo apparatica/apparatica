@@ -97,7 +97,7 @@ PostgreSQL 17+. Первичные ключи — UUIDv7 (сортируемы �
 Профиль по умолчанию — не больше одного на язык (частичный уникальный индекс по `language` при `is_default`).
 
 **`submissions`**
-`id uuid pk`, `problem_version_id fk`, `guest_id uuid null`, `kind text` (`run`/`submit`), `code text` (как прислал пользователь), `code_hash text null` (sha256 канонического текста, ключ кэшей), `ast_hash text null`, `seed bigint`, `toolchain_profile_id fk`, `status submission_status`, `verdict_detail jsonb` (например `{limit: "output", first_failure: {stage, test, cycle}}`), `queue_class text`, `attempt int`, `created_at`, `started_at`, `finished_at`, `client_ip_hash text`.
+`id uuid pk`, `problem_version_id fk`, `guest_id uuid null`, `kind text` (`run`/`submit`), `code text` (как прислал пользователь), `code_hash text null` (sha256 канонического текста, ключ кэшей), `ast_hash text null`, `seed bigint`, `toolchain_profile_id fk`, `status submission_status`, `verdict_detail jsonb` (например `{limit: "output", first_failure: {stage, test, cycle, test_number, hidden, diagnostic}}`), `queue_class text`, `attempt int`, `created_at`, `started_at`, `finished_at`, `client_ip_hash text`.
 Индексы: `(guest_id, created_at desc)`, `(problem_version_id, status)`, `(ast_hash)`.
 
 **`stage_results`**

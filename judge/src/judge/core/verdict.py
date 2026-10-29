@@ -3,9 +3,9 @@
 from collections.abc import Sequence
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel, ConfigDict, Field
 
-from judge.core.stage import FailureKind, LimitKind, StageResult
+from judge.core.stage import Diagnostic, FailureKind, HiddenTests, LimitKind, StageResult
 
 SubmissionStatus = Literal[
     "accepted",
@@ -31,9 +31,16 @@ class _Model(BaseModel):
 
 
 class FirstFailure(_Model):
+    """Where the check failed first: enough for a short reason in a list of submissions."""
+
     stage: str
     test: str | None = None
     cycle: int | None = None
+    test_number: int | None = Field(
+        default=None, description="Number of the failed open test in run order, from 1"
+    )
+    hidden: HiddenTests | None = Field(default=None, description="Set when a hidden test failed")
+    diagnostic: Diagnostic | None = Field(default=None, description="First error of the stage")
 
 
 class VerdictDetail(_Model):
@@ -62,9 +69,18 @@ def aggregate(results: Sequence[StageResult], *, cancelled: bool = False) -> Ver
     )
     if failed is not None:
         assert failed.failure_kind is not None
-        test = next((t for t in failed.summary.tests if t.status == "failed"), None)
+        summary = failed.summary
+        number, test = next(
+            ((n, t) for n, t in enumerate(summary.tests, 1) if t.status == "failed"), (None, None)
+        )
+        hidden = summary.hidden_tests
         first = FirstFailure(
-            stage=failed.key, test=test.id if test else None, cycle=test.cycle if test else None
+            stage=failed.key,
+            test=test.id if test else None,
+            cycle=test.cycle if test else None,
+            test_number=number,
+            hidden=hidden if test is None and hidden and hidden.failed_index is not None else None,
+            diagnostic=next((d for d in summary.diagnostics if d.severity == "error"), None),
         )
         detail = VerdictDetail(first_failure=first, limit=failed.limit)
         return Verdict(status=_BY_FAILURE[failed.failure_kind], detail=detail)

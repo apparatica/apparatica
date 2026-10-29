@@ -145,6 +145,18 @@ it("resets to the template as one undoable edit and focuses the editor", () => {
   expect(editor.focused).toBe(true);
 });
 
+it("replaces the code with a submission, before the editor loads too", () => {
+  const space = workspace();
+  space.replace("module a; endmodule");
+  expect(space.initialCode()).toBe("module a; endmodule");
+  expect(readDraft("sync-fifo")?.code).toBe("module a; endmodule");
+  const editor = new FakeEditor(space.initialCode());
+  space.attach(editor.asEditor());
+  space.replace("module b; endmodule");
+  expect(editor.value).toBe("module b; endmodule");
+  expect(editor.undoStops).toBe(2);
+});
+
 it("puts the cursor on a line and shows it", () => {
   const space = workspace();
   space.reveal(3); // no editor yet: nothing to do

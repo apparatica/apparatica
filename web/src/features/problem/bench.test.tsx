@@ -6,6 +6,8 @@ import { afterEach, expect, it, vi } from "vitest";
 
 import type { CodeEditorProps } from "@/features/editor/code-editor";
 import { readDraft, writeDraft } from "@/features/guest/drafts";
+import { rememberSubmissions } from "@/features/guest/submissions";
+import { createApiClient } from "@/lib/api/client";
 import type { Schemas } from "@/lib/api/client";
 import { api } from "@/mocks/http";
 import versions from "@/mocks/problem-versions.json";
@@ -52,9 +54,9 @@ vi.mock("@/features/editor/code-editor", () => ({
 
 afterEach(() => clearEditorStatus());
 
-function renderBench() {
+function renderBench(props: { tab?: "statement" | "submissions" } = {}) {
   return renderWithProviders(
-    <Bench problem={FIFO} layout={{}}>
+    <Bench problem={FIFO} layout={{}} {...props}>
       <p>Текст условия</p>
     </Bench>,
   );
@@ -160,6 +162,70 @@ it("resets to the template after a confirmation", async () => {
   await userEvent.click(screen.getByRole("button", { name: "Сбросить" }));
   await waitFor(() => expect(area.value).toBe(FIFO.template));
   expect(area).toHaveFocus();
+});
+
+it("lists the submissions and opens one into the editor after a confirmation", async () => {
+  configureMocks({ speed: Infinity });
+  const client = createApiClient({ baseUrl: "http://localhost" });
+  const old = "module sync_fifo; /* old */ endmodule // mock: wrong-answer";
+  const created = await client.POST("/api/v1/submissions", {
+    body: { problem: "sync-fifo", version: FIFO.version, kind: "run", code: old },
+  });
+  const id = created.data?.id ?? "";
+  const gone = "00000000-0000-4000-8000-000000000003";
+  rememberSubmissions([
+    { ...(created.data as Schemas["Submission"]), id: gone, created_at: "2026-10-01T10:00:00Z" },
+  ]);
+  writeDraft("sync-fifo", {
+    code: "module sync_fifo; /* mine */ endmodule",
+    version: FIFO.version,
+  });
+  renderBench({ tab: "submissions" });
+  const area = await editor();
+  const tab = screen.getByRole("tab", { name: /Мои отправки/ });
+  expect(tab).toHaveAttribute("aria-selected", "true");
+  await waitFor(() => expect(tab).toHaveTextContent("Мои отправки2"));
+  const list = screen.getByRole("region", { name: "Мои отправки" });
+  const [row, expired] = within(list).getAllByRole("button");
+  await waitFor(() => expect(row).toHaveTextContent(/Неверный ответтест 2 из \d+ ·/));
+  expect(row).toHaveAttribute("aria-current", "true"); // the last one is shown
+  expect(expired).toBeDisabled();
+
+  // The draft is held by no submission: a confirmation first.
+  await userEvent.click(row as HTMLElement);
+  const dialog = await screen.findByRole("dialog", { name: "Открыть код отправки?" });
+  await userEvent.click(within(dialog).getByRole("button", { name: "Отмена" }));
+  expect(area.value).toBe("module sync_fifo; /* mine */ endmodule");
+  await userEvent.click(row as HTMLElement);
+  await userEvent.click(await screen.findByRole("button", { name: "Открыть" }));
+  await waitFor(() => expect(area.value).toBe(old));
+  expect(new URL(window.location.href).searchParams.get("submission")).toBe(id);
+
+  // Now the editor holds the code of the submission: it opens at once.
+  await userEvent.click(row as HTMLElement);
+  expect(screen.queryByRole("dialog")).toBeNull();
+}, 15_000); // a whole flow: past the 5 s of a test when the suite loads the machine
+
+it("keeps the open tab in the address, and a new check is not the opened submission", async () => {
+  configureMocks({ speed: Infinity });
+  window.history.replaceState(null, "", "/problems/sync-fifo?submission=x");
+  renderBench();
+  await editor();
+  // From the keyboard: in jsdom the panels take any pointer for their separator.
+  screen.getByRole("tab", { name: "Условие" }).focus();
+  await userEvent.keyboard("{ArrowRight}");
+  expect(new URL(window.location.href).searchParams.get("tab")).toBe("submissions");
+  await userEvent.click(screen.getByRole("button", { name: /^Run/ }));
+  expect(new URL(window.location.href).searchParams.has("submission")).toBe(false);
+  screen.getByRole("tab", { name: /Мои отправки/ }).focus();
+  await userEvent.keyboard("{ArrowLeft}");
+  expect(new URL(window.location.href).searchParams.has("tab")).toBe(false);
+});
+
+it("hints at Run and Submit while there are no submissions", async () => {
+  renderBench({ tab: "submissions" });
+  expect(await screen.findByText("Отправок пока нет")).toBeInTheDocument();
+  expect(screen.getByRole("tab", { name: /Мои отправки/ })).toHaveTextContent("Мои отправки0");
 });
 
 it("tells that the problem changed since the draft, with the changes", async () => {

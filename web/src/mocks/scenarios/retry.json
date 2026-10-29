@@ -1,685 +1,715 @@
 {
-  "name": "retry",
-  "submission": {
-    "id": "01a17756-64a8-7d77-94c1-9326f4f2195a",
-    "problem": "mux4",
-    "problem_title": "Мультиплексор 4:1",
-    "version": 1,
-    "kind": "run",
+ "name": "retry",
+ "submission": {
+  "id": "01a18771-64f0-7ecd-ae17-c52ee76223a9",
+  "problem": "mux4",
+  "problem_title": "Мультиплексор 4:1",
+  "version": 2,
+  "kind": "run",
+  "status": "accepted",
+  "verdict_detail": {
+   "first_failure": null,
+   "limit": null,
+   "warnings": [],
+   "error_codes": []
+  },
+  "created_at": "2026-10-29T11:35:18+00:00",
+  "finished_at": "2026-10-29T11:35:47.658000+00:00",
+  "code": "module mux4 #(\n  parameter int WIDTH = 8\n) (\n  input  logic [1:0]       sel,\n  input  logic [WIDTH-1:0] d0,\n  input  logic [WIDTH-1:0] d1,\n  input  logic [WIDTH-1:0] d2,\n  input  logic [WIDTH-1:0] d3,\n  output logic [WIDTH-1:0] y\n);\n  always_comb begin\n    unique case (sel)\n      2'd0: y = d0;\n      2'd1: y = d1;\n      2'd2: y = d2;\n      2'd3: y = d3;\n    endcase\n  end\nendmodule\n",
+  "seed": "20261026",
+  "toolchain_profile": "sv-dev",
+  "waveview_url": null,
+  "queue_position": null,
+  "eta_s": null,
+  "started_at": "2026-10-29T11:35:19.868282+00:00",
+  "stages": [
+   {
+    "key": "precheck",
+    "type": "precheck",
+    "ordinal": 0,
+    "status": "passed",
+    "failure_kind": null,
+    "error_code": null,
+    "started_at": "2026-10-29T11:35:19.868282Z",
+    "duration_ms": 3271,
+    "metrics_schema": "precheck/v1",
+    "metrics": {
+     "code_hash": "de8b116271f8d0240dd92b15bdf8c43615dd39af6a129dc32236c2f81bf80774",
+     "ast_hash": "n1:911351ff6f93c2265f0fb2245cf8477226ec075e65d76187652c387abc15c8ed",
+     "normalization_version": 1,
+     "module": "mux4",
+     "ports_ok": true,
+     "state_bits": 42
+    },
+    "summary": {
+     "caption": null,
+     "skip_reason": null,
+     "diagnostics": [],
+     "tests": [],
+     "hidden_tests": null
+    },
+    "finished_at": "2026-10-29T11:35:23.139282+00:00"
+   },
+   {
+    "key": "lint",
+    "type": "lint",
+    "ordinal": 1,
+    "status": "passed",
+    "failure_kind": null,
+    "error_code": null,
+    "started_at": "2026-10-29T11:35:23.139828Z",
+    "duration_ms": 2162,
+    "metrics_schema": "lint/v1",
+    "metrics": {
+     "warnings": 0,
+     "errors": 0,
+     "rules": {}
+    },
+    "summary": {
+     "caption": null,
+     "skip_reason": null,
+     "diagnostics": [],
+     "tests": [],
+     "hidden_tests": null
+    },
+    "finished_at": "2026-10-29T11:35:25.301828+00:00"
+   },
+   {
+    "key": "sim_run",
+    "type": "sim",
+    "ordinal": 2,
+    "status": "passed",
+    "failure_kind": null,
+    "error_code": null,
+    "started_at": "2026-10-29T11:35:25.302341Z",
+    "duration_ms": 12198,
+    "metrics_schema": "sim/v1",
+    "metrics": {
+     "tests_total": 2,
+     "tests_passed": 2,
+     "cycles": 23,
+     "seed": 20261026
+    },
+    "summary": {
+     "caption": "пройдено 2 из 2",
+     "skip_reason": null,
+     "diagnostics": [],
+     "tests": [
+      {
+       "id": "t1",
+       "name": "каждый вход по очереди",
+       "group": "public",
+       "status": "passed",
+       "duration_ms": null,
+       "cycle": null,
+       "mismatches": []
+      },
+      {
+       "id": "t2",
+       "name": "данные меняются при том же sel",
+       "group": "public",
+       "status": "passed",
+       "duration_ms": null,
+       "cycle": null,
+       "mismatches": []
+      }
+     ],
+     "hidden_tests": null
+    },
+    "finished_at": "2026-10-29T11:35:37.500341+00:00"
+   }
+  ],
+  "artifacts": [
+   {
+    "kind": "log",
+    "stage": "precheck",
+    "state": "ready",
+    "size_bytes": 0,
+    "waveform": null
+   },
+   {
+    "kind": "log",
+    "stage": "lint",
+    "state": "ready",
+    "size_bytes": 304,
+    "waveform": null
+   },
+   {
+    "kind": "log",
+    "stage": "sim_run",
+    "state": "ready",
+    "size_bytes": 0,
+    "waveform": null
+   },
+   {
+    "kind": "events",
+    "stage": null,
+    "state": "ready",
+    "size_bytes": 8655,
+    "waveform": null
+   }
+  ]
+ },
+ "events": [
+  {
+   "id": "1793273718000-0",
+   "event": {
+    "type": "queue",
+    "position": 2,
+    "eta_s": 4
+   }
+  },
+  {
+   "id": "1793273718600-0",
+   "event": {
+    "type": "queue",
+    "position": 1,
+    "eta_s": 2
+   }
+  },
+  {
+   "id": "1793273720336-0",
+   "event": {
+    "type": "stage_start",
+    "stage": "precheck",
+    "stage_type": "precheck",
+    "ordinal": 0,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1793273721336-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "precheck",
+    "elapsed_ms": 1000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1793273722336-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "precheck",
+    "elapsed_ms": 2000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1793273723336-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "precheck",
+    "elapsed_ms": 3000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1793273723607-0",
+   "event": {
+    "type": "stage_end",
+    "result": {
+     "key": "precheck",
+     "type": "precheck",
+     "ordinal": 0,
+     "status": "passed",
+     "failure_kind": null,
+     "limit": null,
+     "error_code": null,
+     "started_at": "2026-10-29T11:35:19.868282Z",
+     "duration_ms": 3271,
+     "metrics_schema": "precheck/v1",
+     "metrics": {
+      "code_hash": "de8b116271f8d0240dd92b15bdf8c43615dd39af6a129dc32236c2f81bf80774",
+      "ast_hash": "n1:911351ff6f93c2265f0fb2245cf8477226ec075e65d76187652c387abc15c8ed",
+      "normalization_version": 1,
+      "module": "mux4",
+      "ports_ok": true,
+      "state_bits": 42
+     },
+     "cached": false,
+     "summary": {
+      "caption": null,
+      "skip_reason": null,
+      "diagnostics": [],
+      "tests": [],
+      "hidden_tests": null
+     }
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1793273723608-0",
+   "event": {
+    "type": "stage_start",
+    "stage": "lint",
+    "stage_type": "lint",
+    "ordinal": 1,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1793273724608-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "lint",
+    "elapsed_ms": 1000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1793273724973-0",
+   "event": {
+    "type": "log",
+    "stage": "lint",
+    "ch": "out",
+    "text": "- V e r i l a t i o n   R e p o r t: Verilator 5.052 2026-09-05 rev vUNKNOWN-built20261026\n- Verilator: Built from 0.030 MB sources in 2 modules, into 0.015 MB in 3 C++ files needing 0.000 MB\n- Verilator: Walltime 0.011 s (elab=0.001, cvt=0.004, bld=0.000); cpu 0.011 s on 1 threads; allocated 17.117 MB\n",
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1793273725770-0",
+   "event": {
+    "type": "stage_end",
+    "result": {
+     "key": "lint",
+     "type": "lint",
+     "ordinal": 1,
+     "status": "passed",
+     "failure_kind": null,
+     "limit": null,
+     "error_code": null,
+     "started_at": "2026-10-29T11:35:23.139828Z",
+     "duration_ms": 2162,
+     "metrics_schema": "lint/v1",
+     "metrics": {
+      "warnings": 0,
+      "errors": 0,
+      "rules": {}
+     },
+     "cached": false,
+     "summary": {
+      "caption": null,
+      "skip_reason": null,
+      "diagnostics": [],
+      "tests": [],
+      "hidden_tests": null
+     }
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1793273725770-1",
+   "event": {
+    "type": "stage_start",
+    "stage": "sim_run",
+    "stage_type": "sim",
+    "ordinal": 2,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1793273729906-0",
+   "event": {
+    "type": "stage_start",
+    "stage": "precheck",
+    "stage_type": "precheck",
+    "ordinal": 0,
+    "attempt": 2
+   }
+  },
+  {
+   "id": "1793273730906-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "precheck",
+    "elapsed_ms": 1000,
+    "note": null,
+    "attempt": 2
+   }
+  },
+  {
+   "id": "1793273731906-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "precheck",
+    "elapsed_ms": 2000,
+    "note": null,
+    "attempt": 2
+   }
+  },
+  {
+   "id": "1793273732906-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "precheck",
+    "elapsed_ms": 3000,
+    "note": null,
+    "attempt": 2
+   }
+  },
+  {
+   "id": "1793273733177-0",
+   "event": {
+    "type": "stage_end",
+    "result": {
+     "key": "precheck",
+     "type": "precheck",
+     "ordinal": 0,
+     "status": "passed",
+     "failure_kind": null,
+     "limit": null,
+     "error_code": null,
+     "started_at": "2026-10-29T11:35:19.868282Z",
+     "duration_ms": 3271,
+     "metrics_schema": "precheck/v1",
+     "metrics": {
+      "code_hash": "de8b116271f8d0240dd92b15bdf8c43615dd39af6a129dc32236c2f81bf80774",
+      "ast_hash": "n1:911351ff6f93c2265f0fb2245cf8477226ec075e65d76187652c387abc15c8ed",
+      "normalization_version": 1,
+      "module": "mux4",
+      "ports_ok": true,
+      "state_bits": 42
+     },
+     "cached": false,
+     "summary": {
+      "caption": null,
+      "skip_reason": null,
+      "diagnostics": [],
+      "tests": [],
+      "hidden_tests": null
+     }
+    },
+    "attempt": 2
+   }
+  },
+  {
+   "id": "1793273733178-0",
+   "event": {
+    "type": "stage_start",
+    "stage": "lint",
+    "stage_type": "lint",
+    "ordinal": 1,
+    "attempt": 2
+   }
+  },
+  {
+   "id": "1793273734178-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "lint",
+    "elapsed_ms": 1000,
+    "note": null,
+    "attempt": 2
+   }
+  },
+  {
+   "id": "1793273734543-0",
+   "event": {
+    "type": "log",
+    "stage": "lint",
+    "ch": "out",
+    "text": "- V e r i l a t i o n   R e p o r t: Verilator 5.052 2026-09-05 rev vUNKNOWN-built20261026\n- Verilator: Built from 0.030 MB sources in 2 modules, into 0.015 MB in 3 C++ files needing 0.000 MB\n- Verilator: Walltime 0.011 s (elab=0.001, cvt=0.004, bld=0.000); cpu 0.011 s on 1 threads; allocated 17.117 MB\n",
+    "attempt": 2
+   }
+  },
+  {
+   "id": "1793273735340-0",
+   "event": {
+    "type": "stage_end",
+    "result": {
+     "key": "lint",
+     "type": "lint",
+     "ordinal": 1,
+     "status": "passed",
+     "failure_kind": null,
+     "limit": null,
+     "error_code": null,
+     "started_at": "2026-10-29T11:35:23.139828Z",
+     "duration_ms": 2162,
+     "metrics_schema": "lint/v1",
+     "metrics": {
+      "warnings": 0,
+      "errors": 0,
+      "rules": {}
+     },
+     "cached": false,
+     "summary": {
+      "caption": null,
+      "skip_reason": null,
+      "diagnostics": [],
+      "tests": [],
+      "hidden_tests": null
+     }
+    },
+    "attempt": 2
+   }
+  },
+  {
+   "id": "1793273735340-1",
+   "event": {
+    "type": "stage_start",
+    "stage": "sim_run",
+    "stage_type": "sim",
+    "ordinal": 2,
+    "attempt": 2
+   }
+  },
+  {
+   "id": "1793273736340-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_run",
+    "elapsed_ms": 1000,
+    "note": null,
+    "attempt": 2
+   }
+  },
+  {
+   "id": "1793273737340-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_run",
+    "elapsed_ms": 2000,
+    "note": null,
+    "attempt": 2
+   }
+  },
+  {
+   "id": "1793273738340-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_run",
+    "elapsed_ms": 3000,
+    "note": null,
+    "attempt": 2
+   }
+  },
+  {
+   "id": "1793273739340-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_run",
+    "elapsed_ms": 4000,
+    "note": null,
+    "attempt": 2
+   }
+  },
+  {
+   "id": "1793273740340-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_run",
+    "elapsed_ms": 5000,
+    "note": null,
+    "attempt": 2
+   }
+  },
+  {
+   "id": "1793273741340-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_run",
+    "elapsed_ms": 6000,
+    "note": null,
+    "attempt": 2
+   }
+  },
+  {
+   "id": "1793273742340-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_run",
+    "elapsed_ms": 7000,
+    "note": null,
+    "attempt": 2
+   }
+  },
+  {
+   "id": "1793273743340-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_run",
+    "elapsed_ms": 8000,
+    "note": null,
+    "attempt": 2
+   }
+  },
+  {
+   "id": "1793273744340-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_run",
+    "elapsed_ms": 9000,
+    "note": null,
+    "attempt": 2
+   }
+  },
+  {
+   "id": "1793273745340-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_run",
+    "elapsed_ms": 10000,
+    "note": null,
+    "attempt": 2
+   }
+  },
+  {
+   "id": "1793273746340-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_run",
+    "elapsed_ms": 11000,
+    "note": null,
+    "attempt": 2
+   }
+  },
+  {
+   "id": "1793273746879-0",
+   "event": {
+    "type": "test",
+    "stage": "sim_run",
+    "test": {
+     "id": "t1",
+     "name": "каждый вход по очереди",
+     "group": "public",
+     "status": "running",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 2
+   }
+  },
+  {
+   "id": "1793273746879-1",
+   "event": {
+    "type": "test",
+    "stage": "sim_run",
+    "test": {
+     "id": "t1",
+     "name": "каждый вход по очереди",
+     "group": "public",
+     "status": "passed",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 2
+   }
+  },
+  {
+   "id": "1793273746879-2",
+   "event": {
+    "type": "test",
+    "stage": "sim_run",
+    "test": {
+     "id": "t2",
+     "name": "данные меняются при том же sel",
+     "group": "public",
+     "status": "running",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 2
+   }
+  },
+  {
+   "id": "1793273746879-3",
+   "event": {
+    "type": "test",
+    "stage": "sim_run",
+    "test": {
+     "id": "t2",
+     "name": "данные меняются при том же sel",
+     "group": "public",
+     "status": "passed",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 2
+   }
+  },
+  {
+   "id": "1793273747538-0",
+   "event": {
+    "type": "stage_end",
+    "result": {
+     "key": "sim_run",
+     "type": "sim",
+     "ordinal": 2,
+     "status": "passed",
+     "failure_kind": null,
+     "limit": null,
+     "error_code": null,
+     "started_at": "2026-10-29T11:35:25.302341Z",
+     "duration_ms": 12198,
+     "metrics_schema": "sim/v1",
+     "metrics": {
+      "tests_total": 2,
+      "tests_passed": 2,
+      "cycles": 23,
+      "seed": 20261026
+     },
+     "cached": false,
+     "summary": {
+      "caption": "пройдено 2 из 2",
+      "skip_reason": null,
+      "diagnostics": [],
+      "tests": [
+       {
+        "id": "t1",
+        "name": "каждый вход по очереди",
+        "group": "public",
+        "status": "passed",
+        "duration_ms": null,
+        "cycle": null,
+        "mismatches": []
+       },
+       {
+        "id": "t2",
+        "name": "данные меняются при том же sel",
+        "group": "public",
+        "status": "passed",
+        "duration_ms": null,
+        "cycle": null,
+        "mismatches": []
+       }
+      ],
+      "hidden_tests": null
+     }
+    },
+    "attempt": 2
+   }
+  },
+  {
+   "id": "1793273747538-1",
+   "event": {
+    "type": "done",
+    "attempt": 2
+   }
+  },
+  {
+   "id": "1793273747658-0",
+   "event": {
+    "type": "finalized",
     "status": "accepted",
     "verdict_detail": {
-      "first_failure": null,
-      "limit": null,
-      "warnings": [],
-      "error_codes": []
-    },
-    "created_at": "2026-10-26T08:31:53+00:00",
-    "finished_at": "2026-10-26T08:32:17.616000+00:00",
-    "code": "module mux4 #(\n  parameter int WIDTH = 8\n) (\n  input  logic [1:0]       sel,\n  input  logic [WIDTH-1:0] d0,\n  input  logic [WIDTH-1:0] d1,\n  input  logic [WIDTH-1:0] d2,\n  input  logic [WIDTH-1:0] d3,\n  output logic [WIDTH-1:0] y\n);\n  always_comb begin\n    unique case (sel)\n      2'd0: y = d0;\n      2'd1: y = d1;\n      2'd2: y = d2;\n      2'd3: y = d3;\n    endcase\n  end\nendmodule\n",
-    "seed": "20261026",
-    "toolchain_profile": "sv-dev",
-    "waveview_url": null,
-    "queue_position": null,
-    "eta_s": null,
-    "started_at": "2026-10-26T08:31:53.966876+00:00",
-    "stages": [
-      {
-        "key": "precheck",
-        "type": "precheck",
-        "ordinal": 0,
-        "status": "passed",
-        "failure_kind": null,
-        "error_code": null,
-        "started_at": "2026-10-26T08:31:53.966876Z",
-        "duration_ms": 1639,
-        "metrics_schema": "precheck/v1",
-        "metrics": {
-          "code_hash": "de8b116271f8d0240dd92b15bdf8c43615dd39af6a129dc32236c2f81bf80774",
-          "ast_hash": "n1:911351ff6f93c2265f0fb2245cf8477226ec075e65d76187652c387abc15c8ed",
-          "normalization_version": 1,
-          "module": "mux4",
-          "ports_ok": true,
-          "state_bits": 42
-        },
-        "summary": {
-          "caption": null,
-          "skip_reason": null,
-          "diagnostics": [],
-          "tests": [],
-          "hidden_tests": null
-        },
-        "finished_at": "2026-10-26T08:31:55.605876+00:00"
-      },
-      {
-        "key": "lint",
-        "type": "lint",
-        "ordinal": 1,
-        "status": "passed",
-        "failure_kind": null,
-        "error_code": null,
-        "started_at": "2026-10-26T08:31:55.605509Z",
-        "duration_ms": 1568,
-        "metrics_schema": "lint/v1",
-        "metrics": {
-          "warnings": 0,
-          "errors": 0,
-          "rules": {}
-        },
-        "summary": {
-          "caption": null,
-          "skip_reason": null,
-          "diagnostics": [],
-          "tests": [],
-          "hidden_tests": null
-        },
-        "finished_at": "2026-10-26T08:31:57.173509+00:00"
-      },
-      {
-        "key": "sim_run",
-        "type": "sim",
-        "ordinal": 2,
-        "status": "passed",
-        "failure_kind": null,
-        "error_code": null,
-        "started_at": "2026-10-26T08:31:57.174018Z",
-        "duration_ms": 12650,
-        "metrics_schema": "sim/v1",
-        "metrics": {
-          "tests_total": 2,
-          "tests_passed": 2,
-          "cycles": 23,
-          "seed": 20261026
-        },
-        "summary": {
-          "caption": "пройдено 2 из 2",
-          "skip_reason": null,
-          "diagnostics": [],
-          "tests": [
-            {
-              "id": "t1",
-              "name": "каждый вход по очереди",
-              "group": "public",
-              "status": "passed",
-              "duration_ms": null,
-              "cycle": null,
-              "mismatches": []
-            },
-            {
-              "id": "t2",
-              "name": "данные меняются при том же sel",
-              "group": "public",
-              "status": "passed",
-              "duration_ms": null,
-              "cycle": null,
-              "mismatches": []
-            }
-          ],
-          "hidden_tests": null
-        },
-        "finished_at": "2026-10-26T08:32:09.824018+00:00"
-      }
-    ],
-    "artifacts": [
-      {
-        "kind": "log",
-        "stage": "precheck",
-        "state": "ready",
-        "size_bytes": 0,
-        "waveform": null
-      },
-      {
-        "kind": "log",
-        "stage": "lint",
-        "state": "ready",
-        "size_bytes": 304,
-        "waveform": null
-      },
-      {
-        "kind": "log",
-        "stage": "sim_run",
-        "state": "ready",
-        "size_bytes": 0,
-        "waveform": null
-      },
-      {
-        "kind": "events",
-        "stage": null,
-        "state": "ready",
-        "size_bytes": 8274,
-        "waveform": null
-      }
-    ]
-  },
-  "events": [
-    {
-      "id": "1793003513000-0",
-      "event": {
-        "type": "queue",
-        "position": 2,
-        "eta_s": 4
-      }
-    },
-    {
-      "id": "1793003513600-0",
-      "event": {
-        "type": "queue",
-        "position": 1,
-        "eta_s": 2
-      }
-    },
-    {
-      "id": "1793003514816-0",
-      "event": {
-        "type": "stage_start",
-        "stage": "precheck",
-        "stage_type": "precheck",
-        "ordinal": 0,
-        "attempt": 1
-      }
-    },
-    {
-      "id": "1793003515816-0",
-      "event": {
-        "type": "heartbeat",
-        "stage": "precheck",
-        "elapsed_ms": 1000,
-        "note": null,
-        "attempt": 1
-      }
-    },
-    {
-      "id": "1793003516455-0",
-      "event": {
-        "type": "stage_end",
-        "result": {
-          "key": "precheck",
-          "type": "precheck",
-          "ordinal": 0,
-          "status": "passed",
-          "failure_kind": null,
-          "limit": null,
-          "error_code": null,
-          "started_at": "2026-10-26T08:31:53.966876Z",
-          "duration_ms": 1639,
-          "metrics_schema": "precheck/v1",
-          "metrics": {
-            "code_hash": "de8b116271f8d0240dd92b15bdf8c43615dd39af6a129dc32236c2f81bf80774",
-            "ast_hash": "n1:911351ff6f93c2265f0fb2245cf8477226ec075e65d76187652c387abc15c8ed",
-            "normalization_version": 1,
-            "module": "mux4",
-            "ports_ok": true,
-            "state_bits": 42
-          },
-          "cached": false,
-          "summary": {
-            "caption": null,
-            "skip_reason": null,
-            "diagnostics": [],
-            "tests": [],
-            "hidden_tests": null
-          }
-        },
-        "attempt": 1
-      }
-    },
-    {
-      "id": "1793003516455-1",
-      "event": {
-        "type": "stage_start",
-        "stage": "lint",
-        "stage_type": "lint",
-        "ordinal": 1,
-        "attempt": 1
-      }
-    },
-    {
-      "id": "1793003517455-0",
-      "event": {
-        "type": "heartbeat",
-        "stage": "lint",
-        "elapsed_ms": 1000,
-        "note": null,
-        "attempt": 1
-      }
-    },
-    {
-      "id": "1793003517460-0",
-      "event": {
-        "type": "log",
-        "stage": "lint",
-        "ch": "out",
-        "text": "- V e r i l a t i o n   R e p o r t: Verilator 5.052 2026-09-05 rev vUNKNOWN-built20261025\n- Verilator: Built from 0.030 MB sources in 2 modules, into 0.015 MB in 3 C++ files needing 0.000 MB\n- Verilator: Walltime 0.008 s (elab=0.001, cvt=0.002, bld=0.000); cpu 0.008 s on 1 threads; allocated 17.184 MB\n",
-        "attempt": 1
-      }
-    },
-    {
-      "id": "1793003518023-0",
-      "event": {
-        "type": "stage_end",
-        "result": {
-          "key": "lint",
-          "type": "lint",
-          "ordinal": 1,
-          "status": "passed",
-          "failure_kind": null,
-          "limit": null,
-          "error_code": null,
-          "started_at": "2026-10-26T08:31:55.605509Z",
-          "duration_ms": 1568,
-          "metrics_schema": "lint/v1",
-          "metrics": {
-            "warnings": 0,
-            "errors": 0,
-            "rules": {}
-          },
-          "cached": false,
-          "summary": {
-            "caption": null,
-            "skip_reason": null,
-            "diagnostics": [],
-            "tests": [],
-            "hidden_tests": null
-          }
-        },
-        "attempt": 1
-      }
-    },
-    {
-      "id": "1793003518023-1",
-      "event": {
-        "type": "stage_start",
-        "stage": "sim_run",
-        "stage_type": "sim",
-        "ordinal": 2,
-        "attempt": 1
-      }
-    },
-    {
-      "id": "1793003521639-0",
-      "event": {
-        "type": "stage_start",
-        "stage": "precheck",
-        "stage_type": "precheck",
-        "ordinal": 0,
-        "attempt": 2
-      }
-    },
-    {
-      "id": "1793003522639-0",
-      "event": {
-        "type": "heartbeat",
-        "stage": "precheck",
-        "elapsed_ms": 1000,
-        "note": null,
-        "attempt": 2
-      }
-    },
-    {
-      "id": "1793003523278-0",
-      "event": {
-        "type": "stage_end",
-        "result": {
-          "key": "precheck",
-          "type": "precheck",
-          "ordinal": 0,
-          "status": "passed",
-          "failure_kind": null,
-          "limit": null,
-          "error_code": null,
-          "started_at": "2026-10-26T08:31:53.966876Z",
-          "duration_ms": 1639,
-          "metrics_schema": "precheck/v1",
-          "metrics": {
-            "code_hash": "de8b116271f8d0240dd92b15bdf8c43615dd39af6a129dc32236c2f81bf80774",
-            "ast_hash": "n1:911351ff6f93c2265f0fb2245cf8477226ec075e65d76187652c387abc15c8ed",
-            "normalization_version": 1,
-            "module": "mux4",
-            "ports_ok": true,
-            "state_bits": 42
-          },
-          "cached": false,
-          "summary": {
-            "caption": null,
-            "skip_reason": null,
-            "diagnostics": [],
-            "tests": [],
-            "hidden_tests": null
-          }
-        },
-        "attempt": 2
-      }
-    },
-    {
-      "id": "1793003523278-1",
-      "event": {
-        "type": "stage_start",
-        "stage": "lint",
-        "stage_type": "lint",
-        "ordinal": 1,
-        "attempt": 2
-      }
-    },
-    {
-      "id": "1793003524278-0",
-      "event": {
-        "type": "heartbeat",
-        "stage": "lint",
-        "elapsed_ms": 1000,
-        "note": null,
-        "attempt": 2
-      }
-    },
-    {
-      "id": "1793003524283-0",
-      "event": {
-        "type": "log",
-        "stage": "lint",
-        "ch": "out",
-        "text": "- V e r i l a t i o n   R e p o r t: Verilator 5.052 2026-09-05 rev vUNKNOWN-built20261025\n- Verilator: Built from 0.030 MB sources in 2 modules, into 0.015 MB in 3 C++ files needing 0.000 MB\n- Verilator: Walltime 0.008 s (elab=0.001, cvt=0.002, bld=0.000); cpu 0.008 s on 1 threads; allocated 17.184 MB\n",
-        "attempt": 2
-      }
-    },
-    {
-      "id": "1793003524846-0",
-      "event": {
-        "type": "stage_end",
-        "result": {
-          "key": "lint",
-          "type": "lint",
-          "ordinal": 1,
-          "status": "passed",
-          "failure_kind": null,
-          "limit": null,
-          "error_code": null,
-          "started_at": "2026-10-26T08:31:55.605509Z",
-          "duration_ms": 1568,
-          "metrics_schema": "lint/v1",
-          "metrics": {
-            "warnings": 0,
-            "errors": 0,
-            "rules": {}
-          },
-          "cached": false,
-          "summary": {
-            "caption": null,
-            "skip_reason": null,
-            "diagnostics": [],
-            "tests": [],
-            "hidden_tests": null
-          }
-        },
-        "attempt": 2
-      }
-    },
-    {
-      "id": "1793003524846-1",
-      "event": {
-        "type": "stage_start",
-        "stage": "sim_run",
-        "stage_type": "sim",
-        "ordinal": 2,
-        "attempt": 2
-      }
-    },
-    {
-      "id": "1793003525846-0",
-      "event": {
-        "type": "heartbeat",
-        "stage": "sim_run",
-        "elapsed_ms": 1000,
-        "note": null,
-        "attempt": 2
-      }
-    },
-    {
-      "id": "1793003526846-0",
-      "event": {
-        "type": "heartbeat",
-        "stage": "sim_run",
-        "elapsed_ms": 2000,
-        "note": null,
-        "attempt": 2
-      }
-    },
-    {
-      "id": "1793003527846-0",
-      "event": {
-        "type": "heartbeat",
-        "stage": "sim_run",
-        "elapsed_ms": 3000,
-        "note": null,
-        "attempt": 2
-      }
-    },
-    {
-      "id": "1793003528846-0",
-      "event": {
-        "type": "heartbeat",
-        "stage": "sim_run",
-        "elapsed_ms": 4000,
-        "note": null,
-        "attempt": 2
-      }
-    },
-    {
-      "id": "1793003529846-0",
-      "event": {
-        "type": "heartbeat",
-        "stage": "sim_run",
-        "elapsed_ms": 5000,
-        "note": null,
-        "attempt": 2
-      }
-    },
-    {
-      "id": "1793003530846-0",
-      "event": {
-        "type": "heartbeat",
-        "stage": "sim_run",
-        "elapsed_ms": 6000,
-        "note": null,
-        "attempt": 2
-      }
-    },
-    {
-      "id": "1793003531846-0",
-      "event": {
-        "type": "heartbeat",
-        "stage": "sim_run",
-        "elapsed_ms": 7000,
-        "note": null,
-        "attempt": 2
-      }
-    },
-    {
-      "id": "1793003532846-0",
-      "event": {
-        "type": "heartbeat",
-        "stage": "sim_run",
-        "elapsed_ms": 8000,
-        "note": null,
-        "attempt": 2
-      }
-    },
-    {
-      "id": "1793003533846-0",
-      "event": {
-        "type": "heartbeat",
-        "stage": "sim_run",
-        "elapsed_ms": 9000,
-        "note": null,
-        "attempt": 2
-      }
-    },
-    {
-      "id": "1793003534846-0",
-      "event": {
-        "type": "heartbeat",
-        "stage": "sim_run",
-        "elapsed_ms": 10000,
-        "note": null,
-        "attempt": 2
-      }
-    },
-    {
-      "id": "1793003535846-0",
-      "event": {
-        "type": "heartbeat",
-        "stage": "sim_run",
-        "elapsed_ms": 11000,
-        "note": null,
-        "attempt": 2
-      }
-    },
-    {
-      "id": "1793003536846-0",
-      "event": {
-        "type": "heartbeat",
-        "stage": "sim_run",
-        "elapsed_ms": 12000,
-        "note": null,
-        "attempt": 2
-      }
-    },
-    {
-      "id": "1793003536925-0",
-      "event": {
-        "type": "test",
-        "stage": "sim_run",
-        "test": {
-          "id": "t1",
-          "name": "каждый вход по очереди",
-          "group": "public",
-          "status": "running",
-          "duration_ms": null,
-          "cycle": null,
-          "mismatches": []
-        },
-        "attempt": 2
-      }
-    },
-    {
-      "id": "1793003536925-1",
-      "event": {
-        "type": "test",
-        "stage": "sim_run",
-        "test": {
-          "id": "t1",
-          "name": "каждый вход по очереди",
-          "group": "public",
-          "status": "passed",
-          "duration_ms": null,
-          "cycle": null,
-          "mismatches": []
-        },
-        "attempt": 2
-      }
-    },
-    {
-      "id": "1793003536925-2",
-      "event": {
-        "type": "test",
-        "stage": "sim_run",
-        "test": {
-          "id": "t2",
-          "name": "данные меняются при том же sel",
-          "group": "public",
-          "status": "running",
-          "duration_ms": null,
-          "cycle": null,
-          "mismatches": []
-        },
-        "attempt": 2
-      }
-    },
-    {
-      "id": "1793003536925-3",
-      "event": {
-        "type": "test",
-        "stage": "sim_run",
-        "test": {
-          "id": "t2",
-          "name": "данные меняются при том же sel",
-          "group": "public",
-          "status": "passed",
-          "duration_ms": null,
-          "cycle": null,
-          "mismatches": []
-        },
-        "attempt": 2
-      }
-    },
-    {
-      "id": "1793003537496-0",
-      "event": {
-        "type": "stage_end",
-        "result": {
-          "key": "sim_run",
-          "type": "sim",
-          "ordinal": 2,
-          "status": "passed",
-          "failure_kind": null,
-          "limit": null,
-          "error_code": null,
-          "started_at": "2026-10-26T08:31:57.174018Z",
-          "duration_ms": 12650,
-          "metrics_schema": "sim/v1",
-          "metrics": {
-            "tests_total": 2,
-            "tests_passed": 2,
-            "cycles": 23,
-            "seed": 20261026
-          },
-          "cached": false,
-          "summary": {
-            "caption": "пройдено 2 из 2",
-            "skip_reason": null,
-            "diagnostics": [],
-            "tests": [
-              {
-                "id": "t1",
-                "name": "каждый вход по очереди",
-                "group": "public",
-                "status": "passed",
-                "duration_ms": null,
-                "cycle": null,
-                "mismatches": []
-              },
-              {
-                "id": "t2",
-                "name": "данные меняются при том же sel",
-                "group": "public",
-                "status": "passed",
-                "duration_ms": null,
-                "cycle": null,
-                "mismatches": []
-              }
-            ],
-            "hidden_tests": null
-          }
-        },
-        "attempt": 2
-      }
-    },
-    {
-      "id": "1793003537496-1",
-      "event": {
-        "type": "done",
-        "attempt": 2
-      }
-    },
-    {
-      "id": "1793003537616-0",
-      "event": {
-        "type": "finalized",
-        "status": "accepted",
-        "verdict_detail": {
-          "first_failure": null,
-          "limit": null,
-          "warnings": [],
-          "error_codes": []
-        }
-      }
+     "first_failure": null,
+     "limit": null,
+     "warnings": [],
+     "error_codes": []
     }
-  ]
+   }
+  }
+ ]
 }

@@ -44,6 +44,7 @@ function stateOf(check: Check | null, extra: Partial<SubmissionState> = {}): Sub
     cancel: vi.fn(),
     reconnect: vi.fn(),
     showLatest: vi.fn(() => Promise.resolve(false)),
+    show: vi.fn(),
     ...extra,
   };
 }
@@ -126,9 +127,11 @@ it("times the running block as a whole: precheck is in the lint block", () => {
   renderPanel(
     stateOf({ ...check, runningSince: Date.now() - 300 }, { connection: { state: "open" } }),
   );
-  // precheck took 1733 ms.
-  expect(screen.getByText("Выполняется · линт, 2,0 с")).toBeInTheDocument();
-  expect(stageOf("Линт")).toHaveTextContent("идёт · 2,0 с");
+  // The time of precheck as recorded, and 300 ms of lint.
+  const precheck = check.stages.find((stage) => stage.key === "precheck")?.duration_ms ?? 0;
+  const seconds = `${((precheck + 300) / 1000).toFixed(1).replace(".", ",")} с`;
+  expect(screen.getByText(`Выполняется · линт, ${seconds}`)).toBeInTheDocument();
+  expect(stageOf("Линт")).toHaveTextContent(`идёт · ${seconds}`);
 });
 
 describe("the verdict", () => {

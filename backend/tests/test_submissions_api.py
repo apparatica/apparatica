@@ -331,7 +331,14 @@ def test_a_finished_submission(api: TestClient, database_url: str) -> None:
     body = api.get(f"/api/v1/submissions/{submission_id}").json()
     assert body["status"] == "wrong_answer"
     assert body["verdict_detail"] == {
-        "first_failure": {"stage": "sim_full", "test": "hidden-1", "cycle": None},
+        "first_failure": {
+            "stage": "sim_full",
+            "test": "hidden-1",
+            "cycle": None,
+            "test_number": None,
+            "hidden": None,
+            "diagnostic": None,
+        },
         "limit": None,
         "warnings": [],
         "error_codes": [],

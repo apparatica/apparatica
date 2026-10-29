@@ -411,7 +411,10 @@ export interface components {
             status: "accepted" | "accepted_with_warnings" | "wrong_answer" | "compile_error" | "limit_exceeded" | "forbidden_construct" | "cancelled" | "internal_error";
             verdict_detail: components["schemas"]["VerdictDetail"];
         };
-        /** FirstFailure */
+        /**
+         * FirstFailure
+         * @description Where the check failed first: enough for a short reason in a list of submissions.
+         */
         FirstFailure: {
             /** Stage */
             stage: string;
@@ -419,6 +422,15 @@ export interface components {
             test?: string | null;
             /** Cycle */
             cycle?: number | null;
+            /**
+             * Test Number
+             * @description Number of the failed open test in run order, from 1
+             */
+            test_number?: number | null;
+            /** @description Set when a hidden test failed */
+            hidden?: components["schemas"]["HiddenTests"] | null;
+            /** @description First error of the stage */
+            diagnostic?: components["schemas"]["Diagnostic"] | null;
         };
         /** HealthResponse */
         HealthResponse: {
