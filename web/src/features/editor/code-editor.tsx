@@ -68,6 +68,9 @@ const OPTIONS: editor.IStandaloneEditorConstructionOptions = {
   scrollBeyondLastLine: false,
   padding: { top: 6 },
   lineNumbersMinChars: 3,
+  // The default is "dimmed" on Linux only: the number of the empty last line at 40% opacity fails
+  // the AA contrast (NFR-A11Y-01). "on" renders it like the others on every OS.
+  renderFinalNewline: "on",
   // Always there, so that the first diagnostic does not shift the code.
   glyphMargin: true,
   renderLineHighlight: "line",
