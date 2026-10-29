@@ -29,8 +29,18 @@ function isAsset(path: string): boolean {
   );
 }
 
+/** The `src` of a picture is a URI (Markdown percent-encodes it); the file has the plain name. */
+function decodeUri(src: string): string | null {
+  try {
+    return decodeURIComponent(src);
+  } catch {
+    return null;
+  }
+}
+
 export interface StatementOptions {
-  /** The URL of a picture of the package, `assets/…`; without it pictures are left out. */
+  /** The URL of a picture of the package by its path, `assets/…` (not percent-encoded); without
+   * it pictures are left out. */
   assetUrl?: ((path: string) => string) | undefined;
   /** The accessible name of a timing diagram. */
   waveformLabel: string;
@@ -40,7 +50,7 @@ export interface RenderedStatement {
   tree: Root;
   /** Problems to fix in the statement: KaTeX, WaveDrom, pictures. */
   messages: VFile["messages"];
-  /** The pictures it shows, `assets/…`. */
+  /** The paths of the pictures it shows, `assets/…`. */
   assets: string[];
 }
 
@@ -95,10 +105,11 @@ function rehypeLinks(options: StatementOptions, assets: string[]) {
       }
       if (node.tagName !== "img" || parent === undefined || position === undefined) return;
       const src = String(node.properties.src ?? "").replace(/^\.\//, "");
-      if (isAsset(src)) {
-        assets.push(src);
+      const asset = decodeUri(src);
+      if (asset !== null && isAsset(asset)) {
+        assets.push(asset);
         if (options.assetUrl !== undefined) {
-          node.properties.src = options.assetUrl(src);
+          node.properties.src = options.assetUrl(asset);
           node.properties.loading = "lazy";
           return;
         }

@@ -126,13 +126,28 @@ class NoStorage(Storage):
         pass
 
 
-def import_problems(url: str, paths: list[Path], *, publish: bool) -> None:
+class MemoryStorage(Storage):
+    """Object storage in a dict: for tests that read objects back."""
+
+    def __init__(self) -> None:
+        self.objects: dict[tuple[str, str], bytes] = {}
+
+    def put(self, bucket: str, key: str, data: bytes, content_type: str) -> None:
+        self.objects[bucket, key] = data
+
+    def find(self, bucket: str, key: str) -> bytes | None:
+        return self.objects.get((bucket, key))
+
+
+def import_problems(
+    url: str, paths: list[Path], *, publish: bool, storage: Storage | None = None
+) -> None:
     async def run() -> None:
         database = Database(url)
         try:
             await import_packages(
                 database,
-                NoStorage(),
+                storage or NoStorage(),
                 "packages",
                 [read_package(path) for path in paths],
                 load_tags(PROBLEMS / "tags.yaml"),

@@ -17,9 +17,13 @@ const FIFO = versions.find(
 
 afterEach(() => clearEditorStatus());
 
-function renderStatement(acceptance: number | null) {
+function renderStatement(acceptance: number | null, statement = FIFO.statement_md) {
   return renderWithProviders(
-    <ProblemStatement problem={{ ...FIFO, acceptance }} levels={config.difficulties} tags={tags} />,
+    <ProblemStatement
+      problem={{ ...FIFO, acceptance, statement_md: statement }}
+      levels={config.difficulties}
+      tags={tags}
+    />,
   );
 }
 
@@ -47,6 +51,19 @@ it("renders the statement and the ports of the interface", () => {
   const ports = screen.getByRole("table", { name: "Интерфейс" });
   expect(within(ports).getByRole("rowheader", { name: "rdata" })).toBeInTheDocument();
   expect(within(ports).getAllByRole("row")).toHaveLength(FIFO.interface.ports.length + 1);
+});
+
+it("shows the pictures of the statement from its version", () => {
+  renderStatement(null, "![Схема](assets/fifo.svg) ![Диаграмма](<./assets/waves/full 1.png>)");
+  const base = `/api/v1/problems/sync-fifo/versions/${FIFO.version}`;
+  expect(screen.getByRole("img", { name: "Схема" })).toHaveAttribute(
+    "src",
+    `${base}/assets/fifo.svg`,
+  );
+  expect(screen.getByRole("img", { name: "Диаграмма" })).toHaveAttribute(
+    "src",
+    `${base}/assets/waves/full%201.png`,
+  );
 });
 
 it("shows the mode, level and language, then the cursor and the autosave", () => {

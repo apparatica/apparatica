@@ -1,6 +1,7 @@
 """Problem import (specs/06 §6, FR-PKG-06): packages of the problem repository into the platform.
 
-A new `(slug, version)` becomes a problem version, its package goes to the `packages` bucket.
+A new `(slug, version)` becomes a problem version, its package goes to the `packages` bucket
+together with the pictures of its statement (`apparatica.problems.assets`).
 The same version with the same content hash changes nothing; with another hash it is refused,
 because a published version is immutable. An import is atomic: one refused package leaves the
 database as it was. `judge validate` has already run in CI, so the import checks only the
@@ -23,6 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from apparatica.core.db import Database
 from apparatica.core.ids import uuid7
 from apparatica.core.storage import Storage
+from apparatica.problems.assets import asset_key, picture_type
 from apparatica.problems.models import Problem, ProblemVersion, ReferenceSolution, Tag
 from judge.core.pack import content_hash, pack, package_files
 from judge.core.package import Problem as Manifest
@@ -75,6 +77,18 @@ class Package:
     def key(self) -> str:
         """Object key in the packages bucket: content-addressed, so uploads are idempotent."""
         return f"{self.manifest.id}/{self.manifest.version}-{self.content_hash}.tar.zst"
+
+    def objects(self) -> list[tuple[str, bytes, str]]:
+        """Key, data and media type of each object of the version: the archive and the
+        pictures of the statement, which the API serves one by one."""
+        manifest = self.manifest
+        objects = [(self.key, self.archive, PACKAGE_CONTENT_TYPE)]
+        for path, data in self.files.items():
+            media_type = picture_type(path)
+            if media_type is not None:
+                key = asset_key(manifest.id, manifest.version, self.content_hash, path)
+                objects.append((key, data, media_type))
+        return objects
 
     def text(self, path: str) -> str:
         try:
@@ -131,13 +145,8 @@ async def import_packages(
         # Before the commit: a version in the database always has its package in storage.
         for result in results:
             if result.outcome == "created":
-                await asyncio.to_thread(
-                    storage.put,
-                    bucket,
-                    result.package.key,
-                    result.package.archive,
-                    PACKAGE_CONTENT_TYPE,
-                )
+                for key, data, media_type in result.package.objects():
+                    await asyncio.to_thread(storage.put, bucket, key, data, media_type)
     return results
 
 

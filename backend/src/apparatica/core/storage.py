@@ -1,8 +1,9 @@
 """Object storage through the S3 API (ADR-0013): Garage in docker compose, any S3 elsewhere.
 
 Buckets are separate per kind of data because Garage grants keys per bucket; the API writes
-`packages` (problem import) and reads event journals from `artifacts`, the ingestor deletes
-expired `artifacts`. Calls are blocking: async code runs them in a thread.
+`packages` (problem import), reads pictures of statements from it and event journals from
+`artifacts`, the ingestor deletes expired `artifacts`. Calls are blocking: async code runs them
+in a thread.
 
 Browsers download artifacts by presigned URLs (specs/07 §4.4). The host is part of the signature,
 so they are signed for the public endpoint (`s3_public_url`), which the API itself may not reach;
@@ -14,6 +15,7 @@ from typing import TYPE_CHECKING
 
 import boto3
 from botocore.config import Config
+from botocore.exceptions import ClientError
 
 from apparatica.core.settings import Settings
 
@@ -59,6 +61,15 @@ class Storage:
 
     def get(self, bucket: str, key: str) -> bytes:
         return self._client.get_object(Bucket=bucket, Key=key)["Body"].read()
+
+    def find(self, bucket: str, key: str) -> bytes | None:
+        """The object, or None when there is none."""
+        try:
+            return self.get(bucket, key)
+        except ClientError as error:
+            if error.response.get("Error", {}).get("Code") in ("NoSuchKey", "404"):
+                return None
+            raise
 
     def download_url(self, bucket: str, key: str, filename: str, expires_s: int) -> str:
         """A presigned GET of the public endpoint that saves the object as `filename`."""

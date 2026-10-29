@@ -108,7 +108,7 @@ def create_app(
     )
     app.state.job_tokens = job_tokens
     app.state.stream_hub = hub
-    app.state.storage = Storage(settings)  # the event journals of finished checks
+    app.state.storage = Storage(settings)  # event journals, pictures of statements
     app.state.job_queue = queue
     app.state.guest_cookies = guest_cookies
     app.state.client_addresses = addresses

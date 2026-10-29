@@ -14,12 +14,13 @@ from apparatica.core.db import Database
 from apparatica.core.settings import Settings
 from apparatica.main import create_app
 from apparatica.problems.models import Problem, ProblemStats
-from conftest import CONFIG_DIR, PROBLEMS, Postgres, import_problems, repo_version
+from conftest import CONFIG_DIR, PROBLEMS, MemoryStorage, Postgres, import_problems, repo_version
 from judge.core.package import load_manifest
 
 PUBLIC = "public, max-age=60, stale-while-revalidate=300"
 IMMUTABLE = "public, max-age=31536000, immutable"
 PROBLEM = "application/problem+json"
+SVG = b"<svg xmlns='http://www.w3.org/2000/svg'><circle r='4'/></svg>"
 # The versions in the repository; the catalogue adds one to each of these two.
 MUX4 = repo_version("mux4")
 COUNTER = repo_version("counter-mod-n")
@@ -32,11 +33,20 @@ def _edit(path: Path, old: str, new: str) -> None:
 
 
 @pytest.fixture(scope="module")
+def storage() -> MemoryStorage:
+    return MemoryStorage()
+
+
+@pytest.fixture(scope="module")
 def catalogue(
-    postgres: Postgres, catalogue_template: str, tmp_path_factory: pytest.TempPathFactory
+    postgres: Postgres,
+    catalogue_template: str,
+    storage: MemoryStorage,
+    tmp_path_factory: pytest.TempPathFactory,
 ) -> str:
     """The five problems published; counter-mod-n COUNTER + 1 published over COUNTER; mux4
-    MUX4 + 1 imported but not published; a problem `draft` v1 imported but never published."""
+    MUX4 + 1 imported but not published; a problem `draft` v1 imported but never published.
+    The new versions of counter-mod-n and mux4 have pictures in `storage`."""
     root = tmp_path_factory.mktemp("problems")
     for name, slug, number, version in (
         ("counter-mod-n", "counter-mod-n", 2, COUNTER + 1),
@@ -49,18 +59,26 @@ def catalogue(
         _edit(manifest, f"id: {name}", f"id: {slug}")
         _edit(manifest, "number: 1\n" if name == "mux4" else "number: 2\n", f"number: {number}\n")
         _edit(manifest, f"version: {repo_version(name)}\n", f"version: {version}\n")
+        if slug != "draft":
+            (copy / "assets" / "dir").mkdir(parents=True)
+            (copy / "assets" / "fsm.svg").write_bytes(SVG)
+            (copy / "assets" / "dir" / "wave.png").write_bytes(b"\x89PNG")
+            (copy / "assets" / "notes.txt").write_bytes(b"not a picture")
 
     url = postgres.create_database(template=catalogue_template)
-    import_problems(url, [root / f"counter-mod-n-{COUNTER + 1}" / "counter-mod-n"], publish=True)
+    counter = [root / f"counter-mod-n-{COUNTER + 1}" / "counter-mod-n"]
+    import_problems(url, counter, publish=True, storage=storage)
     newer = [root / f"mux4-{MUX4 + 1}" / "mux4", root / "draft-1" / "draft"]
-    import_problems(url, newer, publish=False)
+    import_problems(url, newer, publish=False, storage=storage)
     return url
 
 
 @pytest.fixture(scope="module")
-def api(catalogue: str) -> Iterator[TestClient]:
+def api(catalogue: str, storage: MemoryStorage) -> Iterator[TestClient]:
     settings = Settings(environment="test", database_url=catalogue, config_dir=CONFIG_DIR)
-    with TestClient(create_app(settings), raise_server_exceptions=False) as client:
+    app = create_app(settings)
+    app.state.storage = storage
+    with TestClient(app, raise_server_exceptions=False) as client:
         yield client
 
 
@@ -271,6 +289,40 @@ def test_versions_up_to_the_current_one(api: TestClient) -> None:
     cached = api.get(f"{path}/versions/{COUNTER}", headers={"If-None-Match": etag})
     assert cached.status_code == 304
     assert api.get(f"{path}/versions/{COUNTER + 1}").json()["version"] == COUNTER + 1
+
+
+def test_pictures_of_a_statement(api: TestClient) -> None:
+    path = f"/api/v1/problems/counter-mod-n/versions/{COUNTER + 1}/assets"
+    picture = api.get(f"{path}/fsm.svg")
+    assert picture.status_code == 200
+    assert picture.content == SVG
+    assert picture.headers["content-type"] == "image/svg+xml"
+    assert picture.headers["cache-control"] == IMMUTABLE
+    # Opened by itself, an SVG runs no scripts on the origin of the site.
+    assert picture.headers["content-security-policy"].endswith("; sandbox")
+    assert picture.headers["x-content-type-options"] == "nosniff"
+    etag = picture.headers["etag"]
+    assert api.get(f"{path}/fsm.svg", headers={"If-None-Match": etag}).status_code == 304
+    nested = api.get(f"{path}/dir/wave.png")
+    assert (nested.status_code, nested.headers["content-type"]) == (200, "image/png")
+
+
+@pytest.mark.parametrize(
+    "path",
+    [
+        f"counter-mod-n/versions/{COUNTER + 1}/assets/notes.txt",  # not a picture
+        f"counter-mod-n/versions/{COUNTER + 1}/assets/missing.svg",
+        f"counter-mod-n/versions/{COUNTER + 1}/assets/%2e%2e/assets/fsm.svg",
+        f"counter-mod-n/versions/{COUNTER + 1}/assets/dir//wave.png",
+        f"counter-mod-n/versions/{COUNTER}/assets/fsm.svg",  # the old version has none
+        f"mux4/versions/{MUX4 + 1}/assets/fsm.svg",  # not published yet
+        "draft/versions/1/assets/fsm.svg",
+    ],
+)
+def test_unknown_pictures(api: TestClient, path: str) -> None:
+    response = api.get(f"/api/v1/problems/{path}")
+    assert response.status_code == 404
+    assert response.headers["content-type"] == PROBLEM
 
 
 @pytest.mark.parametrize(

@@ -45,6 +45,15 @@ it("shows pictures from assets/ only", () => {
   expect(offline.messages).toEqual([]);
 });
 
+it("gives the pictures by the names of their files", () => {
+  const markdown = "![a](<assets/схема 1.svg>) ![b](assets/%D0%B0.png) ![c](assets/%2e%2e/c.png)";
+  const { messages, assets } = render(markdown, (path) => path);
+  expect(assets).toEqual(["assets/схема 1.svg", "assets/а.png"]);
+  expect(messages.map((message) => message.reason)).toEqual([
+    "картинка не из assets/: assets/%2e%2e/c.png",
+  ]);
+});
+
 it("highlights the SystemVerilog fences only", () => {
   const html = toHtml(render("```sv\nmodule m;\nendmodule\n```\n\n```text\nmodule\n```").tree);
   expect(html.match(/class="shiki/g)).toHaveLength(1);

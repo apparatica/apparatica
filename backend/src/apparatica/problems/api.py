@@ -1,5 +1,7 @@
-"""`GET /problems`, `/problems/{slug}`, `/problems/{slug}/versions/{version}`, `/tags` (phase 0)."""
+"""`GET /problems`, `/problems/{slug}`, `/problems/{slug}/versions/{version}`, `/tags` (phase 0);
+pictures of statements `/problems/{slug}/versions/{version}/assets/{path}` (phase 1)."""
 
+import asyncio
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, Query, Request, Response
@@ -7,8 +9,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from apparatica.core.db import get_session
 from apparatica.core.errors import ApiError, ErrorCode, problem_responses
-from apparatica.core.http import IMMUTABLE, cached_json
+from apparatica.core.http import IMMUTABLE, cached_bytes, cached_json
 from apparatica.problems import service
+from apparatica.problems.assets import PICTURES, picture_type
 from apparatica.problems.schemas import (
     ProblemDetail,
     ProblemPage,
@@ -20,8 +23,13 @@ from apparatica.problems.schemas import (
 router = APIRouter(tags=["problems"])
 
 PHASE_0 = {"x-phase": 0}
+PHASE_1 = {"x-phase": 1}
 Session = Annotated[AsyncSession, Depends(get_session)]
 SlugPath = Annotated[str, Path(pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$", max_length=64)]
+ASSET_HEADERS = {
+    "Content-Security-Policy": "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+    "X-Content-Type-Options": "nosniff",
+}
 
 
 @router.get(
@@ -96,3 +104,40 @@ async def get_problem_version(
     if problem is None:
         raise ApiError(ErrorCode.NOT_FOUND, f"No published version {version} of {slug!r}")
     return cached_json(request, problem, IMMUTABLE)
+
+
+@router.get(
+    "/problems/{slug}/versions/{version}/assets/{path:path}",
+    response_class=Response,
+    responses={
+        200: {
+            "description": "The picture",
+            "content": {
+                media_type: {"schema": {"type": "string", "format": "binary"}}
+                for media_type in sorted(set(PICTURES.values()))
+            },
+        },
+        **problem_responses(ErrorCode.NOT_FOUND, ErrorCode.VALIDATION_ERROR),
+    },
+    openapi_extra=PHASE_1,
+)
+async def get_problem_asset(
+    request: Request,
+    session: Session,
+    slug: SlugPath,
+    version: Annotated[int, Path(ge=1)],
+    path: Annotated[str, Path(max_length=255, description="Under assets/ of the package")],
+) -> Response:
+    """A picture of the statement of a version, `assets/<path>` of its package (FR-PRB-03). Like
+    the version, it never changes. A sandboxed CSP keeps an SVG opened by itself from running
+    scripts on the origin of the site."""
+    asset = f"assets/{path}"
+    media_type = picture_type(asset)
+    key = None if media_type is None else await service.asset_key(session, slug, version, asset)
+    state = request.app.state
+    data = None
+    if key is not None:
+        data = await asyncio.to_thread(state.storage.find, state.settings.s3_bucket_packages, key)
+    if data is None or media_type is None:
+        raise ApiError(ErrorCode.NOT_FOUND, f"No picture {asset} in version {version} of {slug!r}")
+    return cached_bytes(request, data, media_type, IMMUTABLE, ASSET_HEADERS)

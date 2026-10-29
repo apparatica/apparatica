@@ -50,6 +50,12 @@ FastAPI не выводит из кода всё, что нужно клиент
 - **Ошибки.** `code` — стабильный машинный код. По нему фронтенд показывает текст из `messages/ru.json`, подставляя `params`. Поля `title` и `detail` — английские и предназначены для разработчиков. В теле ошибки есть все поля схемы `Error`; незаданные равны `null`, как и описывают типы клиента.
 - **Кэш.** Публичные данные отдаются с `ETag` и `Cache-Control: public, max-age=60, stale-while-revalidate=300`; на `If-None-Match` сервер отвечает 304. Версия задачи неизменяема: `public, max-age=31536000, immutable`. Ответы про отправки — `private, no-store`.
 
+## Картинки условия (Ф1)
+
+`GET /api/v1/problems/{slug}/versions/{version}/assets/{path}` отдаёт файл `assets/<path>` пакета версии (FR-PRB-03). Версия видна по тем же правилам, что `GET /problems/{slug}/versions/{version}`: опубликованная задача, не новее текущей. Путь — по правилам рендера условия (без `..`, пустых сегментов, `?`, `#`, `\`), только PNG, JPEG, GIF, SVG и WebP; всё остальное, как и отсутствующий файл, — `404 NOT_FOUND`.
+
+Импорт кладёт каждую картинку в бакет `packages` отдельным объектом `<slug>/<version>-<content_hash>/assets/…` рядом с архивом пакета ([development.md](development.md#импорт-задач)), и API отдаёт её байты сам, а не редиректом на presigned URL: адрес не протухает, картинка приходит с того же origin, что и сайт, и кэшируется как версия — `public, max-age=31536000, immutable` с `ETag`. Ответ несёт `Content-Security-Policy: default-src 'none'; style-src 'unsafe-inline'; sandbox` и `nosniff`: SVG, открытый отдельной вкладкой, не исполнит скрипты на origin сайта (в `<img>` браузер их не исполняет и так). Код — `apparatica.problems.assets`, роут `get_problem_asset`.
+
 ## Отправки (Ф0)
 
 `POST /api/v1/submissions` создаёт Run или Submit и отвечает `202` с отправкой и заголовком `Location`. Дальше её берёт воркер ([architecture.md](architecture.md#оркестратор)).

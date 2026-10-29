@@ -81,6 +81,7 @@ def main() -> int:
     body = b"stand check\n"
 
     check("api writes packages", lambda: api.put_object(Bucket="packages", Key=key, Body=body))
+    check("api reads packages", lambda: api.get_object(Bucket="packages", Key=key))
     check("worker reads packages", lambda: worker.get_object(Bucket="packages", Key=key))
     check(
         "worker cannot write packages",

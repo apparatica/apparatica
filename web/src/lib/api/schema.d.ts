@@ -113,6 +113,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/problems/{slug}/versions/{version}/assets/{path}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Problem Asset
+         * @description A picture of the statement of a version, `assets/<path>` of its package (FR-PRB-03). Like
+         *     the version, it never changes. A sandboxed CSP keeps an SVG opened by itself from running
+         *     scripts on the origin of the site.
+         */
+        get: operations["get_problem_asset"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/submissions": {
         parameters: {
             query?: never;
@@ -1701,6 +1723,62 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProblemVersionDetail"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    get_problem_asset: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                version: number;
+                /** @description Under assets/ of the package */
+                path: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The picture */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "image/gif": string;
+                    "image/jpeg": string;
+                    "image/png": string;
+                    "image/svg+xml": string;
+                    "image/webp": string;
                 };
             };
             /** @description Not Found */

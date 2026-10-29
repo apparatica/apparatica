@@ -1,4 +1,4 @@
-"""HTTP caching of JSON responses (specs/05 §1): public GETs carry an ETag and Cache-Control."""
+"""HTTP caching of responses (specs/05 §1): public GETs carry an ETag and Cache-Control."""
 
 import hashlib
 
@@ -14,11 +14,22 @@ IMMUTABLE = "public, max-age=31536000, immutable"  # data of a problem version n
 def cached_json(request: Request, body: BaseModel, cache_control: str = PUBLIC) -> Response:
     """The model as JSON with a strong ETag; 304 when the client already has this version."""
     data = body.model_dump_json().encode()
+    return cached_bytes(request, data, "application/json", cache_control)
+
+
+def cached_bytes(
+    request: Request,
+    data: bytes,
+    media_type: str,
+    cache_control: str,
+    headers: dict[str, str] | None = None,
+) -> Response:
+    """The data with a strong ETag; 304 when the client already has this version."""
     etag = '"' + hashlib.sha256(data).hexdigest()[:32] + '"'
-    headers = {"ETag": etag, "Cache-Control": cache_control}
+    headers = {**(headers or {}), "ETag": etag, "Cache-Control": cache_control}
     if etag in _etags(request.headers.get("if-none-match", "")):
         return Response(status_code=304, headers=headers)
-    return Response(data, media_type="application/json", headers=headers)
+    return Response(data, media_type=media_type, headers=headers)
 
 
 def _etags(header: str) -> set[str]:

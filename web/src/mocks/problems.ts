@@ -93,4 +93,8 @@ export const problemHandlers = [
     }
     return HttpResponse.json(found);
   }),
+  // The demo problems have no pictures in their statements.
+  http.get(api("/api/v1/problems/:slug/versions/:version/assets/*"), ({ params }) =>
+    apiProblem(404, "NOT_FOUND", `No picture in version ${String(params.version)}`),
+  ),
 ];

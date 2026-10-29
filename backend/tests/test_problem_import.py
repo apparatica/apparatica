@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 
 from apparatica.admin.cli import main
 from apparatica.core.settings import get_settings
+from apparatica.core.storage import Storage
 from conftest import CONFIG_DIR, repo_version
 from judge.core.pack import content_hash, unpack
 
@@ -137,6 +138,25 @@ def test_a_published_version_is_immutable(
     replace(statement, "Уточнение.\n", "")
     assert main(["problems", "import", "--publish", str(repo / "mux4")]) == 1
     assert f"FAIL mux4 v{V}: older than the current version {V + 1}" in capsys.readouterr().out
+
+
+def test_pictures_of_the_statement_are_objects_of_their_own(s3: Any, repo: Path) -> None:
+    assets = repo / "mux4" / "assets"
+    (assets / "dir").mkdir(parents=True)
+    (assets / "mux.svg").write_bytes(b"<svg xmlns='http://www.w3.org/2000/svg'/>")
+    (assets / "dir" / "wave.PNG").write_bytes(b"\x89PNG")
+    (assets / "notes.txt").write_bytes(b"not a picture")
+    assert main(["problems", "import", "--publish", str(repo / "mux4")]) == 0
+
+    [(stored_hash,)] = query("SELECT content_hash FROM problem_versions")
+    folder = f"mux4/{V}-{stored_hash}"
+    pictures = [f"{folder}/assets/dir/wave.PNG", f"{folder}/assets/mux.svg"]
+    assert keys(s3) == [f"{folder}.tar.zst", *pictures]
+    picture = s3.get_object(Bucket="packages", Key=f"{folder}/assets/mux.svg")
+    assert picture["ContentType"] == "image/svg+xml"
+    storage = Storage(get_settings())
+    assert storage.find("packages", f"{folder}/assets/dir/wave.PNG") == b"\x89PNG"
+    assert storage.find("packages", f"{folder}/assets/notes.txt") is None
 
 
 def test_an_import_is_all_or_nothing(

@@ -24,6 +24,7 @@ from sqlalchemy import (
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
+from apparatica.problems import assets
 from apparatica.problems.models import Problem, ProblemStats, ProblemVersion, Tag
 from apparatica.problems.schemas import (
     DifficultyTotal,
@@ -164,24 +165,36 @@ async def get_problem_version(
     session: AsyncSession, slug: str, version: int
 ) -> ProblemVersionDetail | None:
     """A version of a published problem, if it is not newer than the current one."""
-    current = aliased(ProblemVersion)
-    row = (
-        await session.execute(
-            select(Problem, ProblemVersion)
-            .join(current, current.id == Problem.current_version_id)
-            .join(ProblemVersion, ProblemVersion.problem_id == Problem.id)
-            .where(
-                Problem.slug == slug,
-                Problem.is_published,
-                ProblemVersion.version == version,
-                ProblemVersion.version <= current.version,
-            )
-        )
-    ).one_or_none()
+    row = (await session.execute(_visible_version(slug, version))).one_or_none()
     if row is None:
         return None
     problem, found = row
     return _detail(problem, found)
+
+
+async def asset_key(session: AsyncSession, slug: str, version: int, path: str) -> str | None:
+    """Storage key of a file of a version that `get_problem_version` shows; whether the package
+    has the file is for the storage to say."""
+    row = (await session.execute(_visible_version(slug, version))).one_or_none()
+    if row is None:
+        return None
+    _, found = row
+    return assets.asset_key(slug, version, found.content_hash, path)
+
+
+def _visible_version(slug: str, version: int) -> Select[Problem, ProblemVersion]:
+    current = aliased(ProblemVersion)
+    return (
+        select(Problem, ProblemVersion)
+        .join(current, current.id == Problem.current_version_id)
+        .join(ProblemVersion, ProblemVersion.problem_id == Problem.id)
+        .where(
+            Problem.slug == slug,
+            Problem.is_published,
+            ProblemVersion.version == version,
+            ProblemVersion.version <= current.version,
+        )
+    )
 
 
 def _detail(problem: Problem, found: ProblemVersion) -> ProblemVersionDetail:

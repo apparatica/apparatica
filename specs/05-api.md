@@ -72,6 +72,7 @@ RFC 9457 `application/problem+json`:
 | `GET /problems` | Ф0 | каталог с фильтрами `difficulty`, `tag`, `q`, `sort`; процент принятых — Ф1; фильтр `status` — Ф2 для вошедших (статусы гостя хранит браузер, по ним фильтрует он, FR-CAT-03) |
 | `GET /problems/{slug}` | Ф0 | текущая версия: условие, шаблон, интерфейс, статистика |
 | `GET /problems/{slug}/versions/{version}` | Ф0 | конкретная версия |
+| `GET /problems/{slug}/versions/{version}/assets/{path}` | Ф1 | картинка условия из `assets/` пакета, кэш как у версии |
 | `GET /tags` | Ф0 | справочник тегов |
 | `POST /submissions` | Ф0 | создать Run/Submit (в Ф0 — без воркера, статус `queued`) |
 | `GET /submissions/{id}` | Ф0 | отправка, этапы, тесты, артефакты |

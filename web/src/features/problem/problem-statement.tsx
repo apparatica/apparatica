@@ -12,6 +12,12 @@ import { Statement } from "@/lib/statement/statement";
 
 import type { ProblemData } from "./load";
 
+/** Pictures of the statement, `assets/…`, from the API by version: they never change. */
+function assetUrl(slug: string, version: number): (path: string) => string {
+  const base = `/api/v1/problems/${encodeURIComponent(slug)}/versions/${version}`;
+  return (path) => `${base}/${path.split("/").map(encodeURIComponent).join("/")}`;
+}
+
 export function ProblemStatement({ problem, levels, tags }: ProblemData) {
   const t = useTranslations("problem");
   const level = findDifficulty(levels, problem.difficulty);
@@ -38,7 +44,10 @@ export function ProblemStatement({ problem, levels, tags }: ProblemData) {
         </div>
       </header>
       <div className="flex flex-col gap-4 px-[22px] py-4">
-        <Statement markdown={problem.statement_md} />
+        <Statement
+          markdown={problem.statement_md}
+          assetUrl={assetUrl(problem.slug, problem.version)}
+        />
         <PortTable ports={problem.interface.ports} />
       </div>
     </article>
