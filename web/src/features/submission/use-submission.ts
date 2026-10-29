@@ -11,7 +11,7 @@ import { recordCheck } from "@/features/guest/history";
 import { rememberSubmissions } from "@/features/guest/submissions";
 import type { ApiError, Schemas } from "@/lib/api/client";
 
-import { api, eventsUrl, getRecent, getSubmission, submissionKeys } from "./api";
+import { api, eventsUrl, getQuota, getRecent, getSubmission, submissionKeys } from "./api";
 import { type Check, isFinished, type Submission } from "./machine";
 import { SubmissionStore } from "./store";
 import type { Connection } from "./stream";
@@ -51,10 +51,14 @@ export interface SubmissionState {
   cancelRequested: boolean;
   /** The last start or cancel failed: `problem+json` from the API or a network error. */
   error: ApiError | Error | null;
+  /** When the last start failed, `Date.now()` time: the waits of 429 and 428 count from it. */
+  failedAt: number | null;
   start: (input: StartInput) => void;
   cancel: () => void;
   /** "Connect now" after a lost connection. */
   reconnect: () => void;
+  /** Reads the quotas again, e.g. when a spent one should be back. */
+  refreshQuota: () => void;
   /** "See the new one": follows the last submission of the problem if it is not the shown one.
    * Resolves to false when there is none. */
   showLatest: () => Promise<boolean>;
@@ -84,6 +88,7 @@ export function useSubmission({
   const check = snapshot.check?.problem === problem ? snapshot.check : null;
   const id = check?.id ?? null;
   const [quota, setQuota] = useState<Schemas["QuotaStatus"] | null>(null);
+  const [failedAt, setFailedAt] = useState<number | null>(null);
 
   useEffect(() => {
     store.attach(problem);
@@ -131,6 +136,15 @@ export function useSubmission({
     store.start(found);
   };
 
+  const refreshQuota = () => {
+    getQuota().then(
+      (left) => {
+        if (left !== null) setQuota(left);
+      },
+      () => {}, // the old value stays until the next response
+    );
+  };
+
   const create = useMutation({
     mutationFn: async (input: StartInput) => {
       const { data, error } = await api.POST("/api/v1/submissions", {
@@ -143,6 +157,11 @@ export function useSubmission({
       queryClient.setQueryData(submissionKeys.detail(submission.id), submission);
       if (left !== null) setQuota(left);
       store.start(submission);
+    },
+    onError: (error) => {
+      setFailedAt(Date.now());
+      // Spent elsewhere (another tab): the counter catches up.
+      if ("code" in error && error.code === "RATE_LIMITED") refreshQuota();
     },
   });
 
@@ -175,11 +194,13 @@ export function useSubmission({
     cancelling: cancel.isPending,
     cancelRequested: id !== null && cancel.variables === id,
     error: create.error ?? cancel.error,
+    failedAt: create.error === null ? null : failedAt,
     start: (input) => create.mutate(input),
     cancel: () => {
       if (id !== null) cancel.mutate(id);
     },
     reconnect: () => store.reconnect(),
+    refreshQuota,
     showLatest: async () => {
       const found = (await getRecent(problem)).submission;
       if (found === null || found.id === id) return false;

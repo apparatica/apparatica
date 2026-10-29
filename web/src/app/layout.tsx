@@ -17,6 +17,7 @@ import { TooltipProvider } from "@/components/ui/tooltip";
 import { LOCALE } from "@/i18n/request";
 import { ApiMocking } from "@/mocks/api-mocking";
 import { QueryProvider } from "@/lib/query";
+import { GUEST_BANNER_COOKIE, isGuestBannerClosed } from "@/lib/guest-banner";
 import { parseTheme, THEME_COOKIE, THEME_SCRIPT } from "@/lib/theme";
 
 export async function generateMetadata(): Promise<Metadata> {
@@ -28,7 +29,10 @@ export async function generateMetadata(): Promise<Metadata> {
 }
 
 export default async function RootLayout({ children, breadcrumbs, statusbar }: LayoutProps<"/">) {
-  const theme = parseTheme((await cookies()).get(THEME_COOKIE)?.value);
+  const jar = await cookies();
+  const theme = parseTheme(jar.get(THEME_COOKIE)?.value);
+  // Everyone is a guest until accounts (Ф2).
+  const guestBanner = !isGuestBannerClosed(jar.get(GUEST_BANNER_COOKIE)?.value);
   return (
     // An explicit choice is rendered by the server; "system" is set by THEME_SCRIPT before the
     // first paint, so the attribute may differ from the server markup.
@@ -44,7 +48,12 @@ export default async function RootLayout({ children, breadcrumbs, statusbar }: L
         <NextIntlClientProvider>
           <QueryProvider>
             <TooltipProvider>
-              <AppShell theme={theme} breadcrumbs={breadcrumbs} statusbar={statusbar}>
+              <AppShell
+                theme={theme}
+                guestBanner={guestBanner}
+                breadcrumbs={breadcrumbs}
+                statusbar={statusbar}
+              >
                 {process.env.NEXT_PUBLIC_API_MOCKING === "enabled" ? (
                   <ApiMocking>{children}</ApiMocking>
                 ) : (

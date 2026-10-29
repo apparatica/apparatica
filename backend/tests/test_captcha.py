@@ -118,11 +118,15 @@ def test_a_captcha_after_frequent_checks() -> None:
         with pytest.raises(ApiError) as needed:
             await captcha.check(guest, "address", None)
         assert reason(needed) == "frequent"
+        assert needed.value.params is not None
+        assert 1 <= needed.value.params["retry_after_s"] <= 60  # the window of the guest
         solution = solve(captcha.altcha.challenge().model_dump())
         await captcha.check(guest, "address", solution)
         with pytest.raises(ApiError) as replayed:
             await captcha.check(guest, "address", solution)
         assert reason(replayed) == "invalid"
+        assert replayed.value.params is not None
+        assert "retry_after_s" in replayed.value.params  # still frequent: the wait is known
         with pytest.raises(ApiError) as wrong:
             await captcha.check(guest, "address", "garbage")
         assert reason(wrong) == "invalid"
@@ -144,6 +148,8 @@ def test_the_flag_asks_always() -> None:
         with pytest.raises(ApiError) as needed:
             await captcha.check(uuid.uuid4(), None, None)
         assert reason(needed) == "always"
+        assert needed.value.params is not None
+        assert "retry_after_s" not in needed.value.params  # no wait helps
         await captcha.check(uuid.uuid4(), None, solve(captcha.altcha.challenge().model_dump()))
 
     asyncio.run(scenario())
@@ -201,7 +207,9 @@ def test_frequent_guest_checks_need_a_captcha(api: TestClient) -> None:
     assert needed.status_code == 428
     body = needed.json()
     assert body["code"] == "CAPTCHA_REQUIRED"
-    assert body["params"] == {"challenge_url": "/api/v1/captcha/challenge", "reason": "frequent"}
+    params = body["params"]
+    assert params.pop("retry_after_s") in range(1, 61)  # config/rate-limits.yaml: 3 per minute
+    assert params == {"challenge_url": "/api/v1/captcha/challenge", "reason": "frequent"}
 
     challenge = challenge_of(api)
     assert challenge["maxnumber"] == 100_000  # config/rate-limits.yaml

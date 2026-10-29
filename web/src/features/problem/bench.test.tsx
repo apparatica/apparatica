@@ -2,8 +2,9 @@ import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { useEffect, useState } from "react";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
+import type { AltchaWidgetProps } from "@/features/captcha/altcha-widget";
 import type { CodeEditorProps } from "@/features/editor/code-editor";
 import { readDraft, writeDraft } from "@/features/guest/drafts";
 import { rememberSubmissions } from "@/features/guest/submissions";
@@ -49,6 +50,33 @@ vi.mock("@/features/editor/code-editor", () => ({
       mount(editor as unknown as Parameters<CodeEditorProps["onMount"]>[0]);
     }, [label, mount]);
     return <textarea aria-label={label} defaultValue={defaultValue} />;
+  },
+}));
+
+// The ALTCHA widget runs workers: a button that solves the challenge of the mocks right here.
+vi.mock("@/features/captcha/altcha-widget", () => ({
+  AltchaWidget: function FakeWidget({ challengeUrl, onChange }: AltchaWidgetProps) {
+    const solve = async () => {
+      const challenge = (await (await fetch(challengeUrl)).json()) as Schemas["CaptchaChallenge"];
+      for (let number = 0; number <= challenge.maxnumber; number += 1) {
+        const digest = await crypto.subtle.digest(
+          "SHA-256",
+          new TextEncoder().encode(`${challenge.salt}${number}`),
+        );
+        const hex = [...new Uint8Array(digest)]
+          .map((byte) => byte.toString(16).padStart(2, "0"))
+          .join("");
+        if (hex === challenge.challenge) {
+          onChange(btoa(JSON.stringify({ ...challenge, number })));
+          return;
+        }
+      }
+    };
+    return (
+      <button type="button" onClick={() => void solve()}>
+        Я не робот
+      </button>
+    );
   },
 }));
 
@@ -314,4 +342,83 @@ it("recreates expired waves and then offers them", async () => {
   expect(
     await within(waves).findByText("Просмотрщик волн недоступен", {}, { timeout: 5000 }),
   ).toBeInTheDocument();
+});
+
+describe("the limits of the guest", () => {
+  const dialog = () => screen.findByRole("dialog", { name: "Подтвердите, что вы человек" });
+
+  it("ask for a captcha and start the check again with the solution", async () => {
+    configureMocks({ speed: Infinity });
+    writeDraft("sync-fifo", {
+      code: "// mock-captcha: always\nmodule sync_fifo; endmodule",
+      version: FIFO.version,
+    });
+    renderBench();
+    await editor();
+    await userEvent.click(screen.getByRole("button", { name: /Run/ }));
+    const asked = await dialog();
+    expect(asked).toHaveAccessibleDescription(
+      "Пройдите короткую проверку, чтобы запустить проверку решения.",
+    );
+    const proceed = within(asked).getByRole("button", { name: "Продолжить" });
+    expect(proceed).toBeDisabled();
+
+    await userEvent.click(within(asked).getByRole("button", { name: "Я не робот" }));
+    await waitFor(() => expect(proceed).toBeEnabled(), { timeout: 10_000 });
+    const sent = captureSubmission();
+    await userEvent.click(proceed);
+    expect((await sent).captcha).toEqual(expect.any(String));
+    expect((await sent).kind).toBe("run");
+    expect(await screen.findByText("Открытые тесты пройдены")).toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.queryByText("Проверку не удалось запустить")).not.toBeInTheDocument();
+  }, 20_000);
+
+  it("show the wait after frequent checks and stay closed when cancelled", async () => {
+    writeDraft("sync-fifo", {
+      code: "// mock-captcha: frequent\nmodule sync_fifo; endmodule",
+      version: FIFO.version,
+    });
+    renderBench();
+    await editor();
+    await userEvent.click(screen.getByRole("button", { name: /Submit/ }));
+    const asked = await dialog();
+    expect(asked).toHaveAccessibleDescription(
+      "Вы отправили много проверок подряд. Пройдите короткую проверку, чтобы продолжить. Без неё можно подождать 0:42.",
+    );
+    await userEvent.click(within(asked).getByRole("button", { name: "Отмена" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByText("Результатов пока нет")).toBeInTheDocument();
+    expect(screen.queryByText("Проверку не удалось запустить")).not.toBeInTheDocument();
+  });
+
+  it("wait with the guest when the checks are spent", async () => {
+    server.use(
+      http.post(api("/api/v1/submissions"), () =>
+        HttpResponse.json(
+          {
+            type: "https://apparatica.app/errors/rate-limited",
+            title: "Guest limit is 10 checks per hour",
+            status: 429,
+            code: "RATE_LIMITED",
+            detail: "Guest limit is 10 checks per hour",
+            params: { quota: "checks", limit: 10, window_s: 3600, retry_after_s: 761 },
+            request_id: null,
+            errors: null,
+          },
+          { status: 429, headers: { "Content-Type": "application/problem+json" } },
+        ),
+      ),
+    );
+    renderBench();
+    await editor();
+    await userEvent.click(screen.getByRole("button", { name: /Run/ }));
+    expect(
+      await screen.findByRole("heading", { name: "Лимит проверок исчерпан" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Run · 12:4\d$/ })).toBeDisabled();
+    expect(screen.queryByText("Проверку не удалось запустить")).not.toBeInTheDocument();
+    // The code stays where it was.
+    expect(await editor()).toHaveValue(FIFO.template);
+  });
 });

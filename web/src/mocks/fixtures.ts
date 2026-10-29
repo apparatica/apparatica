@@ -21,14 +21,6 @@ export const config: Schemas["ConfigResponse"] = {
   auth_providers: [],
 };
 
-export const captchaChallenge: Schemas["CaptchaChallenge"] = {
-  algorithm: "SHA-256",
-  challenge: "4f1c8b7d0a2e5b9c6d3f7a1e8b4c2d9f0a5e7b3c1d8f6a2e4b9c7d0f3a5e1b8c",
-  maxnumber: 50000,
-  salt: "mock-salt?expires=1793000000",
-  signature: "9b2e4d6f8a0c1e3b5d7f9a1c3e5b7d9f1a3c5e7b9d1f3a5c7e9b1d3f5a7c9e1b",
-};
-
 /** The tags of problems/tags.yaml, in its order. */
 export const tags: Schemas["Tag"][] = [
   { slug: "combinational", title: "комбинационная логика" },

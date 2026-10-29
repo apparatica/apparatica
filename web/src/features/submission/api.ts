@@ -37,6 +37,13 @@ export async function syncSubmissions(problem: string): Promise<Schemas["Submiss
   return data;
 }
 
+/** What is left of the quotas of the guest, read again: one submission, the least the list gives. */
+export async function getQuota(): Promise<Schemas["QuotaStatus"] | null> {
+  const { data, error } = await api.GET("/api/v1/submissions", { params: { query: { limit: 1 } } });
+  if (error !== undefined) throw error;
+  return data.quota;
+}
+
 /** The submissions of the guest for the problem go to the local history (one page, the newest);
  * the result is the one to show — `wanted` if the page was opened for it, else the last one — and
  * the quotas. */

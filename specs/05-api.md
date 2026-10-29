@@ -53,7 +53,7 @@ RFC 9457 `application/problem+json`:
 | `FORBIDDEN` | 403 | нет прав |
 | `CSRF_FAILED` | 403 | нет или неверный CSRF-токен |
 | `RATE_LIMITED` | 429 | лимит проверок или запросов; `retry_after_s` |
-| `CAPTCHA_REQUIRED` | 428 | нужна капча; `challenge_url` |
+| `CAPTCHA_REQUIRED` | 428 | нужна капча; `challenge_url`, `reason` (`always`, `frequent`, `invalid`), при частых проверках `retry_after_s` |
 | `CODE_TOO_LARGE` | 413 | код больше лимита |
 | `PROBLEM_VERSION_OUTDATED` | 409 | отправка на не текущую версию (разрешено только для rejudge) |
 | `HEAVY_NOT_ALLOWED` | 403 | тяжёлая задача для гостя |

@@ -57,6 +57,7 @@
     "@fontsource/ibm-plex-sans": "^5.3.0",
     "@monaco-editor/react": "^4.7.0",
     "@tanstack/react-query": "^5.104.5",
+    "altcha": "^3.5.0",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",

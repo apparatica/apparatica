@@ -299,11 +299,22 @@ it("keeps the check when the API refuses a new one", async () => {
     await waitFor(() => expect(result.current.quota?.checks.remaining).toBe(9 - i));
   }
   const last = result.current.check?.id;
+  let reread = false;
+  server.use(
+    http.get(api("/api/v1/submissions"), ({ request }) => {
+      if (new URL(request.url).searchParams.get("limit") === "1") reread = true;
+      return undefined; // falls through to the handler of the mocks
+    }),
+  );
 
   act(() => result.current.start({ kind: "run", code: CODE }));
   await waitFor(() => expect(result.current.error).not.toBeNull());
   expect(result.current.error).toMatchObject({ code: "RATE_LIMITED", params: { quota: "checks" } });
+  expect(result.current.failedAt).toEqual(expect.any(Number));
   expect(result.current.check?.id).toBe(last);
+  // The spent quota is read again: it may have been spent in another tab.
+  await waitFor(() => expect(reread).toBe(true));
+  expect(result.current.quota?.checks.remaining).toBe(0);
 });
 
 it("stops when the submission is gone", async () => {

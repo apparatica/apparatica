@@ -5,7 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { applyEvent, type Check, checkOf, markLost } from "@/features/submission/machine";
 import type { SubmissionState } from "@/features/submission/use-submission";
-import type { Schemas } from "@/lib/api/client";
+import type { ApiError, Schemas } from "@/lib/api/client";
 import { api } from "@/mocks/http";
 import versions from "@/mocks/problem-versions.json";
 import { type ScenarioName, scenarios } from "@/mocks/scenarios";
@@ -40,9 +40,11 @@ function stateOf(check: Check | null, extra: Partial<SubmissionState> = {}): Sub
     cancelling: false,
     cancelRequested: false,
     error: null,
+    failedAt: null,
     start: vi.fn(),
     cancel: vi.fn(),
     reconnect: vi.fn(),
+    refreshQuota: vi.fn(),
     showLatest: vi.fn(() => Promise.resolve(false)),
     show: vi.fn(),
     ...extra,
@@ -586,5 +588,73 @@ describe("the waves", () => {
     ).toBeInTheDocument();
     // Nothing failed and the tab was opened only now: the viewer is made for later checks.
     expect(frame()).toBeInTheDocument();
+  });
+});
+
+describe("the limits of the guest", () => {
+  const quota = (remaining: number): Schemas["QuotaStatus"] => ({
+    checks: { limit: 10, remaining, reset_at: null },
+    waveforms: { limit: 5, remaining: 5, reset_at: null },
+  });
+  const spent = (retry: number): ApiError => ({
+    type: "https://apparatica.app/errors/rate-limited",
+    title: "Guest limit is 10 checks per hour",
+    status: 429,
+    code: "RATE_LIMITED",
+    detail: "Guest limit is 10 checks per hour",
+    params: { quota: "checks", limit: 10, window_s: 3600, retry_after_s: retry },
+    request_id: null,
+    errors: null,
+  });
+
+  it("count the checks left from three", () => {
+    const { unmount } = renderWithProviders(
+      <ResultsPanel
+        submission={stateOf(null, { quota: quota(4) })}
+        problem={FIFO}
+        busy={false}
+        onCheck={vi.fn()}
+        onReveal={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText(/^Проверок:/)).not.toBeInTheDocument();
+    unmount();
+    renderPanel(stateOf(null, { quota: quota(3) }));
+    expect(screen.getByText("Проверок: 3 из 10 в час")).toBeInTheDocument();
+  });
+
+  it("wait in place of the verdict when the checks are spent", () => {
+    const state = stateOf(finished("wrong-answer"), {
+      quota: quota(0),
+      error: spent(761),
+      failedAt: Date.now(),
+    });
+    renderPanel(state);
+    expect(screen.getByText("Лимит проверок исчерпан")).toBeInTheDocument();
+    expect(
+      screen.getByText("Следующая проверка будет доступна через", { exact: false }),
+    ).toHaveTextContent(
+      "Следующая проверка будет доступна через 12:41. Код сохранён в браузере, ничего не потеряется.",
+    );
+    expect(screen.getByRole("button", { name: "Run · 12:41" })).toBeDisabled();
+    expect(screen.queryByText(/^Неверный ответ/)).not.toBeInTheDocument();
+    // The results of the last check stay.
+    expect(screen.getByRole("tab", { name: "Консоль" })).toBeInTheDocument();
+    expect(screen.getByText("Проверок: 0 из 10 в час")).toBeInTheDocument();
+  });
+
+  it("wait in the empty panel before any check", () => {
+    renderPanel(stateOf(null, { error: spent(42), failedAt: Date.now() }));
+    expect(screen.getByRole("heading", { name: "Лимит проверок исчерпан" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Run · 0:42" })).toBeDisabled();
+    expect(screen.queryByText("Результатов пока нет")).not.toBeInTheDocument();
+  });
+
+  it("read the quota again when the wait is over", async () => {
+    const state = stateOf(finished("run-passed"), { error: spent(1), failedAt: Date.now() - 5000 });
+    renderPanel(state);
+    await waitFor(() => expect(state.refreshQuota).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText("Лимит проверок исчерпан")).not.toBeInTheDocument();
+    expect(screen.getByText("Открытые тесты пройдены")).toBeInTheDocument();
   });
 });

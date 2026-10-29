@@ -6,6 +6,7 @@ import { clearThemeState, mockColorScheme } from "@/test/match-media";
 import { renderWithProviders } from "@/test/render";
 
 import { CommandPalette } from "./command-palette";
+import { GuestBanner } from "./guest-banner";
 import { GuestMenu } from "./guest-menu";
 import { ThemeProvider, useResolvedTheme } from "./theme";
 
@@ -122,4 +123,16 @@ it("follows the theme on screen for what CSS cannot colour", async () => {
     document.documentElement.dataset["theme"] = "light";
   });
   await waitFor(() => expect(result.current).toBe("light"));
+});
+
+it("closes the guest banner for good", async () => {
+  renderWithProviders(<GuestBanner />);
+  const banner = screen.getByRole("complementary", { name: "Гостевой режим" });
+  expect(banner).toHaveTextContent(
+    "Вы решаете как гость. Черновики хранятся только в этом браузере, а решения не попадут в рейтинг.",
+  );
+  await userEvent.click(within(banner).getByRole("button", { name: "Закрыть баннер гостя" }));
+  expect(banner).not.toBeInTheDocument();
+  // The server reads it and renders no banner on the next pages.
+  expect(document.cookie).toContain("ap_guest_banner=closed");
 });

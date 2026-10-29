@@ -3,6 +3,7 @@
 // The problem page (FR-PRB-01, mock-up Bench): the statement on the left, the editor and the results
 // on the right, in panels whose sizes the browser remembers. The page owns the check
 // (useSubmission) and the code (Workspace); Run and Submit start from the buttons or the shortcuts.
+// A start the API refuses until a captcha is solved opens the captcha and starts again with it.
 import { skipToken, useQuery } from "@tanstack/react-query";
 import { useTranslations } from "next-intl";
 import { type ReactNode, useEffect, useState, useSyncExternalStore } from "react";
@@ -23,9 +24,11 @@ import { browserApi } from "@/lib/api/browser";
 import type { Schemas } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 
+import { CaptchaDialog } from "./captcha-dialog";
 import { clearEditorStatus } from "./editor-status";
 import { EditorPane, type VersionUpdate } from "./editor-pane";
 import { type BenchLayout, saveBenchLayout } from "./layout";
+import { captchaRequest, checksSpentUntil } from "./limits";
 import { useOpenSubmission } from "./open-submission";
 import { type LeftTab, parseLeftTab, setPageQuery } from "./page-query";
 import { editorDiagnostics } from "./pipeline-view";
@@ -130,18 +133,27 @@ export function Bench({
       ? { version: problem.version, draft: draftVersion, changelog: problem.changelog }
       : null;
 
-  const { check, starting, error } = submission;
+  const { check, starting, error, failedAt } = submission;
   const busy = starting ?? (check !== null && !isFinished(check) ? check.kind : null);
-  const start = (kind: "run" | "submit") => {
+  // The kind of the last start: the captcha starts it again.
+  const [kind, setKind] = useState<"run" | "submit">("run");
+  const start = (next: "run" | "submit", captcha: string | null = null) => {
     if (busy !== null) return;
     workspace.flush();
-    submission.start({ kind, code: workspace.code() });
+    setKind(next);
+    submission.start({ kind: next, code: workspace.code(), captcha });
     setPageQuery({ submission: null });
   };
   useCheckShortcuts(start);
 
+  // The captcha is asked once per refused start; a cancelled one stays closed.
+  const captcha = captchaRequest(error, failedAt);
+  const [dismissed, setDismissed] = useState<number | null>(null);
+
   useEffect(() => {
     if (error === null) return;
+    // These have their own places: the limit panel of the results, the captcha dialog.
+    if (checksSpentUntil(error, 0) !== null || captchaRequest(error, 0) !== null) return;
     notify({
       tone: "er",
       title: t("results.startFailed"),
@@ -195,6 +207,11 @@ export function Bench({
           </TabsContent>
         </Tabs>
         {opener.dialog}
+        <CaptchaDialog
+          request={captcha !== null && captcha.since !== dismissed ? captcha : null}
+          onSolve={(solution) => start(kind, solution)}
+          onCancel={() => setDismissed(captcha?.since ?? null)}
+        />
       </Panel>
       <ResizeHandle label={t("panels.columns")} />
       <Panel id="work" minSize="30%">

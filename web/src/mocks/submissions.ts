@@ -7,6 +7,7 @@ import { http, HttpResponse } from "msw";
 
 import type { Schemas } from "@/lib/api/client";
 
+import { captchaError, resetCaptcha } from "./captcha";
 import * as fixtures from "./fixtures";
 import { api, problem } from "./http";
 import {
@@ -65,6 +66,7 @@ export function configureMocks(update: Partial<typeof options>): void {
 
 export function resetMocks(): void {
   checks.clear();
+  resetCaptcha();
   Object.assign(options, defaults);
 }
 
@@ -321,6 +323,9 @@ export const submissionHandlers = [
         retry_after_s: retry,
       });
     }
+    // After the quotas, as in the API.
+    const captcha = await captchaError(body);
+    if (captcha !== null) return captcha;
     const check: Check = {
       id: crypto.randomUUID(),
       scenario: scenarioFor(body),

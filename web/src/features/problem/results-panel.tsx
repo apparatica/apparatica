@@ -2,7 +2,8 @@
 
 // The results panel of a problem page (specs/08 §3): the pipeline with the total time, the banner
 // of the check and the result tabs under it, and before the first check a hint on Run and Submit
-// (mock-up BenchEmpty). The viewer of the waves outlives the checks: it is made once and kept.
+// (mock-up BenchEmpty). The viewer of the waves outlives the checks: it is made once and kept. The
+// limits of the guest show here too: the counter of checks left, the wait when they are spent.
 import { SquareTerminal } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { type ReactNode, useState } from "react";
@@ -16,7 +17,9 @@ import type { SubmissionState } from "@/features/submission/use-submission";
 import { Viewer } from "@/features/waveview/viewer";
 import type { Schemas } from "@/lib/api/client";
 
-import { useNow } from "./clock";
+import { useCountdown, useNow } from "./clock";
+import { LimitNotice, QuotaCounter } from "./limit-panel";
+import { checksSpentUntil, quotaWarning } from "./limits";
 import { type BlockDetail, type BlockView, pipelineView } from "./pipeline-view";
 import { ResultBanner } from "./result-banner";
 import { ResultsConsole } from "./results-console";
@@ -96,6 +99,13 @@ export function ResultsPanel({ submission, problem, busy, onCheck, onReveal }: R
   const [tab, setTab] = useState<ResultsTab>("console");
   const [viewer] = useState(() => new Viewer());
   const { check } = submission;
+  // A start refused by a spent quota: the panel waits with the guest, then reads the quota again.
+  const spentLeft = useCountdown(
+    checksSpentUntil(submission.error, submission.failedAt),
+    submission.failedAt,
+    submission.refreshQuota,
+  );
+  const warning = quotaWarning(submission.quota);
   // The frame of the viewer is made when a test fails or the tab opens, before the trace is read:
   // Surfer boots meanwhile. Then it stays.
   const [viewerWanted, setViewerWanted] = useState(false);
@@ -134,14 +144,16 @@ export function ResultsPanel({ submission, problem, busy, onCheck, onReveal }: R
   return (
     <section aria-label={t("label")} className="flex h-full min-h-0 flex-col bg-sf">
       <div className="flex flex-none flex-col gap-2.5 px-3.5 pt-3 pb-3.5">
-        <div className="flex items-baseline justify-between gap-3 font-mono text-label text-mu uppercase">
-          <h2>{tp("label")}</h2>
-          <span className="normal-case">
+        <div className="flex min-h-[22px] flex-wrap items-center gap-x-3 gap-y-1 font-mono text-label text-mu uppercase">
+          <h2 className="flex-1 whitespace-nowrap">{tp("label")}</h2>
+          {warning !== null && <QuotaCounter window={warning} />}
+          <span className="whitespace-nowrap normal-case">
             <PipelineTotal check={check} blocks={blocks} />
           </span>
         </div>
         <Pipeline stages={stages} />
-        {check !== null && (
+        {check !== null && spentLeft !== null && <LimitNotice left={spentLeft} layout="banner" />}
+        {check !== null && spentLeft === null && (
           <ResultBanner
             check={check}
             submission={submission}
@@ -212,7 +224,12 @@ export function ResultsPanel({ submission, problem, busy, onCheck, onReveal }: R
           </div>
         </Tabs>
       )}
-      {check === null && (
+      {check === null && spentLeft !== null && (
+        <div className="flex flex-1 flex-col items-center justify-center border-t border-bd bg-ed px-10">
+          <LimitNotice left={spentLeft} layout="panel" />
+        </div>
+      )}
+      {check === null && spentLeft === null && (
         <div className="flex flex-1 flex-col items-center justify-center gap-2.5 border-t border-bd bg-ed px-10 text-center">
           <SquareTerminal size={22} className="text-mu" aria-hidden="true" />
           <h2 className="text-[14px] font-medium">{t("emptyTitle")}</h2>

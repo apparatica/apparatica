@@ -5,6 +5,7 @@ import type { ReactNode } from "react";
 import type { Theme } from "@/lib/theme";
 
 import { CommandPalette } from "./command-palette";
+import { GuestBanner } from "./guest-banner";
 import { GuestMenu } from "./guest-menu";
 import { BottomNav, Rail } from "./navigation";
 import { ThemeProvider } from "./theme";
@@ -29,6 +30,8 @@ function Logo() {
 
 export interface AppShellProps {
   theme: Theme;
+  /** The guest banner over the header, until the guest closes it. */
+  guestBanner?: boolean;
   /** The path after the logo; a slot that pages fill. */
   breadcrumbs?: ReactNode;
   /** The status bar under the window, of the problem page only; a slot too. */
@@ -37,11 +40,18 @@ export interface AppShellProps {
 }
 
 /** Header, left rail (bottom bar below 640 px) and the page; the layout of the mock-ups. */
-export function AppShell({ theme, breadcrumbs, statusbar, children }: AppShellProps) {
+export function AppShell({
+  theme,
+  guestBanner = false,
+  breadcrumbs,
+  statusbar,
+  children,
+}: AppShellProps) {
   const t = useTranslations("shell");
   return (
     <ThemeProvider initial={theme}>
       <div className="flex min-h-dvh flex-col bg-bg text-tx">
+        {guestBanner && <GuestBanner />}
         <header className="flex min-h-10 flex-none items-center gap-3 border-b border-bd bg-sf px-3">
           <Link href="/" className="flex items-center gap-2 rounded-md font-semibold">
             <Logo />
