@@ -41,6 +41,16 @@ class ExecutorError(Exception):
     """The platform failed (Docker unavailable, container gone): the stage gets status error."""
 
 
+class SandboxLostError(ExecutorError):
+    """The sandbox died, or could not run the kill after a stage and was stopped whole: nothing
+    can run in it any more. `oom`: its memory limit killed it (under gVisor the OOM killer of the
+    host takes the whole sandbox, not one process)."""
+
+    def __init__(self, *, oom: bool) -> None:
+        super().__init__("the sandbox ran out of memory" if oom else "the sandbox is lost")
+        self.oom = oom
+
+
 class Executor(Protocol):
     def __enter__(self) -> Self: ...
 
@@ -170,7 +180,9 @@ def _run_streaming(
             elif budget.exceeded:
                 stop = "output"
             if stop is not None:
-                running.kill()
+                # A sandbox that cannot run the kill is stopped whole: the command ends either way.
+                with contextlib.suppress(SandboxLostError):
+                    running.kill()
         try:
             lines, chunk = events.get(timeout=_POLL_S)
         except queue.Empty:
@@ -208,6 +220,8 @@ def _exec_result(
     budget: _Budget,
     files: dict[str, bytes],
     oversized: set[str],
+    *,
+    memory_exceeded: bool = False,
 ) -> ExecResult:
     return ExecResult(
         commands=tuple(results),
@@ -215,6 +229,7 @@ def _exec_result(
         timed_out=stop == "timeout",
         output_limited=stop == "output",
         cancelled=stop == "cancelled",
+        memory_exceeded=memory_exceeded,
         files=files,
         oversized=frozenset(oversized),
     )
@@ -322,10 +337,32 @@ SANDBOX_INIT = ("apx-init",)
 # Every process of the sandbox user but PID 1; nothing left to kill is not an error (no /bin/kill
 # in the image: the shell builtin, S6).
 KILL_ALL = ("sh", "-c", "kill -KILL -1 || true")
+# Whether the container runs and whether the OOM killer stopped it, after a failed kill.
+STATE_FORMAT = "{{.State.Running}} {{.State.OOMKilled}}"
+# Under gVisor the host --pids-limit counts the threads of the Sentry, about two per process of the
+# sandbox (T1.8: 254 processes, 540 host threads); at that limit the whole sandbox dies. There the
+# process limit is RLIMIT_NPROC, which gVisor enforces inside the sandbox, and the host limit
+# leaves room for the Sentry.
+RUNSC_PIDS_PER_PROCESS = 3
+RUNSC_PIDS_BASE = 64
 
 
-def sandbox_flags(limits: SandboxLimits) -> list[str]:
-    """`docker run` flags of the sandbox container (specs/07 §5.1), without the runtime."""
+def sandbox_state(output: bytes) -> tuple[bool, bool]:
+    """(running, killed by the OOM killer) from `docker inspect --format STATE_FORMAT`."""
+    words = output.decode(errors="replace").split()
+    return words[:1] == ["true"], words[1:2] == ["true"]
+
+
+def sandbox_flags(limits: SandboxLimits, runtime: str | None) -> list[str]:
+    """`docker run` flags of the sandbox container (specs/07 §5.1) but `--runtime`, which picks how
+    the process limit is set; `runtime` None is the Docker default (runc)."""
+    if runtime == "runsc":
+        host_pids = limits.pids * RUNSC_PIDS_PER_PROCESS + RUNSC_PIDS_BASE
+        pids = [f"--pids-limit={host_pids}", f"--ulimit=nproc={limits.pids}:{limits.pids}"]
+    else:
+        # Not RLIMIT_NPROC: without a user namespace it counts the sandbox user's processes of
+        # every container on the host.
+        pids = [f"--pids-limit={limits.pids}"]
     return [
         "--network=none",
         "--read-only",
@@ -334,7 +371,7 @@ def sandbox_flags(limits: SandboxLimits) -> list[str]:
         f"--user={SANDBOX_UID}:{SANDBOX_UID}",
         "--cap-drop=ALL",
         "--security-opt=no-new-privileges",
-        f"--pids-limit={limits.pids}",
+        *pids,
         f"--memory={limits.memory_mb}m",
         f"--memory-swap={limits.memory_mb}m",
         f"--cpus={limits.cpus:g}",
@@ -353,7 +390,9 @@ class Container(Protocol):
         ...
 
     def kill_all(self) -> None:
-        """SIGKILL every process of the sandbox user; killing the exec client is not enough (S6)."""
+        """SIGKILL every process of the sandbox user; killing the exec client is not enough (S6).
+        Raises SandboxLostError if the sandbox died or the kill could not start in it (then the
+        sandbox is stopped whole)."""
         ...
 
 
@@ -402,11 +441,23 @@ class ContainerExecutor:
                 cancel=cancel,
             )
 
+        lost: SandboxLostError | None = None
         try:
             results, stop, budget = _run_plan(plan, run_one)
         finally:
             # Nothing a stage started survives into the next one (specs/07 §5.2).
-            self.container.kill_all()
+            try:
+                self.container.kill_all()
+            except SandboxLostError as error:
+                lost = error
+        if lost is not None:
+            if lost.oom:
+                return _exec_result(results, stop, budget, {}, set(), memory_exceeded=True)
+            if stop is None:
+                raise lost
+            # Stopped for a limit or a cancellation, e.g. a fork bomb that left no room for the
+            # kill: that is the outcome, and the pipeline goes no further in this sandbox.
+            return _exec_result(results, stop, budget, {}, set())
         files, oversized = self._collect(workdir, plan)
         return _exec_result(results, stop, budget, files, oversized)
 
@@ -456,8 +507,9 @@ class DockerContainer:
 
     def create(self) -> None:
         runtime = [f"--runtime={self.runtime}"] if self.runtime else []
-        argv = ["docker", "run", "-d", "--rm", "--name", self.name, *runtime]
-        argv += [*sandbox_flags(self.limits), self.image, *SANDBOX_INIT]
+        # No --rm: the state of a sandbox that died tells why (STATE_FORMAT); destroy removes it.
+        argv = ["docker", "run", "-d", "--name", self.name, *runtime]
+        argv += [*sandbox_flags(self.limits, self.runtime), self.image, *SANDBOX_INIT]
         result = self._docker(argv)
         if result.returncode != 0:
             message = result.stderr.decode(errors="replace").strip()
@@ -487,7 +539,13 @@ class DockerContainer:
         )
 
     def kill_all(self) -> None:
-        self._docker(["docker", "exec", self.name, *KILL_ALL])
+        if self._docker(["docker", "exec", self.name, *KILL_ALL]).returncode == 0:
+            return
+        state = self._docker(["docker", "inspect", "--format", STATE_FORMAT, self.name])
+        running, oom = sandbox_state(state.stdout)
+        if running:
+            self._docker(["docker", "kill", self.name])
+        raise SandboxLostError(oom=oom)
 
     def _docker(
         self, argv: list[str], stdin: bytes | None = None

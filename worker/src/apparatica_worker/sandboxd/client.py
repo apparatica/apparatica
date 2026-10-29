@@ -10,7 +10,7 @@ from contextlib import contextmanager
 from types import TracebackType
 from typing import IO, Any, Self
 
-from judge.core.executor import ContainerExecutor, ExecutorError, Running
+from judge.core.executor import ContainerExecutor, ExecutorError, Running, SandboxLostError
 from judge.core.limits import SandboxLimits
 
 # A unix socket path; (host, port) only for tests on systems without unix sockets.
@@ -105,7 +105,9 @@ class SandboxContainer:
         )
 
     def kill_all(self) -> None:
-        self.client.request({"op": "kill", "id": self._id()})
+        reply = self.client.request({"op": "kill", "id": self._id()})
+        if reply.get("lost"):
+            raise SandboxLostError(oom=bool(reply.get("oom")))
 
     def _exec(self, argv: Sequence[str], cwd: str, *, tty: bool) -> dict[str, Any]:
         return {"op": "exec", "id": self._id(), "argv": list(argv), "cwd": cwd, "tty": tty}

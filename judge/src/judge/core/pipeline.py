@@ -201,6 +201,10 @@ def _run_stage(
             if run.cancelled:
                 sink.emit(LogEvent(stage=ctx.key, ch="sys", text=cancel_note()))
                 return finish(None), None
+            if run.memory_exceeded:  # the sandbox is gone: no interpretation, no follow-up run
+                return finish(
+                    StageOutcome(status="failed", failure_kind="limit", limit="memory")
+                ), None
             if run.output_limited:
                 sink.emit(TruncatedEvent(stage=ctx.key, limit_kb=step.output_limit // 1024))
             step = stage.interpret(ctx, runs)

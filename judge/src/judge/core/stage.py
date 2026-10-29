@@ -178,15 +178,16 @@ class ExecResult:
     timed_out: bool = False
     output_limited: bool = False
     cancelled: bool = False
+    # The memory limit killed the sandbox whole (gVisor): the stage fails with limit memory.
+    memory_exceeded: bool = False
     files: Mapping[str, bytes] = field(default_factory=dict)  # collected files that exist
     oversized: frozenset[str] = frozenset()  # collected files over the limit, not read
 
     @property
     def ok(self) -> bool:
         """Every command ran and exited with 0."""
-        return not (self.timed_out or self.output_limited or self.cancelled) and all(
-            c.exit_code == 0 for c in self.commands
-        )
+        stopped = self.timed_out or self.output_limited or self.cancelled or self.memory_exceeded
+        return not stopped and all(c.exit_code == 0 for c in self.commands)
 
 
 class Stage(Protocol):

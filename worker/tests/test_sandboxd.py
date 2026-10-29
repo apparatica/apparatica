@@ -20,7 +20,7 @@ from apparatica_worker.sandboxd.server import (
     _Sandbox,
     repository,
 )
-from judge.core.executor import ExecutorError
+from judge.core.executor import ExecutorError, SandboxLostError
 from judge.core.limits import SandboxLimits
 
 IMAGE = "ghcr.io/apparatica/toolchain@sha256:" + "a" * 64
@@ -46,15 +46,17 @@ class FakeDocker:
     def __init__(self) -> None:
         self.calls: list[list[str]] = []
         self.failing: set[str] = set()  # docker commands that fail
+        self.error = b"Error response from daemon: boom"  # their stderr
         self.leftovers = b""  # what `docker ps` lists
+        self.state = b"true false"  # what `docker inspect` says: running, OOM-killed
 
     async def run(
         self, args: Sequence[str], *, stdin: bytes | None = None, timeout: float = 60
     ) -> tuple[int, bytes, bytes]:
         self.calls.append(list(args))
         if args[0] in self.failing:
-            return 1, b"", b"Error response from daemon: boom"
-        return 0, self.leftovers if args[0] == "ps" else b"", b""
+            return 1, b"", self.error
+        return 0, {"ps": self.leftovers, "inspect": self.state}.get(args[0], b""), b""
 
     async def start(self, args: Sequence[str], *, stdin: bool) -> Process:
         self.calls.append(list(args))
@@ -111,8 +113,9 @@ def test_a_sandbox_gets_the_fixed_flags(
     name = args[args.index("--name") + 1]
     assert sandboxd.sandboxes[sandbox_id].container == name
     assert name not in sandbox_id  # the client never learns the container
-    assert args[:3] == ["run", "-d", "--rm"]
-    assert args[5:7] == ["--label", LABEL]
+    assert args[:2] == ["run", "-d"]
+    assert "--rm" not in args  # the state of a sandbox that died is read before destroy
+    assert args[4:6] == ["--label", LABEL]
     assert args[-2:] == [IMAGE, "apx-init"]
     for flag in (
         "--runtime=runsc",
@@ -121,7 +124,9 @@ def test_a_sandbox_gets_the_fixed_flags(
         "--cap-drop=ALL",
         "--security-opt=no-new-privileges",
         "--user=10001:10001",
-        "--pids-limit=256",
+        # runsc: the processes are limited inside gVisor, the host limit leaves room for the Sentry.
+        "--ulimit=nproc=256:256",
+        "--pids-limit=832",
         "--memory=2048m",
         "--memory-swap=2048m",
         "--cpus=2",
@@ -235,6 +240,60 @@ def test_kill_and_destroy(daemon: tuple[Sandboxd, FakeDocker, SandboxdClient]) -
     assert sandboxd.sandboxes == {}
     with pytest.raises(ExecutorError, match="unknown sandbox"):
         client.request({"op": "kill", "id": sandbox_id})
+
+
+@pytest.mark.parametrize(
+    ("state", "oom", "stopped"),
+    [
+        pytest.param(b"false true", True, False, id="killed-by-its-memory-limit"),
+        pytest.param(b"false false", False, False, id="died"),
+        pytest.param(b"true false", False, True, id="kill-cannot-start"),
+    ],
+)
+def test_a_lost_sandbox(
+    daemon: tuple[Sandboxd, FakeDocker, SandboxdClient], state: bytes, oom: bool, stopped: bool
+) -> None:
+    sandboxd, docker, client = daemon
+    container = SandboxContainer(client, IMAGE, LIMITS)
+    container.create()
+    name = sandboxd.sandboxes[str(container.id)].container
+    docker.failing.add("exec")
+    docker.state = state
+    with pytest.raises(SandboxLostError) as lost:
+        container.kill_all()
+    assert lost.value.oom is oom
+    inspect = ["inspect", "--format", "{{.State.Running}} {{.State.OOMKilled}}", name]
+    assert docker.calls[2:] == [inspect, ["kill", name]] if stopped else [inspect]
+    container.destroy()
+    assert sandboxd.sandboxes == {}
+
+
+def test_a_kill_without_docker_is_refused(
+    daemon: tuple[Sandboxd, FakeDocker, SandboxdClient],
+) -> None:
+    _, docker, client = daemon
+    container = SandboxContainer(client, IMAGE, LIMITS)
+    container.create()
+    docker.failing |= {"exec", "inspect"}
+    with pytest.raises(ExecutorError, match="cannot kill") as refused:
+        container.kill_all()
+    assert not isinstance(refused.value, SandboxLostError)
+
+
+def test_destroy_of_a_container_that_is_gone(
+    daemon: tuple[Sandboxd, FakeDocker, SandboxdClient],
+) -> None:
+    sandboxd, docker, client = daemon
+    container = SandboxContainer(client, IMAGE, LIMITS)
+    container.create()
+    sandbox_id = str(container.id)
+    docker.failing.add("rm")
+    with pytest.raises(ExecutorError, match="cannot remove"):
+        client.request({"op": "destroy", "id": sandbox_id})
+    assert sandbox_id in sandboxd.sandboxes  # kept: the daemon tries again or reaps it
+    docker.error = b"Error response from daemon: No such container: apx-sandbox-0"
+    container.destroy()
+    assert sandboxd.sandboxes == {}
 
 
 @pytest.mark.parametrize(

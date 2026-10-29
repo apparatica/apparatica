@@ -12,8 +12,12 @@ Protocol: one JSON request per connection, replies are JSON lines.
     {"op": "exec", "id": ..., "argv": [...], "cwd": "/work/<dir>", "tty": true, "stdin": null}
                                             -> {"out": "<base64>"}... then {"exit": 0, "stderr": ""}
     {"op": "kill", "id": ...}               -> {"ok": true}   (kill -KILL -1 as the sandbox user)
+                                            or {"ok": false, "lost": true, "oom": false}
     {"op": "destroy", "id": ...}            -> {"ok": true}
 
 `exec` runs with a TTY (stage commands: line by line) or with `stdin` (base64, e.g. a tar of the
-stage inputs), never both. A refused or failed request gets `{"error": "<reason>"}`.
+stage inputs), never both. A refused or failed request gets `{"error": "<reason>"}`. `kill`
+answers `lost` when the sandbox died (`oom`: of its memory limit, which under gVisor takes the
+whole sandbox) or could not start the kill, e.g. with its process limit used up; such a sandbox
+is stopped and only `destroy` is left.
 """

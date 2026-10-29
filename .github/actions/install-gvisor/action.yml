@@ -1,0 +1,17 @@
+name: Install gVisor
+description: >-
+  Install runsc from the apt repository of gVisor and register it as a Docker runtime (ADR-0003).
+  The repository serves the latest release only. Docker restarts, so a buildx builder set up
+  before this step is gone.
+runs:
+  using: composite
+  steps:
+    - shell: bash
+      run: |
+        curl -fsSL https://gvisor.dev/archive.key | sudo gpg --dearmor -o /usr/share/keyrings/gvisor.gpg
+        echo "deb [arch=amd64 signed-by=/usr/share/keyrings/gvisor.gpg] https://storage.googleapis.com/gvisor/releases release main" \
+          | sudo tee /etc/apt/sources.list.d/gvisor.list
+        sudo apt-get update -qq
+        sudo apt-get install -y -qq runsc
+        sudo runsc install
+        sudo systemctl restart docker

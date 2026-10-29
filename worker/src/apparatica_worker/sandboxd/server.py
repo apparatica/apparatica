@@ -20,7 +20,13 @@ from pydantic import Field, PositiveFloat, PositiveInt
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from apparatica_worker.logging import configure_logging
-from judge.core.executor import KILL_ALL, SANDBOX_INIT, sandbox_flags
+from judge.core.executor import (
+    KILL_ALL,
+    SANDBOX_INIT,
+    STATE_FORMAT,
+    sandbox_flags,
+    sandbox_state,
+)
 from judge.core.limits import SandboxLimits
 
 log = structlog.get_logger(__name__)
@@ -205,8 +211,9 @@ class Sandboxd:
         if len(self.sandboxes) >= self.policy.max_sandboxes:
             raise RejectedError("too many sandboxes")
         name = f"apx-sandbox-{uuid.uuid4().hex[:12]}"
-        args = ["run", "-d", "--rm", "--name", name, "--label", LABEL]
-        args += [f"--runtime={self.policy.runtime}", *sandbox_flags(limits), image, *SANDBOX_INIT]
+        # No --rm: the state of a sandbox that died tells why (`kill`); destroy removes it.
+        args = ["run", "-d", "--name", name, "--label", LABEL, f"--runtime={self.policy.runtime}"]
+        args += [*sandbox_flags(limits, self.policy.runtime), image, *SANDBOX_INIT]
         code, _, err = await self.docker.run(args, timeout=CREATE_TIMEOUT_S)
         if code != 0:
             raise RejectedError(f"cannot create the sandbox: {_tail(err)}")
@@ -290,9 +297,18 @@ class Sandboxd:
     async def _kill(self, request: dict[str, Any], send: Send) -> None:
         container = self._container(request)
         code, _, err = await self.docker.run(["exec", container, *KILL_ALL])
+        if code == 0:
+            await send({"ok": True})
+            return
+        code, state, _ = await self.docker.run(["inspect", "--format", STATE_FORMAT, container])
         if code != 0:
             raise RejectedError(f"cannot kill: {_tail(err)}")
-        await send({"ok": True})
+        running, oom = sandbox_state(state)
+        if running:
+            # The kill cannot start in it, e.g. its processes use up the limit: stop it whole.
+            await self.docker.run(["kill", container])
+        log.warning("sandbox lost", container=container, oom=oom, reason=_tail(err))
+        await send({"ok": False, "lost": True, "oom": oom})
 
     async def _destroy(self, request: dict[str, Any], send: Send) -> None:
         sandbox_id = str(request.get("id"))
@@ -304,7 +320,7 @@ class Sandboxd:
 
     async def _remove(self, *containers: str) -> None:
         code, _, err = await self.docker.run(["rm", "-f", *containers])
-        if code != 0:
+        if code != 0 and b"No such container" not in err:  # gone already: nothing to remove
             raise RejectedError(f"cannot remove: {_tail(err)}")
 
     async def remove_leftovers(self) -> None:

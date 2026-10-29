@@ -58,6 +58,7 @@ typecheck-py:
     poetry -C worker run mypy
     poetry -C judge run mypy ../scripts
     poetry -C judge run mypy --platform linux ../toolchain/apx-run ../toolchain/apx-init ../toolchain/tests
+    poetry -C worker run mypy ../tests/security
 
 # Type-check TypeScript (tsc, strict)
 typecheck-js:
@@ -192,6 +193,11 @@ toolchain-build:
 toolchain-test:
     poetry -C judge run pytest ../toolchain/tests -v
     poetry -C worker run pytest -m image -v
+
+# Run the security suite against the toolchain image: malicious solutions and escape attempts in
+# sandboxes of apx-sandboxd (specs/09 §4.2). CI runs it under gVisor (JUDGE_SANDBOX_RUNTIME=runsc)
+security-test:
+    poetry -C worker run pytest ../tests/security -v
 
 waveview_image := "apparatica-waveview:dev"
 # Base image overrides for networks without Docker Hub access; keep the digests from the Dockerfile,

@@ -57,7 +57,7 @@
 Как обновить инструмент:
 
 1. Поменяйте версию и sha256 в `versions.lock`, увеличьте `TOOLCHAIN_PROFILE`. Профиль увеличивается при любом изменении образа, включая `apx-run`, `apx-verilate` и `apx_tb_pkg`.
-2. `just toolchain-build && just toolchain-test`.
+2. `just toolchain-build && just toolchain-test && just security-test`.
 3. После слияния в `master` CI публикует образ. Перевод задач на новый профиль — specs/09 §2.
 4. Стенд переходит на новый профиль отдельным PR: digest опубликованного образа — в `deploy/compose.yaml`, у сервисов `toolchain` и `toolchain-profile` ([docs/stand.md](../docs/stand.md#воркер-и-песочница)).
 
@@ -66,6 +66,7 @@
 ```sh
 just toolchain-build   # docker build → apparatica-toolchain:dev
 just toolchain-test    # тесты образа: pytest на хосте, команды в контейнере песочницы
+just security-test     # набор атак tests/security/ через apx-sandboxd (docs/security.md)
 ```
 
 Если Docker Hub или `deb.debian.org` недоступны, задайте зеркала через переменные окружения:
@@ -79,6 +80,6 @@ TOOLCHAIN_DEBIAN_MIRROR=http://mirror.yandex.ru/debian
 
 ## Публикация
 
-Workflow `.github/workflows/toolchain.yml` при изменениях в `toolchain/` или в коде судьи (`judge/src/`, `judge/poetry.lock`) собирает образ и прогоняет его тесты — они проверяют и судью против образа. Новый профиль нужен только при изменении входов образа: `Dockerfile`, `versions.lock`, `apx-run/`, `apx-verilate/`, `sv/`. Тогда на push в `master` CI публикует `ghcr.io/apparatica/toolchain:<TOOLCHAIN_PROFILE>` и `:sha-<коммит>`; тег профиля неизменяем: если он уже опубликован, CI падает с просьбой увеличить `TOOLCHAIN_PROFILE`, в том числе на pull request. Изменения тестов и документации образа ничего не публикуют.
+Workflow `.github/workflows/toolchain.yml` при изменениях в `toolchain/`, в коде судьи и воркера, в классах ресурсов или в `tests/security/` собирает образ и прогоняет его тесты — они проверяют и судью против образа, — а затем набор атак под gVisor. Провал любого из них не даёт опубликовать образ. Новый профиль нужен только при изменении входов образа: `Dockerfile`, `versions.lock`, `apx-run/`, `apx-verilate/`, `sv/`. Тогда на push в `master` CI публикует `ghcr.io/apparatica/toolchain:<TOOLCHAIN_PROFILE>` и `:sha-<коммит>`; тег профиля неизменяем: если он уже опубликован, CI падает с просьбой увеличить `TOOLCHAIN_PROFILE`, в том числе на pull request. Изменения тестов и документации образа ничего не публикуют.
 
 Образ собирается только для `linux/amd64`.

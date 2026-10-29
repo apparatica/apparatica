@@ -54,6 +54,7 @@ Poetry создаёт виртуальное окружение внутри к�
 | `just schemas` | перегенерирует JSON Schema из моделей судьи: `problem.yaml` и записи протокола тестбенча (`judge/schemas/`) |
 | `just toolchain-build` | собирает образ тулчейна `apparatica-toolchain:dev` |
 | `just toolchain-test` | тесты образа: pytest на хосте, команды через `docker exec` в контейнере с ограничениями песочницы |
+| `just security-test` | набор атак `tests/security/`: вредоносные решения и попытки выхода из песочницы через `apx-sandboxd` ([security.md](security.md#набор-атак-testssecurity)); под gVisor — с `JUDGE_SANDBOX_RUNTIME=runsc` |
 
 Рецепты `justfile` работают и в sh (Linux, macOS, CI), и в PowerShell 7 (Windows).
 
@@ -67,7 +68,7 @@ GitHub Actions, `.github/workflows/ci.yml`, на GitHub-hosted раннерах 
 | JS | `install-js`, `lint-js`, `typecheck-js`, `check-api`, `test-js`, `build-js`, `build-storybook`, `check-licenses-js` |
 | Stand | gVisor, `up`, `stand-check`, проверка сайта и API через Caddy, `e2e` ([stand.md](stand.md#ci)) |
 
-Образ тулчейна собирает и публикует отдельный workflow `.github/workflows/toolchain.yml` — при изменениях в `toolchain/` и в коде судьи, чьи тесты против образа он прогоняет; публикует только при изменении входов образа (подробности — [toolchain/README.md](../toolchain/README.md)).
+Образ тулчейна собирает и публикует отдельный workflow `.github/workflows/toolchain.yml` — при изменениях в `toolchain/`, в коде судьи и воркера, чьи тесты против образа он прогоняет, в классах ресурсов и в `tests/security/`; публикует только при изменении входов образа (подробности — [toolchain/README.md](../toolchain/README.md)). После тестов образа он прогоняет набор атак под gVisor (`just security-test` с `JUDGE_SANDBOX_RUNTIME=runsc`, [security.md](security.md#набор-атак-testssecurity)); провал набора не даёт опубликовать образ. gVisor ставит общий шаг `.github/actions/install-gvisor` — его же использует job `Stand`.
 
 Задачи проверяет workflow `.github/workflows/problems.yml`: `judge validate --determinism` в образе тулчейна, собранном из той же ревизии (кэш слоёв общий с `toolchain.yml`). Какие пакеты проверять, решает `scripts/changed_problems.py`: на pull request и push — изменённые пакеты `problems/<id>/`; если изменились судья (`judge/src`, `judge/poetry.lock`), образ (`toolchain/`), классы ресурсов или сам workflow — все пакеты (регрессия эталонов, мутантов и детерминизма). Раз в неделю и вручную (`workflow_dispatch`) проверяются все пакеты. Локально то же самое — `just validate-problems`. Чтобы PR с невалидным пакетом нельзя было слить, job `Validate packages` нужно сделать обязательной проверкой в настройках защиты ветки `master`.
 

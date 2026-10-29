@@ -6,23 +6,31 @@ on:
     paths:
       - toolchain/**
       # The image tests exercise the judge against the image (executor, testbench protocol) and the
-      # worker in a sandbox (apx-sandboxd, the orchestrator: worker/tests/*_image.py).
+      # worker in a sandbox (apx-sandboxd, the orchestrator: worker/tests/*_image.py); the security
+      # suite runs on every change of the judge, the image or the sandbox (NFR-SEC-04).
       - judge/src/**
       - judge/poetry.lock
       - worker/src/**
       - worker/tests/*_image.py
       - worker/poetry.lock
+      - tests/security/**
+      - config/resource-classes.yaml
+      - .github/actions/install-gvisor/**
       - .github/workflows/toolchain.yml
   pull_request:
     paths:
       - toolchain/**
       # The image tests exercise the judge against the image (executor, testbench protocol) and the
-      # worker in a sandbox (apx-sandboxd, the orchestrator: worker/tests/*_image.py).
+      # worker in a sandbox (apx-sandboxd, the orchestrator: worker/tests/*_image.py); the security
+      # suite runs on every change of the judge, the image or the sandbox (NFR-SEC-04).
       - judge/src/**
       - judge/poetry.lock
       - worker/src/**
       - worker/tests/*_image.py
       - worker/poetry.lock
+      - tests/security/**
+      - config/resource-classes.yaml
+      - .github/actions/install-gvisor/**
       - .github/workflows/toolchain.yml
   workflow_dispatch:
 
@@ -49,6 +57,8 @@ jobs:
         with:
           fetch-depth: 0  # to diff the image inputs against the base
       - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
+      # The security suite runs its sandboxes under gVisor, as on the worker hosts (ADR-0003).
+      - uses: ./.github/actions/install-gvisor
       - uses: docker/setup-buildx-action@f87e5991a6d7451dcb8d9637bfbc97413f497069 # v4.4.1
       # The image tests run with pytest from the judge and worker environments on the runner.
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
@@ -94,6 +104,12 @@ jobs:
 
       - name: Test image
         run: just toolchain-test
+
+      # specs/09 §4.2: malicious solutions and escape attempts; a failure blocks the publication.
+      - name: Security suite
+        env:
+          JUDGE_SANDBOX_RUNTIME: runsc
+        run: just security-test
 
       - name: Log in to GHCR
         if: github.event_name == 'push' && steps.image.outputs.changed == 'true'

@@ -1,6 +1,6 @@
 target-version = "py313"
 # Source roots: imports from these directories are first-party.
-src = ["judge/src", "backend/src", "worker/src", "scripts", "toolchain/tests"]
+src = ["judge/src", "backend/src", "worker/src", "scripts", "toolchain/tests", "tests/security"]
 line-length = 100
 extend-exclude = ["brief", "*.md"]
 

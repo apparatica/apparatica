@@ -1,0 +1,49 @@
+# Problem of the security suite (tests/security, specs/09 §4.2): a counter modulo 10 with an 8-bit
+# output, so a solution without reset almost never starts at 0 under random initialization. Not a
+# catalogue problem. The sim_junk/sim_huge stages stand for a simulation that took over the result
+# file; the suite runs them after precheck by key (Job.stages).
+schema: 1
+id: counter
+number: 9002
+version: 1
+leaderboard_epoch: 1
+language: systemverilog
+kind: design
+title: Счётчик по модулю 10
+difficulty: easy
+tags: [counter]
+resource_class: light
+top: counter
+interface:
+  ports:
+    - {name: clk, dir: input, width: "1", role: clock}
+    - {name: rst, dir: input, width: "1", role: reset, reset: {active: high, sync: true}}
+    - {name: en, dir: input, width: "1"}
+    - {name: count, dir: output, width: "8"}
+files:
+  statement: statement.md
+  template: template.sv
+testbenches:
+  - id: main
+    top: tb_top
+    sources: [tb/tb_top.sv]
+    groups: {public: 2, hidden: 1}
+  - id: junk
+    top: tb_junk
+    sources: [tb/tb_junk.sv]
+    groups: {public: 1}
+  - id: huge
+    top: tb_huge
+    sources: [tb/tb_huge.sv]
+    groups: {public: 1}
+stages:
+  precheck: {type: precheck}
+  lint: {type: lint}
+  sim_run: {type: sim, testbench: main, groups: [public], max_cycles: 10000}
+  sim_full: {type: sim, testbench: main, groups: [public, hidden], max_cycles: 10000}
+  sim_junk: {type: sim, testbench: junk, groups: [public]}
+  sim_huge: {type: sim, testbench: huge, groups: [public]}
+pipelines:
+  practice:
+    run: [precheck, lint, sim_run]
+    submit: [precheck, lint, sim_full]

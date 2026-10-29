@@ -1,12 +1,13 @@
+import threading
 from pathlib import Path
 
 import pytest
 from core_helpers import FAKE, RESOURCE_CLASSES, ListSink, cancel_after, make_problem
 
 from judge.core import events
-from judge.core.executor import HostExecutor
+from judge.core.executor import HostExecutor, OnLine
 from judge.core.pipeline import Job, PipelineConfigError, run_pipeline
-from judge.core.stage import StageResult
+from judge.core.stage import ExecResult, StagePlan, StageResult
 
 
 def run(
@@ -204,3 +205,27 @@ def test_problem_timeout_override_applies() -> None:
     with HostExecutor() as executor:
         results = run_pipeline(job, FAKE, executor, ListSink(), RESOURCE_CLASSES)
     assert (results[0].failure_kind, results[0].limit) == ("limit", "time")
+
+
+class OutOfMemoryExecutor(HostExecutor):
+    """Every run ends as a sandbox that its memory limit killed (gVisor)."""
+
+    def run(
+        self,
+        stage_key: str,
+        plan: StagePlan,
+        on_line: OnLine,
+        cancel: threading.Event,
+        *,
+        reuse_dir: bool = False,
+    ) -> ExecResult:
+        return ExecResult(commands=(), output="", memory_exceeded=True)
+
+
+def test_a_sandbox_out_of_memory_is_the_memory_limit() -> None:
+    problem = make_problem({"a": {"type": "script"}, "b": {"type": "script"}}, run=["a", "b"])
+    job = Job(problem, Path(), "run", seed=1, solution=b"module demo; endmodule\n")
+    with OutOfMemoryExecutor() as executor:
+        results = run_pipeline(job, FAKE, executor, ListSink(), RESOURCE_CLASSES)
+    assert statuses(results) == [("a", "failed"), ("b", "skipped")]
+    assert (results[0].failure_kind, results[0].limit) == ("limit", "memory")

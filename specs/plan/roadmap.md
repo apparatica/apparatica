@@ -128,8 +128,8 @@ S1–S8 — [spikes-and-risks.md](spikes-and-risks.md). До начала Ф1 н
 |---|---|---|---|
 | T3.0 | PR контракта Ф3: рейтинг задачи, решения, эталон, общий рейтинг, `/solutions/{id}`, `/users/{nick}/solutions`, `leaderboard` в отправке и событии `finalized` | specs/05 §0 | Ф2 |
 | T3.1a | Образ тулчейна, профиль 2: Yosys + yosys-slang, OpenSTA, Nangate45 с `LICENSE` рядом с liberty | ADR-0007 | S4 |
-| T3.1b | SV `synth`: скрипт с флагами yosys-slang, фиксированные ограничения OpenSTA, латчи, метрики `synth/v1`, нетлист на внутренних вентилях, кэш по `code_hash` | FR-SYN-01/02, FR-JDG-11 | T3.1a |
-| T3.2 | `netlist_sim`: этап `sim` с `design: synth.netlist_generic`; правило `judge validate` «есть synth → есть netlist_sim»; условие попадания в рейтинг | FR-JDG-13 | T3.1b |
+| T3.1b | SV `synth`: скрипт с флагами yosys-slang, фиксированные ограничения OpenSTA, латчи, метрики `synth/v1`, нетлист на внутренних вентилях, кэш по `code_hash`; случаи синтеза в `tests/security` (`stat.json`, прагмы) | FR-SYN-01/02, FR-JDG-11 | T3.1a |
+| T3.2 | `netlist_sim`: этап `sim` с `design: synth.netlist_generic`; правило `judge validate` «есть synth → есть netlist_sim»; условие попадания в рейтинг; случай подмены нетлиста в `tests/security` | FR-JDG-13 | T3.1b |
 | T3.3 | Метрики эталонов при импорте и на профиле | FR-SYN-04 | T3.2 |
 | T3.4 | Миграция Ф3; рейтинг решений задачи в ингесторе (лучшая запись, `RANK()` с общими местами при равных метриках, группы AST) | FR-LB-01/02/04/06, ADR-0006 | T3.2 |
 | T3.5 | API рейтинга задачи, решений и эталона с политикой видимости (Accepted пользователя или гостя) | FR-LB-01, FR-SOL-02, FR-REF-01 | T3.4 |

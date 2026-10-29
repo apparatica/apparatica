@@ -1,11 +1,21 @@
 import threading
 import time
+from collections.abc import Sequence
 from pathlib import Path
 
 import pytest
 from core_helpers import python
 
-from judge.core.executor import ExecutorError, HostExecutor, check_relative
+from judge.core.executor import (
+    ContainerExecutor,
+    ExecutorError,
+    HostExecutor,
+    Running,
+    SandboxLostError,
+    check_relative,
+    sandbox_flags,
+)
+from judge.core.limits import SandboxLimits
 from judge.core.stage import Command, ExecResult, StagePlan
 
 Lines = list[tuple[str, str]]
@@ -123,3 +133,77 @@ def test_utf8_output_and_crlf() -> None:
     code = "import sys; sys.stdout.buffer.write('тест\\r\\n'.encode())"
     _, lines = run(plan(python(code)))
     assert lines == [("out", "тест")]
+
+
+class LosingContainer:
+    """A sandbox that is lost by the kill after the stage: its command prints one line and exits
+    with `exit_code`, or runs until killed."""
+
+    def __init__(self, *, oom: bool, exit_code: int | None = 0) -> None:
+        self.oom = oom
+        self.exit_code = exit_code
+        self.calls: list[list[str]] = []
+        self.killed = threading.Event()
+
+    def run(self, argv: Sequence[str], *, stdin: bytes | None = None) -> tuple[int, bytes, str]:
+        self.calls.append(list(argv))
+        return 0, b"", ""
+
+    def start(self, argv: Sequence[str], *, cwd: str) -> Running:
+        chunks = [b"line\n"]
+
+        def read() -> bytes:
+            if chunks:
+                return chunks.pop()
+            if self.exit_code is None:
+                self.killed.wait(10)
+            return b""
+
+        return Running(
+            streams=[(read, "out")], wait=lambda: self.exit_code or 0, kill=self.kill_all
+        )
+
+    def kill_all(self) -> None:
+        self.killed.set()
+        raise SandboxLostError(oom=self.oom)
+
+
+def run_in(container: LosingContainer, timeout_s: float = 10.0) -> ExecResult:
+    executor = ContainerExecutor(container)
+    stage = plan(Command(("sim",)), timeout_s=timeout_s, collect=("result.json",))
+    return executor.run("sim", stage, lambda *_: None, threading.Event())
+
+
+def test_a_sandbox_killed_by_its_memory_limit() -> None:
+    container = LosingContainer(oom=True, exit_code=128)
+    result = run_in(container)
+    assert result.memory_exceeded
+    assert not result.ok
+    assert result.files == {}
+    assert not [call for call in container.calls if call[0] == "sh" and "head" in call[2]]
+
+
+def test_a_sandbox_lost_after_a_command_that_ended() -> None:
+    with pytest.raises(SandboxLostError):
+        run_in(LosingContainer(oom=False))
+
+
+def test_a_sandbox_lost_after_a_timeout_keeps_the_timeout() -> None:
+    """A fork bomb leaves no room for the kill: the stage still ends with its time limit."""
+    result = run_in(LosingContainer(oom=False, exit_code=None), timeout_s=0.3)
+    assert result.timed_out
+    assert not result.memory_exceeded
+    assert result.files == {}
+
+
+@pytest.mark.parametrize(
+    ("runtime", "expected"),
+    [
+        (None, ["--pids-limit=256"]),
+        ("runc", ["--pids-limit=256"]),
+        ("runsc", ["--pids-limit=832", "--ulimit=nproc=256:256"]),
+    ],
+)
+def test_the_process_limit_depends_on_the_runtime(runtime: str | None, expected: list[str]) -> None:
+    flags = sandbox_flags(SandboxLimits(cpus=2, memory_mb=2048, pids=256), runtime)
+    assert [f for f in flags if f.startswith(("--pids-limit", "--ulimit"))] == expected
