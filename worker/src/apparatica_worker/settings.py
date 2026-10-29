@@ -48,13 +48,15 @@ class WorkerSettings(BaseSettings):
         default=Path("/var/cache/apparatica/packages"), description="Unpacked problem packages"
     )
 
-    # Object storage (ADR-0013): the worker's key reads packages and writes artifacts.
+    # Object storage (ADR-0013): the worker's key reads packages, writes artifacts and keeps the
+    # build cache.
     s3_endpoint_url: str | None = None
     s3_region: str = "garage"
     s3_access_key_id: str | None = None
     s3_secret_access_key: SecretStr | None = None
     s3_bucket_packages: str = "packages"
     s3_bucket_artifacts: str = "artifacts"
+    s3_bucket_build_cache: str = "build-cache"
 
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     log_format: Literal["json", "console"] = "console"

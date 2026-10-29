@@ -281,6 +281,8 @@ class HostExecutor:
             target = workdir / check_relative(name)
             target.parent.mkdir(parents=True, exist_ok=True)
             target.write_bytes(content)
+            if name in plan.executable:
+                target.chmod(0o755)
 
         def run_one(
             argv: Sequence[str], deadline: float, budget: _Budget
@@ -469,7 +471,8 @@ class ContainerExecutor:
         with tarfile.open(fileobj=archive, mode="w") as tar:
             for name, content in plan.inputs.items():
                 info = tarfile.TarInfo(str(check_relative(name)))
-                info.size, info.mode, info.mtime = len(content), 0o644, 0
+                mode = 0o755 if name in plan.executable else 0o644
+                info.size, info.mode, info.mtime = len(content), mode, 0
                 tar.addfile(info, io.BytesIO(content))
         self._check(["tar", "-x", "-C", workdir], "upload stage inputs", stdin=archive.getvalue())
 

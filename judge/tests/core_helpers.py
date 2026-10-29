@@ -127,6 +127,38 @@ class ArtifactStage(ScriptStage):
         return StageOutcome(status="passed", artifacts=dict(runs[-1].files))
 
 
+class CachedStage(ScriptStage):
+    """Builds `built` once: a later run of the stage finds it in the build cache."""
+
+    stage_type: ClassVar[str] = "cached"
+
+    def plan(self, ctx: StageContext) -> StagePlan:
+        hit = ctx.build_cache.get("built")
+        return StagePlan(
+            commands=(python("pass"),),
+            timeout_s=5,
+            output_limit=1024,
+            note=None if hit is None else f"from the cache: {hit.decode()}",
+        )
+
+    def interpret(self, ctx: StageContext, runs: Sequence[ExecResult]) -> StageOutcome | StagePlan:
+        cached = ctx.build_cache.get("built") is not None
+        if not cached:
+            ctx.build_cache.put("built", b"binary")
+        return StageOutcome(status="passed", cached=cached)
+
+
+class MemoryCache:
+    def __init__(self) -> None:
+        self.files: dict[str, bytes] = {}
+
+    def get(self, key: str) -> bytes | None:
+        return self.files.get(key)
+
+    def put(self, key: str, data: bytes) -> None:
+        self.files[key] = data
+
+
 FAKE = LanguageModule(
     name="systemverilog",
     stages={
@@ -138,6 +170,7 @@ FAKE = LanguageModule(
             CrashStage,
             MissingProgramStage,
             ArtifactStage,
+            CachedStage,
         )
     },
 )

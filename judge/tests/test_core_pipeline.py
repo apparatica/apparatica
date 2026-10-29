@@ -2,7 +2,14 @@ import threading
 from pathlib import Path
 
 import pytest
-from core_helpers import FAKE, RESOURCE_CLASSES, ListSink, cancel_after, make_problem
+from core_helpers import (
+    FAKE,
+    RESOURCE_CLASSES,
+    ListSink,
+    MemoryCache,
+    cancel_after,
+    make_problem,
+)
 
 from judge.core import events
 from judge.core.executor import HostExecutor, OnLine
@@ -229,3 +236,17 @@ def test_a_sandbox_out_of_memory_is_the_memory_limit() -> None:
         results = run_pipeline(job, FAKE, executor, ListSink(), RESOURCE_CLASSES)
     assert statuses(results) == [("a", "failed"), ("b", "skipped")]
     assert (results[0].failure_kind, results[0].limit) == ("limit", "memory")
+
+
+def test_build_cache_reaches_the_stages() -> None:
+    cache = MemoryCache()
+    problem = make_problem({"a": {"type": "cached"}}, ["a"])
+    job = Job(problem, Path(), "run", seed=1, solution=b"")
+    runs = []
+    for _ in range(2):
+        sink = ListSink()
+        with HostExecutor() as executor:
+            results = run_pipeline(job, FAKE, executor, sink, RESOURCE_CLASSES, build_cache=cache)
+        notes = [e.text for e in sink.events if isinstance(e, events.LogEvent) and e.ch == "sys"]
+        runs.append((results[0].cached, notes))
+    assert runs == [(False, []), (True, ["from the cache: binary"])]

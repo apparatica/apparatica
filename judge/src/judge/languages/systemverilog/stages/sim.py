@@ -1,10 +1,13 @@
 """`sim` stage (specs/07 §2.3, FR-JDG-04/05): build the testbench with Verilator and simulate.
 
-One plan builds `apx_tb_pkg` + the problem testbench + the design with `apx-verilate` and runs the
-binary with the submission seed, the selected groups and random initialization. The verdict comes
-from the result file of `apx_tb_pkg` (untrusted, `tbproto`); progress lines become live test
-events. When an open test fails, a follow-up run of the same binary records the FST trace window
-around the first mismatch and must reproduce that mismatch (ADR-0004).
+The first plan builds `apx_tb_pkg` + the problem testbench + the design with `apx-verilate`; the
+binary goes to the build cache before it ever runs (ADR-0003), and a check of the same code and
+testbench takes it from there instead of building. The next plan runs the binary with the
+submission seed, the selected groups and random initialization; build and run share the time and
+output limits of the stage. The verdict comes from the result file of `apx_tb_pkg` (untrusted,
+`tbproto`); progress lines become live test events. When an open test fails, a follow-up run of
+the same binary records the FST trace window around the first mismatch and must reproduce that
+mismatch (ADR-0004).
 """
 
 import re
@@ -13,6 +16,7 @@ from typing import Annotated, ClassVar, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, NonNegativeInt, PositiveInt, StringConstraints
 
+from judge.core.cache import plan_key
 from judge.core.executor import check_relative
 from judge.core.package import Problem, Testbench
 from judge.core.stage import (
@@ -33,6 +37,10 @@ TB_PKG = "/opt/apx/sv/apx_tb_pkg.sv"
 RESULT = "tb_result.jsonl"
 TRACE = "trace.fst"
 RESULT_LIMIT = 1 << 20
+BUILDER = "apx-verilate"
+# A larger binary runs but is not cached: it would not fit a request of apx-sandboxd (base64).
+BINARY_LIMIT = 32 << 20
+CACHED_NOTE = "simulator from the build cache: this code was built earlier"
 OPEN_GROUP = "public"  # tests of other groups are hidden: counters only (specs/06 §3.4)
 OOM_KILLED = 137
 # The `$finish` notice of apx_tb_pkg names an internal file: not for the user's console.
@@ -188,13 +196,25 @@ class SimStage:
     metrics_schema: ClassVar[str | None] = "sim/v1"
 
     def plan(self, ctx: StageContext) -> StagePlan:
+        build = self._build_plan(ctx)
+        binary = ctx.build_cache.get(plan_key(self.stage_type, build))
+        if binary is None:
+            return build
+        return self._sim_plan(
+            ctx,
+            ctx.limits.timeout_s,
+            ctx.limits.output_bytes,
+            binary={self._binary(ctx): binary},
+        )
+
+    def _build_plan(self, ctx: StageContext) -> StagePlan:
         assert isinstance(ctx.config, SimConfig)
         config = ctx.config
         testbench = _testbench(ctx, config)
         sources = {f"pkg/{name}": _package_file(ctx, name) for name in testbench.sources}
         design_name, design = _design(ctx, config)
         build = (
-            "apx-verilate",
+            BUILDER,
             "--quiet",
             "-MAKEFLAGS",
             "-s",
@@ -214,16 +234,41 @@ class SimStage:
             "--top-module",
             testbench.top,
         )
-        nonce = tbproto.new_nonce()
         return StagePlan(
-            commands=(Command(build), Command(self._run_argv(ctx, testbench, nonce))),
+            commands=(Command(build),),
             timeout_s=ctx.limits.timeout_s,
             output_limit=ctx.limits.output_bytes,
             inputs={**sources, design_name: design},
+            collect=(self._binary(ctx),),
+            collect_limit=BINARY_LIMIT,
+        )
+
+    def _sim_plan(
+        self,
+        ctx: StageContext,
+        timeout_s: float,
+        output_limit: int,
+        *,
+        binary: dict[str, bytes] | None = None,
+    ) -> StagePlan:
+        """The simulation: in the directory of the build, or of a cached `binary` in a fresh one."""
+        assert isinstance(ctx.config, SimConfig)
+        nonce = tbproto.new_nonce()
+        return StagePlan(
+            commands=(Command(self._run_argv(ctx, _testbench(ctx, ctx.config), nonce)),),
+            timeout_s=timeout_s,
+            output_limit=output_limit,
+            inputs=binary or {},
+            executable=frozenset(binary or ()),
             collect=(RESULT,),
             collect_limit=RESULT_LIMIT,
             line_filter=_Progress(nonce),
+            note=CACHED_NOTE if binary else None,
         )
+
+    def _binary(self, ctx: StageContext) -> str:
+        assert isinstance(ctx.config, SimConfig)
+        return f"obj_dir/V{_testbench(ctx, ctx.config).top}"
 
     def _run_argv(
         self, ctx: StageContext, testbench: Testbench, nonce: str, *extra: str
@@ -247,7 +292,13 @@ class SimStage:
 
     def interpret(self, ctx: StageContext, runs: Sequence[ExecResult]) -> StageOutcome | StagePlan:
         assert isinstance(ctx.config, SimConfig)
+        cached = runs[0].commands[0].argv[0] != BUILDER
+        if not cached:
+            build, runs = runs[0], runs[1:]
+            if not runs:
+                return self._after_build(ctx, build)
         outcome, result = self._outcome(ctx, runs[0])
+        outcome = outcome.model_copy(update={"cached": cached})
         if RESULT in runs[0].files:
             # Kept for the determinism check and for authors; it holds hidden test values, so it
             # is never shown to users of a run with hidden groups (specs/07 §4.4).
@@ -275,20 +326,35 @@ class SimStage:
             )
         return self._with_trace(ctx, outcome, result, runs[1], window)
 
+    def _after_build(self, ctx: StageContext, build: ExecResult) -> StageOutcome | StagePlan:
+        """Why the build failed, or the run of its binary with what is left of the stage limits;
+        the binary goes to the cache first, before anything could change it."""
+        stopped = _stopped(build)
+        if stopped is not None:
+            return stopped
+        exit_code = build.commands[0].exit_code
+        if exit_code == OOM_KILLED:
+            return StageOutcome(status="failed", failure_kind="limit", limit="memory")
+        if exit_code != 0:
+            summary = StageSummary(caption="решение не собирается вместе с тестбенчем")
+            return StageOutcome(status="failed", failure_kind="compile", summary=summary)
+        binary = build.files.get(self._binary(ctx))
+        if binary is not None:
+            ctx.build_cache.put(plan_key(self.stage_type, self._build_plan(ctx)), binary)
+        elapsed = sum(command.duration_s for command in build.commands)
+        return self._sim_plan(
+            ctx,
+            max(0.0, ctx.limits.timeout_s - elapsed),
+            max(0, ctx.limits.output_bytes - len(build.output.encode())),
+        )
+
     def _outcome(
         self, ctx: StageContext, run: ExecResult
     ) -> tuple[StageOutcome, tbproto.TbResult | None]:
-        if run.timed_out:
-            return StageOutcome(status="failed", failure_kind="limit", limit="time"), None
-        if run.output_limited:
-            return StageOutcome(status="failed", failure_kind="limit", limit="output"), None
-        build = run.commands[0]
-        if build.exit_code == OOM_KILLED:
-            return StageOutcome(status="failed", failure_kind="limit", limit="memory"), None
-        if build.exit_code != 0:
-            summary = StageSummary(caption="решение не собирается вместе с тестбенчем")
-            return StageOutcome(status="failed", failure_kind="compile", summary=summary), None
-        if len(run.commands) < 2 or RESULT in run.oversized:
+        stopped = _stopped(run)
+        if stopped is not None:
+            return stopped, None
+        if RESULT in run.oversized:
             return StageOutcome(status="error", error_code="OUTPUT_INVALID"), None
         try:
             result = tbproto.parse_result(run.files.get(RESULT, b""), max_bytes=RESULT_LIMIT)
@@ -317,7 +383,7 @@ class SimStage:
                 summary=summary,
             )
         elif result.end is None:
-            if run.commands[1].exit_code == OOM_KILLED:
+            if run.commands[0].exit_code == OOM_KILLED:
                 outcome = StageOutcome(
                     status="failed",
                     failure_kind="limit",
@@ -442,6 +508,14 @@ class SimStage:
             metrics["trace_cursor_ps"] = result.first_mismatch.time_ps
             metrics["trace_signals"] = [signal.model_dump() for signal in signals]
         return outcome.model_copy(update={"metrics": metrics, "artifacts": artifacts})
+
+
+def _stopped(run: ExecResult) -> StageOutcome | None:
+    if run.timed_out:
+        return StageOutcome(status="failed", failure_kind="limit", limit="time")
+    if run.output_limited:
+        return StageOutcome(status="failed", failure_kind="limit", limit="output")
+    return None
 
 
 def _group_count_mismatch(ctx: StageContext, result: tbproto.TbResult) -> str | None:

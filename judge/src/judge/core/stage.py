@@ -13,6 +13,7 @@ from typing import Any, ClassVar, Literal, Protocol, Self
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
+from judge.core.cache import NO_CACHE, BuildCache
 from judge.core.limits import StageLimits
 from judge.core.package import Problem
 
@@ -77,7 +78,8 @@ class StageSummary(_Model):
 
 class StageOutcome(_Model):
     """What `Stage.interpret` decides. `outputs` are files handed to the following stages;
-    `artifacts` are files to keep for the user (FST trace, reports), not passed on."""
+    `artifacts` are files to keep for the user (FST trace, reports), not passed on; `cached`: the
+    stage reused what an earlier check built (the build cache) instead of building it again."""
 
     status: Literal["passed", "warning", "failed", "error"]
     failure_kind: FailureKind | None = None
@@ -87,6 +89,7 @@ class StageOutcome(_Model):
     summary: StageSummary = StageSummary()
     outputs: dict[str, bytes] = {}
     artifacts: dict[str, bytes] = {}
+    cached: bool = False
 
     @model_validator(mode="after")
     def _consistent(self) -> Self:
@@ -136,6 +139,7 @@ class StageContext:
     solution: bytes
     limits: StageLimits
     previous: Mapping[str, FinishedStage]
+    build_cache: BuildCache = NO_CACHE
 
 
 # A stage's view of one console line: the text to show (None hides it) and a test progress update.
@@ -151,17 +155,20 @@ class Command:
 class StagePlan:
     """Commands to run in a fresh stage directory, in order, until one exits non-zero.
 
-    `inputs` are written into the directory first; `collect` names files read back afterwards,
-    each at most `collect_limit` bytes. `timeout_s` and `output_limit` cover the whole plan.
+    `inputs` are written into the directory first, those named in `executable` with the executable
+    bit; `collect` names files read back afterwards, each at most `collect_limit` bytes. `timeout_s`
+    and `output_limit` cover the whole plan. `note` goes to the console before the commands run.
     """
 
     commands: tuple[Command, ...]
     timeout_s: float
     output_limit: int
     inputs: Mapping[str, bytes] = field(default_factory=dict)
+    executable: frozenset[str] = frozenset()
     collect: tuple[str, ...] = ()
     collect_limit: int = 1 << 20
     line_filter: LineFilter | None = None
+    note: str | None = None
 
 
 @dataclass(frozen=True)

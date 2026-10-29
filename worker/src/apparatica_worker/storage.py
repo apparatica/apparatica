@@ -1,6 +1,7 @@
 """The object storage of a worker (ADR-0013): problem packages in, artifacts out.
 
-The worker's key reads `packages` and writes `artifacts` (and `build-cache`), nothing else.
+The worker's key reads `packages`, writes `artifacts` and reads and writes `build-cache`, nothing
+else.
 """
 
 import contextlib
@@ -101,6 +102,59 @@ def artifact_key(submission_id: uuid.UUID, attempt: int | str, name: str) -> str
         else datetime.now(UTC)  # not an id of the API; the key must still be valid
     )
     return f"{created:%Y/%m}/{submission_id}/{attempt}/{name}"
+
+
+class BuildCacheStore:
+    """The `build-cache` bucket (specs/07 §2.3): what the stages built, e.g. simulation binaries,
+    for 24 hours (the lifecycle of the bucket). A failure is a miss: the stage builds again."""
+
+    def __init__(self, s3: S3Client, bucket: str) -> None:
+        self._s3 = s3
+        self._bucket = bucket
+
+    def scoped(self, job: JudgeJob) -> "ScopedBuildCache":
+        """The cache of the toolchain of a job: a build of another image is never reused."""
+        return ScopedBuildCache(self, job.toolchain_profile, job.toolchain_image)
+
+    def get(self, key: str) -> bytes | None:
+        try:
+            data: bytes = self._s3.get_object(Bucket=self._bucket, Key=key)["Body"].read()
+        except ClientError as error:
+            if error.response.get("Error", {}).get("Code") not in ("NoSuchKey", "404"):
+                log.warning("build cache unavailable", key=key, error=str(error))
+            return None
+        except BotoCoreError as error:
+            log.warning("build cache unavailable", key=key, error=str(error))
+            return None
+        log.info("build cache hit", key=key)
+        return data
+
+    def put(self, key: str, data: bytes) -> None:
+        try:
+            self._s3.put_object(
+                Bucket=self._bucket, Key=key, Body=data, ContentType="application/octet-stream"
+            )
+        except STORAGE_ERRORS as error:
+            log.warning("build not cached", key=key, error=str(error))
+
+
+class ScopedBuildCache:
+    """A `judge.core.cache.BuildCache` of one toolchain: `<profile>/<sha256 of image and key>`."""
+
+    def __init__(self, store: BuildCacheStore, profile: str, image: str) -> None:
+        self._store = store
+        self._profile = profile
+        self._image = image
+
+    def get(self, key: str) -> bytes | None:
+        return self._store.get(self._object(key))
+
+    def put(self, key: str, data: bytes) -> None:
+        self._store.put(self._object(key), data)
+
+    def _object(self, key: str) -> str:
+        digest = hashlib.sha256(f"{self._image}\n{key}".encode()).hexdigest()
+        return f"{self._profile}/{digest}"
 
 
 class ArtifactStore:

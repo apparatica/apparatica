@@ -3,7 +3,8 @@
 Lease and attempt count first: a duplicate message is dropped, and a check that already used its
 attempts ends with internal_error without running. Then the package from the cache, a sandbox of
 apx-sandboxd, the pipeline of the judge with its events in `sub:<id>` and its stage results in
-`judge:results`, the artifacts to the storage and the report.
+`judge:results`, the artifacts to the storage and the report. The stages share the build cache of
+the job's toolchain (`build-cache`): Run → Submit of the same code builds the simulator once.
 
 A waveform job (FR-WAV-05) records the FST of a finished check again: the same lease and attempts,
 keyed by the waveform, the pipeline up to the traced stage with the seed of the check and without
@@ -29,8 +30,15 @@ from apparatica_worker.report import (
     RecordingSink,
     Reporter,
 )
-from apparatica_worker.storage import STORAGE_ERRORS, ArtifactStore, PackageCache, PackageError
+from apparatica_worker.storage import (
+    STORAGE_ERRORS,
+    ArtifactStore,
+    BuildCacheStore,
+    PackageCache,
+    PackageError,
+)
 from apparatica_worker.stream import ResultsSink, ResultsStream, ValkeyStreamSink
+from judge.core.cache import NO_CACHE
 from judge.core.events import FanoutSink
 from judge.core.executor import Executor, ExecutorError
 from judge.core.jobs import (
@@ -90,6 +98,7 @@ class Orchestrator:
     reporter: Reporter  # the attempt: StreamReporter of the same stream
     owner: str  # this worker, the value of its leases
     cancels: CancelListener | None = None  # the cancel channel of the process
+    build_cache: BuildCacheStore | None = None  # None: every stage builds
 
     def __call__(self, job: JudgeJob, queue: str) -> None:
         submission = str(job.submission_id)
@@ -262,6 +271,7 @@ class Orchestrator:
                 cancellation.event,
                 on_artifact=lambda stage, name, data: files.__setitem__((stage, name), data),
                 cancel_note=cancellation.note,
+                build_cache=self.build_cache.scoped(job) if self.build_cache else NO_CACHE,
             )
         except PipelineConfigError as error:  # the package passed validation: a platform failure
             log.error(

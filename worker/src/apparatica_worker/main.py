@@ -29,7 +29,7 @@ from apparatica_worker.orchestrator import Orchestrator
 from apparatica_worker.report import StreamReporter
 from apparatica_worker.sandboxd.client import SandboxdClient, SandboxExecutor
 from apparatica_worker.settings import WorkerSettings
-from apparatica_worker.storage import ArtifactStore, PackageCache
+from apparatica_worker.storage import ArtifactStore, BuildCacheStore, PackageCache
 from apparatica_worker.stream import ResultsStream
 from judge.core.jobs import REJUDGE_QUEUE
 from judge.core.limits import load_resource_classes
@@ -91,6 +91,7 @@ def create_orchestrator(settings: WorkerSettings) -> Orchestrator:
         reporter=StreamReporter(results),
         owner=settings.worker_id,
         cancels=CancelListener(valkey),
+        build_cache=BuildCacheStore(s3, settings.s3_bucket_build_cache),
     )
 
 

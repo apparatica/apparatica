@@ -1,10 +1,12 @@
+import dataclasses
 import json
 from pathlib import Path
 from typing import Any
 
 import pytest
-from core_helpers import RESOURCE_CLASSES
+from core_helpers import RESOURCE_CLASSES, MemoryCache
 
+from judge.core.cache import BuildCache, NoCache, plan_key
 from judge.core.limits import stage_limits
 from judge.core.package import load_manifest
 from judge.core.registry import get_language
@@ -18,6 +20,8 @@ from judge.core.stage import (
     StageResult,
 )
 from judge.languages.systemverilog.stages.sim import (
+    BINARY_LIMIT,
+    CACHED_NOTE,
     SimConfig,
     SimStage,
     trace_signals,
@@ -27,14 +31,21 @@ from judge.languages.systemverilog.stages.sim import (
 PACKAGE = Path(__file__).parent / "data" / "packages" / "counter"
 CANONICAL = b"module counter; endmodule\n"
 SEED = 41917
+BINARY = b"\x7fELF simulator"
 
 
-def context(groups: list[str] | None = None, **config: Any) -> StageContext:
+def context(
+    groups: list[str] | None = None,
+    *,
+    cache: BuildCache | None = None,
+    solution: bytes = CANONICAL,
+    **config: Any,
+) -> StageContext:
     problem = load_manifest(PACKAGE)
     previous = {
         "precheck": FinishedStage(
             StageResult(key="precheck", type="precheck", ordinal=0, status="passed"),
-            {"solution.sv": CANONICAL},
+            {"solution.sv": solution},
         ),
         "synth": FinishedStage(
             StageResult(key="synth", type="synth", ordinal=1, status="passed"),
@@ -54,6 +65,7 @@ def context(groups: list[str] | None = None, **config: Any) -> StageContext:
         solution=b"// original\n",
         limits=stage_limits(problem, "sim_full", "sim", RESOURCE_CLASSES),
         previous=previous,
+        build_cache=cache or NoCache(),
     )
 
 
@@ -113,9 +125,28 @@ HIDDEN_FAIL = jsonl(
 )  # fmt: skip
 
 
+def built(
+    exit_code: int | None = 0,
+    *,
+    binary: bytes | None = BINARY,
+    output: str = "",
+    timed_out: bool = False,
+    output_limited: bool = False,
+    oversized: frozenset[str] = frozenset(),
+) -> ExecResult:
+    """The build plan of the stage."""
+    return ExecResult(
+        (CommandResult(("apx-verilate",), exit_code, 3.0),),
+        output,
+        timed_out=timed_out,
+        output_limited=output_limited,
+        files={} if binary is None else {"obj_dir/Vtb_top": binary},
+        oversized=oversized,
+    )
+
+
 def run_with(
     result: bytes | None,
-    build: int | None = 0,
     sim: int | None = 0,
     *,
     timed_out: bool = False,
@@ -123,14 +154,12 @@ def run_with(
     oversized: frozenset[str] = frozenset(),
     trace: bytes | None = None,
 ) -> ExecResult:
-    commands = [CommandResult(("apx-verilate",), build, 3.0)]
-    if build == 0:
-        commands.append(CommandResult(("./obj_dir/Vtb_top",), sim, 0.2))
+    """A simulation run of the built binary."""
     collected = {} if trace is None else {"trace.fst": trace}
     if result is not None:
         collected["tb_result.jsonl"] = result
     return ExecResult(
-        tuple(commands),
+        (CommandResult(("./obj_dir/Vtb_top",), sim, 0.2),),
         "",
         timed_out=timed_out,
         output_limited=output_limited,
@@ -139,8 +168,12 @@ def run_with(
     )
 
 
-def interpret(ctx: StageContext, *runs: ExecResult) -> StageOutcome | StagePlan:
-    return SimStage().interpret(ctx, list(runs))
+def interpret(
+    ctx: StageContext, *runs: ExecResult, build: ExecResult | None = None
+) -> StageOutcome | StagePlan:
+    """The runs after a successful build, or of the cached binary without a build."""
+    first = [] if ctx.build_cache.get(cache_key(ctx)) else [build or built()]
+    return SimStage().interpret(ctx, [*first, *runs])
 
 
 def outcome_of(ctx: StageContext, *runs: ExecResult) -> StageOutcome:
@@ -149,13 +182,25 @@ def outcome_of(ctx: StageContext, *runs: ExecResult) -> StageOutcome:
     return outcome
 
 
+def cache_key(ctx: StageContext) -> str:
+    """The key of the build plan: the first plan without a cache."""
+    return plan_key("sim", SimStage().plan(dataclasses.replace(ctx, build_cache=NoCache())))
+
+
+def simulation(ctx: StageContext) -> StagePlan:
+    """The plan of the simulation run after the build."""
+    plan = interpret(ctx)
+    assert isinstance(plan, StagePlan)
+    return plan
+
+
 def test_registered() -> None:
     assert get_language("systemverilog").stages["sim"] is SimStage
 
 
-def test_plan_builds_and_runs() -> None:
+def test_plan_builds_first() -> None:
     plan = SimStage().plan(context())
-    build, simulate = (c.argv for c in plan.commands)
+    (build,) = (c.argv for c in plan.commands)
     assert build[:2] == ("apx-verilate", "--quiet")
     assert build[build.index("--x-assign") :][:2] == ("--x-assign", "unique")
     assert build[build.index("--x-initial") :][:2] == ("--x-initial", "unique")
@@ -169,6 +214,13 @@ def test_plan_builds_and_runs() -> None:
     )
     assert plan.inputs["solution.sv"] == CANONICAL
     assert plan.inputs["pkg/tb/tb_top.sv"] == (PACKAGE / "tb" / "tb_top.sv").read_bytes()
+    assert (plan.collect, plan.collect_limit) == (("obj_dir/Vtb_top",), BINARY_LIMIT)
+    assert plan.note is None
+
+
+def test_the_built_binary_runs_next() -> None:
+    plan = simulation(context())
+    (simulate,) = (c.argv for c in plan.commands)
     assert simulate[0] == "./obj_dir/Vtb_top"
     assert f"+apx_seed={SEED}" in simulate
     assert "+apx_groups=public,hidden" in simulate
@@ -178,15 +230,78 @@ def test_plan_builds_and_runs() -> None:
     assert len(nonce) == len("+apx_nonce=") + 32
     assert not any(a.startswith("+apx_max_cycles") for a in simulate)
     assert plan.collect == ("tb_result.jsonl",)
+    assert (plan.inputs, plan.note) == ({}, None)  # in the directory of the build
+
+
+def test_build_and_run_share_the_stage_limits() -> None:
+    ctx = context()
+    plan = interpret(ctx, build=built(output="warning\n"))
+    assert isinstance(plan, StagePlan)
+    assert plan.timeout_s == ctx.limits.timeout_s - 3.0
+    assert plan.output_limit == ctx.limits.output_bytes - len("warning\n")
 
 
 def test_plan_options() -> None:
-    plan = SimStage().plan(context(["public"], max_cycles=500, design="synth.netlist_generic"))
-    simulate = plan.commands[1].argv
+    ctx = context(["public"], max_cycles=500, design="synth.netlist_generic")
+    build = SimStage().plan(ctx)
+    simulate = simulation(ctx).commands[0].argv
     assert "+apx_max_cycles=500" in simulate
     assert "+apx_groups=public" in simulate
-    assert plan.inputs["design.v"] == b"module counter_net; endmodule\n"
-    assert "solution.sv" not in plan.inputs
+    assert build.inputs["design.v"] == b"module counter_net; endmodule\n"
+    assert "solution.sv" not in build.inputs
+
+
+def test_the_binary_is_cached_before_it_runs() -> None:
+    cache = MemoryCache()
+    ctx = context(cache=cache)
+    key = cache_key(ctx)
+    plan = SimStage().interpret(ctx, [built()])
+    assert isinstance(plan, StagePlan)  # the run is only planned, the binary is already kept
+    assert cache.files == {key: BINARY}
+
+
+@pytest.mark.parametrize(
+    "build",
+    [built(binary=None), built(binary=None, oversized=frozenset({"obj_dir/Vtb_top"}))],
+)
+def test_a_binary_not_collected_still_runs_but_is_not_cached(build: ExecResult) -> None:
+    cache = MemoryCache()
+    assert isinstance(SimStage().interpret(context(cache=cache), [build]), StagePlan)
+    assert cache.files == {}
+
+
+def test_a_cached_binary_is_not_built_again() -> None:
+    cache = MemoryCache()
+    ctx = context(cache=cache)
+    cache.put(cache_key(ctx), BINARY)
+    plan = SimStage().plan(ctx)
+    assert plan.commands[0].argv[0] == "./obj_dir/Vtb_top"
+    assert plan.inputs == {"obj_dir/Vtb_top": BINARY}
+    assert plan.executable == frozenset({"obj_dir/Vtb_top"})
+    assert plan.note == CACHED_NOTE
+    assert (plan.timeout_s, plan.output_limit) == (ctx.limits.timeout_s, ctx.limits.output_bytes)
+    outcome = outcome_of(ctx, run_with(PASSED))
+    assert (outcome.status, outcome.cached) == ("passed", True)
+    assert not outcome_of(context(), run_with(PASSED)).cached
+
+
+def test_a_cached_binary_records_the_trace_too() -> None:
+    cache = MemoryCache()
+    ctx = context(cache=cache)
+    cache.put(cache_key(ctx), BINARY)
+    assert isinstance(interpret(ctx, run_with(OPEN_FAIL)), StagePlan)
+    outcome = outcome_of(ctx, run_with(OPEN_FAIL), run_with(OPEN_FAIL, trace=b"FST"))
+    assert (outcome.cached, outcome.metrics["trace"]) == (True, "recorded")
+
+
+def test_the_cache_key_is_what_the_build_reads() -> None:
+    key = cache_key(context())
+    # Run and Submit, any seed: the groups and the seed are arguments of the run, not the build.
+    assert cache_key(context(["public"])) == key
+    assert cache_key(context(max_cycles=10, trace=False)) == key
+    assert cache_key(context(solution=b"module counter; wire a; endmodule\n")) != key
+    assert cache_key(context(design="synth.netlist_generic")) != key
+    assert cache_key(context(build_jobs=2)) != key
 
 
 @pytest.mark.parametrize(
@@ -345,12 +460,26 @@ def test_simulation_died_without_a_summary() -> None:
 
 
 @pytest.mark.parametrize(
+    ("build", "detail"),
+    [
+        (built(None, binary=None, timed_out=True), "time"),
+        (built(None, binary=None, output_limited=True), "output"),
+        (built(137, binary=None), "memory"),
+        (built(1, binary=None), "compile"),
+    ],
+)
+def test_failed_builds(build: ExecResult, detail: str) -> None:
+    outcome = SimStage().interpret(context(), [build])
+    assert isinstance(outcome, StageOutcome)
+    assert outcome.status == "failed"
+    assert detail in (outcome.limit, outcome.failure_kind)
+
+
+@pytest.mark.parametrize(
     ("run", "status", "detail"),
     [
         (run_with(None, None, timed_out=True), "failed", "time"),
         (run_with(None, None, output_limited=True), "failed", "output"),
-        (run_with(None, build=137), "failed", "memory"),
-        (run_with(None, build=1), "failed", "compile"),
         (run_with(jsonl(START, started("t1", 0)), sim=137), "failed", "memory"),
         (run_with(b"not json\n"), "error", "OUTPUT_INVALID"),
         (run_with(PASSED, oversized=frozenset({"tb_result.jsonl"})), "error", "OUTPUT_INVALID"),
@@ -364,8 +493,8 @@ def test_failed_runs(run: ExecResult, status: str, detail: str) -> None:
 
 
 def test_progress_lines_hide_hidden_tests() -> None:
-    plan = SimStage().plan(context())
-    nonce = next(a for a in plan.commands[1].argv if a.startswith("+apx_nonce="))[11:]
+    plan = simulation(context())
+    nonce = next(a for a in plan.commands[0].argv if a.startswith("+apx_nonce="))[11:]
     line_filter = plan.line_filter
     assert line_filter is not None
 

@@ -15,6 +15,7 @@ from pathlib import Path
 
 from pydantic import BaseModel, ValidationError
 
+from judge.core.cache import NO_CACHE, BuildCache
 from judge.core.events import (
     DoneEvent,
     EventSink,
@@ -105,9 +106,11 @@ def run_pipeline(
     cancel: threading.Event | None = None,
     on_artifact: ArtifactSink | None = None,
     cancel_note: Callable[[], str] = lambda: "cancelled",
+    build_cache: BuildCache = NO_CACHE,
 ) -> list[StageResult]:
     """Run the stages; `on_artifact` gets the files a stage keeps for the user (e.g. FST),
-    `cancel_note` says in the console of the running stage why it was cancelled."""
+    `cancel_note` says in the console of the running stage why it was cancelled, `build_cache`
+    keeps what the stages build for later checks of the same code."""
     cancel = cancel or threading.Event()
     planned = plan_stages(job.problem, job.kind, language, job.stages)
     finished: dict[str, FinishedStage] = {}
@@ -138,6 +141,7 @@ def run_pipeline(
                 solution=job.solution,
                 limits=stage_limits(job.problem, item.key, item.stage.stage_type, resource_classes),
                 previous=dict(finished),
+                build_cache=build_cache,
             )
             result, outcome = _run_stage(item.stage, ctx, executor, sink, cancel, cancel_note)
             outputs = outcome.outputs if outcome else {}
@@ -181,6 +185,7 @@ def _run_stage(
             duration_ms=round((time.monotonic() - started) * 1000),
             metrics_schema=stage.metrics_schema,
             metrics=outcome.metrics if outcome else {},
+            cached=outcome.cached if outcome else False,
             summary=outcome.summary if outcome else StageSummary(),
         )
 
@@ -195,6 +200,8 @@ def _run_stage(
             if len(runs) == MAX_RUNS_PER_STAGE:
                 return error("STAGE_RUNS_EXCEEDED", f"more than {MAX_RUNS_PER_STAGE} runs")
             on_line = _line_handler(ctx.key, step, sink)
+            if step.note is not None:
+                sink.emit(LogEvent(stage=ctx.key, ch="sys", text=step.note))
             # Follow-up runs work on what the first one left (e.g. the built simulator).
             run = executor.run(ctx.key, step, on_line, cancel, reuse_dir=bool(runs))
             runs.append(run)

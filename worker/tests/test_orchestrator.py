@@ -25,7 +25,13 @@ from apparatica_worker.report import (
     AttemptReport,
     StreamReporter,
 )
-from apparatica_worker.storage import ArtifactStore, PackageCache, PackageError, artifact_key
+from apparatica_worker.storage import (
+    ArtifactStore,
+    BuildCacheStore,
+    PackageCache,
+    PackageError,
+    artifact_key,
+)
 from apparatica_worker.stream import ResultsStream
 from judge.core.executor import ExecutorError
 from judge.core.jobs import (
@@ -283,6 +289,26 @@ def test_artifact_keys_follow_the_submission(s3: "S3Client") -> None:
     assert stored.key == artifact_key(payload.submission_id, 2, "sim_run/trace.fst")
     assert (stored.kind, stored.stage, stored.size_bytes) == ("fst", "sim_run", 1)
     assert s3.get_object(Bucket="artifacts", Key=stored.key)["Body"].read() == b"x"
+
+
+def test_the_build_cache_is_scoped_by_the_toolchain(s3: "S3Client") -> None:
+    s3.create_bucket(Bucket="build-cache")
+    store = BuildCacheStore(s3, "build-cache")
+    cache = store.scoped(job())
+    assert cache.get("k") is None
+    cache.put("k", b"binary")
+    assert cache.get("k") == b"binary"
+    [stored] = s3.list_objects_v2(Bucket="build-cache")["Contents"]
+    assert stored["Key"].startswith("sv-2026.10.3/")
+    # Another image of the same profile, e.g. a rebuilt one, builds again.
+    assert store.scoped(job(toolchain_image="apparatica-toolchain:other")).get("k") is None
+    assert store.scoped(job(kind="submit", seed=7)).get("k") == b"binary"
+
+
+def test_a_build_cache_failure_is_a_miss(s3: "S3Client") -> None:
+    cache = BuildCacheStore(s3, "no-such-bucket").scoped(job())
+    cache.put("k", b"binary")  # logged, not raised
+    assert cache.get("k") is None
 
 
 def test_the_lease_is_renewed_and_lost(valkey_url: str) -> None:

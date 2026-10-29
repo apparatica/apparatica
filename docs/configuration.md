@@ -52,8 +52,9 @@
 | `APX_SANDBOX_RUNTIME` | `runsc` | рантайм, который должен использовать `apx-sandboxd`; иначе воркер не стартует. `runc` — только для разработки |
 | `APX_RESOURCE_CLASSES` | `config/resource-classes.yaml` | лимиты песочниц по классам ресурсов |
 | `APX_PACKAGE_CACHE` | `/var/cache/apparatica/packages` | распакованные пакеты задач |
-| `APX_S3_ENDPOINT_URL`, `APX_S3_REGION`, `APX_S3_ACCESS_KEY_ID`, `APX_S3_SECRET_ACCESS_KEY` | —, `garage`, —, — | хранилище; ключ воркера читает `packages` и пишет `artifacts` |
+| `APX_S3_ENDPOINT_URL`, `APX_S3_REGION`, `APX_S3_ACCESS_KEY_ID`, `APX_S3_SECRET_ACCESS_KEY` | —, `garage`, —, — | хранилище; ключ воркера читает `packages`, пишет `artifacts`, читает и пишет `build-cache` |
 | `APX_S3_BUCKET_PACKAGES`, `APX_S3_BUCKET_ARTIFACTS` | `packages`, `artifacts` | бакеты пакетов и артефактов |
+| `APX_S3_BUCKET_BUILD_CACHE` | `build-cache` | кэш сборки: бинарники симуляции на сутки ([architecture.md](architecture.md#кэш-сборки)) |
 | `APX_LOG_LEVEL`, `APX_LOG_FORMAT` | `INFO`, `console` | как у API |
 
 ## apx-sandboxd

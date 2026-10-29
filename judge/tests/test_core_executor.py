@@ -1,3 +1,7 @@
+import io
+import os
+import sys
+import tarfile
 import threading
 import time
 from collections.abc import Sequence
@@ -118,6 +122,44 @@ def test_stage_directory_is_fresh(tmp_path: Path) -> None:
         result = executor.run("s", second, lambda *_: None, threading.Event())
     assert result.files == {}
     assert "[]" in result.output
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="no executable bit on Windows")
+def test_executable_inputs(tmp_path: Path) -> None:
+    with HostExecutor(tmp_path) as executor:
+        inputs = {"bin/sim": b"x", "data": b"y"}
+        stage = plan(python("pass"), inputs=inputs, executable=frozenset({"bin/sim"}))
+        executor.run("s", stage, lambda *_: None, threading.Event())
+    assert os.access(tmp_path / "s" / "bin" / "sim", os.X_OK)
+    assert not os.access(tmp_path / "s" / "data", os.X_OK)
+
+
+class RecordingContainer:
+    """A sandbox whose commands exit at once; it keeps what the executor sends."""
+
+    def __init__(self) -> None:
+        self.stdin: list[bytes] = []
+
+    def run(self, argv: Sequence[str], *, stdin: bytes | None = None) -> tuple[int, bytes, str]:
+        if stdin is not None:
+            self.stdin.append(stdin)
+        return 0, b"", ""
+
+    def start(self, argv: Sequence[str], *, cwd: str) -> Running:
+        return Running(streams=[(lambda: b"", "out")], wait=lambda: 0, kill=self.kill_all)
+
+    def kill_all(self) -> None:
+        pass
+
+
+def test_executable_inputs_in_a_container() -> None:
+    container = RecordingContainer()
+    inputs = {"obj_dir/V": b"x", "data": b"y"}
+    stage = plan(Command(("sim",)), inputs=inputs, executable=frozenset({"obj_dir/V"}))
+    ContainerExecutor(container).run("sim", stage, lambda *_: None, threading.Event())
+    with tarfile.open(fileobj=io.BytesIO(container.stdin[0])) as tar:
+        modes = {member.name: member.mode for member in tar.getmembers()}
+    assert modes == {"obj_dir/V": 0o755, "data": 0o644}
 
 
 def test_follow_up_run_reuses_the_directory(tmp_path: Path) -> None:

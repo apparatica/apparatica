@@ -24,7 +24,7 @@ from apparatica_worker.orchestrator import TRACE_NOT_REPRODUCED, Orchestrator
 from apparatica_worker.report import AttemptReport
 from apparatica_worker.sandboxd.client import SandboxdClient, SandboxExecutor
 from apparatica_worker.sandboxd.server import MAX_REQUEST, DockerCli, Policy, Sandboxd, repository
-from apparatica_worker.storage import ArtifactStore, PackageCache
+from apparatica_worker.storage import ArtifactStore, BuildCacheStore, PackageCache
 from apparatica_worker.stream import ResultsStream
 from judge.core.jobs import (
     CANCEL_CHANNEL,
@@ -42,6 +42,8 @@ from judge.core.jobs import (
 )
 from judge.core.limits import SandboxLimits, load_resource_classes
 from judge.core.pack import content_hash, pack, package_files
+from judge.core.stage import SubmissionKind
+from judge.languages.systemverilog.stages.sim import CACHED_NOTE
 
 if TYPE_CHECKING:
     from mypy_boto3_s3 import S3Client
@@ -85,10 +87,11 @@ def s3() -> Iterator["S3Client"]:
         client = boto3.client("s3", region_name="us-east-1")
         client.create_bucket(Bucket="packages")
         client.create_bucket(Bucket="artifacts")
+        client.create_bucket(Bucket="build-cache")
         yield client
 
 
-def check(s3: "S3Client", slug: str, code: str) -> JudgeJob:
+def check(s3: "S3Client", slug: str, code: str, kind: SubmissionKind = "run") -> JudgeJob:
     files = package_files(ROOT / "problems" / slug)
     s3.put_object(Bucket="packages", Key=f"{slug}/1.tar.zst", Body=pack(files))
     return JudgeJob(
@@ -99,7 +102,7 @@ def check(s3: "S3Client", slug: str, code: str) -> JudgeJob:
         package_uri=f"{slug}/1.tar.zst",
         content_hash=content_hash(files),
         resource_class="light",
-        kind="run",
+        kind=kind,
         seed=42,
         code=code,
         toolchain_profile="sv-dev",
@@ -120,6 +123,7 @@ def make_orchestrator(
         results=ResultsStream(valkey),
         reporter=Reports(),
         owner="worker-test",
+        build_cache=BuildCacheStore(s3, "build-cache"),
     )
 
 
@@ -195,6 +199,29 @@ def test_an_accepted_run(
         ("lint", "v1.token"),
         ("sim_run", "v1.token"),
     ]
+
+
+def test_a_submit_after_a_run_does_not_build_again(
+    sandboxd: SandboxdClient, s3: "S3Client", valkey_url: str, tmp_path: Path
+) -> None:
+    code = (ROOT / "problems" / "mux4" / "reference" / "mux4.sv").read_text(encoding="utf-8")
+    orchestrator = make_orchestrator(sandboxd, s3, valkey_url, tmp_path)
+    orchestrator(check(s3, "mux4", code), "judge.light")
+    orchestrator(check(s3, "mux4", code, "submit"), "judge.light")
+    assert isinstance(orchestrator.reporter, Reports)
+    run, submit = (report.results[-1] for report in orchestrator.reporter.items)
+    assert (run.status, run.cached) == ("passed", False)
+    assert (submit.status, submit.cached) == ("passed", True)
+    assert submit.metrics["tests_total"] > run.metrics["tests_total"]  # the hidden tests ran
+    [cached] = s3.list_objects_v2(Bucket="build-cache")["Contents"]
+    assert cached["Key"].startswith("sv-dev/")
+    log = next(
+        a.key
+        for a in orchestrator.reporter.items[1].artifacts
+        if (a.kind, a.stage) == ("log", submit.key)
+    )
+    text = zstandard.ZstdDecompressor().decompress(read(s3, log)).decode()
+    assert text.splitlines()[0] == CACHED_NOTE
 
 
 def test_a_cancel_kills_the_running_stage(
