@@ -226,7 +226,7 @@ poetry -C backend run apparatica-admin toolchain add sv-2026.10.2 \
 
 ### Воркер
 
-Воркер работает на Linux-хосте с Docker, рядом с `apx-sandboxd` (тот слушает unix-сокет, на Windows не запускается):
+На стенде воркер и `apx-sandboxd` уже работают в compose ([stand.md](stand.md#воркер-и-песочница)), в том числе на Windows. Вне контейнеров воркер работает на Linux-хосте с Docker, рядом с `apx-sandboxd` (тот слушает unix-сокет, на Windows не запускается):
 
 ```sh
 APX_SANDBOXD_RUNTIME=runc APX_SANDBOXD_SOCKET=/tmp/sandboxd.sock poetry -C worker run apx-sandboxd

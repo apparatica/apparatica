@@ -146,11 +146,12 @@ check: check-locks check-licenses check-api lint typecheck test
 
 compose := "docker compose -f deploy/compose.yaml -f deploy/compose.dev.yaml"
 
-# Start the stand: build the images, migrate, set up Garage, import the demo problems
-# (http://localhost:8080; docs/stand.md). `up --wait` fails on finished one-shot services, so it
-# waits for the long-running ones, and the import runs in the foreground with its exit code.
+# Start the stand: build the images, migrate, set up Garage, register the toolchain profile, start
+# the worker, import the demo problems (http://localhost:8080; docs/stand.md). `up --wait` fails on
+# finished one-shot services, so it waits for the long-running ones, and the import runs in the
+# foreground with its exit code.
 up:
-    {{ compose }} up -d --build --wait caddy valkey-queue valkey-cache ingest
+    {{ compose }} up -d --build --wait caddy valkey-queue valkey-cache ingest worker
     {{ compose }} run --rm demo-problems
 
 # Stop the stand; the data volumes stay (remove them with: docker compose ... down -v)
@@ -161,9 +162,11 @@ down:
 logs *services:
     {{ compose }} logs -f {{ services }}
 
-# Check the object storage of the running stand: key permissions, presigned URLs, CORS, website
+# Check the running stand: the object storage (key permissions, presigned URLs, CORS, website) and
+# the judging of a guest's submissions through Caddy
 stand-check:
     {{ compose }} run --rm storage-check
+    {{ compose }} run --rm judge-check
 
 toolchain_image := "apparatica-toolchain:dev"
 # Base image override for networks without Docker Hub access; keep the digest from the Dockerfile,

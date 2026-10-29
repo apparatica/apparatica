@@ -13,5 +13,5 @@ brief
 specs
 docs
 toolchain
-worker
+worker/tests
 deploy/.env

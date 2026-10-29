@@ -1,14 +1,16 @@
 # Стенд
 
-Вся платформа на одной машине в docker compose: сервисы, хранилище с бакетами и ключами, демо-задачи (NFR-MAINT-06). Файлы — в `deploy/`.
+Вся платформа на одной машине в docker compose: сервисы, хранилище с бакетами и ключами, воркер с песочницей, демо-задачи (NFR-MAINT-06). Файлы — в `deploy/`.
 
 ## Запуск
 
 Нужны Docker с Compose v2 и `just`; на Windows — Docker Desktop.
 
 ```sh
-just up            # собрать образы, мигрировать БД, настроить Garage, импортировать задачи
-just stand-check   # проверить хранилище: права ключей, presigned URL, CORS, сайт waveview
+just up            # собрать образы, мигрировать БД, настроить Garage, зарегистрировать профиль
+                   # тулчейна, запустить воркер, импортировать задачи
+just stand-check   # проверить хранилище (права ключей, presigned URL, CORS, сайт waveview)
+                   # и проверку решений гостя через весь стенд
 just logs api web  # логи сервисов
 just down          # остановить; данные в томах остаются (удалить: docker compose … down -v)
 ```
@@ -39,18 +41,43 @@ just down          # остановить; данные в томах остаю
 | `ingest` | `apparatica ingest` из того же образа: результаты проверок в Postgres, `finalized`, watchdog, сроки хранения артефактов, процент принятых. С ключом хранилища `ingest` и пользователем Valkey `ingest` |
 | `web` | Next.js, standalone-сервер (`web/Dockerfile`); серверный рендер читает `api` напрямую (`API_URL=http://api:8000`) и стартует после него |
 | `postgres` | PostgreSQL 17, локаль `builtin C.UTF-8` (регистр символов — средствами PostgreSQL, поиск по кириллице не зависит от ОС образа) |
-| `valkey-queue` | очереди и стримы: AOF, без вытеснения. Пользователи и их ключи — `deploy/valkey/queue-users.acl.in` ([security.md](security.md#права-компонентов)); пароли — `VALKEY_QUEUE_API_PASSWORD`, `VALKEY_QUEUE_WORKER_PASSWORD`, `VALKEY_QUEUE_INGEST_PASSWORD`. API ставит в него проверки как `api`, ингестор читает результаты как `ingest`; воркера на стенде пока нет (T1.21), поэтому отправки остаются в очереди |
+| `valkey-queue` | очереди и стримы: AOF, без вытеснения. Пользователи и их ключи — `deploy/valkey/queue-users.acl.in` ([security.md](security.md#права-компонентов)); пароли — `VALKEY_QUEUE_API_PASSWORD`, `VALKEY_QUEUE_WORKER_PASSWORD`, `VALKEY_QUEUE_INGEST_PASSWORD`. API ставит в него проверки как `api`, воркер берёт их как `worker`, ингестор читает результаты как `ingest` |
 | `valkey-cache` | кэш и rate limit: без сохранения на диск, LRU. API хранит в нём счётчики rate limit и квоты волн ([api.md](api.md#гости-и-лимиты-ф1)) |
 | `garage` | S3-хранилище (ADR-0013), один узел |
 | `waveview` | одноразовый: копирует сайт просмотрщика из образа `WAVEVIEW_IMAGE` (по умолчанию `ghcr.io/apparatica/waveview:<версия>`) в том для `garage-setup`; локальная сборка — `WAVEVIEW_IMAGE=apparatica-waveview:dev` ([waveview.md](waveview.md)) |
 | `garage-setup` | одноразовый: раскладка узла, бакеты, ключи компонентов и их права, сайт `waveview` и загрузка в него новых версий просмотрщика, CORS, правила жизненного цикла (`deploy/garage/setup.py`) |
 | `migrate` | одноразовый: `apparatica migrate` |
 | `demo-problems` | одноразовый: `apparatica-admin problems import --publish` для `problems/` |
-| `storage-check` | проверка хранилища, запускается только `just stand-check` (профиль `check`) |
+| `toolchain` | одноразовый: образ тулчейна песочниц по digest (`TOOLCHAIN_IMAGE@TOOLCHAIN_DIGEST`); compose скачивает его до первой проверки, а сервис копирует из него `versions.lock` в том для `toolchain-profile` |
+| `toolchain-profile` | одноразовый: регистрирует образ профилем тулчейна по умолчанию (`deploy/worker/toolchain-profile.sh`) |
+| `sandboxd` | `apx-sandboxd` из образа воркера (`worker/Dockerfile`), см. [«Воркер и песочница»](#воркер-и-песочница) |
+| `worker` | `apparatica-worker`: проверки из очередей в песочницах `sandboxd`. С ключом хранилища `worker` и пользователем Valkey `worker`, без Postgres и Docker |
+| `storage-check`, `judge-check` | проверки стенда, запускаются только `just stand-check` (профиль `check`): хранилище (`deploy/garage/check.py`) и проверка решений (`deploy/worker/check.py`) |
 
 Одноразовые сервисы идемпотентны и выполняются при каждом `up`: повторный импорт пропускает неизменённые версии, настройка Garage ничего не пересоздаёт.
 
-Профиля тулчейна и воркера на стенде пока нет, поэтому `POST /api/v1/submissions` отвечает `503 JUDGE_UNAVAILABLE`. Воркер появится в Ф1.
+## Воркер и песочница
+
+Проверки идут так же, как в production (ADR-0003, [architecture.md](architecture.md#оркестратор)): `worker` берёт задание из `valkey-queue`, а контейнеры песочницы создаёт через `apx-sandboxd`. Демон — сервис `sandboxd`:
+
+- он единственный получает docker socket хоста (`/var/run/docker.sock`), поэтому работает от root и фактически root на хосте; сети у него нет;
+- песочницы — соседние контейнеры того же Docker с меткой `apparatica.sandbox`, а не вложенные. `docker compose down` их не удаляет: оставшиеся после остановки демон убирает при следующем старте;
+- unix-сокет демона лежит в томе `sandboxd-socket`, общем с `worker`, с группой пользователя воркера;
+- разрешён только репозиторий `TOOLCHAIN_IMAGE`.
+
+**Рантайм** — `SANDBOX_RUNTIME`, одно значение для демона и воркера. По умолчанию `runc`: так стенд работает и на Docker Desktop, где gVisor нет. `runsc` — если он зарегистрирован в Docker хоста, как в CI. Изоляцию `runc` не обеспечивает: стенд с `runc` не для чужого кода.
+
+**Профиль тулчейна.** Стенд берёт опубликованный образ `ghcr.io/apparatica/toolchain` по digest из `compose.yaml` и регистрирует его профилем `sv-<TOOLCHAIN_PROFILE>` по умолчанию; версии инструментов профиля читаются из `versions.lock` самого образа. Новый профиль на стенд приходит сменой digest в `compose.yaml`, когда образ опубликован. Локальная сборка (`just toolchain-build`) подключается так:
+
+```sh
+docker image inspect apparatica-toolchain:dev --format '{{index .RepoDigests 0}}'   # apparatica-toolchain@sha256:…
+# deploy/.env
+TOOLCHAIN_IMAGE=apparatica-toolchain
+TOOLCHAIN_DIGEST=sha256:…
+TOOLCHAIN_PROFILE_ID=sv-dev-1   # профиль неизменяем: у другого образа — другой id
+```
+
+Профиль с тем же id, но другим образом `toolchain-profile` не перезапишет и завершится ошибкой: задайте новый `TOOLCHAIN_PROFILE_ID`.
 
 ## Хранилище
 
@@ -70,8 +97,9 @@ just down          # остановить; данные в томах остаю
 - порт сайта (`HTTP_PORT`);
 - `APX_COOKIE_SECURE`: на стенде по HTTP cookie гостя без `Secure` (по умолчанию `false`), за HTTPS — `true`;
 - порты `compose.dev.yaml` — если, например, 5432 уже занят Postgres на хосте;
-- образы. Если Docker Hub недоступен, их можно брать через зеркало (`POSTGRES_IMAGE=mirror.gcr.io/library/postgres:17-alpine` …; базовые образы сборки — `PYTHON_IMAGE`, `NODE_IMAGE`).
+- рантайм песочниц (`SANDBOX_RUNTIME`) и образ тулчейна (`TOOLCHAIN_IMAGE`, `TOOLCHAIN_DIGEST`, `TOOLCHAIN_PROFILE_ID`), см. [«Воркер и песочница»](#воркер-и-песочница);
+- образы. Если Docker Hub недоступен, их можно брать через зеркало (`POSTGRES_IMAGE=mirror.gcr.io/library/postgres:17-alpine` …; базовые образы сборки — `PYTHON_IMAGE`, `NODE_IMAGE`, `DOCKER_CLI_IMAGE`).
 
 ## CI
 
-Job `Stand` в `ci.yml` поднимает стенд с нуля на `ubuntu-24.04` (`just up`), запускает `just stand-check` и проверяет через Caddy здоровье API, каталог и страницу. Лимит job'а — 20 минут: по NFR-MAINT-06 стенд должен подниматься на чистой машине за 15.
+Job `Stand` в `ci.yml` ставит на `ubuntu-24.04` gVisor, поднимает стенд с нуля с `SANDBOX_RUNTIME=runsc` (`just up`), запускает `just stand-check` — с ним и эталон и мутант демо-задачи через весь стенд — и проверяет через Caddy здоровье API, каталог и страницу. Лимит job'а — 20 минут: по NFR-MAINT-06 стенд должен подниматься на чистой машине за 15.

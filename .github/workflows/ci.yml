@@ -96,9 +96,20 @@ jobs:
           load: true
           tags: apparatica-waveview:dev
           cache-from: type=gha,scope=waveview
+      # The sandboxes of the stand run under gVisor, as on staging (ADR-0003). The apt repository of
+      # gVisor serves its latest release only.
+      - name: Install gVisor
+        run: |
+          curl -fsSL https://gvisor.dev/archive.key | sudo gpg --dearmor -o /usr/share/keyrings/gvisor.gpg
+          echo "deb [arch=amd64 signed-by=/usr/share/keyrings/gvisor.gpg] https://storage.googleapis.com/gvisor/releases release main"             | sudo tee /etc/apt/sources.list.d/gvisor.list
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq runsc
+          sudo runsc install
+          sudo systemctl restart docker
+          echo "SANDBOX_RUNTIME=runsc" >> "$GITHUB_ENV"
       - name: Start the stand
         run: just up
-      - name: Check the object storage
+      - name: Check the object storage and the judging of submissions
         run: just stand-check
       - name: Smoke-test the site and the API through Caddy
         run: |

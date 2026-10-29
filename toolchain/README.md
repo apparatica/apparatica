@@ -59,6 +59,7 @@
 1. Поменяйте версию и sha256 в `versions.lock`, увеличьте `TOOLCHAIN_PROFILE`. Профиль увеличивается при любом изменении образа, включая `apx-run`, `apx-verilate` и `apx_tb_pkg`.
 2. `just toolchain-build && just toolchain-test`.
 3. После слияния в `master` CI публикует образ. Перевод задач на новый профиль — specs/09 §2.
+4. Стенд переходит на новый профиль отдельным PR: digest опубликованного образа — в `deploy/compose.yaml`, у сервисов `toolchain` и `toolchain-profile` ([docs/stand.md](../docs/stand.md#воркер-и-песочница)).
 
 ## Сборка и тесты
 

@@ -60,5 +60,6 @@ test("the stand publishes this version", () => {
   const named = [...compose.matchAll(/waveview:([\d.]+)\}|WAVEVIEW_VERSION: ([\d.]+)/g)].map(
     (match) => match[1] ?? match[2],
   );
-  assert.deepEqual(named, [version, version]);
+  // The image of the waveview service, the toolchain profile and storage-check.
+  assert.deepEqual(named, [version, version, version]);
 });

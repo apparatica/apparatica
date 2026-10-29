@@ -49,6 +49,8 @@ Verilator превращает решение в C++ и исполняет ег�
 - **Имена контейнеров** клиент не видит: он получает непрозрачный ID и может ссылаться только на контейнеры, созданные этим демоном.
 - **Уборка.** Контейнеры старше срока жизни удаляются. Остатки прошлого запуска демона удаляются при старте.
 
+На стенде демон работает в контейнере `sandboxd` от root с docker socket хоста, то есть с правами root на хосте, но без сети; воркер — в своём контейнере без сокета Docker, а сокет демона они делят через том ([stand.md](stand.md#воркер-и-песочница)). Разрешён только репозиторий образа тулчейна стенда.
+
 ## Права компонентов
 
 | Компонент | Postgres | Хранилище | Valkey (`valkey-queue`) | Docker |
@@ -76,8 +78,8 @@ FST пишет код пользователя, а разбирает его Sur
 | Исполнитель: лимиты, отмена, выжившие процессы | `toolchain/tests/test_executor.py`, `worker/tests/test_sandbox_image.py` |
 | Протокол и политика `apx-sandboxd` | `worker/tests/test_sandboxd.py` |
 | ACL Valkey | `worker/tests/test_valkey_acl.py` |
-| Ключи хранилища, заголовки origin `waveview` | `just stand-check` |
+| Ключи хранилища, заголовки origin `waveview`; проверка решений гостя через весь стенд | `just stand-check` |
 | Изоляция просмотрщика волн: origin `null`, нет доступа к родителю, cookie, хранилищу, сети | `just waveview-test` (`waveview/tests/regression.test.mjs`) |
 | Набор атак под gVisor в CI | `tests/security/` (T1.8) |
 
-Тесты образа и песочницы гоняются под `runc` локально и в CI (`just toolchain-test`). Под `runsc` их запускают с `JUDGE_SANDBOX_RUNTIME=runsc` на хосте с gVisor; так проверен профиль 2026.10.3 на VPS воркера.
+Тесты образа и песочницы гоняются под `runc` локально и в CI (`just toolchain-test`). Под `runsc` их запускают с `JUDGE_SANDBOX_RUNTIME=runsc` на хосте с gVisor; так проверен профиль 2026.10.3 на VPS воркера. Стенд в CI (job `Stand`) проверяет решения под `runsc`.

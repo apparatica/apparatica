@@ -1,6 +1,7 @@
 """Normalized AST hash (specs/07 §6, T0.7b): what it ignores and what it tells apart."""
 
 import re
+from pathlib import Path
 
 import pytest
 from pyslang import syntax
@@ -67,6 +68,14 @@ BASE = ast_hash(solution())
 
 def test_format() -> None:
     assert re.fullmatch(rf"n{runner.NORMALIZATION_VERSION}:[0-9a-f]{{64}}", BASE)
+
+
+def test_stand_registers_the_normalization_version() -> None:
+    """The stand's toolchain profile names the version of this judge (deploy/compose.yaml)."""
+    compose = (Path(__file__).parents[2] / "deploy" / "compose.yaml").read_text(encoding="utf-8")
+    assert re.findall(r"NORMALIZATION_VERSION: (\d+)", compose) == [
+        str(runner.NORMALIZATION_VERSION)
+    ]
 
 
 def test_deterministic() -> None:

@@ -26,6 +26,19 @@ x-api-env: &api-env
   APX_JOB_TOKEN_KEY: ${APX_JOB_TOKEN_KEY:-d0bcee91e1bd0d6ae13d2a129c5f78bc14b19f28c6824598c54dbc3b5ca20531}
   APX_QUEUE_URL: redis://api:${VALKEY_QUEUE_API_PASSWORD:-8b1e3f0c5a7d4e2b9c6f1a0d3e5b7c9a}@valkey-queue:6379/0
 
+x-worker-image: &worker-image
+  image: apparatica-worker:local
+  build:
+    context: ..
+    dockerfile: worker/Dockerfile
+    args:
+      PYTHON_IMAGE: ${PYTHON_IMAGE:-python:3.13-slim}
+      DOCKER_CLI_IMAGE: ${DOCKER_CLI_IMAGE:-docker:29-cli}
+
+# The sandbox runtime of the checks: runc on the stand, which runs on Docker Desktop too; runsc
+# (gVisor) where the Docker of the host has it, as in CI (ADR-0003).
+x-sandbox-runtime: &sandbox-runtime ${SANDBOX_RUNTIME:-runc}
+
 services:
   postgres:
     image: ${POSTGRES_IMAGE:-postgres:17-alpine}
@@ -194,6 +207,92 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  # The toolchain image of the sandboxes (toolchain/README.md), pulled by its digest before the first
+  # check. One-shot: copies its versions.lock out for toolchain-profile. A local build of the image:
+  # TOOLCHAIN_IMAGE=apparatica-toolchain and TOOLCHAIN_DIGEST of it (docs/stand.md).
+  toolchain:
+    image: ${TOOLCHAIN_IMAGE:-ghcr.io/apparatica/toolchain}@${TOOLCHAIN_DIGEST:-sha256:1757d1fb996e78a5191ec857c10e31914fae612cf8aa2d100c889b4805a8a79f}
+    user: root
+    command: ["cp", "/opt/apx/versions.lock", "/toolchain/versions.lock"]
+    network_mode: none
+    volumes:
+      - toolchain-versions:/toolchain
+    restart: "no"
+
+  # One-shot, idempotent: the toolchain image as the default profile (deploy/worker/toolchain-profile.sh).
+  toolchain-profile:
+    <<: *api-image
+    command: ["sh", "/opt/apparatica/deploy/worker/toolchain-profile.sh"]
+    environment:
+      <<: *api-env
+      TOOLCHAIN_IMAGE: ${TOOLCHAIN_IMAGE:-ghcr.io/apparatica/toolchain}
+      TOOLCHAIN_DIGEST: ${TOOLCHAIN_DIGEST:-sha256:1757d1fb996e78a5191ec857c10e31914fae612cf8aa2d100c889b4805a8a79f}  # the digest of the toolchain service
+      TOOLCHAIN_PROFILE_ID: ${TOOLCHAIN_PROFILE_ID:-}
+      NORMALIZATION_VERSION: 1  # NORMALIZATION_VERSION of the judge's precheck_runner.py
+      WAVEVIEW_VERSION: 2026.10.1
+    volumes:
+      - ./worker:/opt/apparatica/deploy/worker:ro
+      - toolchain-versions:/opt/toolchain:ro
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+      toolchain:
+        condition: service_completed_successfully
+    restart: "no"
+
+  # The sandbox daemon (ADR-0003, docs/architecture.md#песочница-apx-sandboxd): the only service with
+  # the Docker socket of the host, which makes it root on the host. It needs no network; its unix
+  # socket is shared with the worker in a volume, open to the group of the worker.
+  sandboxd:
+    <<: *worker-image
+    command: ["apx-sandboxd"]
+    user: root
+    init: true
+    environment:
+      APX_SANDBOXD_RUNTIME: *sandbox-runtime
+      APX_SANDBOXD_SOCKET_GROUP: apparatica
+      APX_SANDBOXD_IMAGES: '["${TOOLCHAIN_IMAGE:-ghcr.io/apparatica/toolchain}"]'
+      APX_SANDBOXD_LOG_FORMAT: json
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - sandboxd-socket:/run/apx-sandboxd
+    network_mode: none
+    healthcheck:
+      test:
+        ["CMD", "python", "-c", "from apparatica_worker.sandboxd.client import SandboxdClient as C; C('/run/apx-sandboxd/sandboxd.sock', timeout_s=2).request({'op': 'info'})"]
+      interval: 2s
+      retries: 30
+    restart: unless-stopped
+
+  # Checks from the queues in sandboxes of apx-sandboxd (docs/architecture.md#оркестратор): with the
+  # storage key `worker` and the Valkey user `worker`, without Postgres and Docker.
+  worker:
+    <<: *worker-image
+    init: true
+    environment:
+      APX_QUEUE_URL: redis://worker:${VALKEY_QUEUE_WORKER_PASSWORD:-2f7a9c1e4b6d8f0a3c5e7b9d1f2a4c6e}@valkey-queue:6379/0
+      APX_SANDBOX_RUNTIME: *sandbox-runtime
+      APX_S3_ENDPOINT_URL: http://garage:3900
+      APX_S3_REGION: garage
+      APX_S3_ACCESS_KEY_ID: ${S3_WORKER_KEY_ID:-GK9a64760795929c9d10aae242}
+      APX_S3_SECRET_ACCESS_KEY: ${S3_WORKER_KEY_SECRET:-931daceee6933f2579ef0dde804a626bf9922094d047aab7b467b186ecd5e497}
+      APX_LOG_FORMAT: json
+    volumes:
+      - sandboxd-socket:/run/apx-sandboxd
+      - worker-packages:/var/cache/apparatica/packages
+    depends_on:
+      sandboxd:
+        condition: service_healthy
+      toolchain-profile:
+        condition: service_completed_successfully
+      garage-setup:
+        condition: service_completed_successfully
+      valkey-queue:
+        condition: service_healthy
+    # SIGTERM lets the running checks finish (docs/development.md#воркер).
+    stop_grace_period: 1m
+    restart: unless-stopped
+
   web:
     image: apparatica-web:local
     build:
@@ -241,6 +340,22 @@ services:
         condition: service_started
     restart: "no"
 
+  # A guest's checks through Caddy to their verdicts (deploy/worker/check.py): `just stand-check`.
+  judge-check:
+    <<: *api-image
+    profiles: [check]
+    command: ["python", "/opt/apparatica/deploy/worker/check.py"]
+    environment:
+      SITE_URL: http://caddy
+      SITE_HOST: localhost
+    volumes:
+      - ./worker:/opt/apparatica/deploy/worker:ro
+      - ../problems:/opt/apparatica/problems:ro
+    depends_on:
+      caddy:
+        condition: service_started
+    restart: "no"
+
   caddy:
     image: ${CADDY_IMAGE:-caddy:2-alpine}
     environment:
@@ -266,3 +381,6 @@ volumes:
   garage-data:
   caddy-data:
   waveview-site:
+  toolchain-versions:
+  sandboxd-socket:
+  worker-packages:
