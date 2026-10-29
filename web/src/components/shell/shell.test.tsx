@@ -31,14 +31,14 @@ function Header() {
 it("chooses the theme in the guest menu and remembers it", async () => {
   const user = userEvent.setup();
   renderWithProviders(<Header />);
-  await user.click(screen.getByRole("button", { name: "Меню гостя" }));
+  await user.click(screen.getByRole("button", { name: "Гость" }));
   expect(screen.getByRole("menuitemradio", { name: "Системная" })).toBeChecked();
 
   await user.click(screen.getByRole("menuitemradio", { name: "Светлая" }));
   expect(document.documentElement.dataset["theme"]).toBe("light");
   expect(document.cookie).toContain("ap_theme=light");
 
-  await user.click(screen.getByRole("button", { name: "Меню гостя" }));
+  await user.click(screen.getByRole("button", { name: "Гость" }));
   expect(screen.getByRole("menuitemradio", { name: "Светлая" })).toBeChecked();
   await user.click(screen.getByRole("menuitemradio", { name: "Системная" }));
   expect(document.cookie).toContain("ap_theme=system");

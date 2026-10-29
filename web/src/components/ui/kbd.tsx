@@ -17,9 +17,10 @@ export function useApple(): boolean {
   );
 }
 
-/** A hint of keys: mono 10.5 px, in the colour of its button. */
+/** A hint of keys: mono 10.5 px, in the colour of its button (opaque: WCAG AA contrast at this
+ * size, NFR-A11Y-01). */
 export function Kbd({ className, ...props }: ComponentProps<"kbd">) {
-  return <kbd className={cn("font-mono text-[10.5px] opacity-80", className)} {...props} />;
+  return <kbd className={cn("font-mono text-[10.5px]", className)} {...props} />;
 }
 
 /** A shortcut as the platform writes it: "Ctrl ↵" or "⌘ ↵". */

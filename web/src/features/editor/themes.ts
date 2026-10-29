@@ -63,7 +63,8 @@ const benchLight: editor.IStandaloneThemeData = {
   colors: {
     "editor.background": "#fbfcf9",
     "editor.foreground": "#141a15",
-    "editor.lineHighlightBackground": "#e9ece4",
+    // --sf, not --sf2 of the mock-up: keywords (--ac) on it keep the AA contrast (NFR-A11Y-01).
+    "editor.lineHighlightBackground": "#f6f7f3",
     "editor.selectionBackground": "#e0f1f5",
     "editorLineNumber.foreground": "#505a52",
     "editorLineNumber.activeForeground": "#141a15",

@@ -1,6 +1,7 @@
 packages:
   - web
   - waveview
+  - e2e
 
 # Dependency build scripts stay off (pnpm 11 default). These ship prebuilt native binaries as
 # optional dependencies; their install scripts only verify them.

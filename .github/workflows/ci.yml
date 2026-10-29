@@ -116,6 +116,28 @@ jobs:
           curl -fsS http://localhost:8080/api/v1/health
           curl -fsS http://localhost:8080/api/v1/problems | grep -q '"slug":"mux4"'
           curl -fsS http://localhost:8080/problems | grep -q '<title>'
+      # specs/09 §4.4: Playwright with the Chrome of the runner image and axe, a guest's checks judged
+      # by the worker of the stand.
+      - uses: pnpm/action-setup@ea17c68df8912ef543352723c149a84f56e3d413 # v6.1.0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: "24"
+          cache: pnpm
+      - name: End-to-end tests
+        env:
+          E2E_BROWSER: chrome
+        run: |
+          pnpm install --frozen-lockfile --filter @apparatica/e2e
+          just e2e
+      - name: Report of the end-to-end tests
+        if: failure()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: e2e-report
+          path: |
+            e2e/playwright-report
+            e2e/test-results
+          retention-days: 7
       - name: Logs of the stand
         if: failure()
         run: docker compose -f deploy/compose.yaml -f deploy/compose.dev.yaml logs

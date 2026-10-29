@@ -12,7 +12,9 @@ export const buttonVariants = cva(
   {
     variants: {
       variant: {
-        primary: "border-ac bg-ac font-medium text-acx enabled:hover:opacity-90",
+        // Hover outlines the inside: a translucent fill would cost the text its AA contrast.
+        primary:
+          "border-ac bg-ac font-medium text-acx enabled:hover:shadow-[inset_0_0_0_1px_var(--acx)]",
         default: "border-bc bg-sf text-tx enabled:hover:bg-sf2",
         outline: "border-ac bg-sf text-ac enabled:hover:bg-acs",
         ghost:

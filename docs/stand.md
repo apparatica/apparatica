@@ -100,6 +100,26 @@ TOOLCHAIN_PROFILE_ID=sv-dev-1   # профиль неизменяем: у дру
 - рантайм песочниц (`SANDBOX_RUNTIME`) и образ тулчейна (`TOOLCHAIN_IMAGE`, `TOOLCHAIN_DIGEST`, `TOOLCHAIN_PROFILE_ID`), см. [«Воркер и песочница»](#воркер-и-песочница);
 - образы. Если Docker Hub недоступен, их можно брать через зеркало (`POSTGRES_IMAGE=mirror.gcr.io/library/postgres:17-alpine` …; базовые образы сборки — `PYTHON_IMAGE`, `NODE_IMAGE`, `DOCKER_CLI_IMAGE`).
 
+## e2e-тесты
+
+`e2e/` — Playwright и axe против запущенного стенда с настоящим воркером (specs/09 §4.4):
+
+```sh
+just up
+just e2e                                          # E2E_BASE_URL=http://localhost:8080, E2E_BROWSER=chrome
+E2E_BROWSER=msedge just e2e                       # Windows: Edge
+E2E_BASE_URL=http://localhost:18080 just e2e -g guest   # другой порт, фильтр по имени теста
+```
+
+Браузер — установленный Chrome или Edge (канал Playwright), отдельные браузеры Playwright не скачиваются. Тесты идут по одному: у стенда один воркер.
+
+| Тест | Что проверяет |
+|---|---|
+| `guest-solves.spec.ts` | гость решает `mux4`: Run с ошибкой (мутант `m01`) падает на открытом тесте, «Показать на диаграмме» открывает FST в просмотрщике (панель волн в состоянии `normal`), Submit эталона — «Принято»; код вставляется в Monaco как из буфера, и тест сверяет его с телом `POST /submissions`; страница с вердиктом проходит axe |
+| `accessibility.spec.ts` | axe на каталоге и странице задачи в светлой и тёмной темах |
+
+axe (`tests/axe.ts`) проверяет правила WCAG 2.2 A и AA и не допускает нарушений уровня serious и critical (NFR-A11Y-06). Frame `waveview` в проверку не входит: у него непрозрачный origin. При падении Playwright сохраняет трассу в `e2e/test-results/` (`pnpm -C e2e exec playwright show-trace <файл>`).
+
 ## CI
 
-Job `Stand` в `ci.yml` ставит на `ubuntu-24.04` gVisor, поднимает стенд с нуля с `SANDBOX_RUNTIME=runsc` (`just up`), запускает `just stand-check` — с ним и эталон и мутант демо-задачи через весь стенд — и проверяет через Caddy здоровье API, каталог и страницу. Лимит job'а — 20 минут: по NFR-MAINT-06 стенд должен подниматься на чистой машине за 15.
+Job `Stand` в `ci.yml` ставит на `ubuntu-24.04` gVisor, поднимает стенд с нуля с `SANDBOX_RUNTIME=runsc` (`just up`), запускает `just stand-check` — с ним и эталон и мутант демо-задачи через весь стенд — проверяет через Caddy здоровье API, каталог и страницу и запускает `just e2e` с Chrome раннера; при падении отчёт Playwright и трассы — артефакт `e2e-report`. Лимит job'а — 20 минут: по NFR-MAINT-06 стенд должен подниматься на чистой машине за 15.

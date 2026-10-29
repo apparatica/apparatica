@@ -39,12 +39,14 @@ lint-imports:
 lint-js:
     pnpm -C web lint
     pnpm -C web format:check
+    pnpm -C e2e format:check
 
 # Apply formatters and safe lint fixes
 fmt:
     poetry -P judge run ruff check --fix .
     poetry -P judge run ruff format .
     pnpm -C web format
+    pnpm -C e2e format
 
 # Run strict type checks
 typecheck: typecheck-py typecheck-js
@@ -60,6 +62,7 @@ typecheck-py:
 # Type-check TypeScript (tsc, strict)
 typecheck-js:
     pnpm -C web typecheck
+    pnpm -C e2e typecheck
 
 # Run all unit tests
 test: test-py test-js
@@ -167,6 +170,12 @@ logs *services:
 stand-check:
     {{ compose }} run --rm storage-check
     {{ compose }} run --rm judge-check
+
+# End-to-end tests against the running stand with a real worker: Playwright and axe (docs/stand.md).
+# E2E_BASE_URL: the site (http://localhost:8080); E2E_BROWSER: the Playwright channel of an installed
+# browser (chrome by default, msedge on Windows)
+e2e *args:
+    pnpm -C e2e test {{ args }}
 
 toolchain_image := "apparatica-toolchain:dev"
 # Base image override for networks without Docker Hub access; keep the digest from the Dockerfile,

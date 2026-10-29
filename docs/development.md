@@ -33,9 +33,9 @@ Poetry создаёт виртуальное окружение внутри к�
 |---|---|
 | `just` | список команд |
 | `just install` | ставит зависимости Python и JS (`install-py`, `install-js`), подключает git-хуки |
-| `just lint` | `lint-py` (ruff: линт и проверка форматирования), `lint-imports` (архитектурные контракты), `lint-js` (eslint и prettier `--check` в `web/`) |
-| `just fmt` | применяет ruff format, безопасные исправления ruff и prettier в `web/` |
-| `just typecheck` | `typecheck-py` (mypy `--strict` в каждом Python-проекте, для `scripts/` и Python-кода `toolchain/` с `--platform linux`) и `typecheck-js` (`tsc` в `web/`) |
+| `just lint` | `lint-py` (ruff: линт и проверка форматирования), `lint-imports` (архитектурные контракты), `lint-js` (eslint и prettier `--check` в `web/`, prettier `--check` в `e2e/`) |
+| `just fmt` | применяет ruff format, безопасные исправления ruff и prettier в `web/` и `e2e/` |
+| `just typecheck` | `typecheck-py` (mypy `--strict` в каждом Python-проекте, для `scripts/` и Python-кода `toolchain/` с `--platform linux`) и `typecheck-js` (`tsc` в `web/` и `e2e/`) |
 | `just test` | `test-py` (pytest в каждом Python-проекте и тесты `scripts/`) и `test-js` (Vitest в `web/`) |
 | `just build-js` | production-сборка фронтенда (`next build`) |
 | `just storybook`, `just build-storybook` | Storybook доменных компонентов: http://localhost:6006 и статическая сборка в `web/storybook-static` ([frontend.md](frontend.md#доменные-компоненты)) |
@@ -48,7 +48,8 @@ Poetry создаёт виртуальное окружение внутри к�
 | `just record-scenarios` | записывает сценарии проверок для моков реальными прогонами в образе тулчейна (нужен Docker) |
 | `just mock-problems` | пересоздаёт демо-задачи моков (`web/src/mocks/problem-versions.json`) из пакетов `problems/` ([frontend.md](frontend.md#моки-для-разработки)) |
 | `just up`, `just down`, `just logs` | стенд в docker compose: все сервисы и демо-задачи на http://localhost:8080 ([stand.md](stand.md)) |
-| `just stand-check` | проверка хранилища запущенного стенда |
+| `just stand-check` | проверка запущенного стенда: хранилище и проверка решений гостя через весь стенд |
+| `just e2e` | e2e-тесты Playwright и axe против запущенного стенда ([stand.md](stand.md#e2e-тесты)) |
 | `just validate-problems` | `judge validate` всех пакетов `problems/` в образе тулчейна (нужен Docker) |
 | `just schemas` | перегенерирует JSON Schema из моделей судьи: `problem.yaml` и записи протокола тестбенча (`judge/schemas/`) |
 | `just toolchain-build` | собирает образ тулчейна `apparatica-toolchain:dev` |
@@ -64,7 +65,7 @@ GitHub Actions, `.github/workflows/ci.yml`, на GitHub-hosted раннерах 
 |---|---|
 | Python | `install-py`, `check-locks`, `lint-py`, `lint-imports`, `typecheck-py`, `test-py`, `check-licenses-py` |
 | JS | `install-js`, `lint-js`, `typecheck-js`, `check-api`, `test-js`, `build-js`, `build-storybook`, `check-licenses-js` |
-| Stand | `up`, `stand-check` и проверка сайта и API через Caddy ([stand.md](stand.md#ci)) |
+| Stand | gVisor, `up`, `stand-check`, проверка сайта и API через Caddy, `e2e` ([stand.md](stand.md#ci)) |
 
 Образ тулчейна собирает и публикует отдельный workflow `.github/workflows/toolchain.yml` — при изменениях в `toolchain/` и в коде судьи, чьи тесты против образа он прогоняет; публикует только при изменении входов образа (подробности — [toolchain/README.md](../toolchain/README.md)).
 
@@ -102,10 +103,11 @@ judge/      пакет судьи и CLI (Poetry, пакет judge); judge/schem
 backend/    FastAPI-приложение и ингестор (Poetry, пакет apparatica)
 worker/     воркер и оркестратор песочницы (Poetry, пакет apparatica_worker)
 web/        фронтенд: Next.js-приложение (frontend.md)
+e2e/        e2e-тесты Playwright и axe против стенда (stand.md)
 .github/    CI (GitHub Actions)
 toolchain/  образ тулчейна песочницы: Dockerfile, versions.lock, apx-run, apx-verilate, apx_tb_pkg, тесты образа
 config/     конфигурация: классы ресурсов судьи, уровни сложности, лимиты (configuration.md)
-deploy/     стенд в docker compose: compose.yaml, compose.dev.yaml, Caddyfile, настройка Garage (stand.md)
+deploy/     стенд в docker compose: compose.yaml, compose.dev.yaml, Caddyfile, настройка Garage, профиль тулчейна и проверка судьи (stand.md)
 problems/   пакеты задач, CC BY-SA 4.0
 scripts/    служебные скрипты: сверка lock-файлов и лицензий, политика лицензий
 docs/       проектная документация

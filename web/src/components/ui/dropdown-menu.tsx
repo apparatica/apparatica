@@ -93,7 +93,5 @@ export function DropdownMenuSeparator({
 
 /** The shortcut of an item, on the right. */
 export function DropdownMenuShortcut({ className, ...props }: ComponentProps<"span">) {
-  return (
-    <span className={cn("ml-auto font-mono text-[10.5px] opacity-80", className)} {...props} />
-  );
+  return <span className={cn("ml-auto font-mono text-[10.5px]", className)} {...props} />;
 }

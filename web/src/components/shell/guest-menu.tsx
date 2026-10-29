@@ -23,10 +23,7 @@ export function GuestMenu() {
   const { theme, setTheme } = useTheme();
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger
-        aria-label={t("guest.menu")}
-        className="inline-flex h-[22px] cursor-pointer items-center gap-1.5 rounded-sm border border-bc px-2 font-mono text-[11px] text-mu hover:bg-sf2 hover:text-tx data-[state=open]:bg-sf2 pointer-coarse:h-11"
-      >
+      <DropdownMenuTrigger className="inline-flex h-[22px] cursor-pointer items-center gap-1.5 rounded-sm border border-bc px-2 font-mono text-[11px] text-mu hover:bg-sf2 hover:text-tx data-[state=open]:bg-sf2 pointer-coarse:h-11">
         <User size={12} aria-hidden="true" />
         {t("guest.label")}
       </DropdownMenuTrigger>
