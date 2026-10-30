@@ -1,6 +1,7 @@
 import { act, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
+import { createHash } from "node:crypto";
 import { useEffect, useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
@@ -53,19 +54,15 @@ vi.mock("@/features/editor/code-editor", () => ({
   },
 }));
 
-// The ALTCHA widget runs workers: a button that solves the challenge of the mocks right here.
+// The ALTCHA widget runs workers: a button that solves the challenge of the mocks right here. It
+// hashes synchronously: each awaited crypto.subtle.digest is a round trip through the thread pool,
+// and on a loaded machine thousands of them took over 10 s.
 vi.mock("@/features/captcha/altcha-widget", () => ({
   AltchaWidget: function FakeWidget({ challengeUrl, onChange }: AltchaWidgetProps) {
     const solve = async () => {
       const challenge = (await (await fetch(challengeUrl)).json()) as Schemas["CaptchaChallenge"];
       for (let number = 0; number <= challenge.maxnumber; number += 1) {
-        const digest = await crypto.subtle.digest(
-          "SHA-256",
-          new TextEncoder().encode(`${challenge.salt}${number}`),
-        );
-        const hex = [...new Uint8Array(digest)]
-          .map((byte) => byte.toString(16).padStart(2, "0"))
-          .join("");
+        const hex = createHash("sha256").update(`${challenge.salt}${number}`).digest("hex");
         if (hex === challenge.challenge) {
           onChange(btoa(JSON.stringify({ ...challenge, number })));
           return;
@@ -364,7 +361,7 @@ describe("the limits of the guest", () => {
     expect(proceed).toBeDisabled();
 
     await userEvent.click(within(asked).getByRole("button", { name: "Я не робот" }));
-    await waitFor(() => expect(proceed).toBeEnabled(), { timeout: 10_000 });
+    await waitFor(() => expect(proceed).toBeEnabled());
     const sent = captureSubmission();
     await userEvent.click(proceed);
     expect((await sent).captcha).toEqual(expect.any(String));
@@ -372,7 +369,7 @@ describe("the limits of the guest", () => {
     expect(await screen.findByText("Открытые тесты пройдены")).toBeInTheDocument();
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(screen.queryByText("Проверку не удалось запустить")).not.toBeInTheDocument();
-  }, 20_000);
+  }, 15_000); // a whole flow, as above
 
   it("show the wait after frequent checks and stay closed when cancelled", async () => {
     writeDraft("sync-fifo", {
