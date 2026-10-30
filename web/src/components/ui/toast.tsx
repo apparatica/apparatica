@@ -79,7 +79,13 @@ export function notify(props: ToastProps & { duration?: number }): string | numb
 
 export const dismiss = toast.dismiss;
 
-/** The place of notifications: bottom right, once in the layout. */
+/** The place of notifications: bottom right, once in the layout; on phones over the bottom bar. */
 export function Toaster() {
-  return <Sonner position="bottom-right" offset={16} mobileOffset={16} />;
+  return (
+    <Sonner
+      position="bottom-right"
+      offset={16}
+      mobileOffset={{ bottom: 72, left: 16, right: 16 }}
+    />
+  );
 }

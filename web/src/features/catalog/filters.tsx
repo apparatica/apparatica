@@ -1,7 +1,8 @@
 "use client";
 
 // The controls of the catalogue (FR-CAT-02): search, level, tag and status filters, the sort, and
-// the filters that are on as chips with a reset. Every change goes to the address.
+// the filters that are on as chips with a reset. Every change goes to the address. Phones (mock-up
+// MobCatalog) toggle the levels with buttons in a row that scrolls sideways.
 import { ChevronDown } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { type ChangeEvent, useEffect, useRef, useState } from "react";
@@ -20,7 +21,7 @@ import {
 import { SearchInput } from "@/components/ui/input";
 import type { Schemas } from "@/lib/api/client";
 
-import { type CatalogQuery, hasFilters, type Sort, SORTS, STATUSES, withoutFilters } from "./query";
+import { type CatalogQuery, type Sort, SORTS, STATUSES, withoutFilters } from "./query";
 
 export const SEARCH_DELAY_MS = 300;
 
@@ -108,13 +109,23 @@ function FilterMenu({
   );
 }
 
-function SortMenu({ sort, onSort }: { sort: Sort; onSort: (sort: Sort) => void }) {
+function SortMenu({
+  sort,
+  compact = false,
+  onSort,
+}: {
+  sort: Sort;
+  /** The order alone, on a plain button (phones). */
+  compact?: boolean;
+  onSort: (sort: Sort) => void;
+}) {
   const t = useTranslations("problems.sort");
+  const label = t("label", { sort: t(sort) });
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button>
-          {t("label", { sort: t(sort) })}
+        <Button variant={compact ? "ghost" : "default"} aria-label={compact ? label : undefined}>
+          {compact ? t(sort) : label}
           <ChevronDown className="size-3.5!" aria-hidden="true" />
         </Button>
       </DropdownMenuTrigger>
@@ -135,11 +146,56 @@ function SortMenu({ sort, onSort }: { sort: Sort; onSort: (sort: Sort) => void }
   );
 }
 
+/** Phones: a button per level, «Все» for none; several levels can be on. */
+function LevelToggles({
+  levels,
+  selected,
+  all,
+  onSelect,
+}: {
+  levels: Schemas["Difficulty"][];
+  selected: string[];
+  all: number;
+  onSelect: (values: string[]) => void;
+}) {
+  const t = useTranslations("problems.filters");
+  const toggle = (key: string) =>
+    onSelect(
+      levels.map((level) => level.key).filter((item) => (item === key) !== selected.includes(item)),
+    );
+  return (
+    <>
+      <Button
+        variant={selected.length === 0 ? "selected" : "default"}
+        aria-pressed={selected.length === 0}
+        onClick={() => onSelect([])}
+      >
+        {t("all")} <span className="font-mono">{all}</span>
+      </Button>
+      {levels.map((level) => {
+        const on = selected.includes(level.key);
+        return (
+          <Button
+            key={level.key}
+            variant={on ? "selected" : "default"}
+            aria-pressed={on}
+            onClick={() => toggle(level.key)}
+          >
+            {level.title}
+          </Button>
+        );
+      })}
+    </>
+  );
+}
+
 export function CatalogFilters({
   query,
   levels,
   tags,
   total,
+  all,
+  phone = false,
   onChange,
 }: {
   query: CatalogQuery;
@@ -147,6 +203,9 @@ export function CatalogFilters({
   tags: Schemas["Tag"][];
   /** Problems that match; null while unknown. */
   total: number | null;
+  /** Problems of the catalogue, whatever the filters. */
+  all: number;
+  phone?: boolean;
   onChange: Change;
 }) {
   const t = useTranslations("problems");
@@ -154,7 +213,8 @@ export function CatalogFilters({
   const titleOf = (slug: string) => tags.find((tag) => tag.slug === slug)?.title ?? slug;
   const levelOf = (key: string) => levels.find((level) => level.key === key)?.title ?? key;
   const chips: { key: string; label: string; reset: Partial<CatalogQuery> }[] = [
-    ...query.difficulty.map((key) => ({
+    // Phones show the levels that are on in their buttons.
+    ...(phone ? [] : query.difficulty).map((key) => ({
       key: `difficulty-${key}`,
       label: levelOf(key),
       reset: { difficulty: query.difficulty.filter((item) => item !== key) },
@@ -171,47 +231,84 @@ export function CatalogFilters({
     })),
   ];
 
+  const tagMenu = (
+    <FilterMenu
+      label={t("filters.tags")}
+      options={tags.map((tag) => ({ value: tag.slug, label: tag.title }))}
+      selected={query.tag}
+      onSelect={(tag) => change({ tag })}
+    />
+  );
+  const statusMenu = (
+    <FilterMenu
+      label={t("filters.status")}
+      options={STATUSES.map((status) => ({ value: status, label: t(`status.${status}`) }))}
+      selected={query.status}
+      onSelect={(status) => change({ status: STATUSES.filter((item) => status.includes(item)) })}
+    />
+  );
+  const count = total !== null && (
+    <span className="text-[12.5px] text-mu" aria-live="polite">
+      {t.rich("total", {
+        count: total,
+        n: (chunks) => <span className="font-mono text-tx">{chunks}</span>,
+      })}
+    </span>
+  );
+
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex flex-wrap items-center gap-2">
-        <SearchBox query={query} onChange={onChange} />
-        <FilterMenu
-          label={t("filters.difficulty")}
-          options={levels.map((level) => ({ value: level.key, label: level.title }))}
-          selected={query.difficulty}
-          onSelect={(difficulty) => change({ difficulty })}
-        />
-        <FilterMenu
-          label={t("filters.tags")}
-          options={tags.map((tag) => ({ value: tag.slug, label: tag.title }))}
-          selected={query.tag}
-          onSelect={(tag) => change({ tag })}
-        />
-        <FilterMenu
-          label={t("filters.status")}
-          options={STATUSES.map((status) => ({ value: status, label: t(`status.${status}`) }))}
-          selected={query.status}
-          onSelect={(status) =>
-            change({ status: STATUSES.filter((item) => status.includes(item)) })
-          }
-        />
-        <div className="hidden flex-1 sm:block" />
-        {total !== null && (
-          <span className="text-[12.5px] text-mu" aria-live="polite">
-            {t.rich("total", {
-              count: total,
-              n: (chunks) => <span className="font-mono text-tx">{chunks}</span>,
-            })}
-          </span>
-        )}
-        <SortMenu sort={query.sort} onSort={(sort) => change({ sort })} />
-      </div>
-      {hasFilters({ ...query, q: "" }) && (
-        <ul aria-label={t("filters.active")} className="flex flex-wrap items-center gap-1.5">
+      {phone ? (
+        <>
+          <SearchBox query={query} onChange={onChange} />
+          <div
+            role="group"
+            aria-label={t("filters.label")}
+            className="-mx-4 flex gap-2 overflow-x-auto px-4 [scrollbar-width:none]"
+          >
+            <LevelToggles
+              levels={levels}
+              selected={query.difficulty}
+              all={all}
+              onSelect={(difficulty) => change({ difficulty })}
+            />
+            {tagMenu}
+            {statusMenu}
+          </div>
+          <div className="flex items-center justify-between gap-2">
+            {count}
+            <SortMenu sort={query.sort} compact onSort={(sort) => change({ sort })} />
+          </div>
+        </>
+      ) : (
+        <div className="flex flex-wrap items-center gap-2">
+          <SearchBox query={query} onChange={onChange} />
+          <FilterMenu
+            label={t("filters.difficulty")}
+            options={levels.map((level) => ({ value: level.key, label: level.title }))}
+            selected={query.difficulty}
+            onSelect={(difficulty) => change({ difficulty })}
+          />
+          {tagMenu}
+          {statusMenu}
+          <div className="flex-1" />
+          {count}
+          <SortMenu sort={query.sort} onSort={(sort) => change({ sort })} />
+        </div>
+      )}
+      {chips.length > 0 && (
+        <ul
+          aria-label={t("filters.active")}
+          className="flex flex-wrap items-center gap-1.5 pointer-coarse:gap-x-3 pointer-coarse:gap-y-6"
+        >
           {chips.map((chip) => (
             <li key={chip.key}>
               <TagChip removable asChild>
-                <button type="button" className="cursor-pointer" onClick={() => change(chip.reset)}>
+                <button
+                  type="button"
+                  className="touch-target cursor-pointer"
+                  onClick={() => change(chip.reset)}
+                >
                   {chip.label}
                 </button>
               </TagChip>

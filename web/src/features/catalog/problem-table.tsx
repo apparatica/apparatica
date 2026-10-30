@@ -24,12 +24,30 @@ const STATUS_LOOK = {
   not_started: { Icon: Circle, className: "text-mu", iconClassName: "" },
 } as const;
 
-export function ProblemStatus({ status }: { status: StatusFilter }) {
+/** The icon and the status; `stacked`: the icon over a small status, on the cards of phones. */
+export function ProblemStatus({
+  status,
+  stacked = false,
+}: {
+  status: StatusFilter;
+  stacked?: boolean;
+}) {
   const t = useTranslations("problems.status");
   const { Icon, className, iconClassName } = STATUS_LOOK[status];
   return (
-    <span data-status={status} className={cn("flex items-center gap-2", className)}>
-      <Icon size={15} aria-hidden="true" className={cn("flex-none", iconClassName)} />
+    <span
+      data-status={status}
+      className={cn(
+        "flex items-center",
+        stacked ? "flex-col gap-1 text-[11px] lowercase" : "gap-2",
+        className,
+      )}
+    >
+      <Icon
+        size={stacked ? 18 : 15}
+        aria-hidden="true"
+        className={cn("flex-none", iconClassName)}
+      />
       {t(status)}
     </span>
   );

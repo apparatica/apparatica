@@ -128,6 +128,24 @@
   --shim: rgba(255, 255, 255, 0.05);
 }
 
+/* Small controls (chips, tags) keep their look on touch screens, and an invisible area around them
+   makes the target 44 px (FR-MOB-01). Neighbours need the same room between them. */
+@utility touch-target {
+  @media (pointer: coarse) {
+    position: relative;
+
+    &::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: max(100%, 44px);
+      height: max(100%, 44px);
+      transform: translate(-50%, -50%);
+    }
+  }
+}
+
 /* tokens.css stops animations of elements; pseudo-elements (the shimmer) need their own rule. */
 @media (prefers-reduced-motion: reduce) {
   *::before,

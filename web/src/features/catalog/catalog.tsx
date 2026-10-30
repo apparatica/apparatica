@@ -1,6 +1,7 @@
 "use client";
 
 // The catalogue page (specs/08 §1, mock-up Catalog): progress summary, controls, table, pages.
+// Phones (mock-up MobCatalog) have the title in the header, no summary and cards for the table.
 // The server renders the query of the address; a change of the controls replaces the address in
 // a transition, so the controls show the new query at once and the rows wait for the server.
 import { useRouter } from "next/navigation";
@@ -9,9 +10,11 @@ import { useOptimistic, useTransition } from "react";
 
 import { Pagination } from "@/components/ui/pagination";
 import { useHistory } from "@/features/guest/history";
+import { usePhone } from "@/lib/viewport";
 
 import { CatalogFilters } from "./filters";
 import type { CatalogData } from "./load";
+import { ProblemList } from "./problem-list";
 import { EmptyCatalog, ProblemTable } from "./problem-table";
 import { ProgressSummary } from "./progress";
 import { type CatalogQuery, catalogHref, hasFilters, withoutFilters } from "./query";
@@ -23,6 +26,7 @@ export function Catalog({ query, data }: { query: CatalogQuery; data: CatalogDat
   const [busy, startTransition] = useTransition();
   const [shown, show] = useOptimistic(query);
   const history = useHistory();
+  const phone = usePhone();
   const view = catalogView(data, query, history);
 
   const navigate = (next: CatalogQuery) =>
@@ -33,17 +37,21 @@ export function Catalog({ query, data }: { query: CatalogQuery; data: CatalogDat
 
   const from = (query.page - 1) * data.perPage;
   return (
-    <div className="mx-auto flex max-w-[1240px] flex-col gap-4 px-4 pt-6 pb-4 sm:px-8">
-      <div className="flex flex-col gap-0.5">
+    <div className="mx-auto flex max-w-[1240px] flex-col gap-4 px-4 pt-3 pb-4 sm:px-8 sm:pt-6">
+      <div className="flex flex-col gap-0.5 max-sm:sr-only">
         <h1 className="text-title-1">{t("title")}</h1>
         <p className="text-mu">{t("subtitle")}</p>
       </div>
-      <ProgressSummary levels={data.levels} progress={data.progress} history={history} />
+      {!phone && (
+        <ProgressSummary levels={data.levels} progress={data.progress} history={history} />
+      )}
       <CatalogFilters
         query={shown}
         levels={data.levels}
         tags={data.tags}
         total={view?.total ?? null}
+        all={data.progress.reduce((sum, level) => sum + level.total, 0)}
+        phone={phone}
         onChange={navigate}
       />
       {view !== null && view.total === 0 ? (
@@ -51,6 +59,15 @@ export function Catalog({ query, data }: { query: CatalogQuery; data: CatalogDat
           q={query.q}
           filtered={hasFilters(query)}
           resetHref={catalogHref(withoutFilters(query))}
+        />
+      ) : phone ? (
+        <ProblemList
+          problems={view?.problems ?? null}
+          levels={data.levels}
+          tags={data.tags}
+          history={history}
+          rows={data.perPage}
+          busy={busy}
         />
       ) : (
         <ProblemTable

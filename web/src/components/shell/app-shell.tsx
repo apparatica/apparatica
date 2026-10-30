@@ -53,10 +53,16 @@ export function AppShell({
     <ThemeProvider initial={theme}>
       <div className="flex min-h-dvh flex-col bg-bg text-tx">
         {guestBanner && <GuestBanner />}
-        <header className="flex min-h-10 flex-none items-center gap-3 border-b border-bd bg-sf px-3">
-          <Link href="/" className="flex items-center gap-2 rounded-md font-semibold">
+        <header className="group/header flex min-h-10 flex-none items-center gap-3 border-b border-bd bg-sf px-3 max-sm:min-h-12">
+          {/* Phones: the title of the page stands for the brand, the back link for the logo. */}
+          <Link
+            href="/"
+            className="flex items-center gap-2 rounded-md font-semibold group-has-[[data-phone-back]]/header:max-sm:hidden"
+          >
             <Logo />
-            <span>{t("brand")}</span>
+            <span className="group-has-[[data-phone-title]]/header:max-sm:sr-only">
+              {t("brand")}
+            </span>
           </Link>
           {breadcrumbs}
           <div className="flex-1" />

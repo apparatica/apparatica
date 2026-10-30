@@ -10,14 +10,14 @@ import { SubmissionsTab } from "./submissions-tab";
 
 const PROBLEM = { slug: "sync-fifo", version: 1, tests: { public: 4 } };
 
-function Tab({ selected = null }: { selected?: string | null }) {
+function Tab({ selected = null, phone = false }: { selected?: string | null; phone?: boolean }) {
   const submissions = useSubmissionHistory(PROBLEM.slug);
   return (
     <SubmissionsTab
       problem={PROBLEM}
       submissions={submissions}
       selected={selected}
-      onOpen={() => {}}
+      onOpen={phone ? undefined : () => {}}
     />
   );
 }
@@ -34,4 +34,11 @@ it("reads the list of the server while a submission it does not show is unfinish
   renderWithProviders(<Tab />);
   expect(await screen.findByText("Неверный ответ")).toBeInTheDocument();
   expect(screen.getByRole("button")).toHaveTextContent("тест 2 из 4");
+});
+
+it("on phones says where checks run and that the list is of this browser", () => {
+  renderWithProviders(<Tab phone />);
+  expect(screen.getByText("Отправок пока нет")).toBeInTheDocument();
+  expect(screen.getByText(/Проверки запускаются на компьютере/)).toBeInTheDocument();
+  expect(screen.queryByText(/для быстрого прогона/)).toBeNull();
 });

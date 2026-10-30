@@ -1,10 +1,12 @@
 import { act, screen, within } from "@testing-library/react";
 import { renderToString } from "react-dom/server";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
 import { recordCheck } from "@/features/guest/history";
+import { ViewportProvider } from "@/lib/viewport";
 import { config, problems, tags } from "@/mocks/fixtures";
+import { mockPhone } from "@/test/match-media";
 import { Providers, renderWithProviders } from "@/test/render";
 
 import { Catalog } from "./catalog";
@@ -18,6 +20,8 @@ vi.mock("next/navigation", () => ({ useRouter: () => router }));
 beforeEach(() => {
   router.replace.mockReset();
 });
+
+afterEach(() => vi.unstubAllGlobals());
 
 const page: CatalogData = {
   levels: config.difficulties,
@@ -207,4 +211,69 @@ it("says that the catalogue is empty when nothing is filtered", () => {
   show({}, { problems: [], total: 0 });
   expect(screen.getByRole("heading", { name: "Задач пока нет" })).toBeInTheDocument();
   expect(screen.queryByRole("link", { name: "Сбросить фильтры" })).not.toBeInTheDocument();
+});
+
+it("lists the problems as cards on phones", () => {
+  mockPhone();
+  recordCheck({ problem: "mux4", difficulty: "easy", kind: "submit", status: "accepted" });
+  show();
+  expect(screen.queryByRole("table")).not.toBeInTheDocument();
+  expect(screen.queryByRole("progressbar")).not.toBeInTheDocument();
+  const cards = within(screen.getByRole("list", { name: "Список задач" })).getAllByRole("listitem");
+  expect(cards.map((card) => card.textContent)).toEqual([
+    "1Мультиплексор 4:1Easy78% принятокомбинационная логикамультиплексорыРешено",
+    "2Счётчик по модулю NEasy71% принятопоследовательностная логикасчётчикиНе начато",
+    "3Сумматор с переносомEasy64% принятокомбинационная логикаарифметикаНе начато",
+    "4Детектор последовательности 1011Medium52% принятопоследовательностная логикаFSMНе начато",
+    "5Синхронный FIFOMediumпоследовательностная логикапамятьFIFOНе начато",
+  ]);
+  expect(within(cards[0] as HTMLElement).getByRole("link")).toHaveAttribute(
+    "href",
+    "/problems/mux4",
+  );
+});
+
+it("toggles the levels with buttons on phones", async () => {
+  mockPhone();
+  show({ difficulty: "easy", tag: "fifo" });
+  const filters = within(screen.getByRole("group", { name: "Фильтры" }));
+  expect(filters.getByRole("button", { name: "Все 5" })).toHaveAttribute("aria-pressed", "false");
+  expect(filters.getByRole("button", { name: "Easy" })).toHaveAttribute("aria-pressed", "true");
+  // The levels that are on are in their buttons, not among the chips.
+  const active = screen.getByRole("list", { name: "Выбранные фильтры" });
+  expect(within(active).queryByRole("button", { name: /^Easy/ })).not.toBeInTheDocument();
+
+  await userEvent.click(filters.getByRole("button", { name: "Medium" }));
+  expect(router.replace).toHaveBeenLastCalledWith(
+    "/problems?difficulty=easy&difficulty=medium&tag=fifo",
+    {
+      scroll: false,
+    },
+  );
+  await userEvent.click(filters.getByRole("button", { name: "Easy" }));
+  expect(router.replace).toHaveBeenLastCalledWith("/problems?tag=fifo", { scroll: false });
+  await userEvent.click(filters.getByRole("button", { name: "Все 5" }));
+  expect(router.replace).toHaveBeenLastCalledWith("/problems?tag=fifo", { scroll: false });
+
+  await userEvent.click(screen.getByRole("button", { name: "Сортировка: по номеру" }));
+  await userEvent.click(screen.getByRole("menuitemradio", { name: "больше принятых" }));
+  expect(router.replace).toHaveBeenLastCalledWith(
+    "/problems?difficulty=easy&tag=fifo&sort=-acceptance",
+    {
+      scroll: false,
+    },
+  );
+});
+
+it("renders the cards for phones on the server by the guess of the layout", () => {
+  const html = (phone: boolean) =>
+    renderToString(
+      <Providers>
+        <ViewportProvider phone={phone}>
+          <Catalog query={parseCatalogQuery({})} data={page} />
+        </ViewportProvider>
+      </Providers>,
+    );
+  expect(html(true)).not.toContain("<table");
+  expect(html(false)).toContain("<table");
 });

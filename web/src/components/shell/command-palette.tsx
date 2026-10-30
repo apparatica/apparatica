@@ -101,7 +101,7 @@ export function CommandPalette() {
         type="button"
         onClick={() => setOpen(true)}
         aria-keyshortcuts={ariaKeys(PALETTE_KEYS, apple)}
-        className="flex h-[26px] cursor-pointer items-center gap-2 rounded-md border border-bc bg-ed px-2.5 text-mu hover:text-tx max-sm:size-[30px] max-sm:justify-center max-sm:px-0 sm:w-[258px] pointer-coarse:h-11 max-sm:pointer-coarse:size-11"
+        className="flex h-[26px] cursor-pointer items-center gap-2 rounded-md border border-bc bg-ed px-2.5 text-mu hover:text-tx max-sm:size-[30px] max-sm:justify-center max-sm:border-transparent max-sm:bg-transparent max-sm:px-0 sm:w-[258px] pointer-coarse:h-11 max-sm:pointer-coarse:size-11"
       >
         <Search size={14} aria-hidden="true" className="flex-none" />
         <span className="flex-1 text-left max-sm:sr-only">{t("open")}</span>

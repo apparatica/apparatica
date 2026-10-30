@@ -30,7 +30,8 @@ import { EditorPane, type VersionUpdate } from "./editor-pane";
 import { type BenchLayout, saveBenchLayout } from "./layout";
 import { captchaRequest, checksSpentUntil } from "./limits";
 import { useOpenSubmission } from "./open-submission";
-import { type LeftTab, parseLeftTab, setPageQuery } from "./page-query";
+import { useLeftTab } from "./left-tab";
+import { type LeftTab, setPageQuery } from "./page-query";
 import { editorDiagnostics } from "./pipeline-view";
 import { ResultsPanel } from "./results-panel";
 import { useCheckShortcuts } from "./shortcuts";
@@ -113,7 +114,7 @@ export function Bench({
     wanted,
   });
   const history = useSubmissionHistory(problem.slug);
-  const [leftTab, setLeftTab] = useState(tab);
+  const [leftTab, selectLeftTab] = useLeftTab(tab);
   const opener = useOpenSubmission({ problem, workspace, submission });
 
   useEffect(
@@ -180,11 +181,7 @@ export function Bench({
       <Panel id="statement" defaultSize="38%" minSize="20%" maxSize="70%">
         <Tabs
           value={leftTab}
-          onValueChange={(value) => {
-            const next = parseLeftTab(value);
-            setLeftTab(next);
-            setPageQuery({ tab: next === "statement" ? null : next });
-          }}
+          onValueChange={selectLeftTab}
           className="flex h-full min-h-0 flex-col bg-sf"
         >
           <TabsList variant="panel" aria-label={t("tabs.label")} className="flex-none">

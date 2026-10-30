@@ -1,6 +1,7 @@
 // The statement panel of a problem page (FR-PRB-02/03, mock-up Bench): the header with the title,
 // level, tags and acceptance rate, then the statement and the ports of the interface. Rendered by
-// the server, so the statement is in the HTML without JavaScript (FR-PRB-04).
+// the server, so the statement is in the HTML without JavaScript (FR-PRB-04). Phones (mock-up
+// MobTask) have the title in the header.
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
@@ -25,14 +26,14 @@ export function ProblemStatement({ problem, levels, tags }: ProblemData) {
   const value = (chunks: ReactNode) => <span className="font-mono text-tx">{chunks}</span>;
   return (
     <article>
-      <header className="flex flex-col gap-2.5 border-b border-bd px-[22px] pt-[18px] pb-3.5">
-        <h1 className="text-[22px] leading-[30px] font-semibold tracking-[-0.01em]">
+      <header className="flex flex-col gap-2.5 border-b border-bd px-4 pt-3.5 pb-3.5 sm:px-[22px] sm:pt-[18px]">
+        <h1 className="text-[22px] leading-[30px] font-semibold tracking-[-0.01em] max-sm:sr-only">
           {problem.title}
         </h1>
-        <div className="flex flex-wrap items-center gap-1.5">
+        <div className="flex flex-wrap items-center gap-1.5 pointer-coarse:gap-y-6">
           {level && <DifficultyBadge difficulty={level.difficulty} rank={level.rank} />}
           {problem.tags.map((tag) => (
-            <TagChip key={tag} asChild>
+            <TagChip key={tag} asChild className="touch-target">
               <Link href={{ pathname: "/problems", query: { tag } }}>{titleOf(tag)}</Link>
             </TagChip>
           ))}
@@ -43,7 +44,7 @@ export function ProblemStatement({ problem, levels, tags }: ProblemData) {
           </span>
         </div>
       </header>
-      <div className="flex flex-col gap-4 px-[22px] py-4">
+      <div className="flex flex-col gap-4 px-4 py-4 sm:px-[22px]">
         <Statement
           markdown={problem.statement_md}
           assetUrl={assetUrl(problem.slug, problem.version)}

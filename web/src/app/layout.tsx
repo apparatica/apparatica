@@ -7,7 +7,8 @@ import "@fontsource/ibm-plex-mono/600.css";
 import "./globals.css";
 
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
+import { cookies, headers } from "next/headers";
+import { userAgent } from "next/server";
 import { NextIntlClientProvider } from "next-intl";
 import { getTranslations } from "next-intl/server";
 
@@ -20,6 +21,7 @@ import { ApiMocking } from "@/mocks/api-mocking";
 import { QueryProvider } from "@/lib/query";
 import { GUEST_BANNER_COOKIE, isGuestBannerClosed } from "@/lib/guest-banner";
 import { parseTheme, THEME_COOKIE, THEME_SCRIPT } from "@/lib/theme";
+import { ViewportProvider } from "@/lib/viewport";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("meta");
@@ -34,6 +36,7 @@ export default async function RootLayout({ children, breadcrumbs, statusbar }: L
   const theme = parseTheme(jar.get(THEME_COOKIE)?.value);
   // Everyone is a guest until accounts (Ф2).
   const guestBanner = !isGuestBannerClosed(jar.get(GUEST_BANNER_COOKIE)?.value);
+  const phone = userAgent({ headers: await headers() }).device.type === "mobile";
   return (
     // An explicit choice is rendered by the server; "system" is set by THEME_SCRIPT before the
     // first paint, so the attribute may differ from the server markup.
@@ -48,22 +51,24 @@ export default async function RootLayout({ children, breadcrumbs, statusbar }: L
       <body>
         <NextIntlClientProvider>
           <QueryProvider>
-            <TooltipProvider>
-              <AppShell
-                theme={theme}
-                guestBanner={guestBanner}
-                breadcrumbs={breadcrumbs}
-                statusbar={statusbar}
-              >
-                {process.env.NEXT_PUBLIC_API_MOCKING === "enabled" ? (
-                  <ApiMocking>{children}</ApiMocking>
-                ) : (
-                  children
-                )}
-              </AppShell>
-              <Toaster />
-              <FinishNotices />
-            </TooltipProvider>
+            <ViewportProvider phone={phone}>
+              <TooltipProvider>
+                <AppShell
+                  theme={theme}
+                  guestBanner={guestBanner}
+                  breadcrumbs={breadcrumbs}
+                  statusbar={statusbar}
+                >
+                  {process.env.NEXT_PUBLIC_API_MOCKING === "enabled" ? (
+                    <ApiMocking>{children}</ApiMocking>
+                  ) : (
+                    children
+                  )}
+                </AppShell>
+                <Toaster />
+                <FinishNotices />
+              </TooltipProvider>
+            </ViewportProvider>
           </QueryProvider>
         </NextIntlClientProvider>
       </body>

@@ -5,6 +5,7 @@ import { SubmissionList, type SubmissionRowView } from "./submission-list";
 const meta = {
   title: "Domain/SubmissionList",
   component: SubmissionList,
+  args: { onOpen: () => {} },
   decorators: [
     (Story) => (
       <div className="w-[436px] border border-bd bg-sf">
@@ -75,6 +76,12 @@ export const Gone: Story = {
       },
     ],
   },
+};
+
+/** Phones have no editor: the rows are only read. */
+export const ReadOnly: Story = {
+  args: { rows: ROWS },
+  render: (args) => <SubmissionList {...args} onOpen={undefined} />,
 };
 
 export const Loading: Story = { args: { rows: null } };

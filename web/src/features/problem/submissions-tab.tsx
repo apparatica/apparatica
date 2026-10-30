@@ -3,7 +3,8 @@
 // «Мои отправки» of the problem page (FR-PRB-06, FR-GST-03, sheets LeftTabsA/B): the submissions of
 // this browser for the problem, newest first. A click opens the code and the results of one; the
 // empty state hints at Run and Submit. The shown check updates its own row; while another one is
-// unfinished, the tab reads the list of the server every few seconds.
+// unfinished, the tab reads the list of the server every few seconds. Phones have no editor: there
+// the list is only read, and the empty state does not hint at the keys.
 import { useQuery } from "@tanstack/react-query";
 import { SquareTerminal } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -24,7 +25,8 @@ export interface SubmissionsTabProps {
   submissions: readonly LocalSubmission[] | null;
   /** The submission the results show. */
   selected: string | null;
-  onOpen: (id: string) => void;
+  /** Opens the code and the results; without it the list is only read (phones). */
+  onOpen?: ((id: string) => void) | undefined;
 }
 
 const strong = (chunks: ReactNode) => <b className="font-medium text-tx">{chunks}</b>;
@@ -51,15 +53,21 @@ export function SubmissionsTab({ problem, submissions, selected, onOpen }: Submi
       <div className="flex flex-col items-center gap-2.5 px-10 py-12 text-center">
         <SquareTerminal size={22} className="text-mu" aria-hidden="true" />
         <h2 className="text-[14px] font-medium">{t("emptyTitle")}</h2>
-        <p className="max-w-[340px] text-mu">{t.rich("emptyDescription", { b: strong })}</p>
-        <p className="flex gap-4 text-caption text-mu">
-          <span>
-            <Shortcut keys={RUN_KEYS} /> Run
-          </span>
-          <span>
-            <Shortcut keys={SUBMIT_KEYS} /> Submit
-          </span>
-        </p>
+        {onOpen === undefined ? (
+          <p className="max-w-[340px] text-mu">{t("emptyPhone")}</p>
+        ) : (
+          <>
+            <p className="max-w-[340px] text-mu">{t.rich("emptyDescription", { b: strong })}</p>
+            <p className="flex gap-4 text-caption text-mu">
+              <span>
+                <Shortcut keys={RUN_KEYS} /> Run
+              </span>
+              <span>
+                <Shortcut keys={SUBMIT_KEYS} /> Submit
+              </span>
+            </p>
+          </>
+        )}
       </div>
     );
   }
@@ -100,7 +108,9 @@ export function SubmissionsTab({ problem, submissions, selected, onOpen }: Submi
   return (
     <div className="flex flex-col">
       <SubmissionList rows={rows} selected={selected} onOpen={onOpen} />
-      <p className="px-3.5 py-3 text-caption text-mu">{t("note")}</p>
+      <p className="px-3.5 py-3 text-caption text-mu">
+        {onOpen === undefined ? t("notePhone") : t("note")}
+      </p>
     </div>
   );
 }

@@ -15,7 +15,7 @@ afterAll(() => {
   vi.useRealTimers();
 });
 
-const { List, Selected, Running, Gone, Loading } = composeStories(stories);
+const { List, Selected, Running, Gone, ReadOnly, Loading } = composeStories(stories);
 
 it("shows the status, the reason, the time and the kind of each submission", () => {
   render(<List />);
@@ -55,6 +55,14 @@ it("does not open a submission the server no longer has", () => {
   const row = screen.getByRole("button");
   expect(row).toBeDisabled();
   expect(row).toHaveTextContent("удалена по сроку хранения · 1 окт., 14:20");
+});
+
+it("only lists the submissions without a way to open them", () => {
+  render(<ReadOnly />);
+  expect(screen.queryByRole("button")).toBeNull();
+  expect(screen.getAllByRole("listitem")[0]).toHaveTextContent(
+    "Неверный ответтест 7 из 32 · сегодня, 12:29Run",
+  );
 });
 
 it("shows skeletons while loading", () => {

@@ -3,6 +3,7 @@
 // «Мои отправки» of a problem (FR-PRB-06, sheet LeftTabsA): newest first, a row is the status icon,
 // the status in its colour, the short reason and the time, on the right the kind. The shown
 // submission is on --acs; a submission the server no longer has is muted and does not open.
+// Without `onOpen` (phones, which have no editor) the rows are plain text.
 import { useFormatter, useNow, useTranslations } from "next-intl";
 import type { ComponentProps } from "react";
 
@@ -71,39 +72,50 @@ function Row({
   const passedRun = row.kind === "run" && row.status === "accepted";
   const status = passedRun ? t("submissions.runPassed") : t(`verdict.${row.status}`);
   const reason = row.gone ? t("submissions.gone") : row.reason;
+  const content = (
+    <>
+      <Icon
+        size={16}
+        aria-hidden="true"
+        className={cn(
+          "flex-none",
+          row.gone ? "text-mu" : tone,
+          row.status === "running" && "animate-spin",
+        )}
+      />
+      <span className="min-w-0 flex-1">
+        <span className={cn("block truncate font-medium", row.gone ? "text-mu" : tone)}>
+          {status}
+        </span>
+        <span className="block truncate text-caption text-mu">
+          {reason === null ? when(row.createdAt) : `${reason} · ${when(row.createdAt)}`}
+        </span>
+      </span>
+      <span className="flex-none rounded-sm px-1.5 py-px font-mono text-[11px] text-mu inset-ring inset-ring-bc">
+        {t(`submissions.kind.${row.kind}`)}
+      </span>
+    </>
+  );
+  const look = "flex w-full items-center gap-3 px-3.5 py-2.5 text-left";
   return (
     <li className="border-b border-bd">
-      <button
-        type="button"
-        disabled={row.gone}
-        aria-current={selected ? "true" : undefined}
-        onClick={() => onOpen?.(row.id)}
-        className={cn(
-          "flex w-full cursor-pointer items-center gap-3 px-3.5 py-2.5 text-left outline-none hover:bg-sf2 focus-visible:inset-ring-2 focus-visible:inset-ring-ac disabled:cursor-default disabled:hover:bg-transparent",
-          selected && "bg-acs hover:bg-acs",
-        )}
-      >
-        <Icon
-          size={16}
-          aria-hidden="true"
+      {onOpen === undefined ? (
+        <div className={look}>{content}</div>
+      ) : (
+        <button
+          type="button"
+          disabled={row.gone}
+          aria-current={selected ? "true" : undefined}
+          onClick={() => onOpen(row.id)}
           className={cn(
-            "flex-none",
-            row.gone ? "text-mu" : tone,
-            row.status === "running" && "animate-spin",
+            look,
+            "cursor-pointer outline-none hover:bg-sf2 focus-visible:inset-ring-2 focus-visible:inset-ring-ac disabled:cursor-default disabled:hover:bg-transparent",
+            selected && "bg-acs hover:bg-acs",
           )}
-        />
-        <span className="min-w-0 flex-1">
-          <span className={cn("block truncate font-medium", row.gone ? "text-mu" : tone)}>
-            {status}
-          </span>
-          <span className="block truncate text-caption text-mu">
-            {reason === null ? when(row.createdAt) : `${reason} · ${when(row.createdAt)}`}
-          </span>
-        </span>
-        <span className="flex-none rounded-sm px-1.5 py-px font-mono text-[11px] text-mu inset-ring inset-ring-bc">
-          {t(`submissions.kind.${row.kind}`)}
-        </span>
-      </button>
+        >
+          {content}
+        </button>
+      )}
     </li>
   );
 }
