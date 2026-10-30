@@ -11,6 +11,7 @@ import { submissionHandlers } from "./submissions";
 export { api };
 
 export const handlers = [
+  http.get(api("/api/v1/health"), () => HttpResponse.json(fixtures.health)),
   http.get(api("/api/v1/config"), () => HttpResponse.json(fixtures.config)),
   ...captchaHandlers,
   ...problemHandlers,

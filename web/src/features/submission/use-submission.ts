@@ -3,7 +3,9 @@
 // useSubmission: the check of a problem page (docs/frontend.md#проверка-usesubmission). Run and
 // Submit create a submission, its event stream feeds the state, a dropped stream reconnects; an
 // opened page restores the last submission of the problem and reads its stream to the end. A
-// finished check goes to the local history of the guest (the catalogue shows it).
+// finished check goes to the local history of the guest (the catalogue shows it). An unfinished
+// check goes on in the background when the page closes; it and a check that ends in a hidden tab
+// are told about by a notice (FR-RUN-08).
 import { skipToken, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState, useSyncExternalStore } from "react";
 
@@ -12,6 +14,8 @@ import { rememberSubmissions } from "@/features/guest/submissions";
 import type { ApiError, Schemas } from "@/lib/api/client";
 
 import { api, eventsUrl, getQuota, getRecent, getSubmission, submissionKeys } from "./api";
+import { followInBackground, stopBackground } from "./background";
+import { announceFinished } from "./finished";
 import { type Check, isFinished, type Submission } from "./machine";
 import { SubmissionStore } from "./store";
 import type { Connection } from "./stream";
@@ -26,6 +30,8 @@ export interface StartInput {
 export interface UseSubmissionOptions {
   problem: string;
   version: number;
+  /** The title of the problem, for the notices. */
+  title: string;
   /** The level of the problem, for the local history. */
   difficulty: string;
   /** The page was opened for this submission (`?submission=`): it is restored, not the last one. */
@@ -70,6 +76,7 @@ export interface SubmissionState {
 export function useSubmission({
   problem,
   version,
+  title,
   difficulty,
   wanted = null,
   reconnectDelaysMs,
@@ -80,8 +87,12 @@ export function useSubmission({
       new SubmissionStore({
         eventsUrl,
         delays: reconnectDelaysMs,
-        onFinalized: (id) =>
-          void queryClient.invalidateQueries({ queryKey: submissionKeys.detail(id) }),
+        onFinalized: ({ id, kind, status }) => {
+          void queryClient.invalidateQueries({ queryKey: submissionKeys.detail(id) });
+          if (document.visibilityState === "hidden") {
+            announceFinished({ id, problem, title, kind, status }, false);
+          }
+        },
       }),
   );
   const snapshot = useSyncExternalStore(store.subscribe, store.getSnapshot, store.getSnapshot);
@@ -90,10 +101,18 @@ export function useSubmission({
   const [quota, setQuota] = useState<Schemas["QuotaStatus"] | null>(null);
   const [failedAt, setFailedAt] = useState<number | null>(null);
 
+  // The page takes its check back from the background, and leaves an unfinished one there.
   useEffect(() => {
+    stopBackground(problem);
     store.attach(problem);
-    return () => store.detach();
-  }, [store, problem]);
+    return () => {
+      const { check: left } = store.getSnapshot();
+      store.detach();
+      if (left?.problem === problem && !isFinished(left)) {
+        followInBackground({ check: left, title, difficulty });
+      }
+    };
+  }, [store, problem, title, difficulty]);
 
   // A check that ended here or before the page opened; writing the same status again is a no-op.
   const finished = check !== null && isFinished(check) ? check : null;

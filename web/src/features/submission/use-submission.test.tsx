@@ -1,6 +1,6 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { http, HttpResponse } from "msw";
-import { expect, it } from "vitest";
+import { expect, it, vi } from "vitest";
 
 import { readHistory } from "@/features/guest/history";
 import { readSubmissions, rememberSubmissions } from "@/features/guest/submissions";
@@ -11,6 +11,7 @@ import { server } from "@/mocks/server";
 import { configureMocks, eventsHandler } from "@/mocks/submissions";
 import { Providers } from "@/test/render";
 
+import { onFinished } from "./finished";
 import { useSubmission, type UseSubmissionOptions } from "./use-submission";
 
 const FAST = [5, 5, 5, 5, 5];
@@ -22,6 +23,7 @@ function setup(options: Partial<UseSubmissionOptions> = {}) {
       useSubmission({
         problem: "sync-fifo",
         version: 1,
+        title: "Синхронный FIFO",
         difficulty: "medium",
         reconnectDelaysMs: FAST,
         ...props,
@@ -346,4 +348,78 @@ it("shows only the checks of the open problem", async () => {
   expect(result.current.connection).toBeNull();
   await ready(result);
   expect(result.current.check).toBeNull();
+});
+
+it("goes on in the background after the page closes and tells how it ended", async () => {
+  configureMocks({ speed: 10 });
+  const finished = vi.fn();
+  const unsubscribe = onFinished(finished);
+  const { result, unmount } = setup();
+  await ready(result);
+  act(() => result.current.start({ kind: "submit", code: CODE }));
+  await waitFor(() => expect(result.current.check?.status).toBe("running"));
+  const id = result.current.check?.id;
+
+  unmount();
+  await waitFor(() => expect(finished).toHaveBeenCalledOnce(), { timeout: 5000 });
+  expect(finished).toHaveBeenCalledWith(
+    { id, problem: "sync-fifo", title: "Синхронный FIFO", kind: "submit", status: "accepted" },
+    true,
+  );
+  expect(readHistory()["sync-fifo"]).toEqual({ status: "solved", difficulty: "medium" });
+  await waitFor(() =>
+    expect(readSubmissions().find((item) => item.id === id)?.status).toBe("accepted"),
+  );
+  unsubscribe();
+});
+
+it("takes its check back from the background when the page opens again", async () => {
+  configureMocks({ speed: 10 });
+  const finished = vi.fn();
+  const unsubscribe = onFinished(finished);
+  const first = setup();
+  await ready(first.result);
+  act(() => first.result.current.start({ kind: "run", code: CODE }));
+  await waitFor(() => expect(first.result.current.check?.status).toBe("running"));
+  first.unmount();
+
+  const { result } = setup();
+  await waitFor(() => expect(result.current.check?.status).toBe("accepted"), { timeout: 5000 });
+  expect(finished).not.toHaveBeenCalled();
+  unsubscribe();
+});
+
+it("tells about a check that ends in a hidden tab", async () => {
+  configureMocks({ speed: 10 });
+  const finished = vi.fn();
+  const unsubscribe = onFinished(finished);
+  const visibility = vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+  const { result } = setup();
+  await ready(result);
+  act(() =>
+    result.current.start({
+      kind: "run",
+      code: `// mock: wrong-answer
+${CODE}`,
+    }),
+  );
+  await waitFor(() => expect(finished).toHaveBeenCalledOnce(), { timeout: 5000 });
+  expect(finished).toHaveBeenCalledWith(
+    expect.objectContaining({ kind: "run", status: "wrong_answer" }),
+    false,
+  );
+  visibility.mockRestore();
+  unsubscribe();
+});
+
+it("does not tell about a check the page shows", async () => {
+  configureMocks({ speed: Infinity });
+  const finished = vi.fn();
+  const unsubscribe = onFinished(finished);
+  const { result } = setup();
+  await ready(result);
+  act(() => result.current.start({ kind: "run", code: CODE }));
+  await waitFor(() => expect(result.current.check?.status).toBe("accepted"));
+  expect(finished).not.toHaveBeenCalled();
+  unsubscribe();
 });

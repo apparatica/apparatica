@@ -1,6 +1,7 @@
 // Following the event stream of a check (specs/07 §4.2): a dropped connection is resumed after the
 // last event id with backoff; after the last delay the client waits for "connect now" (FR-CON-05).
 import type { ApiError } from "@/lib/api/client";
+import { reportNetworkError } from "@/lib/connectivity";
 
 import type { SubmissionEvent } from "./machine";
 import { readSse } from "./sse";
@@ -83,8 +84,9 @@ export function followEvents(options: FollowOptions): Follower {
           break;
         }
       }
-    } catch {
+    } catch (error) {
       // A network error, a refused stream or a broken event: resumed as a drop.
+      if (!current.signal.aborted) reportNetworkError(error);
     }
     if (current.signal.aborted || closed) return;
     if (finalized) {

@@ -1,6 +1,12 @@
 // Response bodies of the mocks, typed by the API schema: a contract change breaks them at compile time.
 import type { Schemas } from "@/lib/api/client";
 
+export const health: Schemas["HealthResponse"] = {
+  status: "ok",
+  version: "0.1.0",
+  checks: { database: "ok" },
+};
+
 export const config: Schemas["ConfigResponse"] = {
   version: "0.1.0",
   features: { captcha: false, formal_stage: false, industrial_mode: false, reports: false },

@@ -16,8 +16,8 @@ import { type Check, isFinished, type Submission } from "@/features/submission/m
 import type { SubmissionState } from "@/features/submission/use-submission";
 import { Viewer } from "@/features/waveview/viewer";
 import type { Schemas } from "@/lib/api/client";
+import { useCountdown, useNow } from "@/lib/clock";
 
-import { useCountdown, useNow } from "./clock";
 import { LimitNotice, QuotaCounter } from "./limit-panel";
 import { checksSpentUntil, quotaWarning } from "./limits";
 import { type BlockDetail, type BlockView, pipelineView } from "./pipeline-view";

@@ -7,6 +7,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 
 import { DifficultyBadge, findDifficulty } from "@/components/domain/difficulty-badge";
+import { PageState } from "@/components/domain/page-state";
 import { TagChip } from "@/components/domain/tag-chip";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -190,21 +191,24 @@ export function EmptyCatalog({
 }) {
   const t = useTranslations("problems");
   return (
-    <div className="flex flex-col items-center gap-2 rounded-md border border-bd px-6 py-14 text-center">
-      <SearchX size={22} aria-hidden="true" className="mb-2 text-mu" />
-      <h2 className="text-title-2">{filtered ? t("empty.title") : t("empty.catalog")}</h2>
-      <p className="max-w-[420px] text-mu">
-        {!filtered
+    <PageState
+      icon={SearchX}
+      title={filtered ? t("empty.title") : t("empty.catalog")}
+      description={
+        !filtered
           ? t("empty.catalogHint")
           : q.trim() !== ""
             ? t("empty.query", { q: q.trim() })
-            : t("empty.filters")}
-      </p>
-      {filtered && (
-        <Button variant="primary" asChild className="mt-3">
-          <Link href={resetHref}>{t("filters.reset")}</Link>
-        </Button>
-      )}
-    </div>
+            : t("empty.filters")
+      }
+      actions={
+        filtered ? (
+          <Button variant="primary" asChild>
+            <Link href={resetHref}>{t("filters.reset")}</Link>
+          </Button>
+        ) : null
+      }
+      className="rounded-md border border-bd"
+    />
   );
 }

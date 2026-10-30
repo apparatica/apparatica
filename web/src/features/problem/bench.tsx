@@ -41,6 +41,7 @@ export type BenchProblem = Pick<
   Schemas["ProblemDetail"],
   | "slug"
   | "version"
+  | "title"
   | "difficulty"
   | "template"
   | "top"
@@ -107,6 +108,7 @@ export function Bench({
   const submission = useSubmission({
     problem: problem.slug,
     version: problem.version,
+    title: problem.title,
     difficulty: problem.difficulty,
     wanted,
   });

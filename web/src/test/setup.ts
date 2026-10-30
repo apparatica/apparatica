@@ -5,6 +5,8 @@ import { setProjectAnnotations } from "@storybook/react";
 import { cleanup } from "@testing-library/react";
 import { afterAll, afterEach, beforeAll } from "vitest";
 
+import { stopAllBackground } from "@/features/submission/background";
+import { resetConnectivity } from "@/lib/connectivity";
 import { server } from "@/mocks/server";
 import { resetMocks } from "@/mocks/submissions";
 
@@ -19,6 +21,9 @@ afterEach(() => {
   server.resetHandlers();
   resetMocks();
   cleanup();
+  // An unmounted page leaves its unfinished check to the background.
+  stopAllBackground();
+  resetConnectivity();
   localStorage.clear(); // the local history of a guest
 });
 afterAll(() => server.close());

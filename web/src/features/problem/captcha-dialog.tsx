@@ -19,8 +19,8 @@ import {
 } from "@/components/ui/dialog";
 import { AltchaWidget } from "@/features/captcha/altcha-widget";
 import { apiUrl } from "@/lib/api/browser";
+import { useCountdown } from "@/lib/clock";
 
-import { useCountdown } from "./clock";
 import { type CaptchaRequest, formatCountdown } from "./limits";
 
 const timer = (chunks: ReactNode) => <span className="font-mono text-tx">{chunks}</span>;

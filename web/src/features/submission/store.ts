@@ -12,8 +12,8 @@ export interface StoreOptions {
   /** The URL of the event stream of a submission. */
   eventsUrl: (id: string) => string;
   delays?: readonly number[] | undefined;
-  /** `finalized` came for a check that was not finished. */
-  onFinalized?: (id: string) => void;
+  /** `finalized` came for a check that was not finished: the check with its verdict. */
+  onFinalized?: (check: Check) => void;
 }
 
 export class SubmissionStore {
@@ -85,8 +85,9 @@ export class SubmissionStore {
       onEvent: (eventId, event) => {
         const current = this.snapshot.check;
         if (current?.id !== id) return;
-        this.set({ ...this.snapshot, check: applyEvent(current, eventId, event) });
-        if (event.type === "finalized" && !wasFinished) this.options.onFinalized?.(id);
+        const next = applyEvent(current, eventId, event);
+        this.set({ ...this.snapshot, check: next });
+        if (event.type === "finalized" && !wasFinished) this.options.onFinalized?.(next);
       },
       onConnection: (connection) => {
         if (this.snapshot.check?.id === id) this.set({ ...this.snapshot, connection });

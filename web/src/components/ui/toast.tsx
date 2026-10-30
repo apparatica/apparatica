@@ -1,6 +1,7 @@
 "use client";
 
 import { CircleCheck, CircleX, Info, type LucideIcon, TriangleAlert, X } from "lucide-react";
+import Link from "next/link";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 import { toast, Toaster as Sonner } from "sonner";
@@ -22,12 +23,15 @@ export interface ToastProps {
   tone: Tone;
   title: ReactNode;
   description?: ReactNode;
+  /** A link under the caption; following it closes the notification. */
+  action?: { label: ReactNode; href: string } | undefined;
 }
 
 export function ToastCard({
   tone,
   title,
   description,
+  action,
   onClose,
 }: ToastProps & { onClose: () => void }) {
   const t = useTranslations("ui");
@@ -43,6 +47,15 @@ export function ToastCard({
       <div className="flex min-w-0 flex-1 flex-col leading-[1.4]">
         <span className="font-medium">{title}</span>
         {description != null && <span className="text-caption text-mu">{description}</span>}
+        {action !== undefined && (
+          <Link
+            href={action.href}
+            onClick={onClose}
+            className="mt-1 w-fit text-caption text-ac underline underline-offset-2"
+          >
+            {action.label}
+          </Link>
+        )}
       </div>
       <button
         type="button"

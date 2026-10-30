@@ -7,6 +7,7 @@ import type { Theme } from "@/lib/theme";
 import { CommandPalette } from "./command-palette";
 import { GuestBanner } from "./guest-banner";
 import { GuestMenu } from "./guest-menu";
+import { NetworkBanner } from "./network-banner";
 import { BottomNav, Rail } from "./navigation";
 import { ThemeProvider } from "./theme";
 
@@ -62,6 +63,7 @@ export function AppShell({
           <CommandPalette />
           <GuestMenu />
         </header>
+        <NetworkBanner />
         <div className="flex min-h-0 flex-1 gap-px">
           <Rail />
           <main className="min-w-0 flex-1 bg-sf pb-14 sm:pb-0">{children}</main>

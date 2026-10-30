@@ -14,6 +14,7 @@ import { getTranslations } from "next-intl/server";
 import { AppShell } from "@/components/shell/app-shell";
 import { Toaster } from "@/components/ui/toast";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { FinishNotices } from "@/features/submission/finish-notices";
 import { LOCALE } from "@/i18n/request";
 import { ApiMocking } from "@/mocks/api-mocking";
 import { QueryProvider } from "@/lib/query";
@@ -61,6 +62,7 @@ export default async function RootLayout({ children, breadcrumbs, statusbar }: L
                 )}
               </AppShell>
               <Toaster />
+              <FinishNotices />
             </TooltipProvider>
           </QueryProvider>
         </NextIntlClientProvider>
