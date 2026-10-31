@@ -58,7 +58,7 @@ Surfer работает на кадрах анимации (eframe): брауз�
 | `Cache-Control: public, max-age=31536000, immutable` | для путей версий: версия не меняется |
 | `Content-Type` | хранится при загрузке: `application/wasm` для WASM |
 
-Caddy сжимает ответы (`encode zstd gzip`). Production-заголовки и TLS — T1.23.
+Caddy сжимает ответы (`encode zstd gzip`). TLS и заголовки staging — T1.23b.
 
 ## Сборка и публикация
 

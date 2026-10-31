@@ -44,6 +44,8 @@ web/
   src/lib/query.tsx       TanStack Query: QueryClient для данных, которые браузер берёт из API
   src/lib/config.ts       useConfig(): GET /config в браузере (уровни сложности, флаги, лимиты)
   src/lib/theme.ts        выбор темы: cookie, скрипт до первой отрисовки
+  src/lib/csp.ts          Content Security Policy страниц (docs/security.md#csp-сайта)
+  src/proxy.ts            proxy Next.js: CSP со своим nonce у каждого ответа
   src/lib/viewport.tsx    usePhone(): окно уже 640 px; догадка сервера по User-Agent
   src/lib/connectivity.ts  связь с сервером: потеря, проверки GET /health, возврат
   src/lib/clock.ts        часы и обратный отсчёт для компонентов
@@ -80,7 +82,7 @@ IBM Plex Sans и IBM Plex Mono, начертания 400, 500 и 600, из па�
 По умолчанию тема системная. Явный выбор хранится в cookie `ap_theme` (`light`, `dark`, `system`; год, весь сайт).
 
 - **Явный выбор** сервер читает из cookie и рендерит `<html data-theme>` сразу. Страница не мигает и без JavaScript.
-- **Системная тема.** Сервер её не знает, поэтому `<html>` приходит без атрибута. Встроенный в `<head>` скрипт (`THEME_SCRIPT`) ставит атрибут по `prefers-color-scheme` до первой отрисовки и следит за сменой темы в ОС.
+- **Системная тема.** Сервер её не знает, поэтому `<html>` приходит без атрибута. Встроенный в `<head>` скрипт (`THEME_SCRIPT`) ставит атрибут по `prefers-color-scheme` до первой отрисовки и следит за сменой темы в ОС. CSP пропускает его по хэшу текста ([security.md](security.md#csp-сайта)).
 - **Выбор** — в меню гостя («Гость» в шапке; с аккаунтами — меню пользователя) и в палитре команд (specs/08 §2). Оба меняют тему через общий контекст `ThemeProvider` (`src/components/shell/theme.tsx`).
 
 Layout читает cookie, поэтому страницы рендерятся на каждый запрос (динамически).

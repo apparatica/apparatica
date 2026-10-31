@@ -17,10 +17,14 @@ http://localhost {
 		encode zstd gzip
 		reverse_proxy web:3000
 	}
+	# The Content Security Policy of the pages comes from the site itself: it has a nonce of the
+	# response (web/src/proxy.ts).
 	header {
 		X-Content-Type-Options nosniff
 		Referrer-Policy strict-origin-when-cross-origin
 		X-Frame-Options DENY
+		Cross-Origin-Opener-Policy same-origin
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
 		-Server
 	}
 }

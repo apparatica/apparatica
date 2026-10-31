@@ -2,9 +2,10 @@
 // failure → the fix → Submit → Accepted, judged by the worker of the stand.
 import { readFileSync } from "node:fs";
 
-import { expect, type Page, test } from "@playwright/test";
+import type { Page } from "@playwright/test";
 
 import { expectAccessible } from "./axe";
+import { expect, test } from "./fixtures";
 
 const problem = (file: string) =>
   readFileSync(new URL(`../../problems/mux4/${file}`, import.meta.url), "utf-8");

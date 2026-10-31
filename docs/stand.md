@@ -38,10 +38,10 @@ just down          # остановить (и мониторинг); данны�
 
 | Сервис | Что делает |
 |---|---|
-| `caddy` | proxy: `localhost` — сайт и API (`/api` без буферизации, для SSE), `s3.localhost` и `waveview.web.localhost` — Garage, `grafana.localhost` — Grafana; заголовки безопасности, у `waveview` — свои (CSP с `frame-ancestors` сайта, CORS, ответ на `OPTIONS`). Только HTTP: TLS — со staging (T1.23) |
+| `caddy` | proxy: `localhost` — сайт и API (`/api` без буферизации, для SSE), `s3.localhost` и `waveview.web.localhost` — Garage, `grafana.localhost` — Grafana; заголовки безопасности, у `waveview` — свои (CSP с `frame-ancestors` сайта, CORS, ответ на `OPTIONS`). Только HTTP: TLS — со staging (T1.23b). CSP страниц ставит сам `web` ([security.md](security.md#csp-сайта)) |
 | `api` | FastAPI (`backend/Dockerfile`) |
 | `ingest` | `apparatica ingest` из того же образа: результаты проверок в Postgres, `finalized`, watchdog, сроки хранения артефактов, процент принятых. С ключом хранилища `ingest` и пользователем Valkey `ingest` |
-| `web` | Next.js, standalone-сервер (`web/Dockerfile`); серверный рендер читает `api` напрямую (`API_URL=http://api:8000`) и стартует после него |
+| `web` | Next.js, standalone-сервер (`web/Dockerfile`); серверный рендер читает `api` напрямую (`API_URL=http://api:8000`) и стартует после него; `S3_PUBLIC_URL` и `WAVEVIEW_URL` — origin хранилища и просмотрщика для CSP страниц |
 | `postgres` | PostgreSQL 17, локаль `builtin C.UTF-8` (регистр символов — средствами PostgreSQL, поиск по кириллице не зависит от ОС образа) |
 | `valkey-queue` | очереди и стримы: AOF, без вытеснения. Пользователи и их ключи — `deploy/valkey/queue-users.acl.in` ([security.md](security.md#права-компонентов)); пароли — `VALKEY_QUEUE_API_PASSWORD`, `VALKEY_QUEUE_WORKER_PASSWORD`, `VALKEY_QUEUE_INGEST_PASSWORD`. API ставит в него проверки как `api`, воркер берёт их как `worker`, ингестор читает результаты как `ingest` |
 | `valkey-cache` | кэш и rate limit: без сохранения на диск, LRU. API хранит в нём счётчики rate limit и квоты волн ([api.md](api.md#гости-и-лимиты-ф1)) |
@@ -133,8 +133,9 @@ E2E_BASE_URL=http://localhost:18080 just e2e -g guest   # другой порт,
 |---|---|
 | `guest-solves.spec.ts` | гость решает `mux4`: Run с ошибкой (мутант `m01`) падает на открытом тесте, «Показать на диаграмме» открывает FST в просмотрщике (панель волн в состоянии `normal`), Submit эталона — «Принято»; код вставляется в Monaco как из буфера, и тест сверяет его с телом `POST /submissions`; страница с вердиктом проходит axe |
 | `accessibility.spec.ts` | axe на каталоге и странице задачи в светлой и тёмной темах, на широком экране и на телефоне (Pixel 7: без редактора, с блоком «Решать удобнее на компьютере») |
+| `security-headers.spec.ts` | CSP страницы: свой nonce у каждого ответа и у всех скриптов страницы, без `unsafe-eval`; страницы 404 с политикой; заголовки Caddy ([security.md](security.md#csp-сайта)) |
 
-axe (`tests/axe.ts`) проверяет правила WCAG 2.2 A и AA и не допускает нарушений уровня serious и critical (NFR-A11Y-06). Frame `waveview` в проверку не входит: у него непрозрачный origin. При падении Playwright сохраняет трассу в `e2e/test-results/` (`pnpm -C e2e exec playwright show-trace <файл>`).
+Каждый тест падает, если браузер сообщил в консоли страницы или её фреймов о нарушении Content Security Policy (`tests/fixtures.ts`). axe (`tests/axe.ts`) проверяет правила WCAG 2.2 A и AA и не допускает нарушений уровня serious и critical (NFR-A11Y-06). Frame `waveview` в проверку не входит: у него непрозрачный origin. При падении Playwright сохраняет трассу в `e2e/test-results/` (`pnpm -C e2e exec playwright show-trace <файл>`).
 
 ## CI
 

@@ -1,8 +1,9 @@
 // axe on the key screens of phase 1 in both themes, wide and on a phone (specs/09 §4.4); the problem
 // page with a verdict is checked by the guest scenario.
-import { devices, expect, test } from "@playwright/test";
+import { devices } from "@playwright/test";
 
 import { expectAccessible } from "./axe";
+import { expect, test } from "./fixtures";
 
 for (const theme of ["light", "dark"] as const) {
   test.describe(`${theme} theme`, () => {

@@ -83,6 +83,23 @@ Verilator превращает решение в C++ и исполняет ег�
 
 FST пишет код пользователя, а разбирает его Surfer в браузере: файл недоверенный (ADR-0004). Поэтому Surfer живёт на отдельном origin (`waveview`) и открывается в iframe с `sandbox="allow-scripts"` без `allow-same-origin`. Origin фрейма — `null`: ошибка в разборе FST не даёт доступа к cookie, DOM, хранилищу и сети сайта. CSP origin `waveview` разрешает только свои скрипты и WASM, без сети наружу (`connect-src 'self'`), а встраивать его может только сайт (`frame-ancestors`). Страница задачи сама скачивает FST по presigned URL и передаёт байты; адаптер принимает сообщения только от родителя. Подробно — [waveview.md](waveview.md).
 
+## CSP сайта
+
+Страницы сайта отдаются с Content Security Policy без `unsafe-eval` (NFR-SEC-07). Политику ставит сам сайт (`web/src/proxy.ts`, директивы — `web/src/lib/csp.ts`), потому что у каждого ответа свой nonce: Next.js читает его из политики запроса и ставит на свои скрипты. Страницы поэтому всегда рендерятся на запрос, а не заранее. `next dev` работает без политики, потому что React там нужен `eval`.
+
+| Директива | Значение | Почему |
+|---|---|---|
+| `script-src` | `'nonce-…' 'strict-dynamic' 'sha256-…'` | только скрипты ответа и загруженные ими чанки; хэш — у встроенного скрипта темы, его рендерит и `global-error`, клиентский компонент без доступа к nonce |
+| `style-src` | `'self' 'unsafe-inline'` | атрибуты `style` приходят в HTML формул, диаграмм и подсветки условий (KaTeX, WaveDrom, Shiki) и у компонентов; Monaco добавляет элементы `<style>` |
+| `connect-src` | `'self'` и origin `S3_PUBLIC_URL` | API и скачивание FST по presigned URL |
+| `frame-src` | origin `WAVEVIEW_URL` (без него — `'none'`) | iframe просмотрщика волн |
+| `worker-src` | `'self' blob:` | воркер языка Monaco — файл сайта, капча решает задачу в воркерах из blob |
+| `img-src`, `font-src` | `'self'` (картинкам ещё `data:`, `blob:`) | шрифты и картинки условий — с сайта |
+| `object-src`, `base-uri`, `frame-ancestors` | `'none'` | |
+| `form-action`, `default-src` | `'self'` | |
+
+`S3_PUBLIC_URL` и `WAVEVIEW_URL` — переменные окружения `web`, те же адреса, что `APX_S3_PUBLIC_URL` и `APX_WAVEVIEW_URL` у API. Остальные заголовки страниц ставит Caddy: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `Cross-Origin-Opener-Policy: same-origin`, `Permissions-Policy` без камеры, микрофона, геолокации, платежей и USB. e2e-тесты падают на любом нарушении политики в консоли страницы и её фреймов (`e2e/tests/fixtures.ts`).
+
 ## Проверки
 
 | Что | Где |
@@ -93,6 +110,7 @@ FST пишет код пользователя, а разбирает его Sur
 | ACL Valkey | `worker/tests/test_valkey_acl.py` |
 | Ключи хранилища, заголовки origin `waveview`; проверка решений гостя через весь стенд | `just stand-check` |
 | Изоляция просмотрщика волн: origin `null`, нет доступа к родителю, cookie, хранилищу, сети | `just waveview-test` (`waveview/tests/regression.test.mjs`) |
+| CSP сайта: директивы; nonce у скриптов страницы, свой у каждого ответа; нет нарушений на страницах e2e; заголовки Caddy | `web/src/lib/csp.test.ts`, `just e2e` (`e2e/tests/security-headers.spec.ts`, `fixtures.ts`) |
 | Вредоносные решения и попытки выхода из песочницы под gVisor | `tests/security/` (`just security-test`), ниже |
 
 Тесты образа и песочницы гоняются под `runc` локально и в CI (`just toolchain-test`). Под `runsc` их запускают с `JUDGE_SANDBOX_RUNTIME=runsc` на хосте с gVisor; так проверен профиль 2026.10.3 на VPS воркера. Стенд в CI (job `Stand`) проверяет решения под `runsc`.
