@@ -1,0 +1,67 @@
+# Reverse proxy of a server (deploy/compose.server.yaml, docs/deployment.md): the stand's Caddyfile
+# on the public names, with certificates from Let's Encrypt and HSTS. HTTP answers with a redirect.
+{
+	admin off
+}
+
+(common) {
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		-Server
+	}
+}
+
+{$SITE_HOST} {
+	import common
+	# The API, unbuffered: server-sent events of submissions arrive as they are written (Р¤1).
+	handle /api/* {
+		reverse_proxy api:8000 {
+			flush_interval -1
+		}
+	}
+	handle {
+		encode zstd gzip
+		reverse_proxy web:3000
+	}
+	# The Content Security Policy of the pages comes from the site itself: it has a nonce of the
+	# response (web/src/proxy.ts).
+	header {
+		Referrer-Policy strict-origin-when-cross-origin
+		X-Frame-Options DENY
+		Cross-Origin-Opener-Policy same-origin
+		Permissions-Policy "camera=(), microphone=(), geolocation=(), payment=(), usb=()"
+	}
+}
+
+# S3 API for presigned URLs of artifacts; the Host header is kept, it is part of the signature.
+{$S3_HOST} {
+	import common
+	reverse_proxy garage:3900
+}
+
+# The waveview bucket as a website (ADR-0004, docs/waveview.md). Garage finds the bucket by the Host
+# header: a name outside its root domain is the bucket itself.
+{$WAVEVIEW_HOST} {
+	import common
+	@preflight method OPTIONS
+	handle @preflight {
+		header Access-Control-Allow-Methods "GET, HEAD, OPTIONS"
+		header Access-Control-Allow-Headers *
+		respond 204
+	}
+	handle {
+		encode zstd gzip
+		reverse_proxy garage:3902 {
+			header_up Host waveview
+		}
+	}
+	header {
+		Content-Security-Policy "default-src 'none'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self'; connect-src 'self'; img-src 'self' data: blob:; font-src 'self'; frame-ancestors https://{$SITE_HOST}"
+		Access-Control-Allow-Origin *
+		Referrer-Policy no-referrer
+	}
+	# A published version never changes (waveview/versions.lock).
+	@versioned path_regexp ^/\d{4}\.\d+\.\d+/
+	header @versioned Cache-Control "public, max-age=31536000, immutable"
+}

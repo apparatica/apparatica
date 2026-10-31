@@ -1,0 +1,5 @@
+# Open ports of the host; Docker publishes only those of Caddy (deploy/compose.server.yaml).
+base_tcp_ports: [22, 80, 443]
+base_udp_ports: [443]
+# The journal of the host on disk, at most.
+base_journal_max: 1G

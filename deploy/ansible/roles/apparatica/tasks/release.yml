@@ -1,0 +1,51 @@
+# The release: the files of the commit on the control node, with uncommitted changes of tracked and
+# staged files (`git stash create`, the id ends in -dirty-<stash>). The briefs stay out.
+- name: Find the commit of the release
+  delegate_to: localhost
+  run_once: true
+  ansible.builtin.shell: |
+    set -eu
+    cd {{ apparatica_repo | quote }}
+    head=$(git rev-parse --short=12 HEAD)
+    stash=$(git stash create)
+    if [ -n "$stash" ]; then
+      echo "$stash $head-dirty-$(git rev-parse --short=8 "$stash")"
+    else
+      echo "HEAD $head"
+    fi
+  register: apparatica_commit
+  changed_when: false
+
+- name: Name the release
+  ansible.builtin.set_fact:
+    apparatica_tree: "{{ apparatica_commit.stdout.split()[0] }}"
+    apparatica_release: "{{ apparatica_commit.stdout.split()[1] }}"
+
+- name: Pack the files of the release
+  delegate_to: localhost
+  run_once: true
+  ansible.builtin.command:
+    argv:
+      - git
+      - -C
+      - "{{ apparatica_repo }}"
+      - archive
+      - --format=tar.gz
+      - --output=/tmp/apparatica-{{ apparatica_release }}.tar.gz
+      - "{{ apparatica_tree }}"
+      - --
+      - .
+      - ":(exclude)brief"
+  changed_when: false
+
+- name: Create the directory of the release
+  ansible.builtin.file:
+    path: "{{ apparatica_root }}/releases/{{ apparatica_release }}"
+    state: directory
+    mode: "0755"
+
+- name: Unpack the release
+  ansible.builtin.unarchive:
+    src: /tmp/apparatica-{{ apparatica_release }}.tar.gz
+    dest: "{{ apparatica_root }}/releases/{{ apparatica_release }}"
+    creates: "{{ apparatica_root }}/releases/{{ apparatica_release }}/deploy/compose.yaml"

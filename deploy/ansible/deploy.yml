@@ -1,0 +1,6 @@
+# The current commit on the app hosts (docs/deployment.md#деплой): `just deploy`.
+- name: Deploy the platform
+  hosts: app
+  become: true
+  roles:
+    - apparatica

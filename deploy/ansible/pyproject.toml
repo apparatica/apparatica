@@ -1,0 +1,13 @@
+[project]
+name = "apparatica-ansible"
+version = "0.1.0"
+description = "Apparatica servers as code: Ansible and its linter (docs/deployment.md)"
+license = "AGPL-3.0-or-later"
+requires-python = ">=3.13,<3.14"
+dependencies = ["ansible-core (==2.21.5)"]
+
+[dependency-groups]
+dev = ["ansible-lint (==26.10.1)"]
+
+[tool.poetry]
+package-mode = false

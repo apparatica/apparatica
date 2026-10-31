@@ -39,7 +39,7 @@ Poetry создаёт виртуальное окружение внутри к�
 | `just test` | `test-py` (pytest в каждом Python-проекте и тесты `scripts/`) и `test-js` (Vitest в `web/`) |
 | `just build-js` | production-сборка фронтенда (`next build`) |
 | `just storybook`, `just build-storybook` | Storybook доменных компонентов: http://localhost:6006 и статическая сборка в `web/storybook-static` ([frontend.md](frontend.md#доменные-компоненты)) |
-| `just check-locks` | `poetry check --lock` в каждом проекте и сверка версий общих зависимостей между тремя `poetry.lock` |
+| `just check-locks` | `poetry check --lock` в каждом проекте (и в `deploy/ansible`) и сверка версий общих зависимостей между тремя `poetry.lock` судьи, бэкенда и воркера |
 | `just check-licenses` | лицензии зависимостей Python (`check-licenses-py`) и JS (`check-licenses-js`) по политике |
 | `just check` | `check-locks`, `check-licenses`, `check-api`, `lint`, `typecheck`, `test` |
 | `just openapi` | пересоздаёт контракт API: `backend/openapi.json` из кода и типы TS-клиента ([api.md](api.md)) |
@@ -55,18 +55,21 @@ Poetry создаёт виртуальное окружение внутри к�
 | `just schemas` | перегенерирует JSON Schema из моделей судьи: `problem.yaml` и записи протокола тестбенча (`judge/schemas/`) |
 | `just toolchain-build` | собирает образ тулчейна `apparatica-toolchain:dev` |
 | `just toolchain-test` | тесты образа: pytest на хосте, команды через `docker exec` в контейнере с ограничениями песочницы |
+| `just provision`, `just deploy`, `just rollback` | подготовка серверов и деплой Ansible в контейнере ([deployment.md](deployment.md)) |
+| `just lint-ansible` | ansible-lint и проверка синтаксиса плейбуков `deploy/ansible` (нужен Docker) |
 | `just security-test` | набор атак `tests/security/`: вредоносные решения и попытки выхода из песочницы через `apx-sandboxd` ([security.md](security.md#набор-атак-testssecurity)); под gVisor — с `JUDGE_SANDBOX_RUNTIME=runsc` |
 
 Рецепты `justfile` работают и в sh (Linux, macOS, CI), и в PowerShell 7 (Windows).
 
 ## CI
 
-GitHub Actions, `.github/workflows/ci.yml`, на GitHub-hosted раннерах `ubuntu-24.04`. Запускается на push в `master`, на каждый pull request и вручную. Три параллельных job'а вызывают те же рецепты `just`, что и локальная проверка:
+GitHub Actions, `.github/workflows/ci.yml`, на GitHub-hosted раннерах `ubuntu-24.04`. Запускается на push в `master`, на каждый pull request и вручную. Четыре параллельных job'а вызывают те же рецепты `just`, что и локальная проверка:
 
 | Job | Шаги |
 |---|---|
 | Python | `install-py`, `check-locks`, `lint-py`, `lint-imports`, `typecheck-py`, `test-py`, `check-licenses-py` |
 | JS | `install-js`, `lint-js`, `typecheck-js`, `check-api`, `test-js`, `build-js`, `build-storybook`, `check-licenses-js` |
+| Ansible | `lint-ansible`: ansible-lint и проверка синтаксиса плейбуков ([deployment.md](deployment.md)) |
 | Stand | gVisor, `up`, `stand-check`, проверка сайта и API через Caddy, `e2e` ([stand.md](stand.md#ci)) |
 
 Образ тулчейна собирает и публикует отдельный workflow `.github/workflows/toolchain.yml` — при изменениях в `toolchain/`, в коде судьи и воркера, чьи тесты против образа он прогоняет, в классах ресурсов и в `tests/security/`; публикует только при изменении входов образа (подробности — [toolchain/README.md](../toolchain/README.md)). После тестов образа он прогоняет набор атак под gVisor (`just security-test` с `JUDGE_SANDBOX_RUNTIME=runsc`, [security.md](security.md#набор-атак-testssecurity)); провал набора не даёт опубликовать образ. gVisor ставит общий шаг `.github/actions/install-gvisor` — его же использует job `Stand`.
@@ -109,7 +112,8 @@ e2e/        e2e-тесты Playwright и axe против стенда (stand.md
 .github/    CI (GitHub Actions)
 toolchain/  образ тулчейна песочницы: Dockerfile, versions.lock, apx-run, apx-verilate, apx_tb_pkg, тесты образа
 config/     конфигурация: классы ресурсов судьи, уровни сложности, лимиты (configuration.md)
-deploy/     стенд в docker compose: compose.yaml, compose.dev.yaml, Caddyfile, настройка Garage, профиль тулчейна и проверка судьи, Prometheus и дашборды Grafana (stand.md)
+deploy/     стенд в docker compose: compose.yaml, compose.dev.yaml, Caddyfile, настройка Garage, профиль тулчейна и проверка судьи, Prometheus и дашборды Grafana (stand.md);
+            серверы: compose.server.yaml, Caddyfile.server, ansible/, RUNBOOK.md (deployment.md)
 problems/   пакеты задач, CC BY-SA 4.0
 scripts/    служебные скрипты: сверка lock-файлов и лицензий, политика лицензий
 docs/       проектная документация

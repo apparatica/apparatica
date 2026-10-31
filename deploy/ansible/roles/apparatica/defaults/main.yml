@@ -1,0 +1,14 @@
+# Where the releases and the settings live on the host (docs/deployment.md#на-сервере).
+apparatica_root: /opt/apparatica
+apparatica_config: /etc/apparatica
+# Releases kept for a rollback, the current one included.
+apparatica_keep_releases: 5
+# The repository on the control node: its commit is the release.
+apparatica_repo: "{{ playbook_dir }}/../.."
+# The checks of `just stand-check` against the public names after a deploy.
+apparatica_checks: true
+apparatica_monitoring: false
+apparatica_garage_capacity_gb: 10
+apparatica_compose: >-
+  docker compose -f deploy/compose.yaml -f deploy/compose.server.yaml
+  --env-file {{ apparatica_config }}/settings.env --env-file {{ apparatica_config }}/secrets.env

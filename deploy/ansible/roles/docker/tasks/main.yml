@@ -1,0 +1,42 @@
+# Docker Engine from its apt repository; the worker hosts get the runtime runsc (role gvisor).
+# The install guide of Docker writes a .list file; with ours apt sees two sources and fails.
+- name: Remove the source of the install guide
+  ansible.builtin.file:
+    path: /etc/apt/sources.list.d/docker.list
+    state: absent
+
+- name: Add the apt repository of Docker
+  ansible.builtin.deb822_repository:
+    name: docker
+    types: deb
+    uris: https://download.docker.com/linux/debian
+    suites: "{{ ansible_facts['distribution_release'] }}"
+    components: stable
+    signed_by: https://download.docker.com/linux/debian/gpg
+
+- name: Install Docker
+  ansible.builtin.apt:
+    name:
+      - "docker-ce=5:{{ docker_version }}-1~debian.{{ ansible_facts['distribution_major_version'] }}~{{ ansible_facts['distribution_release'] }}"
+      - "docker-ce-cli=5:{{ docker_version }}-1~debian.{{ ansible_facts['distribution_major_version'] }}~{{ ansible_facts['distribution_release'] }}"
+      - containerd.io
+      - docker-compose-plugin
+      - docker-buildx-plugin
+    update_cache: true
+    allow_downgrade: true
+
+- name: Configure the Docker daemon
+  ansible.builtin.template:
+    src: daemon.json.j2
+    dest: /etc/docker/daemon.json
+    mode: "0644"
+  notify: Restart Docker
+
+- name: Start Docker
+  ansible.builtin.systemd_service:
+    name: docker
+    enabled: true
+    state: started
+
+- name: Apply a changed configuration before the services start
+  ansible.builtin.meta: flush_handlers

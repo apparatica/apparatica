@@ -1,0 +1,5 @@
+# Docker Engine of the hosts; the compose and buildx plugins come with it.
+docker_version: "29.9.2"
+# Logs of the containers on disk, per container.
+docker_log_max_size: 20m
+docker_log_max_files: 5

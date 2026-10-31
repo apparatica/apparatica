@@ -1,0 +1,2 @@
+# The gVisor release of the sandboxes (ADR-0003); a new one is a change of this value.
+gvisor_version: "20261019.0"

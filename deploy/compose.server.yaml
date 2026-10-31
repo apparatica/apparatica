@@ -1,0 +1,71 @@
+# The platform on a server (staging, production; docs/deployment.md): deploy/compose.yaml with this
+# file on top. Caddy serves the public names over HTTPS, the API runs in production mode, nothing
+# else is published. Installed and started by Ansible (deploy/ansible), which writes the settings
+# and the generated secrets to /etc/apparatica:
+#
+#   docker compose -f deploy/compose.yaml -f deploy/compose.server.yaml \
+#     --env-file /etc/apparatica/settings.env --env-file /etc/apparatica/secrets.env up -d
+#
+# Settings: SITE_HOST, S3_HOST, WAVEVIEW_HOST (public names), SANDBOX_RUNTIME=runsc,
+# APX_ENVIRONMENT=production, APX_COOKIE_SECURE=true. Every secret of compose.yaml comes from
+# secrets.env: its public development defaults are never used (Ansible checks it).
+
+services:
+  garage-setup:
+    environment:
+      CORS_ORIGINS: https://${SITE_HOST:?}
+
+  api:
+    environment:
+      APX_S3_PUBLIC_URL: https://${S3_HOST:?}
+      APX_WAVEVIEW_URL: https://${WAVEVIEW_HOST:?}
+
+  web:
+    environment:
+      S3_PUBLIC_URL: https://${S3_HOST:?}
+      WAVEVIEW_URL: https://${WAVEVIEW_HOST:?}
+
+  caddy:
+    environment: !override
+      SITE_HOST: ${SITE_HOST:?}
+      S3_HOST: ${S3_HOST:?}
+      WAVEVIEW_HOST: ${WAVEVIEW_HOST:?}
+    ports: !override
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes: !override
+      - ./Caddyfile.server:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+  # Grafana is not public: an SSH tunnel to the port on the loopback of the server.
+  grafana:
+    environment:
+      GF_SERVER_ROOT_URL: http://localhost:3000
+      GF_AUTH_ANONYMOUS_ENABLED: "false"
+    ports:
+      - "127.0.0.1:3000:3000"
+
+  # The checks of `just stand-check` through Caddy under the public names, with their certificates
+  # (Ansible runs them after a deploy). The names lead to this host itself: the checks test the
+  # deployment, not the caches of public resolvers, and the network of the containers has no IPv6.
+  storage-check:
+    environment:
+      S3_URL: https://${S3_HOST:?}
+      WEB_URL: https://${WAVEVIEW_HOST:?}
+      ALLOWED_ORIGINS: https://${SITE_HOST:?}
+      SITE_URL: https://${SITE_HOST:?}
+    extra_hosts: !override
+      - ${S3_HOST:?}:host-gateway
+      - ${WAVEVIEW_HOST:?}:host-gateway
+
+  judge-check:
+    environment:
+      SITE_URL: https://${SITE_HOST:?}
+      SITE_HOST: ${SITE_HOST:?}
+    extra_hosts:
+      - ${SITE_HOST:?}:host-gateway
+
+volumes:
+  caddy-config:

@@ -97,6 +97,7 @@ check-locks:
     poetry -C judge check --lock
     poetry -C backend check --lock
     poetry -C worker check --lock
+    poetry -C deploy/ansible check --lock
     {{ python }} scripts/check_locks.py
 
 # Check dependency licenses against scripts/license-policy.toml
@@ -224,3 +225,30 @@ waveview-test:
 # with NEXT_PUBLIC_MOCK_WAVEVIEW_URL=http://localhost:<port>/<version>/index.html (docs/frontend.md)
 waveview-serve port="3901" origin="http://localhost:3000":
     node waveview/tests/serve.mjs waveview/dist {{ port }} {{ origin }}
+
+ansible_image := "apparatica-ansible"
+# Base image override for networks without Docker Hub access, e.g.
+# PYTHON_IMAGE=mirror.gcr.io/library/python:3.13-slim
+ansible_python := env("PYTHON_IMAGE", "")
+# The control node of deploy/ansible in a container: the repository and the SSH keys of the user.
+ansible := "docker run --rm -i -v " + quote(justfile_directory() + ":/repo") + " -v " + quote(home_directory() / ".ssh" + ":/ssh:ro") + " " + ansible_image
+
+# Build the control node of deploy/ansible: Ansible of its poetry.lock, SSH and git
+ansible-image:
+    docker build {{ if ansible_python != "" { "--build-arg PYTHON_IMAGE=" + ansible_python } else { "" } }} -q -t {{ ansible_image }} deploy/ansible
+
+# Prepare the servers of an environment and deploy the current commit to them (docs/deployment.md)
+provision env="staging" *args: ansible-image
+    {{ ansible }} ansible-playbook -i inventories/{{ env }} site.yml {{ args }}
+
+# Deploy the current commit, with uncommitted changes of tracked files, to an environment
+deploy env="staging" *args: ansible-image
+    {{ ansible }} ansible-playbook -i inventories/{{ env }} deploy.yml {{ args }}
+
+# Start a kept release of an environment again (deploy/RUNBOOK.md)
+rollback release env="staging": ansible-image
+    {{ ansible }} ansible-playbook -i inventories/{{ env }} rollback.yml -e release={{ release }}
+
+# Lint the playbooks of deploy/ansible and check their syntax
+lint-ansible: ansible-image
+    {{ ansible }} sh -c "ansible-playbook --syntax-check site.yml rollback.yml -e release=x && ansible-lint"

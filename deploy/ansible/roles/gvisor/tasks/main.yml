@@ -1,0 +1,22 @@
+# gVisor for the sandboxes of the worker (ADR-0003): runsc from the apt repository of gVisor, the
+# platform systrap by default (the VPS has no nested virtualization). Docker gets it as a runtime.
+# The install guide of gVisor writes a .list file; with ours apt sees two sources and fails.
+- name: Remove the source of the install guide
+  ansible.builtin.file:
+    path: /etc/apt/sources.list.d/gvisor.list
+    state: absent
+
+- name: Add the apt repository of gVisor
+  ansible.builtin.deb822_repository:
+    name: gvisor
+    types: deb
+    uris: https://storage.googleapis.com/gvisor/releases
+    suites: release
+    components: main
+    signed_by: https://gvisor.dev/archive.key
+
+- name: Install runsc
+  ansible.builtin.apt:
+    name: "runsc={{ gvisor_version }}"
+    update_cache: true
+    allow_downgrade: true

@@ -1,0 +1,66 @@
+# The services of the release: images built on the host, the long-running services waited for as
+# `just up` does, the demo problems imported, monitoring, the checks; then the current link.
+- name: Start the services of the release
+  ansible.builtin.command: >-
+    {{ apparatica_compose }} up -d --build --wait --wait-timeout 900
+    caddy valkey-queue valkey-cache ingest worker
+  args:
+    chdir: "{{ apparatica_root }}/releases/{{ apparatica_release }}"
+  changed_when: true
+
+- name: Import the problems of the release
+  ansible.builtin.command: "{{ apparatica_compose }} run --rm demo-problems"
+  args:
+    chdir: "{{ apparatica_root }}/releases/{{ apparatica_release }}"
+  register: apparatica_import
+  changed_when: "'новых версий: 0,' not in apparatica_import.stdout"
+
+- name: Start the monitoring
+  when: apparatica_monitoring
+  ansible.builtin.command: "{{ apparatica_compose }} --profile monitoring up -d prometheus grafana"
+  args:
+    chdir: "{{ apparatica_root }}/releases/{{ apparatica_release }}"
+  changed_when: true
+
+- name: Mark the time the release was deployed
+  ansible.builtin.file:
+    path: "{{ apparatica_root }}/releases/{{ apparatica_release }}"
+    state: touch
+    mode: "0755"
+
+- name: Point the current link to the release
+  ansible.builtin.file:
+    src: "{{ apparatica_root }}/releases/{{ apparatica_release }}"
+    dest: "{{ apparatica_root }}/current"
+    state: link
+
+- name: Check the storage and the judging through the public names
+  when: apparatica_checks
+  ansible.builtin.command: "{{ apparatica_compose }} run --rm {{ item }}"
+  args:
+    chdir: "{{ apparatica_root }}/current"
+  loop: [storage-check, judge-check]
+  changed_when: false
+
+- name: Find the old releases
+  ansible.builtin.find:
+    paths: "{{ apparatica_root }}/releases"
+    file_type: directory
+  register: apparatica_releases
+
+# The newest by the time they were last deployed (the current link), the current one never.
+- name: Remove the releases beyond the kept ones
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: absent
+  loop: >-
+    {{ (apparatica_releases.files
+        | rejectattr('path', 'equalto', apparatica_root ~ '/releases/' ~ apparatica_release)
+        | sort(attribute='mtime', reverse=true))[apparatica_keep_releases - 1:] }}
+  loop_control:
+    label: "{{ item.path | basename }}"
+
+- name: Remove the images no release uses
+  ansible.builtin.command: docker image prune -f
+  register: apparatica_prune
+  changed_when: "'Total reclaimed space: 0B' not in apparatica_prune.stdout"

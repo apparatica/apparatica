@@ -1,0 +1,18 @@
+#!/usr/sbin/nft -f
+# {{ ansible_managed }}
+# Only the table of the host: no `flush ruleset`, which would drop the tables of Docker. Published
+# ports of containers pass the forward hook, so this chain sees only traffic to the host itself.
+table inet apparatica
+delete table inet apparatica
+
+table inet apparatica {
+	chain input {
+		type filter hook input priority filter; policy drop;
+		iif lo accept
+		ct state established,related accept
+		ct state invalid drop
+		meta l4proto { icmp, ipv6-icmp } accept
+		tcp dport { {{ base_tcp_ports | join(', ') }} } accept
+		udp dport { {{ base_udp_ports | join(', ') }} } accept
+	}
+}

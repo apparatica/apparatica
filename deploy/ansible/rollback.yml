@@ -1,0 +1,18 @@
+# Back to a kept release (deploy/RUNBOOK.md#откат): `just rollback <release>`. The settings and the
+# secrets stay those of the host; migrations go forward only (specs/09 §1), so the schema stays.
+- name: Roll the platform back
+  hosts: app
+  become: true
+  vars:
+    apparatica_release: "{{ release }}"
+  tasks:
+    - name: Check that the release is kept
+      ansible.builtin.stat:
+        path: /opt/apparatica/releases/{{ release }}/deploy/compose.yaml
+      register: apparatica_kept
+      failed_when: not apparatica_kept.stat.exists
+
+    - name: Start the services of the release
+      ansible.builtin.include_role:
+        name: apparatica
+        tasks_from: services

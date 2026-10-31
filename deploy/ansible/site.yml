@@ -1,0 +1,26 @@
+# Servers from scratch and the platform on them (docs/deployment.md): `just provision`; only the
+# hosts with `--tags host`.
+- name: Prepare the hosts
+  tags: [host]
+  hosts: all
+  become: true
+  roles:
+    - base
+
+- name: Install gVisor on the worker hosts
+  tags: [host]
+  hosts: worker
+  become: true
+  roles:
+    - gvisor
+
+- name: Install Docker
+  tags: [host]
+  hosts: all
+  become: true
+  roles:
+    - docker
+
+- name: Deploy the platform
+  ansible.builtin.import_playbook: deploy.yml
+  tags: [deploy]

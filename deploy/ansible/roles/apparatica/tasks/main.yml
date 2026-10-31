@@ -1,0 +1,40 @@
+# The platform on the host (docs/deployment.md): the release of the repository, the settings and
+# the secrets, the services of deploy/compose.yaml with compose.server.yaml, the checks.
+- name: Keep the worker on the app host
+  ansible.builtin.assert:
+    that: "'worker' in group_names"
+    fail_msg: >-
+      A separate worker host needs the queue and the storage of the app host over a private network;
+      until then both roles live on one host (docs/deployment.md#хосты).
+
+- name: Create the directories of the platform
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    mode: "{{ item.mode }}"
+  loop:
+    - { path: "{{ apparatica_config }}", mode: "0700" }
+    - { path: "{{ apparatica_root }}/releases", mode: "0755" }
+
+- name: Install the generator of the secrets
+  ansible.builtin.copy:
+    src: apparatica-secrets.py
+    dest: /usr/local/sbin/apparatica-secrets
+    mode: "0755"
+
+- name: Generate the missing secrets
+  ansible.builtin.command: /usr/local/sbin/apparatica-secrets {{ apparatica_config }}/secrets.env
+  register: apparatica_secrets
+  changed_when: apparatica_secrets.stdout != ""
+
+- name: Write the settings
+  ansible.builtin.template:
+    src: settings.env.j2
+    dest: "{{ apparatica_config }}/settings.env"
+    mode: "0600"
+
+- name: Pack the release
+  ansible.builtin.import_tasks: release.yml
+
+- name: Start the services
+  ansible.builtin.import_tasks: services.yml
