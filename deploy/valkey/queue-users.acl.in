@@ -13,5 +13,5 @@ user api on >@API_PASSWORD@ ~dramatiq ~dramatiq:* ~queue:* %R~sub:* %W~cancel:* 
 user worker on >@WORKER_PASSWORD@ ~dramatiq ~dramatiq:* %W~queue:* ~lease:* ~attempts:* %W~sub:* %W~judge:results %R~cancel:* &judge:cancel +@all -@dangerous -publish
 # ingest: reads the results through its consumer group, writes `finalized` to the event streams;
 # its leader holds leader:ingest, the watchdog looks whether a worker holds a check; it ends the
-# cancelled checks that wait.
-user ingest on >@INGEST_PASSWORD@ ~judge:results %W~sub:* ~leader:ingest %R~lease:* &judge:cancel +@all -@dangerous -publish
+# cancelled checks that wait; it reads the queue positions for the metrics (docs/configuration.md#метрики).
+user ingest on >@INGEST_PASSWORD@ ~judge:results %W~sub:* ~leader:ingest %R~lease:* %R~queue:* &judge:cancel +@all -@dangerous -publish

@@ -1003,16 +1003,6 @@
         "operationId": "get_artifact",
         "parameters": [
           {
-            "name": "id",
-            "in": "path",
-            "required": true,
-            "schema": {
-              "type": "string",
-              "format": "uuid",
-              "title": "Id"
-            }
-          },
-          {
             "name": "kind",
             "in": "path",
             "required": true,
@@ -1024,6 +1014,16 @@
               ],
               "type": "string",
               "title": "Kind"
+            }
+          },
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Id"
             }
           },
           {

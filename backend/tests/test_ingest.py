@@ -10,6 +10,7 @@ from typing import Any, cast
 
 import pytest
 import redis.asyncio
+from prometheus_client import REGISTRY
 from sqlalchemy import select
 from test_submissions_api import PROFILE
 
@@ -394,6 +395,20 @@ def test_the_consumer_applies_acknowledges_and_publishes(
         for record in records:
             await valkey.xadd(RESULTS_STREAM, {"r": record.model_dump_json()})
 
+        def counted() -> list[float]:
+            return [
+                REGISTRY.get_sample_value(name, labels) or 0
+                for name, labels in (
+                    (
+                        "apparatica_ingest_records_total",
+                        {"type": "malformed", "outcome": "dropped"},
+                    ),
+                    ("apparatica_ingest_records_total", {"type": "done", "outcome": "stored"}),
+                    ("apparatica_checks_finished_total", {"status": "accepted"}),
+                )
+            ]
+
+        before = counted()
         with pytest.raises(ConnectionRefusedError):  # the malformed entry went, the next waits
             await consumer.step()
         assert await valkey.xlen(RESULTS_STREAM) == 2
@@ -411,6 +426,7 @@ def test_the_consumer_applies_acknowledges_and_publishes(
             "verdict_detail": VerdictDetail().model_dump(mode="json"),
         }
         assert 0 < await valkey.ttl(key) <= 600
+        assert [a - b for a, b in zip(counted(), before, strict=True)] == [1, 1, 1]
         await valkey.aclose()
 
     run(database_url, scenario)

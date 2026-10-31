@@ -10,6 +10,7 @@ from typing import Protocol
 
 import structlog
 
+from apparatica_worker.metrics import observe_attempt
 from apparatica_worker.stream import ResultsStream
 from judge.core.events import Event, LogEvent
 from judge.core.jobs import AttemptFailedRecord, DoneRecord, JudgeJob, StoredArtifact
@@ -38,7 +39,7 @@ class Reporter(Protocol):
 
 
 class StreamReporter:
-    """The report to the ingestor through `judge:results`, and to the log."""
+    """The report to the ingestor through `judge:results`, to the log and to the metrics."""
 
     def __init__(self, results: ResultsStream) -> None:
         self._results = results
@@ -53,6 +54,7 @@ class StreamReporter:
             stages={result.key: result.status for result in report.results},
             artifacts=[artifact.key for artifact in report.artifacts],
         )
+        observe_attempt(report.results, report.error_code, report.cancelled)
         job, attempt = report.job, report.attempt
         record: AttemptFailedRecord | DoneRecord
         if report.error_code is not None:

@@ -44,6 +44,10 @@ def _ingest(args: argparse.Namespace) -> int:
 
     settings = get_settings()
     configure_logging(settings.log_level, settings.log_format)
+    if settings.metrics_port is not None:
+        from prometheus_client import start_http_server
+
+        start_http_server(settings.metrics_port)
 
     async def main() -> None:
         stop = asyncio.Event()

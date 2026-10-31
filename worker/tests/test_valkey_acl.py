@@ -207,6 +207,10 @@ def test_the_ingestor_reads_results_and_writes_finalized(server: tuple[str, str]
     client.expire("sub:1", 600)
     client.set("leader:ingest", "ingest-acl", nx=True, px=30000)  # the leader of the instances
     client.exists("lease:1")  # the watchdog: does a worker hold the check
+    # The metrics: checks waiting in each queue, the oldest of them, results not stored yet.
+    client.zcard("queue:judge.light")
+    client.zrange("queue:judge.light", 0, 0, withscores=True)
+    client.xlen(RESULTS_STREAM)
     # The SSE endpoint of the API reads what the ingestor and the worker wrote.
     api = redis.Redis.from_url(api_url)
     assert api.xrange("sub:1")
@@ -239,6 +243,7 @@ def test_the_ingestor_reads_results_and_writes_finalized(server: tuple[str, str]
         ("worker", lambda r: r.set("cancel:1", "user")),  # reads cancels, makes none
         ("api", lambda r: r.get("cancel:1")),
         ("ingest", lambda r: r.xadd("dramatiq:judge.light", {"x": "1"})),
+        ("ingest", lambda r: r.zadd("queue:judge.light", {"x": 1})),  # reads positions only
         ("default", lambda r: r.get("queue:judge.light")),
     ],
     ids=[
@@ -253,11 +258,12 @@ def test_the_ingestor_reads_results_and_writes_finalized(server: tuple[str, str]
         "api-events",
         "ingest-events",
         "ingest-lease",
-        "ingest-queue",
         "ingest-publish",
         "worker-publish",
         "worker-cancel",
         "api-read-cancel",
+        "ingest-queue",
+        "ingest-position",
         "default",
     ],
 )

@@ -1,0 +1,9 @@
+# The dashboards of deploy/grafana/dashboards, read-only in the UI: they change in the repository.
+apiVersion: 1
+providers:
+  - name: apparatica
+    folder: Apparatica
+    type: file
+    allowUiUpdates: false
+    options:
+      path: /var/lib/grafana/dashboards

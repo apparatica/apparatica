@@ -8,6 +8,7 @@ from typing import Any
 
 import pytest
 import redis
+from prometheus_client import REGISTRY
 from stream_helpers import read_stream
 
 from apparatica_worker.report import AttemptReport, StreamReporter
@@ -152,6 +153,42 @@ def test_results_carry_the_job_token(valkey_url: str) -> None:
         DoneRecord(**common, attempt=1, results=(RESULT,), artifacts=(log,)),
         AttemptFailedRecord(**common, attempt=3, error_code="ATTEMPTS_EXHAUSTED"),
     ]
+
+
+def test_reported_attempts_go_to_the_metrics(valkey_url: str) -> None:
+    def sample(name: str, **labels: str) -> float:
+        return REGISTRY.get_sample_value(name, labels) or 0.0
+
+    timed = RESULT.model_copy(update={"duration_ms": 1500})
+    error = RESULT.model_copy(update={"key": "sim", "type": "sim", "status": "error"})
+    before = {
+        "done": sample("apparatica_worker_attempts_total", outcome="done"),
+        "exhausted": sample("apparatica_worker_attempts_total", outcome="ATTEMPTS_EXHAUSTED"),
+        "lint": sample("apparatica_worker_stages_total", stage="lint", status="passed"),
+        "sim": sample("apparatica_worker_stages_total", stage="sim", status="error"),
+        "time": sample(
+            "apparatica_worker_stage_duration_seconds_sum", stage="lint", status="passed"
+        ),
+    }
+    reporter = StreamReporter(ResultsStream(redis.Redis.from_url(valkey_url)))
+    reporter.report(AttemptReport(JOB, 1, (timed, error)))
+    reporter.report(AttemptReport(JOB, 3, error_code="ATTEMPTS_EXHAUSTED"))
+    after = {
+        "done": sample("apparatica_worker_attempts_total", outcome="done"),
+        "exhausted": sample("apparatica_worker_attempts_total", outcome="ATTEMPTS_EXHAUSTED"),
+        "lint": sample("apparatica_worker_stages_total", stage="lint", status="passed"),
+        "sim": sample("apparatica_worker_stages_total", stage="sim", status="error"),
+        "time": sample(
+            "apparatica_worker_stage_duration_seconds_sum", stage="lint", status="passed"
+        ),
+    }
+    assert {key: after[key] - before[key] for key in before} == {
+        "done": 1,
+        "exhausted": 1,
+        "lint": 1,
+        "sim": 1,
+        "time": 1.5,  # the stage without a duration is counted, not timed
+    }
 
 
 @pytest.mark.parametrize("record", ["stage_end", "done", "attempt_failed"])

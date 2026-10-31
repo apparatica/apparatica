@@ -16,6 +16,8 @@ from fastapi.responses import JSONResponse
 from pydantic import BaseModel, ConfigDict, Field
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
+from apparatica.core.metrics import API_ERRORS
+
 PROBLEM_MEDIA_TYPE = "application/problem+json"
 # The error schema in OpenAPI components: `Problem` would read as a problem of the catalogue.
 ERROR_COMPONENT = "Error"
@@ -120,6 +122,7 @@ def problem_response(
 ) -> JSONResponse:
     status = STATUS[code]
     request_id = getattr(request.state, "request_id", None)
+    API_ERRORS.labels(code).inc()
     body = Problem(
         type=TYPE_BASE + code.lower().replace("_", "-"),
         title=title or status.phrase,

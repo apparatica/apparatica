@@ -16,8 +16,10 @@ import socket
 from collections.abc import Sequence
 from typing import Any
 
+import redis
 import redis.asyncio
 import structlog
+from prometheus_client import REGISTRY
 from pydantic import ValidationError
 from redis.exceptions import ResponseError
 
@@ -36,10 +38,11 @@ from apparatica.judging.housekeeping import (
 )
 from apparatica.judging.ingest import Ingestor, InvalidRecordError, transient
 from apparatica.judging.leader import Leadership
+from apparatica.judging.metrics import RECORDS, QueueCollector
 from apparatica.judging.publish import publish_finalized
 from apparatica.judging.retention import load_retention
 from apparatica.submissions.tokens import JobTokens
-from judge.core.jobs import RESULT_RECORD, RESULTS_STREAM, RESULTS_STREAM_FIELD
+from judge.core.jobs import QUEUES, RESULT_RECORD, RESULTS_STREAM, RESULTS_STREAM_FIELD
 from judge.core.limits import load_resource_classes
 
 log = structlog.get_logger(__name__)
@@ -124,27 +127,28 @@ class ResultsConsumer:
             record = RESULT_RECORD.validate_json((fields or {})[RESULTS_STREAM_FIELD.encode()])
         except (KeyError, ValidationError) as error:
             log.error("malformed result dropped", entry=entry, error=str(error))
+            RECORDS.labels("malformed", "dropped").inc()
             await self._ack(entry_id)
             return
-        try:
-            finalized = await self._ingestor.ingest(record)
-        except InvalidRecordError as error:
-            log.warning(
-                "result dropped",
-                entry=entry,
-                submission_id=str(record.submission_id),
-                record=record.type,
-                reason=str(error),
-            )
-        except Exception as error:
-            if transient(error):
-                raise  # stays pending
-            # A record that breaks the ingestor would break it forever: dropped, with the trace.
-            log.exception("result failed", entry=entry, submission_id=str(record.submission_id))
-        else:
-            if finalized is not None:
-                await publish_finalized(self._valkey, record.submission_id, finalized)
-        await self._ack(entry_id)
+        # Every record of the check, of the ingestor and of the judge code it calls (NFR-OBS-01).
+        with structlog.contextvars.bound_contextvars(submission_id=str(record.submission_id)):
+            try:
+                finalized = await self._ingestor.ingest(record)
+            except InvalidRecordError as error:
+                log.warning("result dropped", entry=entry, record=record.type, reason=str(error))
+                outcome = "dropped"
+            except Exception as error:
+                if transient(error):
+                    raise  # stays pending
+                # A record that breaks the ingestor would break it forever: dropped, with the trace.
+                log.exception("result failed", entry=entry)
+                outcome = "failed"
+            else:
+                if finalized is not None:
+                    await publish_finalized(self._valkey, record.submission_id, finalized)
+                outcome = "stored"
+            RECORDS.labels(record.type, outcome).inc()
+            await self._ack(entry_id)
 
     async def _ack(self, entry_id: bytes) -> None:
         async with self._valkey.pipeline(transaction=False) as pipe:
@@ -186,11 +190,17 @@ async def run_ingest(settings: Settings, stop: asyncio.Event) -> None:
     ingestor = Ingestor(database, tokens, retention)
     consumer = ResultsConsumer(valkey, ingestor, name)
     housekeeping = Housekeeping(Leadership(valkey, name), tasks)
+    # Scrapes come in the thread of the metrics server: a client of its own, not of the loop.
+    queues = QueueCollector(
+        redis.Redis.from_url(settings.queue_url, socket_timeout=2, socket_connect_timeout=2), QUEUES
+    )
+    REGISTRY.register(queues)
     try:
         async with asyncio.TaskGroup() as group:  # a failure of one stops the other
             group.create_task(consumer.run(stop))
             group.create_task(housekeeping.run(stop))
             group.create_task(CancelWatcher(valkey, ingestor).run(stop))
     finally:
+        REGISTRY.unregister(queues)
         await valkey.aclose()
         await database.dispose()

@@ -25,6 +25,11 @@ class Settings(BaseSettings):
     )
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     log_format: Literal["json", "console"] = "console"
+    metrics_port: PositiveInt | None = Field(
+        default=9100,
+        description="Port of /metrics of the ingestor for Prometheus, never public; unset: none."
+        " The API serves /metrics on its own port",
+    )
     feature_flags_ttl_s: PositiveFloat = Field(
         default=30, description="In-process cache of feature flags (specs/03 §7)"
     )

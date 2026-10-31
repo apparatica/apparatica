@@ -7,8 +7,10 @@ from collections.abc import Callable, Iterator
 from contextlib import contextmanager
 from typing import Any
 
+import structlog
 from dramatiq import Message
 from dramatiq.brokers.redis import RedisBroker
+from prometheus_client import REGISTRY
 
 from apparatica_worker.broker import Handler, WaveformHandler
 from apparatica_worker.main import create_workers, run
@@ -110,6 +112,31 @@ def test_waveform_jobs_share_the_queues(valkey_url: str) -> None:
         ],
         key=str,
     )
+
+
+def sample(name: str, **labels: str) -> float:
+    return REGISTRY.get_sample_value(name, labels) or 0.0
+
+
+def test_a_job_holds_a_slot_and_its_id_is_in_the_log_context(valkey_url: str) -> None:
+    release = threading.Event()
+    contexts: list[dict[str, Any]] = []
+
+    def hold(payload: JudgeJob, queue: str) -> None:
+        contexts.append(structlog.contextvars.get_contextvars())
+        release.wait(30)
+
+    waits = sample("apparatica_worker_queue_wait_seconds_count", queue="judge.heavy")
+    payload = job()
+    with worker(valkey_url, hold, slots=2, rejudge_slots=0):
+        send(valkey_url, "judge.heavy", payload)
+        wait_for(lambda: len(contexts) == 1)
+        assert sample("apparatica_worker_slots", pool="main") == 2
+        assert sample("apparatica_worker_busy_slots", pool="main") == 1
+        release.set()
+        wait_for(lambda: sample("apparatica_worker_busy_slots", pool="main") == 0)
+    assert contexts == [{"submission_id": str(payload.submission_id)}]
+    assert sample("apparatica_worker_queue_wait_seconds_count", queue="judge.heavy") == waits + 1
 
 
 def test_rejudges_have_their_own_slots(valkey_url: str) -> None:

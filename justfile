@@ -158,9 +158,14 @@ up:
     {{ compose }} up -d --build --wait caddy valkey-queue valkey-cache ingest worker
     {{ compose }} run --rm demo-problems
 
+# Start Prometheus and Grafana next to the running stand (http://grafana.localhost:8080;
+# docs/stand.md#мониторинг)
+monitoring:
+    {{ compose }} --profile monitoring up -d --wait prometheus grafana
+
 # Stop the stand; the data volumes stay (remove them with: docker compose ... down -v)
 down:
-    {{ compose }} down
+    {{ compose }} --profile monitoring down
 
 # Follow the logs of the stand, or of the given services
 logs *services:

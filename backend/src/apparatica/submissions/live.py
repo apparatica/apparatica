@@ -5,13 +5,17 @@ the process, until `finalized`. While the check waits, a `queue` event every 2 s
 position; it has no `id:` and is not stored. After the stream expired: the journal
 `events.jsonl.zst` of the last attempt with the same ids, and `finalized` from the database.
 A `: keepalive` comment goes every 15 s.
+
+Metrics: the live streams being served, and the stream delay of each event that arrives while
+the client listens (the time of its entry id, written by Valkey, to the time it is sent).
 """
 
 import asyncio
+import contextlib
 import json
 import time
 import uuid
-from collections.abc import AsyncIterator
+from collections.abc import AsyncGenerator, AsyncIterator
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -19,6 +23,7 @@ from typing import Any
 import structlog
 import zstandard
 from botocore.exceptions import BotoCoreError, ClientError
+from prometheus_client import Gauge, Histogram
 
 from apparatica.core.storage import Storage
 from apparatica.submissions.events import FinalizedEvent, QueueEvent
@@ -32,6 +37,13 @@ log = structlog.get_logger(__name__)
 KEEPALIVE_S = 15.0
 QUEUE_EVERY_S = 2.0
 KEEPALIVE = b": keepalive\n\n"
+
+STREAMS_OPEN = Gauge("apparatica_streams_open", "Live event streams of submissions being served")
+STREAM_DELAY = Histogram(
+    "apparatica_stream_delay_seconds",
+    "From an event written to the submission stream to the client, for events sent as they come",
+    buckets=(0.01, 0.025, 0.05, 0.1, 0.25, 0.5, 1, 2.5, 5, 10),
+)
 
 
 @dataclass(frozen=True)
@@ -71,6 +83,18 @@ async def live_events(
     hub: StreamHub,
     job_queue: JobQueue,
 ) -> AsyncIterator[bytes]:
+    with STREAMS_OPEN.track_inprogress():
+        async with contextlib.aclosing(_live_events(watched, after, hub, job_queue)) as events:
+            async for chunk in events:
+                yield chunk
+
+
+async def _live_events(
+    watched: Watched,
+    after: str,
+    hub: StreamHub,
+    job_queue: JobQueue,
+) -> AsyncGenerator[bytes]:
     key = submission_stream_key(watched.id)
     last = after
     for entry_id, raw in await hub.history(key, after):
@@ -109,6 +133,7 @@ async def live_events(
             entry_id, raw = entry
             event = json.loads(raw)
             waiting = False
+            STREAM_DELAY.observe(max(0.0, time.time() - entry_key(entry_id)[0] / 1000))
             yield sse(event, entry_id)
             next_keepalive = time.monotonic() + KEEPALIVE_S
             if event.get("type") == "finalized":

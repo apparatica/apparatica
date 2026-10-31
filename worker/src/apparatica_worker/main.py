@@ -15,6 +15,7 @@ import redis
 import structlog
 from botocore.config import Config
 from dramatiq import Broker, Worker
+from prometheus_client import start_http_server
 
 from apparatica_worker.broker import (
     Handler,
@@ -25,6 +26,7 @@ from apparatica_worker.broker import (
 )
 from apparatica_worker.cancel import CancelListener
 from apparatica_worker.logging import configure_logging
+from apparatica_worker.metrics import SLOTS, pool
 from apparatica_worker.orchestrator import Orchestrator
 from apparatica_worker.report import StreamReporter
 from apparatica_worker.sandboxd.client import SandboxdClient, SandboxExecutor
@@ -50,6 +52,7 @@ def create_workers(broker: Broker, settings: WorkerSettings) -> list[Worker]:
         pools.append(({REJUDGE_QUEUE}, settings.rejudge_slots))
     workers = []
     for queues, slots in pools:
+        SLOTS.labels(pool(next(iter(queues)))).set(slots)
         worker = Worker(broker, queues=queues, worker_threads=slots)
         # A check takes long: a worker holds no more messages than it runs, the rest wait for
         # whichever worker is free (the default prefetch is twice the threads).
@@ -133,6 +136,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         return 2
     settings = WorkerSettings()
     configure_logging(settings.log_level, settings.log_format)
+    if settings.metrics_port is not None:
+        start_http_server(settings.metrics_port)
     stop = threading.Event()
     for name in (signal.SIGINT, signal.SIGTERM):
         signal.signal(name, lambda *_: stop.set())

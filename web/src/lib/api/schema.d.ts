@@ -2153,8 +2153,8 @@ export interface operations {
             };
             header?: never;
             path: {
-                id: string;
                 kind: "log" | "events" | "fst";
+                id: string;
             };
             cookie?: never;
         };

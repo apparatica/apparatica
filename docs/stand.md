@@ -11,8 +11,9 @@ just up            # собрать образы, мигрировать БД, �
                    # тулчейна, запустить воркер, импортировать задачи
 just stand-check   # проверить хранилище (права ключей, presigned URL, CORS, сайт waveview)
                    # и проверку решений гостя через весь стенд
+just monitoring    # Prometheus и Grafana рядом с запущенным стендом
 just logs api web  # логи сервисов
-just down          # остановить; данные в томах остаются (удалить: docker compose … down -v)
+just down          # остановить (и мониторинг); данные в томах остаются (удалить: docker compose … down -v)
 ```
 
 Без `just` то же делает `docker compose -f deploy/compose.yaml up -d --build`. Сайт — http://localhost:8080.
@@ -26,6 +27,7 @@ just down          # остановить; данные в томах остаю
 | http://localhost:8080 | сайт; `/api/*` — API (документация — `/api/v1/docs`) |
 | http://s3.localhost:8080 | S3 API хранилища: по нему браузер скачивает артефакты по presigned URL |
 | http://waveview.web.localhost:8080 | бакет `waveview` как сайт: просмотрщик волн на своём origin, `/<версия>/index.html` ([waveview.md](waveview.md)) |
+| http://grafana.localhost:8080 | Grafana с дашбордом очередей, только после `just monitoring` ([«Мониторинг»](#мониторинг)) |
 | `127.0.0.1:5432` | Postgres (`apparatica` / `apparatica`), только с `compose.dev.yaml` |
 | `127.0.0.1:6379`, `6380` | `valkey-queue`, `valkey-cache`, только с `compose.dev.yaml` |
 | `127.0.0.1:3900` | S3 API Garage напрямую, только с `compose.dev.yaml` |
@@ -36,7 +38,7 @@ just down          # остановить; данные в томах остаю
 
 | Сервис | Что делает |
 |---|---|
-| `caddy` | proxy: `localhost` — сайт и API (`/api` без буферизации, для SSE), `s3.localhost` и `waveview.web.localhost` — Garage; заголовки безопасности, у `waveview` — свои (CSP с `frame-ancestors` сайта, CORS, ответ на `OPTIONS`). Только HTTP: TLS — со staging (T1.23) |
+| `caddy` | proxy: `localhost` — сайт и API (`/api` без буферизации, для SSE), `s3.localhost` и `waveview.web.localhost` — Garage, `grafana.localhost` — Grafana; заголовки безопасности, у `waveview` — свои (CSP с `frame-ancestors` сайта, CORS, ответ на `OPTIONS`). Только HTTP: TLS — со staging (T1.23) |
 | `api` | FastAPI (`backend/Dockerfile`) |
 | `ingest` | `apparatica ingest` из того же образа: результаты проверок в Postgres, `finalized`, watchdog, сроки хранения артефактов, процент принятых. С ключом хранилища `ingest` и пользователем Valkey `ingest` |
 | `web` | Next.js, standalone-сервер (`web/Dockerfile`); серверный рендер читает `api` напрямую (`API_URL=http://api:8000`) и стартует после него |
@@ -52,6 +54,7 @@ just down          # остановить; данные в томах остаю
 | `toolchain-profile` | одноразовый: регистрирует образ профилем тулчейна по умолчанию (`deploy/worker/toolchain-profile.sh`) |
 | `sandboxd` | `apx-sandboxd` из образа воркера (`worker/Dockerfile`), см. [«Воркер и песочница»](#воркер-и-песочница) |
 | `worker` | `apparatica-worker`: проверки из очередей в песочницах `sandboxd`. С ключом хранилища `worker` и пользователем Valkey `worker`, без Postgres и Docker |
+| `prometheus`, `grafana` | мониторинг, запускаются только `just monitoring` (профиль `monitoring`), см. [«Мониторинг»](#мониторинг) |
 | `storage-check`, `judge-check` | проверки стенда, запускаются только `just stand-check` (профиль `check`): хранилище (`deploy/garage/check.py`) и проверка решений (`deploy/worker/check.py`) |
 
 Одноразовые сервисы идемпотентны и выполняются при каждом `up`: повторный импорт пропускает неизменённые версии, настройка Garage ничего не пересоздаёт.
@@ -79,6 +82,18 @@ TOOLCHAIN_PROFILE_ID=sv-dev-1   # профиль неизменяем: у дру
 
 Профиль с тем же id, но другим образом `toolchain-profile` не перезапишет и завершится ошибкой: задайте новый `TOOLCHAIN_PROFILE_ID`.
 
+## Мониторинг
+
+`just monitoring` поднимает рядом с запущенным стендом Prometheus и Grafana (профиль `monitoring`; `just up` их не запускает). Prometheus (`deploy/prometheus/prometheus.yml`) раз в 15 с опрашивает `api:8000/metrics`, `ingest:9100` и `worker:9100` ([configuration.md](configuration.md#метрики)) и хранит данные 7 дней в томе `prometheus`. Снаружи его не видно.
+
+Grafana открывается на http://grafana.localhost:8080: смотреть можно без входа, менять — под `admin` с паролем `GRAFANA_ADMIN_PASSWORD` (по умолчанию `apparatica`). Источник данных и дашборды подключаются из `deploy/grafana/provisioning`. Дашборд «Apparatica: очереди и проверки» (`deploy/grafana/dashboards/apparatica.json`) открывается по умолчанию и меняется только в репозитории: в интерфейсе он только для чтения. На нём:
+- очереди: сколько проверок ждёт, сколько ждёт самая старая, p50/p95 ожидания, записи `judge:results` без записи в базу;
+- загрузка слотов воркеров по пулам;
+- p50/p95 времени этапов и доля `internal_error` по этапам, итоги проверок;
+- запросы и ошибки API, p95 времени ответа по роутам, задержка стрима и открытые стримы, записи ингестора.
+
+Алерты NFR-OBS-04 появятся с production (T3.14).
+
 ## Хранилище
 
 `garage-setup` создаёт бакеты `packages`, `artifacts`, `build-cache`, `waveview` и импортирует ключи `api`, `worker`, `ingest` с правами по ADR-0013. CORS бакета `artifacts` разрешает GET и HEAD с сайта: страница задачи сама скачивает FST и передаёт байты просмотрщику, iframe `waveview` в хранилище не ходит. Правила жизненного цикла:
@@ -98,7 +113,8 @@ TOOLCHAIN_PROFILE_ID=sv-dev-1   # профиль неизменяем: у дру
 - `APX_COOKIE_SECURE`: на стенде по HTTP cookie гостя без `Secure` (по умолчанию `false`), за HTTPS — `true`;
 - порты `compose.dev.yaml` — если, например, 5432 уже занят Postgres на хосте;
 - рантайм песочниц (`SANDBOX_RUNTIME`) и образ тулчейна (`TOOLCHAIN_IMAGE`, `TOOLCHAIN_DIGEST`, `TOOLCHAIN_PROFILE_ID`), см. [«Воркер и песочница»](#воркер-и-песочница);
-- образы. Если Docker Hub недоступен, их можно брать через зеркало (`POSTGRES_IMAGE=mirror.gcr.io/library/postgres:17-alpine` …; базовые образы сборки — `PYTHON_IMAGE`, `NODE_IMAGE`, `DOCKER_CLI_IMAGE`).
+- пароль администратора Grafana (`GRAFANA_ADMIN_PASSWORD`);
+- образы. Если Docker Hub недоступен, их можно брать через зеркало (`POSTGRES_IMAGE=mirror.gcr.io/library/postgres:17-alpine` …; базовые образы сборки — `PYTHON_IMAGE`, `NODE_IMAGE`, `DOCKER_CLI_IMAGE`; мониторинг — `PROMETHEUS_IMAGE`, `GRAFANA_IMAGE`).
 
 ## e2e-тесты
 

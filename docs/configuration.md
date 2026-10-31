@@ -34,6 +34,7 @@
 | `APX_INGEST_CONSUMER` | `<hostname>:<pid>` | имя экземпляра ингестора в группе `ingest` стрима `judge:results` и владелец блокировки лидера |
 | `APX_WATCHDOG_GRACE_S` | `300` | сколько watchdog ждёт сверх лимитов всех попыток проверки, прежде чем поставить `internal_error` ([architecture.md](architecture.md#ingest)) |
 | `APX_PROBLEM_STATS_EVERY_S` | `300` | как часто ингестор пересчитывает процент принятых (`problem_stats`); не больше 600 — FR-CAT-04 |
+| `APX_METRICS_PORT` | `9100` | порт `/metrics` ингестора для Prometheus ([ниже](#метрики)); не задан — метрик нет. API отдаёт `/metrics` на своём порту и эту переменную не читает |
 
 Неизвестные переменные с префиксом игнорируются. Секреты (пароль БД в URL, ключи хранилища, ключ токенов заданий, ключ cookie гостя, соль адресов, ключ капчи, позже OAuth) передаются только переменными окружения и в репозиторий не попадают.
 
@@ -56,6 +57,7 @@
 | `APX_S3_BUCKET_PACKAGES`, `APX_S3_BUCKET_ARTIFACTS` | `packages`, `artifacts` | бакеты пакетов и артефактов |
 | `APX_S3_BUCKET_BUILD_CACHE` | `build-cache` | кэш сборки: бинарники симуляции на сутки ([architecture.md](architecture.md#кэш-сборки)) |
 | `APX_LOG_LEVEL`, `APX_LOG_FORMAT` | `INFO`, `console` | как у API |
+| `APX_METRICS_PORT` | `9100` | порт `/metrics` для Prometheus ([ниже](#метрики)); не задан — метрик нет |
 
 ## apx-sandboxd
 
@@ -105,3 +107,29 @@
 ## Логи и request id
 
 Логи пишет structlog в stderr: каждая запись запроса (`event: request`, метод, путь, статус, длительность) и все записи, сделанные во время запроса, содержат `request_id`. Он берётся из заголовка `X-Request-ID` (его ставит proxy; допустимы 8–64 символа `A-Z a-z 0-9 . _ -`) или создаётся как UUIDv7, возвращается в заголовке ответа `X-Request-ID` и в поле `request_id` ошибок `problem+json`.
+
+`submission_id` тоже попадает в контекст записей (NFR-OBS-01): в API — на время запроса с отправкой в пути (`/submissions/{id}/…`) и после создания отправки, в воркере — на время задания (у задания волны ещё `waveform_id`), в ингесторе — на время обработки записи `judge:results`. Записи кода судьи и библиотек через стандартный `logging` получают те же поля.
+
+## Метрики
+
+Метрики Prometheus (NFR-OBS-02, `prometheus_client`): API отдаёт их на своём порту по `/metrics` — вне `/api/v1`, в OpenAPI их нет. Caddy проксирует только `/api/*`, поэтому снаружи `/metrics` недоступен. Ингестор и воркер отдают `/metrics` на `APX_METRICS_PORT`. Этот порт не публикуется: Prometheus ходит к нему по внутренней сети. `apx-sandboxd` без сети метрик не отдаёт. Кроме метрик ниже, у каждого процесса есть стандартные `process_*` и `python_*`. Дашборд Grafana — `deploy/grafana/dashboards/apparatica.json` ([stand.md](stand.md#мониторинг)); тесты бэкенда и воркера проверяют, что каждая метрика дашборда объявлена в коде.
+
+| Метрика | Процесс | Что считает |
+|---|---|---|
+| `apparatica_http_requests_total{method, route, status}` | API | запросы по шаблону роута (`/api/v1/submissions/{id}`); не совпавшие ни с одним роутом — `route="unmatched"` |
+| `apparatica_http_request_duration_seconds{method, route}` | API | время до конца ответа; стримы событий не учитываются |
+| `apparatica_api_errors_total{code}` | API | ответы `problem+json` по коду ошибки |
+| `apparatica_streams_open` | API | живые стримы событий, которые отдаются сейчас |
+| `apparatica_stream_delay_seconds` | API | задержка стрима: от времени id записи в `sub:<id>` (его ставит Valkey) до отправки клиенту; только события, пришедшие, пока клиент слушает |
+| `apparatica_queue_waiting{queue}` | ингестор | проверки в очереди: размер `queue:<queue>` |
+| `apparatica_queue_oldest_wait_seconds{queue}` | ингестор | сколько ждёт самая старая проверка очереди; 0 — очередь пуста |
+| `apparatica_results_pending` | ингестор | записи `judge:results`, ещё не сохранённые в базу |
+| `apparatica_checks_finished_total{status}` | ингестор | проверки, получившие финальный статус (`finalized`) |
+| `apparatica_ingest_records_total{type, outcome}` | ингестор | записи `judge:results` по типу и итогу: `stored`, `dropped` (отклонена), `failed`; битые — `type="malformed"` |
+| `apparatica_worker_slots{pool}`, `apparatica_worker_busy_slots{pool}` | воркер | все и занятые слоты: `main` — очереди классов ресурсов, `rejudge` — перепроверки |
+| `apparatica_worker_queue_wait_seconds{queue}` | воркер | от постановки задания в очередь (время сообщения Dramatiq) до слота; задание, возвращённое в очередь после смерти воркера, считается от первой постановки |
+| `apparatica_worker_stage_duration_seconds{stage, status}` | воркер | время этапов, которые запускались, по типу этапа (`lint`, `sim`…) |
+| `apparatica_worker_stages_total{stage, status}` | воркер | этапы отчитанных попыток; `status="error"` — внутренняя ошибка этапа |
+| `apparatica_worker_attempts_total{outcome}` | воркер | попытки: `done`, `cancelled` или код ошибки, если пайплайн не запустился (`PACKAGE_UNAVAILABLE`, `SANDBOX_UNAVAILABLE`, `ATTEMPTS_EXHAUSTED`) |
+
+Значения очередей ингестор читает из Valkey при каждом опросе. Все экземпляры ингестора отдают одинаковые значения, поэтому дашборд берёт максимум. Метрики этапов и попыток относятся только к проверкам; задания волн занимают слоты и ждут в очереди, но этапы не отчитывают.

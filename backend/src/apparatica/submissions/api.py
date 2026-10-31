@@ -4,6 +4,7 @@ submission sets (FR-GST-01); a submission of someone else is NOT_FOUND."""
 import uuid
 from typing import Annotated
 
+import structlog
 from fastapi import APIRouter, Depends, Header, Query, Request, Response, status
 from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,6 +37,15 @@ PHASE_1 = {"x-phase": 1}
 Session = Annotated[AsyncSession, Depends(get_session)]
 # A Valkey stream entry id: the SSE `id:` of an event.
 EventId = Annotated[str, Query(pattern=r"^\d+-\d+$")]
+
+
+async def _submission_id(id: uuid.UUID) -> uuid.UUID:
+    """The submission of the path, bound to every log record of the request (NFR-OBS-01)."""
+    structlog.contextvars.bind_contextvars(submission_id=str(id))
+    return id
+
+
+SubmissionId = Annotated[uuid.UUID, Depends(_submission_id)]
 
 
 @router.post(
@@ -75,6 +85,7 @@ async def create_submission(
         author=author,
         waveview=state.settings.waveview_url,
     )
+    structlog.contextvars.bind_contextvars(submission_id=str(submission.id))
     if guest is None:
         state.guest_cookies.set(response, author.guest_id)
     response.headers["Location"] = str(request.url_for("get_submission", id=submission.id))
@@ -116,7 +127,7 @@ async def list_submissions(
     openapi_extra=PHASE_0,
 )
 async def get_submission(
-    request: Request, response: Response, session: Session, guest: Guest, id: uuid.UUID
+    request: Request, response: Response, session: Session, guest: Guest, id: SubmissionId
 ) -> Submission:
     """A submission of the caller with its stages and artifacts."""
     state = request.app.state
@@ -148,7 +159,7 @@ async def stream_submission_events(
     request: Request,
     session: Session,
     guest: Guest,
-    id: uuid.UUID,
+    id: SubmissionId,
     from_: Annotated[
         EventId | None, Query(alias="from", description="Continue after this event id")
     ] = None,
@@ -198,7 +209,7 @@ async def stream_submission_events(
     openapi_extra=PHASE_1,
 )
 async def cancel_submission(
-    request: Request, session: Session, guest: Guest, id: uuid.UUID
+    request: Request, session: Session, guest: Guest, id: SubmissionId
 ) -> None:
     """Cancel a queued or running check of the caller; the result comes as `finalized` with
     `cancelled`."""
@@ -222,7 +233,7 @@ async def get_artifact(
     request: Request,
     session: Session,
     guest: Guest,
-    id: uuid.UUID,
+    id: SubmissionId,
     kind: ArtifactKind,
     stage: Annotated[str | None, Query(max_length=64, description="Key of the stage")] = None,
 ) -> RedirectResponse:
@@ -259,7 +270,7 @@ async def get_artifact(
     openapi_extra=PHASE_1,
 )
 async def request_waveform(
-    request: Request, session: Session, guest: Guest, id: uuid.UUID, body: WaveformRequest
+    request: Request, session: Session, guest: Guest, id: SubmissionId, body: WaveformRequest
 ) -> SubmissionArtifact:
     """Recreate an expired FST of the failure window with the seed of the submission (FR-WAV-05);
     it is pending until GET /submissions/{id} shows it ready or failed. A kept or pending FST is

@@ -4,6 +4,7 @@ import uuid
 
 import redis.asyncio
 
+from apparatica.judging.metrics import CHECKS_FINISHED
 from apparatica.submissions.events import FinalizedEvent
 from judge.core.jobs import (
     SUBMISSION_STREAM_FIELD,
@@ -27,3 +28,4 @@ async def publish_finalized(
         )
         pipe.expire(key, SUBMISSION_STREAM_FINAL_TTL_S)
         await pipe.execute()
+    CHECKS_FINISHED.labels(event.status).inc()

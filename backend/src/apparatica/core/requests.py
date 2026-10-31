@@ -1,8 +1,9 @@
-"""Request id and access log: a pure ASGI middleware, so streaming responses (SSE) pass through.
+"""Request id, access log and request metrics: a pure ASGI middleware, so streaming responses (SSE)
+pass through.
 
 The id comes from a trusted `X-Request-ID` (the proxy sets it) or is a new UUIDv7. It is bound to
 the log context, stored in `request.state.request_id` (problem+json uses it) and returned in the
-`X-Request-ID` response header.
+`X-Request-ID` response header. Metrics are labelled by the route template, not the path.
 """
 
 import re
@@ -12,6 +13,7 @@ import structlog
 from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from apparatica.core.ids import uuid7
+from apparatica.core.metrics import HTTP_DURATION, HTTP_REQUESTS, route_template
 
 HEADER = b"x-request-id"
 _VALID = re.compile(rb"^[A-Za-z0-9._-]{8,64}$")
@@ -31,12 +33,17 @@ class RequestContextMiddleware:
         request_id = incoming.decode() if _VALID.match(incoming) else str(uuid7())
         scope.setdefault("state", {})["request_id"] = request_id
         status = 500  # until the response starts: an exception escaped the app
+        stream = False
 
         async def send_with_id(message: Message) -> None:
-            nonlocal status
+            nonlocal status, stream
             if message["type"] == "http.response.start":
                 status = message["status"]
                 headers = [(k, v) for k, v in message.get("headers", []) if k.lower() != HEADER]
+                stream = any(
+                    k.lower() == b"content-type" and v.startswith(b"text/event-stream")
+                    for k, v in headers
+                )
                 message["headers"] = [*headers, (HEADER, request_id.encode())]
             await send(message)
 
@@ -45,11 +52,18 @@ class RequestContextMiddleware:
         try:
             await self.app(scope, receive, send_with_id)
         finally:
+            duration = time.perf_counter() - started
+            method = scope["method"]
+            route = route_template(scope)
+            HTTP_REQUESTS.labels(method, route, str(status)).inc()
+            if not stream:
+                HTTP_DURATION.labels(method, route).observe(duration)
             log.info(
                 "request",
-                method=scope["method"],
+                method=method,
                 path=scope["path"],
                 status=status,
-                duration_ms=round((time.perf_counter() - started) * 1000, 1),
+                duration_ms=round(duration * 1000, 1),
             )
-            structlog.contextvars.unbind_contextvars("request_id")
+            # Everything bound during the request (request_id, submission_id) ends with it.
+            structlog.contextvars.clear_contextvars()

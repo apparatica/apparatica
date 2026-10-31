@@ -16,6 +16,7 @@ import redis.asyncio
 import zstandard
 from fastapi.testclient import TestClient
 from moto import mock_aws
+from prometheus_client import REGISTRY
 from test_housekeeping import set_state
 from test_ingest import NOW, new_submission, run
 from test_submissions_api import RecordingQueue
@@ -129,8 +130,12 @@ def test_the_live_stream_continues_after_the_last_event(
     run(database_url, lambda db: set_state(db, submission, status="running"))
     first, second = add(valkey, submission, START, LOG)
     later(0.4, lambda: add(valkey, submission, FINALIZED))
+    delays = REGISTRY.get_sample_value("apparatica_stream_delay_seconds_count") or 0
     with api(database_url, queue, valkey) as client:
         events = read(client, f"/api/v1/submissions/{submission}/events", {"Last-Event-ID": first})
+    # Only `finalized` came while the client listened; the stream is no longer served.
+    assert REGISTRY.get_sample_value("apparatica_stream_delay_seconds_count") == delays + 1
+    assert REGISTRY.get_sample_value("apparatica_streams_open") == 0
     data = [e for e in events if "event" in e]
     assert [(e["id"], e["event"]) for e in data][:1] == [(second, "log")]
     assert data[0]["data"] == LOG

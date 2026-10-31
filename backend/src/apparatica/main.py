@@ -26,6 +26,7 @@ from apparatica.core.errors import (
 )
 from apparatica.core.flags import FeatureFlags, Overrides, database_overrides
 from apparatica.core.logging import configure_logging
+from apparatica.core.metrics import METRICS_PATH, metrics_endpoint
 from apparatica.core.platform import load_platform_config
 from apparatica.core.ratelimit import ClientAddresses, RateLimiter
 from apparatica.core.requests import RequestContextMiddleware
@@ -121,6 +122,8 @@ def create_app(
     common = problem_responses(ErrorCode.INTERNAL)
     for module in (core_api, problems_api, submissions_api, captcha_api):
         app.include_router(module.router, prefix=API_PREFIX, responses=common)
+    # For Prometheus in the internal network, not part of the API (docs/configuration.md#метрики).
+    app.add_api_route(METRICS_PATH, metrics_endpoint, include_in_schema=False)
 
     def openapi() -> dict[str, Any]:
         """The generated schema plus the error component that error responses refer to."""

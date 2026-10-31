@@ -6,13 +6,17 @@ stop the thread, not the sandbox). Messages of a dead worker are requeued by the
 alone; duplicates are dropped by the lease of the orchestrator (T1.2b).
 """
 
+import time
+import uuid
 from collections.abc import Callable
 from typing import Any
 
 import dramatiq
+import structlog
 from dramatiq.brokers.redis import RedisBroker
 from dramatiq.middleware import CurrentMessage, Retries
 
+from apparatica_worker.metrics import BUSY_SLOTS, QUEUE_WAIT, pool
 from judge.core.jobs import (
     ACTOR,
     QUEUES,
@@ -34,10 +38,19 @@ def create_broker(url: str) -> RedisBroker:
     return broker
 
 
-def _queue() -> str:
+def _run(handler: Callable[[Any, str], None], job: Any, **ids: uuid.UUID) -> None:
+    """The job on its slot: the wait and the busy slot to the metrics, the ids to every log record
+    of the job (NFR-OBS-01)."""
     message = CurrentMessage.get_current_message()
     assert message is not None
-    return message.queue_name
+    queue = message.queue_name
+    QUEUE_WAIT.labels(queue).observe(max(0.0, time.time() - message.message_timestamp / 1000))
+    context = {name: str(value) for name, value in ids.items()}
+    with (
+        BUSY_SLOTS.labels(pool(queue)).track_inprogress(),
+        structlog.contextvars.bound_contextvars(**context),
+    ):
+        handler(job, queue)
 
 
 def _declare(broker: dramatiq.Broker, name: str) -> Callable[..., dramatiq.Actor[Any, None]]:
@@ -51,7 +64,7 @@ def declare_actor(broker: dramatiq.Broker, handler: Handler) -> dramatiq.Actor[A
         job = JudgeJob.model_validate(payload)
         if str(job.submission_id) != submission_id:
             raise ValueError(f"the payload is of {job.submission_id}, not of {submission_id}")
-        handler(job, _queue())
+        _run(handler, job, submission_id=job.submission_id)
 
     return _declare(broker, ACTOR)(judge_submission)
 
@@ -63,6 +76,6 @@ def declare_waveform_actor(
         job = WaveformJob.model_validate(payload)
         if str(job.waveform_id) != waveform_id:
             raise ValueError(f"the payload is of {job.waveform_id}, not of {waveform_id}")
-        handler(job, _queue())
+        _run(handler, job, waveform_id=job.waveform_id, submission_id=job.check.submission_id)
 
     return _declare(broker, WAVEFORM_ACTOR)(judge_waveform)

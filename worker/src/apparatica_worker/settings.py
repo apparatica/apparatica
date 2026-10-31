@@ -60,3 +60,6 @@ class WorkerSettings(BaseSettings):
 
     log_level: Literal["DEBUG", "INFO", "WARNING", "ERROR"] = "INFO"
     log_format: Literal["json", "console"] = "console"
+    metrics_port: PositiveInt | None = Field(
+        default=9100, description="Port of /metrics for Prometheus, never public; unset: none"
+    )
