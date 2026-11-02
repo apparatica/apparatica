@@ -11,6 +11,7 @@ from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
 from pydantic import SecretStr
 
+from apparatica.auth import api as auth_api
 from apparatica.auth.guests import GuestCookies
 from apparatica.captcha import api as captcha_api
 from apparatica.captcha.altcha import Altcha
@@ -38,6 +39,7 @@ from apparatica.submissions.queue import DramatiqQueue, JobQueue, NoQueue
 from apparatica.submissions.quotas import Quotas
 from apparatica.submissions.streams import StreamHub
 from apparatica.submissions.tokens import JobTokens
+from apparatica.users import api as users_api
 
 API_PREFIX = "/api/v1"
 VERSION = version("apparatica-backend")
@@ -120,7 +122,8 @@ def create_app(
     app.add_middleware(RequestContextMiddleware)
     # Every operation may fail with INTERNAL; the routes declare their other errors.
     common = problem_responses(ErrorCode.INTERNAL)
-    for module in (core_api, problems_api, submissions_api, captcha_api):
+    modules = (core_api, problems_api, submissions_api, captcha_api, auth_api, users_api)
+    for module in modules:
         app.include_router(module.router, prefix=API_PREFIX, responses=common)
     # For Prometheus in the internal network, not part of the API (docs/configuration.md#метрики).
     app.add_api_route(METRICS_PATH, metrics_endpoint, include_in_schema=False)

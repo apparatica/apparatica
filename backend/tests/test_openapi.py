@@ -39,7 +39,7 @@ def test_errors_are_problem_json() -> None:
     assert "HTTPValidationError" not in schema["components"]["schemas"]
     assert "Error" in schema["components"]["schemas"]
     for path, method, operation in operations(schema):
-        assert operation["x-phase"] in {0, 1}, (path, method)
+        assert operation["x-phase"] in {0, 1, 2}, (path, method)
         assert "500" in operation["responses"], (path, method)
         for status, response in operation["responses"].items():
             # A failed health check is a health report, not an error document.

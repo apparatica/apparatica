@@ -9,6 +9,7 @@ import { stopAllBackground } from "@/features/submission/background";
 import { resetConnectivity } from "@/lib/connectivity";
 import { server } from "@/mocks/server";
 import { resetMocks } from "@/mocks/submissions";
+import { resetUsers } from "@/mocks/users";
 
 import preview from "../../.storybook/preview";
 
@@ -20,6 +21,7 @@ beforeAll(() => server.listen({ onUnhandledFrame: "error" }));
 afterEach(() => {
   server.resetHandlers();
   resetMocks();
+  resetUsers();
   cleanup();
   // An unmounted page leaves its unfinished check to the background.
   stopAllBackground();

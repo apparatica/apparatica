@@ -28,9 +28,9 @@ const page: CatalogData = {
   tags,
   perPage: 12,
   progress: [
-    { difficulty: "easy", total: 3 },
-    { difficulty: "medium", total: 2 },
-    { difficulty: "hard", total: 0 },
+    { difficulty: "easy", total: 3, solved: null },
+    { difficulty: "medium", total: 2, solved: null },
+    { difficulty: "hard", total: 0, solved: null },
   ],
   problems,
   total: 5,

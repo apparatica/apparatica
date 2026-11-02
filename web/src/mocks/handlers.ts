@@ -7,6 +7,7 @@ import * as fixtures from "./fixtures";
 import { api } from "./http";
 import { problemHandlers } from "./problems";
 import { submissionHandlers } from "./submissions";
+import { userHandlers } from "./users";
 
 export { api };
 
@@ -16,4 +17,5 @@ export const handlers = [
   ...captchaHandlers,
   ...problemHandlers,
   ...submissionHandlers,
+  ...userHandlers,
 ];

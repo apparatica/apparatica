@@ -118,12 +118,13 @@ def test_catalogue_lists_published_problems(api: TestClient) -> None:
         "difficulty": "easy",
         "tags": ["combinational", "multiplexer"],
         "acceptance": None,
+        "status": None,
     }
     assert (body["page"], body["per_page"], body["total"]) == (1, 12, 5)  # config/catalog.yaml
     assert body["progress"] == [
-        {"difficulty": "easy", "total": 3},
-        {"difficulty": "medium", "total": 2},
-        {"difficulty": "hard", "total": 0},
+        {"difficulty": "easy", "total": 3, "solved": None},
+        {"difficulty": "medium", "total": 2, "solved": None},
+        {"difficulty": "hard", "total": 0, "solved": None},
     ]
 
 
@@ -135,7 +136,7 @@ def test_catalogue_filters(api: TestClient) -> None:
     # The progress summary does not depend on the filters.
     filtered = api.get("/api/v1/problems?difficulty=hard").json()
     assert filtered["total"] == 0
-    assert filtered["progress"][0] == {"difficulty": "easy", "total": 3}
+    assert filtered["progress"][0] == {"difficulty": "easy", "total": 3, "solved": None}
 
 
 @pytest.mark.parametrize(

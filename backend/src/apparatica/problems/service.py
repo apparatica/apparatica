@@ -120,6 +120,7 @@ async def list_problems(
             difficulty=version.difficulty,
             tags=version.tags,
             acceptance=None if rate is None else round(rate, 4),
+            status=None,
         )
         for problem, version, rate in rows
     ]
@@ -131,7 +132,8 @@ async def list_problems(
     )
     counts = {level: count for level, count in levels}
     progress = [
-        DifficultyTotal(difficulty=key, total=counts.get(key, 0)) for key in difficulty_order
+        DifficultyTotal(difficulty=key, total=counts.get(key, 0), solved=None)
+        for key in difficulty_order
     ]
     return ProblemPage(
         items=items, page=page, per_page=per_page, total=total or 0, progress=progress

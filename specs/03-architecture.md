@@ -93,13 +93,13 @@ backend/src/apparatica/
   submissions/   создание, постановка в очередь, статус, SSE, отмена, артефакты
   judging/       ингестор результатов, агрегирование вердикта, watchdog, rejudge
   leaderboards/  рейтинг решений задачи, общий рейтинг пользователей
-  users/         пользователи, профили, дашборд, черновики, гостевой импорт
-  auth/          OAuth/OIDC, Telegram, magic link, сессии, CSRF
+  users/         профили, дашборд, черновики, история, экспорт, гостевой импорт
+  auth/          аккаунты, OAuth/OIDC, Telegram, magic link, сессии, CSRF
   moderation/    жалобы, скрытие, журнал действий
   admin/         SQLAdmin-представления и действия
 ```
 
-Зависимости модулей: `submissions → problems`, `judging → submissions, leaderboards, users`, `leaderboards → problems, users`, `moderation → problems, submissions, users`. Модуль `core` ни от кого не зависит.
+Зависимости модулей: `submissions → problems, auth`, `users → submissions, auth, problems`, `judging → submissions, leaderboards, users`, `leaderboards → problems, users`, `moderation → problems, submissions, users`. Модуль `core` ни от кого не зависит. Аккаунт (пользователь, входы, сессии) принадлежит `auth`: его создаёт первый вход, а отправкам нужен автор запроса; `users` стоит выше `submissions`, потому что история, профиль и экспорт читают отправки.
 
 ## 4. C4 — компоненты судьи
 

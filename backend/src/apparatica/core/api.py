@@ -5,7 +5,7 @@ from typing import Literal
 
 import structlog
 from fastapi import APIRouter, Request, Response
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from apparatica.core.http import PRIVATE, cached_json
 from apparatica.core.platform import Catalog, Difficulty, Limits
@@ -24,8 +24,13 @@ class HealthResponse(BaseModel):
 
 
 class AuthProvider(BaseModel):
-    key: str
-    title: str
+    """An enabled way to sign in; the login page shows them in this order (FR-AUTH-01)."""
+
+    key: str = Field(examples=["github", "email"])
+    title: str = Field(examples=["GitHub"])
+    kind: Literal["oauth", "email"] = Field(
+        description="oauth: navigate to /auth/{key}/login; email: POST /auth/email/request"
+    )
 
 
 class ConfigResponse(BaseModel):
@@ -76,6 +81,6 @@ async def config(request: Request) -> Response:
         difficulties=state.platform.difficulties,
         catalog=state.platform.catalog,
         limits=state.platform.limits,
-        auth_providers=[],  # login arrives in phase 2 (GitHub, email)
+        auth_providers=[],  # enabled by T2.2 (email) and T2.3 (GitHub)
     )
     return cached_json(request, body)

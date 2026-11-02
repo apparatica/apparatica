@@ -173,6 +173,26 @@
             "description": "In the title or tags"
           },
           {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "solved",
+                  "attempted",
+                  "not_started"
+                ],
+                "type": "string"
+              },
+              "description": "Any of these statuses of the signed-in user (phase 2)",
+              "default": [],
+              "title": "Status"
+            },
+            "description": "Any of these statuses of the signed-in user (phase 2)"
+          },
+          {
             "name": "sort",
             "in": "query",
             "required": false,
@@ -245,6 +265,16 @@
           },
           "422": {
             "description": "Unprocessable Content",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -663,6 +693,33 @@
             "description": "Slug of a problem"
           },
           {
+            "name": "status",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "array",
+              "items": {
+                "enum": [
+                  "queued",
+                  "running",
+                  "accepted",
+                  "accepted_with_warnings",
+                  "wrong_answer",
+                  "compile_error",
+                  "limit_exceeded",
+                  "forbidden_construct",
+                  "cancelled",
+                  "internal_error"
+                ],
+                "type": "string"
+              },
+              "description": "Any of these statuses (phase 2, FR-USR-03)",
+              "default": [],
+              "title": "Status"
+            },
+            "description": "Any of these statuses (phase 2, FR-USR-03)"
+          },
+          {
             "name": "cursor",
             "in": "query",
             "required": false,
@@ -715,6 +772,16 @@
           },
           "422": {
             "description": "Unprocessable Content",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -969,6 +1036,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "429": {
             "description": "Too Many Requests",
             "content": {
@@ -1173,6 +1250,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
           "429": {
             "description": "Too Many Requests",
             "content": {
@@ -1229,27 +1316,1245 @@
         },
         "x-phase": 1
       }
+    },
+    "/api/v1/auth/{provider}/login": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Oauth Login",
+        "description": "Start a login with an OAuth provider: a page the browser navigates to, not a fetch.\nNOT_FOUND: the provider is disabled.",
+        "operationId": "oauth_login",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "const": "github",
+              "type": "string",
+              "description": "Enabled providers are in GET /config",
+              "title": "Provider"
+            },
+            "description": "Enabled providers are in GET /config"
+          },
+          {
+            "name": "next",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 2048,
+                  "pattern": "^/([^/\\\\\\s]\\S*)?$",
+                  "description": "Path of the site to return to after login",
+                  "examples": [
+                    "/problems/sync-fifo"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Next"
+            }
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Redirect to the authorization page of the provider",
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string",
+                  "format": "uri"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-phase": 2
+      }
+    },
+    "/api/v1/auth/{provider}/callback": {
+      "get": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Oauth Callback",
+        "description": "Where the provider returns the browser. A failure is a redirect to the login page, not an\nerror document: the browser shows the page.",
+        "operationId": "oauth_callback",
+        "parameters": [
+          {
+            "name": "provider",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "const": "github",
+              "type": "string",
+              "description": "Enabled providers are in GET /config",
+              "title": "Provider"
+            },
+            "description": "Enabled providers are in GET /config"
+          },
+          {
+            "name": "code",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 2048
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Code"
+            }
+          },
+          {
+            "name": "state",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 2048
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "State"
+            }
+          },
+          {
+            "name": "error",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string",
+                  "maxLength": 256
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "Set by the provider",
+              "title": "Error"
+            },
+            "description": "Set by the provider"
+          }
+        ],
+        "responses": {
+          "302": {
+            "description": "Signed in: to `next` of the login. Failed: to /login?error=<reason>, reasons in docs/api.md",
+            "headers": {
+              "Location": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-phase": 2
+      }
+    },
+    "/api/v1/auth/email/request": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Request Login Link",
+        "description": "Send a one-time login link valid for 15 minutes (FR-AUTH-05). The answer does not tell\nwhether an account exists. RATE_LIMITED: per address and per IP; CAPTCHA_REQUIRED: as for\nsubmissions.",
+        "operationId": "request_login_link",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailLoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "202": {
+            "description": "A link is sent if the address can sign in; the same either way"
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "428": {
+            "description": "Precondition Required",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-phase": 2
+      }
+    },
+    "/api/v1/auth/email/verify": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Verify Login Link",
+        "description": "Sign in with the token of a link. The link opens a page of the site that posts the token,\nso a link preview that fetches it does not spend it. LOGIN_LINK_INVALID: unknown, used or\nexpired.",
+        "operationId": "verify_login_link",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EmailLoginVerify"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/EmailLogin"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-phase": 2
+      }
+    },
+    "/api/v1/auth/logout": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Logout",
+        "description": "End the session of the request; without one there is nothing to end.",
+        "operationId": "logout",
+        "responses": {
+          "204": {
+            "description": "The session is ended and its cookies cleared"
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-phase": 2
+      }
+    },
+    "/api/v1/auth/logout-all": {
+      "post": {
+        "tags": [
+          "auth"
+        ],
+        "summary": "Logout All",
+        "description": "End every session of the user, this one included (FR-AUTH-04).",
+        "operationId": "logout_all",
+        "responses": {
+          "204": {
+            "description": "Every session of the user is ended"
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-phase": 2
+      }
+    },
+    "/api/v1/me": {
+      "get": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Get Me",
+        "description": "The signed-in user; UNAUTHENTICATED for a guest.",
+        "operationId": "get_me",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Me"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-phase": 2
+      },
+      "delete": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Delete Me",
+        "description": "Request deletion of the account in 7 days (FR-USR-05): `delete_at` is set, the profile is\nhidden at once, sessions stay so that POST /me/restore can cancel it. Repeating keeps the\ndate.",
+        "operationId": "delete_me",
+        "responses": {
+          "202": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Me"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-phase": 2
+      },
+      "patch": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Update Me",
+        "description": "Change the nick or the display name (FR-AUTH-02). NICK_CHANGE_TOO_SOON: `params.available_at`\nis when it may change again.",
+        "operationId": "update_me",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MeUpdate"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Me"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Conflict",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-phase": 2
+      }
+    },
+    "/api/v1/me/restore": {
+      "post": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Restore Me",
+        "description": "Cancel a requested deletion; without one nothing changes.",
+        "operationId": "restore_me",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Me"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-phase": 2
+      }
+    },
+    "/api/v1/me/export": {
+      "get": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Export Me",
+        "description": "Own data with the code of every kept submission (FR-USR-05).",
+        "operationId": "export_me",
+        "responses": {
+          "200": {
+            "description": "The data as an attachment",
+            "headers": {
+              "Content-Disposition": {
+                "schema": {
+                  "type": "string"
+                }
+              }
+            },
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AccountExport"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-phase": 2
+      }
+    },
+    "/api/v1/me/drafts/{slug}": {
+      "get": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Get Draft",
+        "description": "The saved draft of a problem; NOT_FOUND: none (FR-EDT-02).",
+        "operationId": "get_draft",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+              "title": "Slug"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Draft"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-phase": 2
+      },
+      "put": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Save Draft",
+        "description": "Save the draft of a published problem; the last save wins. NOT_FOUND: no such problem.",
+        "operationId": "save_draft",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+              "title": "Slug"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DraftSave"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Draft"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Unauthorized",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "413": {
+            "description": "Content Too Large",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-phase": 2
+      }
+    },
+    "/api/v1/users/{nick}": {
+      "get": {
+        "tags": [
+          "users"
+        ],
+        "summary": "Get Profile",
+        "description": "A public profile (FR-USR-04). NOT_FOUND also for a hidden account or one being deleted.",
+        "operationId": "get_profile",
+        "parameters": [
+          {
+            "name": "nick",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 24,
+              "pattern": "^[a-z0-9_.-]+$",
+              "description": "Unique, lowercase; the profile is /u/<nick>",
+              "examples": [
+                "ada"
+              ],
+              "title": "Nick"
+            },
+            "description": "Unique, lowercase; the profile is /u/<nick>"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Profile"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-phase": 2
+      }
     }
   },
   "components": {
     "schemas": {
+      "AccountExport": {
+        "properties": {
+          "format": {
+            "type": "string",
+            "const": "apparatica-export/1",
+            "title": "Format"
+          },
+          "exported_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Exported At"
+          },
+          "user": {
+            "$ref": "#/components/schemas/Me"
+          },
+          "identities": {
+            "items": {
+              "$ref": "#/components/schemas/ExportedIdentity"
+            },
+            "type": "array",
+            "title": "Identities"
+          },
+          "consents": {
+            "items": {
+              "$ref": "#/components/schemas/ExportedConsent"
+            },
+            "type": "array",
+            "title": "Consents",
+            "description": "Accepted legal documents (FR-AUTH-06)"
+          },
+          "submissions": {
+            "items": {
+              "$ref": "#/components/schemas/ExportedSubmission"
+            },
+            "type": "array",
+            "title": "Submissions",
+            "description": "Newest first, with the code"
+          },
+          "drafts": {
+            "items": {
+              "$ref": "#/components/schemas/ExportedDraft"
+            },
+            "type": "array",
+            "title": "Drafts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "format",
+          "exported_at",
+          "user",
+          "identities",
+          "consents",
+          "submissions",
+          "drafts"
+        ],
+        "title": "AccountExport",
+        "description": "Own data as one JSON file (FR-USR-05)."
+      },
       "AuthProvider": {
         "properties": {
           "key": {
             "type": "string",
-            "title": "Key"
+            "title": "Key",
+            "examples": [
+              "github",
+              "email"
+            ]
           },
           "title": {
             "type": "string",
-            "title": "Title"
+            "title": "Title",
+            "examples": [
+              "GitHub"
+            ]
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "oauth",
+              "email"
+            ],
+            "title": "Kind",
+            "description": "oauth: navigate to /auth/{key}/login; email: POST /auth/email/request"
           }
         },
         "type": "object",
         "required": [
           "key",
-          "title"
+          "title",
+          "kind"
         ],
-        "title": "AuthProvider"
+        "title": "AuthProvider",
+        "description": "An enabled way to sign in; the login page shows them in this order (FR-AUTH-01)."
       },
       "CaptchaChallenge": {
         "properties": {
@@ -1468,6 +2773,31 @@
         ],
         "title": "Difficulty"
       },
+      "DifficultyProgress": {
+        "properties": {
+          "difficulty": {
+            "type": "string",
+            "title": "Difficulty",
+            "description": "Key of the difficulty levels of GET /config"
+          },
+          "solved": {
+            "type": "integer",
+            "title": "Solved"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "Published problems of the level"
+          }
+        },
+        "type": "object",
+        "required": [
+          "difficulty",
+          "solved",
+          "total"
+        ],
+        "title": "DifficultyProgress"
+      },
       "DifficultyTotal": {
         "properties": {
           "difficulty": {
@@ -1478,12 +2808,25 @@
             "type": "integer",
             "title": "Total",
             "description": "Published problems of the level, whatever the filters"
+          },
+          "solved": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Solved",
+            "description": "By the signed-in user; null for a guest"
           }
         },
         "type": "object",
         "required": [
           "difficulty",
-          "total"
+          "total",
+          "solved"
         ],
         "title": "DifficultyTotal"
       },
@@ -1510,6 +2853,354 @@
         ],
         "title": "DoneEvent",
         "description": "The pipeline of the attempt is over; the status comes with `finalized`."
+      },
+      "Draft": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "problem_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Problem Version",
+            "description": "Version of the problem the code is for"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "problem_version",
+          "updated_at"
+        ],
+        "title": "Draft"
+      },
+      "DraftSave": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code",
+            "description": "Up to limits.solution of GET /config, else CODE_TOO_LARGE"
+          },
+          "problem_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Problem Version"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "problem_version"
+        ],
+        "title": "DraftSave"
+      },
+      "EmailLogin": {
+        "properties": {
+          "user": {
+            "$ref": "#/components/schemas/Me"
+          },
+          "created": {
+            "type": "boolean",
+            "title": "Created",
+            "description": "The account was created by this login (FR-AUTH-02)"
+          },
+          "next": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2048,
+                "pattern": "^/([^/\\\\\\s]\\S*)?$",
+                "description": "Path of the site to return to after login",
+                "examples": [
+                  "/problems/sync-fifo"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next",
+            "description": "`next` of the link request"
+          }
+        },
+        "type": "object",
+        "required": [
+          "user",
+          "created",
+          "next"
+        ],
+        "title": "EmailLogin",
+        "description": "A signed-in user after a login link: the session and CSRF cookies are set."
+      },
+      "EmailLoginRequest": {
+        "properties": {
+          "email": {
+            "type": "string",
+            "maxLength": 254,
+            "pattern": "^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$",
+            "format": "email",
+            "title": "Email",
+            "examples": [
+              "name@example.com"
+            ]
+          },
+          "next": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 2048,
+                "pattern": "^/([^/\\\\\\s]\\S*)?$",
+                "description": "Path of the site to return to after login",
+                "examples": [
+                  "/problems/sync-fifo"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Next"
+          },
+          "captcha": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 4096
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Captcha",
+            "description": "Solved ALTCHA challenge after CAPTCHA_REQUIRED (base64 JSON of the widget)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "email"
+        ],
+        "title": "EmailLoginRequest"
+      },
+      "EmailLoginVerify": {
+        "properties": {
+          "token": {
+            "type": "string",
+            "maxLength": 128,
+            "minLength": 16,
+            "title": "Token",
+            "description": "The token of the link from the letter"
+          }
+        },
+        "type": "object",
+        "required": [
+          "token"
+        ],
+        "title": "EmailLoginVerify"
+      },
+      "ExportedConsent": {
+        "properties": {
+          "document": {
+            "type": "string",
+            "title": "Document",
+            "examples": [
+              "terms",
+              "privacy"
+            ]
+          },
+          "version": {
+            "type": "string",
+            "title": "Version",
+            "description": "Version of the published document"
+          },
+          "accepted_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Accepted At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "document",
+          "version",
+          "accepted_at"
+        ],
+        "title": "ExportedConsent"
+      },
+      "ExportedDraft": {
+        "properties": {
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "problem_version": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Problem Version",
+            "description": "Version of the problem the code is for"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "problem": {
+            "type": "string",
+            "title": "Problem",
+            "description": "Slug of the problem"
+          }
+        },
+        "type": "object",
+        "required": [
+          "code",
+          "problem_version",
+          "updated_at",
+          "problem"
+        ],
+        "title": "ExportedDraft"
+      },
+      "ExportedIdentity": {
+        "properties": {
+          "provider": {
+            "type": "string",
+            "title": "Provider",
+            "examples": [
+              "github",
+              "email"
+            ]
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "provider",
+          "email",
+          "created_at"
+        ],
+        "title": "ExportedIdentity"
+      },
+      "ExportedSubmission": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "problem": {
+            "type": "string",
+            "title": "Problem",
+            "description": "Slug of the problem"
+          },
+          "problem_title": {
+            "type": "string",
+            "title": "Problem Title"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "kind": {
+            "type": "string",
+            "enum": [
+              "run",
+              "submit"
+            ],
+            "title": "Kind"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "queued",
+              "running",
+              "accepted",
+              "accepted_with_warnings",
+              "wrong_answer",
+              "compile_error",
+              "limit_exceeded",
+              "forbidden_construct",
+              "cancelled",
+              "internal_error"
+            ],
+            "title": "Status"
+          },
+          "verdict_detail": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/VerdictDetail"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set with the final status"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "finished_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Finished At"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "seed": {
+            "type": "string",
+            "title": "Seed",
+            "description": "64-bit seed as a decimal string"
+          },
+          "toolchain_profile": {
+            "type": "string",
+            "title": "Toolchain Profile"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "problem",
+          "problem_title",
+          "version",
+          "kind",
+          "status",
+          "verdict_detail",
+          "created_at",
+          "finished_at",
+          "code",
+          "seed",
+          "toolchain_profile"
+        ],
+        "title": "ExportedSubmission"
       },
       "FinalizedEvent": {
         "properties": {
@@ -1818,6 +3509,153 @@
         ],
         "title": "LogEvent",
         "description": "Console text: whole lines, each with its newline, glued for ~75 ms or up to 8 KB."
+      },
+      "Me": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "nick": {
+            "type": "string",
+            "maxLength": 24,
+            "minLength": 3,
+            "pattern": "^[a-z0-9_.-]+$",
+            "title": "Nick",
+            "description": "Unique, lowercase; the profile is /u/<nick>",
+            "examples": [
+              "ada"
+            ]
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "avatar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Url"
+          },
+          "email": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Email",
+            "description": "From email login or the provider; never public"
+          },
+          "role": {
+            "type": "string",
+            "enum": [
+              "user",
+              "author",
+              "moderator",
+              "admin"
+            ],
+            "title": "Role"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "nick_change_available_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nick Change Available At",
+            "description": "When the nick may change again (once in 30 days); null: now"
+          },
+          "delete_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Delete At",
+            "description": "When the account will be deleted; null: no deletion requested (FR-USR-05)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "nick",
+          "display_name",
+          "avatar_url",
+          "email",
+          "role",
+          "created_at",
+          "nick_change_available_at",
+          "delete_at"
+        ],
+        "title": "Me",
+        "description": "The signed-in user."
+      },
+      "MeUpdate": {
+        "properties": {
+          "nick": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 24,
+                "minLength": 3,
+                "pattern": "^[a-z0-9_.-]+$",
+                "description": "Unique, lowercase; the profile is /u/<nick>",
+                "examples": [
+                  "ada"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nick"
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string",
+                "maxLength": 60,
+                "minLength": 1
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          }
+        },
+        "type": "object",
+        "title": "MeUpdate",
+        "description": "Fields to change; an absent field stays as it is, a null display name is removed."
       },
       "Mismatch": {
         "properties": {
@@ -2204,6 +4042,23 @@
             "examples": [
               0.78
             ]
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "string",
+                "enum": [
+                  "solved",
+                  "attempted",
+                  "not_started"
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Status",
+            "description": "Of the signed-in user; null for a guest, whose browser keeps it (FR-CAT-03)"
           }
         },
         "type": "object",
@@ -2213,7 +4068,8 @@
           "title",
           "difficulty",
           "tags",
-          "acceptance"
+          "acceptance",
+          "status"
         ],
         "title": "ProblemListItem"
       },
@@ -2245,7 +4101,7 @@
             },
             "type": "array",
             "title": "Progress",
-            "description": "Per level, in the order of the levels; solved counts arrive in phase 2"
+            "description": "Per level, in the order of the levels"
           }
         },
         "type": "object",
@@ -2373,6 +4229,75 @@
         ],
         "title": "ProblemVersionDetail",
         "description": "A version of a problem: its data never changes once published, so nothing here depends on\nlater versions (which one is current is the `version` of GET /problems/{slug})."
+      },
+      "Profile": {
+        "properties": {
+          "nick": {
+            "type": "string",
+            "maxLength": 24,
+            "minLength": 3,
+            "pattern": "^[a-z0-9_.-]+$",
+            "title": "Nick",
+            "description": "Unique, lowercase; the profile is /u/<nick>",
+            "examples": [
+              "ada"
+            ]
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "avatar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Url"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "progress": {
+            "items": {
+              "$ref": "#/components/schemas/DifficultyProgress"
+            },
+            "type": "array",
+            "title": "Progress",
+            "description": "In the order of the levels"
+          },
+          "solved": {
+            "items": {
+              "$ref": "#/components/schemas/SolvedProblem"
+            },
+            "type": "array",
+            "title": "Solved",
+            "description": "Newest first"
+          }
+        },
+        "type": "object",
+        "required": [
+          "nick",
+          "display_name",
+          "avatar_url",
+          "created_at",
+          "progress",
+          "solved"
+        ],
+        "title": "Profile",
+        "description": "A public profile (FR-USR-04); places, solutions and activity arrive in phases 3-4."
       },
       "QueueEvent": {
         "properties": {
@@ -2564,6 +4489,41 @@
           "max_lines"
         ],
         "title": "SolutionLimits"
+      },
+      "SolvedProblem": {
+        "properties": {
+          "slug": {
+            "type": "string",
+            "title": "Slug"
+          },
+          "number": {
+            "type": "integer",
+            "title": "Number"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "difficulty": {
+            "type": "string",
+            "title": "Difficulty"
+          },
+          "solved_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Solved At",
+            "description": "First accepted Submit"
+          }
+        },
+        "type": "object",
+        "required": [
+          "slug",
+          "number",
+          "title",
+          "difficulty",
+          "solved_at"
+        ],
+        "title": "SolvedProblem"
       },
       "StageEndEvent": {
         "properties": {
@@ -4017,6 +5977,9 @@
           "REFERENCE_LOCKED",
           "SOLUTION_LOCKED",
           "SUBMISSION_FINISHED",
+          "LOGIN_LINK_INVALID",
+          "NICK_TAKEN",
+          "NICK_CHANGE_TOO_SOON",
           "NOT_IMPLEMENTED",
           "JUDGE_UNAVAILABLE",
           "INTERNAL"

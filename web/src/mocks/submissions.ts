@@ -163,6 +163,13 @@ function submissionOf(check: Check, now = Date.now()): Submission {
   };
 }
 
+/** Every check of the mock as it is now, newest first: one author, the guest or the user. */
+export function mockSubmissions(): Submission[] {
+  return [...checks.values()]
+    .sort((a, b) => b.created - a.created)
+    .map((check) => submissionOf(check));
+}
+
 function summaryOf(submission: Submission): Schemas["SubmissionSummary"] {
   const { id, problem_title, version, kind, status, verdict_detail, created_at, finished_at } =
     submission;
@@ -343,11 +350,13 @@ export const submissionHandlers = [
   }),
 
   http.get(api("/api/v1/submissions"), ({ request }) => {
-    const slug = new URL(request.url).searchParams.get("problem");
-    const items = [...checks.values()]
-      .filter((check) => slug === null || check.request.problem === slug)
-      .sort((a, b) => b.created - a.created)
-      .map((check) => summaryOf(submissionOf(check)));
+    const params = new URL(request.url).searchParams;
+    const slug = params.get("problem");
+    const statuses = params.getAll("status");
+    const items = mockSubmissions()
+      .filter((submission) => slug === null || submission.problem === slug)
+      .filter((submission) => statuses.length === 0 || statuses.includes(submission.status))
+      .map(summaryOf);
     const page: Schemas["SubmissionPage"] = { items, next_cursor: null, quota: quota() };
     return HttpResponse.json(page);
   }),

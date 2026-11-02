@@ -25,6 +25,7 @@ from apparatica.submissions.schemas import (
     SubmissionCreate,
     SubmissionCreated,
     SubmissionPage,
+    SubmissionStatus,
     WaveformRequest,
 )
 from judge.core.jobs import submission_stream_key
@@ -58,6 +59,7 @@ SubmissionId = Annotated[uuid.UUID, Depends(_submission_id)]
         ErrorCode.CODE_TOO_LARGE,
         ErrorCode.HEAVY_NOT_ALLOWED,
         ErrorCode.VALIDATION_ERROR,
+        ErrorCode.CSRF_FAILED,
         ErrorCode.CAPTCHA_REQUIRED,
         ErrorCode.RATE_LIMITED,
         ErrorCode.JUDGE_UNAVAILABLE,
@@ -96,7 +98,7 @@ async def create_submission(
 @router.get(
     "/submissions",
     response_model=SubmissionPage,
-    responses=problem_responses(ErrorCode.VALIDATION_ERROR),
+    responses=problem_responses(ErrorCode.VALIDATION_ERROR, ErrorCode.NOT_IMPLEMENTED),
     openapi_extra=PHASE_1,
 )
 async def list_submissions(
@@ -105,10 +107,16 @@ async def list_submissions(
     session: Session,
     guest: Guest,
     problem: Annotated[Slug | None, Query(description="Slug of a problem")] = None,
+    status: Annotated[
+        list[SubmissionStatus],
+        Query(description="Any of these statuses (phase 2, FR-USR-03)"),
+    ] = [],  # noqa: B006
     cursor: Annotated[str | None, Query(max_length=256)] = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> SubmissionPage:
     """Own submissions (the guest by cookie) and the quotas left; empty without a guest."""
+    if status:
+        raise ApiError(ErrorCode.NOT_IMPLEMENTED, "The status filter arrives in T2.7")
     items, next_cursor = await service.list_submissions(
         session, guest, problem=problem, cursor=cursor, limit=limit
     )
@@ -201,6 +209,7 @@ async def stream_submission_events(
             ErrorCode.NOT_FOUND,
             ErrorCode.SUBMISSION_FINISHED,
             ErrorCode.VALIDATION_ERROR,
+            ErrorCode.CSRF_FAILED,
             ErrorCode.RATE_LIMITED,
             ErrorCode.JUDGE_UNAVAILABLE,
         ),
@@ -263,6 +272,7 @@ async def get_artifact(
         ErrorCode.NOT_FOUND,
         ErrorCode.UNAUTHENTICATED,
         ErrorCode.VALIDATION_ERROR,
+        ErrorCode.CSRF_FAILED,
         ErrorCode.RATE_LIMITED,
         ErrorCode.JUDGE_UNAVAILABLE,
     ),

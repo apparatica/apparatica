@@ -24,9 +24,9 @@ it("reads a page of the query, the levels and the tags", async () => {
     complete: false,
   });
   expect(data.progress).toEqual([
-    { difficulty: "easy", total: 3 },
-    { difficulty: "medium", total: 2 },
-    { difficulty: "hard", total: 0 },
+    { difficulty: "easy", total: 3, solved: null },
+    { difficulty: "medium", total: 2, solved: null },
+    { difficulty: "hard", total: 0, solved: null },
   ]);
 });
 
@@ -38,6 +38,7 @@ it("reads every problem of the other filters when the status filter is on", asyn
     difficulty: "easy",
     tags: [],
     acceptance: null,
+    status: null,
   }));
   const requests: URLSearchParams[] = [];
   server.use(

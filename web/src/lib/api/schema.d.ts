@@ -291,16 +291,304 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/{provider}/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Oauth Login
+         * @description Start a login with an OAuth provider: a page the browser navigates to, not a fetch.
+         *     NOT_FOUND: the provider is disabled.
+         */
+        get: operations["oauth_login"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/{provider}/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Oauth Callback
+         * @description Where the provider returns the browser. A failure is a redirect to the login page, not an
+         *     error document: the browser shows the page.
+         */
+        get: operations["oauth_callback"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/email/request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Request Login Link
+         * @description Send a one-time login link valid for 15 minutes (FR-AUTH-05). The answer does not tell
+         *     whether an account exists. RATE_LIMITED: per address and per IP; CAPTCHA_REQUIRED: as for
+         *     submissions.
+         */
+        post: operations["request_login_link"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/email/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify Login Link
+         * @description Sign in with the token of a link. The link opens a page of the site that posts the token,
+         *     so a link preview that fetches it does not spend it. LOGIN_LINK_INVALID: unknown, used or
+         *     expired.
+         */
+        post: operations["verify_login_link"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Logout
+         * @description End the session of the request; without one there is nothing to end.
+         */
+        post: operations["logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/logout-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Logout All
+         * @description End every session of the user, this one included (FR-AUTH-04).
+         */
+        post: operations["logout_all"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Me
+         * @description The signed-in user; UNAUTHENTICATED for a guest.
+         */
+        get: operations["get_me"];
+        put?: never;
+        post?: never;
+        /**
+         * Delete Me
+         * @description Request deletion of the account in 7 days (FR-USR-05): `delete_at` is set, the profile is
+         *     hidden at once, sessions stay so that POST /me/restore can cancel it. Repeating keeps the
+         *     date.
+         */
+        delete: operations["delete_me"];
+        options?: never;
+        head?: never;
+        /**
+         * Update Me
+         * @description Change the nick or the display name (FR-AUTH-02). NICK_CHANGE_TOO_SOON: `params.available_at`
+         *     is when it may change again.
+         */
+        patch: operations["update_me"];
+        trace?: never;
+    };
+    "/api/v1/me/restore": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore Me
+         * @description Cancel a requested deletion; without one nothing changes.
+         */
+        post: operations["restore_me"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export Me
+         * @description Own data with the code of every kept submission (FR-USR-05).
+         */
+        get: operations["export_me"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/me/drafts/{slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Draft
+         * @description The saved draft of a problem; NOT_FOUND: none (FR-EDT-02).
+         */
+        get: operations["get_draft"];
+        /**
+         * Save Draft
+         * @description Save the draft of a published problem; the last save wins. NOT_FOUND: no such problem.
+         */
+        put: operations["save_draft"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/users/{nick}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Profile
+         * @description A public profile (FR-USR-04). NOT_FOUND also for a hidden account or one being deleted.
+         */
+        get: operations["get_profile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
-        /** AuthProvider */
+        /**
+         * AccountExport
+         * @description Own data as one JSON file (FR-USR-05).
+         */
+        AccountExport: {
+            /**
+             * Format
+             * @constant
+             */
+            format: "apparatica-export/1";
+            /**
+             * Exported At
+             * Format: date-time
+             */
+            exported_at: string;
+            user: components["schemas"]["Me"];
+            /** Identities */
+            identities: components["schemas"]["ExportedIdentity"][];
+            /**
+             * Consents
+             * @description Accepted legal documents (FR-AUTH-06)
+             */
+            consents: components["schemas"]["ExportedConsent"][];
+            /**
+             * Submissions
+             * @description Newest first, with the code
+             */
+            submissions: components["schemas"]["ExportedSubmission"][];
+            /** Drafts */
+            drafts: components["schemas"]["ExportedDraft"][];
+        };
+        /**
+         * AuthProvider
+         * @description An enabled way to sign in; the login page shows them in this order (FR-AUTH-01).
+         */
         AuthProvider: {
-            /** Key */
+            /**
+             * Key
+             * @example github
+             * @example email
+             */
             key: string;
-            /** Title */
+            /**
+             * Title
+             * @example GitHub
+             */
             title: string;
+            /**
+             * Kind
+             * @description oauth: navigate to /auth/{key}/login; email: POST /auth/email/request
+             * @enum {string}
+             */
+            kind: "oauth" | "email";
         };
         /**
          * CaptchaChallenge
@@ -390,6 +678,21 @@ export interface components {
              */
             token: string;
         };
+        /** DifficultyProgress */
+        DifficultyProgress: {
+            /**
+             * Difficulty
+             * @description Key of the difficulty levels of GET /config
+             */
+            difficulty: string;
+            /** Solved */
+            solved: number;
+            /**
+             * Total
+             * @description Published problems of the level
+             */
+            total: number;
+        };
         /** DifficultyTotal */
         DifficultyTotal: {
             /** Difficulty */
@@ -399,6 +702,11 @@ export interface components {
              * @description Published problems of the level, whatever the filters
              */
             total: number;
+            /**
+             * Solved
+             * @description By the signed-in user; null for a guest
+             */
+            solved: number | null;
         };
         /**
          * DoneEvent
@@ -415,6 +723,172 @@ export interface components {
              * @description Attempt of the check; a new attempt resets the results
              */
             attempt: number;
+        };
+        /** Draft */
+        Draft: {
+            /** Code */
+            code: string;
+            /**
+             * Problem Version
+             * @description Version of the problem the code is for
+             */
+            problem_version: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+        };
+        /** DraftSave */
+        DraftSave: {
+            /**
+             * Code
+             * @description Up to limits.solution of GET /config, else CODE_TOO_LARGE
+             */
+            code: string;
+            /** Problem Version */
+            problem_version: number;
+        };
+        /**
+         * EmailLogin
+         * @description A signed-in user after a login link: the session and CSRF cookies are set.
+         */
+        EmailLogin: {
+            user: components["schemas"]["Me"];
+            /**
+             * Created
+             * @description The account was created by this login (FR-AUTH-02)
+             */
+            created: boolean;
+            /**
+             * Next
+             * @description `next` of the link request
+             */
+            next: string | null;
+        };
+        /** EmailLoginRequest */
+        EmailLoginRequest: {
+            /**
+             * Email
+             * Format: email
+             * @example name@example.com
+             */
+            email: string;
+            /** Next */
+            next?: string | null;
+            /**
+             * Captcha
+             * @description Solved ALTCHA challenge after CAPTCHA_REQUIRED (base64 JSON of the widget)
+             */
+            captcha?: string | null;
+        };
+        /** EmailLoginVerify */
+        EmailLoginVerify: {
+            /**
+             * Token
+             * @description The token of the link from the letter
+             */
+            token: string;
+        };
+        /** ExportedConsent */
+        ExportedConsent: {
+            /**
+             * Document
+             * @example terms
+             * @example privacy
+             */
+            document: string;
+            /**
+             * Version
+             * @description Version of the published document
+             */
+            version: string;
+            /**
+             * Accepted At
+             * Format: date-time
+             */
+            accepted_at: string;
+        };
+        /** ExportedDraft */
+        ExportedDraft: {
+            /** Code */
+            code: string;
+            /**
+             * Problem Version
+             * @description Version of the problem the code is for
+             */
+            problem_version: number;
+            /**
+             * Updated At
+             * Format: date-time
+             */
+            updated_at: string;
+            /**
+             * Problem
+             * @description Slug of the problem
+             */
+            problem: string;
+        };
+        /** ExportedIdentity */
+        ExportedIdentity: {
+            /**
+             * Provider
+             * @example github
+             * @example email
+             */
+            provider: string;
+            /** Email */
+            email: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+        };
+        /** ExportedSubmission */
+        ExportedSubmission: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Problem
+             * @description Slug of the problem
+             */
+            problem: string;
+            /** Problem Title */
+            problem_title: string;
+            /** Version */
+            version: number;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "run" | "submit";
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "queued" | "running" | "accepted" | "accepted_with_warnings" | "wrong_answer" | "compile_error" | "limit_exceeded" | "forbidden_construct" | "cancelled" | "internal_error";
+            /** @description Set with the final status */
+            verdict_detail: components["schemas"]["VerdictDetail"] | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /** Finished At */
+            finished_at: string | null;
+            /** Code */
+            code: string;
+            /**
+             * Seed
+             * @description 64-bit seed as a decimal string
+             */
+            seed: string;
+            /** Toolchain Profile */
+            toolchain_profile: string;
         };
         /**
          * FinalizedEvent
@@ -539,6 +1013,62 @@ export interface components {
              * @description Attempt of the check; a new attempt resets the results
              */
             attempt: number;
+        };
+        /**
+         * Me
+         * @description The signed-in user.
+         */
+        Me: {
+            /**
+             * Id
+             * Format: uuid
+             */
+            id: string;
+            /**
+             * Nick
+             * @description Unique, lowercase; the profile is /u/<nick>
+             * @example ada
+             */
+            nick: string;
+            /** Display Name */
+            display_name: string | null;
+            /** Avatar Url */
+            avatar_url: string | null;
+            /**
+             * Email
+             * @description From email login or the provider; never public
+             */
+            email: string | null;
+            /**
+             * Role
+             * @enum {string}
+             */
+            role: "user" | "author" | "moderator" | "admin";
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Nick Change Available At
+             * @description When the nick may change again (once in 30 days); null: now
+             */
+            nick_change_available_at: string | null;
+            /**
+             * Delete At
+             * @description When the account will be deleted; null: no deletion requested (FR-USR-05)
+             */
+            delete_at: string | null;
+        };
+        /**
+         * MeUpdate
+         * @description Fields to change; an absent field stays as it is, a null display name is removed.
+         */
+        MeUpdate: {
+            /** Nick */
+            nick?: string | null;
+            /** Display Name */
+            display_name?: string | null;
         };
         /** Mismatch */
         Mismatch: {
@@ -713,6 +1243,11 @@ export interface components {
              * @example 0.78
              */
             acceptance: number | null;
+            /**
+             * Status
+             * @description Of the signed-in user; null for a guest, whose browser keeps it (FR-CAT-03)
+             */
+            status: ("solved" | "attempted" | "not_started") | null;
         };
         /** ProblemPage */
         ProblemPage: {
@@ -729,7 +1264,7 @@ export interface components {
             total: number;
             /**
              * Progress
-             * @description Per level, in the order of the levels; solved counts arrive in phase 2
+             * @description Per level, in the order of the levels
              */
             progress: components["schemas"]["DifficultyTotal"][];
         };
@@ -793,6 +1328,37 @@ export interface components {
              * Format: date-time
              */
             published_at: string;
+        };
+        /**
+         * Profile
+         * @description A public profile (FR-USR-04); places, solutions and activity arrive in phases 3-4.
+         */
+        Profile: {
+            /**
+             * Nick
+             * @description Unique, lowercase; the profile is /u/<nick>
+             * @example ada
+             */
+            nick: string;
+            /** Display Name */
+            display_name: string | null;
+            /** Avatar Url */
+            avatar_url: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Progress
+             * @description In the order of the levels
+             */
+            progress: components["schemas"]["DifficultyProgress"][];
+            /**
+             * Solved
+             * @description Newest first
+             */
+            solved: components["schemas"]["SolvedProblem"][];
         };
         /**
          * QueueEvent
@@ -865,6 +1431,23 @@ export interface components {
             max_bytes: number;
             /** Max Lines */
             max_lines: number;
+        };
+        /** SolvedProblem */
+        SolvedProblem: {
+            /** Slug */
+            slug: string;
+            /** Number */
+            number: number;
+            /** Title */
+            title: string;
+            /** Difficulty */
+            difficulty: string;
+            /**
+             * Solved At
+             * Format: date-time
+             * @description First accepted Submit
+             */
+            solved_at: string;
         };
         /**
          * StageEndEvent
@@ -1452,7 +2035,7 @@ export interface components {
          * ErrorCode
          * @enum {string}
          */
-        ErrorCode: "VALIDATION_ERROR" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "UNAUTHENTICATED" | "FORBIDDEN" | "CSRF_FAILED" | "RATE_LIMITED" | "CAPTCHA_REQUIRED" | "CODE_TOO_LARGE" | "PROBLEM_VERSION_OUTDATED" | "HEAVY_NOT_ALLOWED" | "REFERENCE_LOCKED" | "SOLUTION_LOCKED" | "SUBMISSION_FINISHED" | "NOT_IMPLEMENTED" | "JUDGE_UNAVAILABLE" | "INTERNAL";
+        ErrorCode: "VALIDATION_ERROR" | "NOT_FOUND" | "METHOD_NOT_ALLOWED" | "UNAUTHENTICATED" | "FORBIDDEN" | "CSRF_FAILED" | "RATE_LIMITED" | "CAPTCHA_REQUIRED" | "CODE_TOO_LARGE" | "PROBLEM_VERSION_OUTDATED" | "HEAVY_NOT_ALLOWED" | "REFERENCE_LOCKED" | "SOLUTION_LOCKED" | "SUBMISSION_FINISHED" | "LOGIN_LINK_INVALID" | "NICK_TAKEN" | "NICK_CHANGE_TOO_SOON" | "NOT_IMPLEMENTED" | "JUDGE_UNAVAILABLE" | "INTERNAL";
         /** FieldError */
         FieldError: {
             /** Loc */
@@ -1615,6 +2198,8 @@ export interface operations {
                 tag?: string[];
                 /** @description In the title or tags */
                 q?: string | null;
+                /** @description Any of these statuses of the signed-in user (phase 2) */
+                status?: ("solved" | "attempted" | "not_started")[];
                 sort?: "number" | "-number" | "difficulty" | "-difficulty" | "acceptance" | "-acceptance";
                 page?: number;
                 /** @description catalog.per_page of GET /config if unset */
@@ -1646,6 +2231,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -1815,6 +2409,8 @@ export interface operations {
             query?: {
                 /** @description Slug of a problem */
                 problem?: string | null;
+                /** @description Any of these statuses (phase 2, FR-USR-03) */
+                status?: ("queued" | "running" | "accepted" | "accepted_with_warnings" | "wrong_answer" | "compile_error" | "limit_exceeded" | "forbidden_construct" | "cancelled" | "internal_error")[];
                 cursor?: string | null;
                 limit?: number;
             };
@@ -1844,6 +2440,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2089,6 +2694,15 @@ export interface operations {
                 };
                 content?: never;
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
             /** @description Not Found */
             404: {
                 headers: {
@@ -2230,6 +2844,15 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Error"];
                 };
             };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
             /** @description Not Found */
             404: {
                 headers: {
@@ -2297,6 +2920,900 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    oauth_login: {
+        parameters: {
+            query?: {
+                next?: string | null;
+            };
+            header?: never;
+            path: {
+                /** @description Enabled providers are in GET /config */
+                provider: "github";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Redirect to the authorization page of the provider */
+            302: {
+                headers: {
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    oauth_callback: {
+        parameters: {
+            query?: {
+                code?: string | null;
+                state?: string | null;
+                /** @description Set by the provider */
+                error?: string | null;
+            };
+            header?: never;
+            path: {
+                /** @description Enabled providers are in GET /config */
+                provider: "github";
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Signed in: to `next` of the login. Failed: to /login?error=<reason>, reasons in docs/api.md */
+            302: {
+                headers: {
+                    Location?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    request_login_link: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailLoginRequest"];
+            };
+        };
+        responses: {
+            /** @description A link is sent if the address can sign in; the same either way */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Precondition Required */
+            428: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    verify_login_link: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmailLoginVerify"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EmailLogin"];
+                };
+            };
+            /** @description Bad Request */
+            400: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    logout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The session is ended and its cookies cleared */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    logout_all: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Every session of the user is ended */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    get_me: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    delete_me: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    update_me: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["MeUpdate"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Conflict */
+            409: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    restore_me: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Me"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    export_me: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The data as an attachment */
+            200: {
+                headers: {
+                    "Content-Disposition"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AccountExport"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    get_draft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Draft"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    save_draft: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["DraftSave"];
+            };
+        };
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Draft"];
+                };
+            };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Content Too Large */
+            413: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    get_profile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                /** @description Unique, lowercase; the profile is /u/<nick> */
+                nick: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Profile"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -15,6 +15,7 @@ from apparatica.problems.assets import PICTURES, picture_type
 from apparatica.problems.schemas import (
     ProblemDetail,
     ProblemPage,
+    ProblemStatus,
     ProblemVersionDetail,
     Sort,
     Tag,
@@ -45,7 +46,7 @@ async def list_tags(request: Request, session: Session) -> Response:
 @router.get(
     "/problems",
     response_model=ProblemPage,
-    responses=problem_responses(ErrorCode.VALIDATION_ERROR),
+    responses=problem_responses(ErrorCode.VALIDATION_ERROR, ErrorCode.NOT_IMPLEMENTED),
     openapi_extra=PHASE_0,
 )
 async def list_problems(
@@ -54,12 +55,18 @@ async def list_problems(
     difficulty: Annotated[list[str], Query(description="Any of these levels")] = [],  # noqa: B006
     tag: Annotated[list[str], Query(description="Any of these tags")] = [],  # noqa: B006
     q: Annotated[str | None, Query(max_length=100, description="In the title or tags")] = None,
+    status: Annotated[
+        list[ProblemStatus],
+        Query(description="Any of these statuses of the signed-in user (phase 2)"),
+    ] = [],  # noqa: B006
     sort: Sort = "number",
     page: Annotated[int, Query(ge=1)] = 1,
     per_page: Annotated[
         int | None, Query(ge=1, le=100, description="catalog.per_page of GET /config if unset")
     ] = None,
 ) -> Response:
+    if status:
+        raise ApiError(ErrorCode.NOT_IMPLEMENTED, "The status filter arrives in T2.7")
     platform = request.app.state.platform
     levels = [level.key for level in platform.difficulties]
     body = await service.list_problems(

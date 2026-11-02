@@ -60,6 +60,9 @@ RFC 9457 `application/problem+json`:
 | `REFERENCE_LOCKED` | 403 | эталон закрыт до своего Accepted |
 | `SOLUTION_LOCKED` | 403 | код решения закрыт политикой видимости |
 | `SUBMISSION_FINISHED` | 409 | отмена завершённой отправки |
+| `LOGIN_LINK_INVALID` | 400 | ссылка входа неизвестна, использована или истекла |
+| `NICK_TAKEN` | 409 | ник занят |
+| `NICK_CHANGE_TOO_SOON` | 409 | ник меняется не чаще раза в 30 дней; `available_at` |
 | `NOT_IMPLEMENTED` | 501 | эндпоинт объявлен в PR контракта, но ещё не реализован (§0) |
 | `JUDGE_UNAVAILABLE` | 503 | очередь недоступна |
 | `INTERNAL` | 500 | `request_id` для поддержки |
@@ -68,7 +71,7 @@ RFC 9457 `application/problem+json`:
 
 | Метод и путь | Фаза | Назначение |
 |---|---|---|
-| `GET /health`, `GET /config` | Ф0 | здоровье; feature flags, лимиты, провайдеры входа, уровни |
+| `GET /health`, `GET /config` | Ф0 | здоровье; feature flags, лимиты, провайдеры входа (Ф2), уровни |
 | `GET /problems` | Ф0 | каталог с фильтрами `difficulty`, `tag`, `q`, `sort`; процент принятых — Ф1; фильтр `status` — Ф2 для вошедших (статусы гостя хранит браузер, по ним фильтрует он, FR-CAT-03) |
 | `GET /problems/{slug}` | Ф0 | текущая версия: условие, шаблон, интерфейс, статистика |
 | `GET /problems/{slug}/versions/{version}` | Ф0 | конкретная версия |
@@ -78,16 +81,16 @@ RFC 9457 `application/problem+json`:
 | `GET /submissions/{id}` | Ф0 | отправка, этапы, тесты, артефакты |
 | `GET /submissions/{id}/events` | Ф1 | SSE (07 §4) |
 | `POST /submissions/{id}/cancel` | Ф1 | отмена |
-| `GET /submissions` | Ф1 | свои отправки (гость — по cookie), фильтр `problem` |
+| `GET /submissions` | Ф1 | свои отправки (гость — по cookie), фильтр `problem`; фильтр `status` — Ф2 (FR-USR-03) |
 | `GET /submissions/{id}/artifacts/{kind}` | Ф1 | 302 на presigned URL |
 | `POST /submissions/{id}/waveform` | Ф1 | пересоздать или записать полную трассу |
 | `GET /captcha/challenge` | Ф1 | ALTCHA-задача |
-| `GET /auth/providers` | Ф2 | доступные провайдеры |
 | `GET /auth/{provider}/login`, `GET /auth/{provider}/callback` | Ф2 / Ф4 | OAuth/OIDC: GitHub — Ф2; VK ID, Яндекс ID, Google — Ф4 |
 | `POST /auth/telegram` | Ф4 | данные Telegram Login |
 | `POST /auth/email/request`, `POST /auth/email/verify` | Ф2 | magic link |
 | `POST /auth/logout`, `POST /auth/logout-all` | Ф2 | выход |
 | `GET /me`, `PATCH /me`, `DELETE /me`, `GET /me/export` | Ф2 | свой аккаунт |
+| `POST /me/restore` | Ф2 | отмена удаления аккаунта в течение 7 дней (FR-USR-05) |
 | `GET /me/identities`, `DELETE /me/identities/{id}` | Ф4 | привязанные провайдеры |
 | `GET /me/dashboard` | Ф4 | данные дашборда |
 | `GET /me/drafts/{slug}`, `PUT /me/drafts/{slug}` | Ф2 | черновики |

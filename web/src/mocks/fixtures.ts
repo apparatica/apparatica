@@ -24,7 +24,10 @@ export const config: Schemas["ConfigResponse"] = {
     },
     waveforms: { view_max_mb: 5 },
   },
-  auth_providers: [],
+  auth_providers: [
+    { key: "github", title: "GitHub", kind: "oauth" },
+    { key: "email", title: "Email", kind: "email" },
+  ],
 };
 
 /** The tags of problems/tags.yaml, in its order. */
@@ -49,6 +52,7 @@ export const problems: Schemas["ProblemListItem"][] = [
     difficulty: "easy",
     tags: ["combinational", "multiplexer"],
     acceptance: 0.78,
+    status: null,
   },
   {
     slug: "counter-mod-n",
@@ -57,6 +61,7 @@ export const problems: Schemas["ProblemListItem"][] = [
     difficulty: "easy",
     tags: ["sequential", "counter"],
     acceptance: 0.71,
+    status: null,
   },
   {
     slug: "carry-adder",
@@ -65,6 +70,7 @@ export const problems: Schemas["ProblemListItem"][] = [
     difficulty: "easy",
     tags: ["combinational", "arithmetic"],
     acceptance: 0.64,
+    status: null,
   },
   {
     slug: "seq-detector",
@@ -73,6 +79,7 @@ export const problems: Schemas["ProblemListItem"][] = [
     difficulty: "medium",
     tags: ["sequential", "fsm"],
     acceptance: 0.52,
+    status: null,
   },
   {
     slug: "sync-fifo",
@@ -81,5 +88,6 @@ export const problems: Schemas["ProblemListItem"][] = [
     difficulty: "medium",
     tags: ["sequential", "memory", "fifo"],
     acceptance: null,
+    status: null,
   },
 ];

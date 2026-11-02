@@ -1,7 +1,8 @@
 """Response schemas of the problem catalogue (specs/05 §3, phase 0).
 
-Per-user fields (status, progress solved) arrive with users in phase 2; the interface
-of a problem is the `interface` model of the package manifest, as the statement shows it.
+Per-user fields (status, progress solved) are set for signed-in users from phase 2 (FR-CAT-03);
+the interface of a problem is the `interface` model of the package manifest, as the statement
+shows it.
 """
 
 from datetime import datetime
@@ -12,6 +13,7 @@ from pydantic import BaseModel, Field, RootModel
 from judge.core.package import Interface
 
 Sort = Literal["number", "-number", "difficulty", "-difficulty", "acceptance", "-acceptance"]
+ProblemStatus = Literal["solved", "attempted", "not_started"]
 
 
 class Tag(BaseModel):
@@ -35,11 +37,15 @@ class ProblemListItem(BaseModel):
         description="Share of the authors with a judged Submit whose Submit was accepted; null "
         "before the first one. Recounted every few minutes (FR-CAT-04)",
     )
+    status: ProblemStatus | None = Field(
+        description="Of the signed-in user; null for a guest, whose browser keeps it (FR-CAT-03)"
+    )
 
 
 class DifficultyTotal(BaseModel):
     difficulty: str
     total: int = Field(description="Published problems of the level, whatever the filters")
+    solved: int | None = Field(description="By the signed-in user; null for a guest")
 
 
 class ProblemPage(BaseModel):
@@ -47,9 +53,7 @@ class ProblemPage(BaseModel):
     page: int
     per_page: int
     total: int = Field(description="Problems that match the filters")
-    progress: list[DifficultyTotal] = Field(
-        description="Per level, in the order of the levels; solved counts arrive in phase 2"
-    )
+    progress: list[DifficultyTotal] = Field(description="Per level, in the order of the levels")
 
 
 class PipelineStage(BaseModel):
