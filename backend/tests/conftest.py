@@ -4,6 +4,7 @@ import os
 import uuid
 from collections.abc import Iterator
 from pathlib import Path
+from typing import Any
 
 import pytest
 from alembic import command
@@ -13,6 +14,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from testcontainers.community.postgres import PostgresContainer
 from testcontainers.community.redis import RedisContainer
 
+from apparatica.auth import csrf
 from apparatica.auth.guests import COOKIE
 from apparatica.cli import alembic_config
 from apparatica.core.db import Database
@@ -48,10 +50,29 @@ def settings() -> Settings:
     )
 
 
+CSRF_TOKEN = "csrf-token-of-the-tests-0123456789abcdefghi"
+
+
+class ApiClient(TestClient):
+    """A test client that passes the CSRF check as the frontend does: the cookie `ap_csrf` and the
+    header with its value (test_csrf.py checks the check itself)."""
+
+    def __init__(self, *args: Any, **kwargs: Any) -> None:
+        super().__init__(*args, **kwargs)
+        self.headers[csrf.HEADER] = CSRF_TOKEN
+        self.cookies.set(csrf.COOKIE, CSRF_TOKEN)
+
+
+def forget_guest(client: TestClient) -> TestClient:
+    """The client drops its guest cookie: the next submission starts another guest."""
+    client.cookies.delete(COOKIE)
+    return client
+
+
 @pytest.fixture
 def client(settings: Settings) -> Iterator[TestClient]:
     app = create_app(settings, flag_overrides=no_overrides)  # the SQLite database has no tables
-    with TestClient(app, raise_server_exceptions=False) as test_client:
+    with ApiClient(app, raise_server_exceptions=False) as test_client:
         yield test_client
 
 

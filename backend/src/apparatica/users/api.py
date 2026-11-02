@@ -11,6 +11,7 @@ from apparatica.auth.accounts import me
 from apparatica.auth.models import User
 from apparatica.auth.schemas import Me, Nick
 from apparatica.auth.sessions import SignedIn
+from apparatica.auth.throttle import throttle
 from apparatica.core.db import get_session
 from apparatica.core.errors import ApiError, ErrorCode, problem_responses
 from apparatica.users.schemas import AccountExport, Draft, DraftSave, MeUpdate, Profile
@@ -52,7 +53,9 @@ async def get_me(signed_in: SignedIn, session: Session) -> Me:
         ErrorCode.NICK_TAKEN,
         ErrorCode.NICK_CHANGE_TOO_SOON,
         ErrorCode.VALIDATION_ERROR,
+        ErrorCode.RATE_LIMITED,
     ),
+    dependencies=[Depends(throttle)],
     openapi_extra=PHASE_2,
 )
 async def update_me(body: MeUpdate) -> Me:
@@ -66,8 +69,12 @@ async def update_me(body: MeUpdate) -> Me:
     status_code=status.HTTP_202_ACCEPTED,
     response_model=Me,
     responses=problem_responses(
-        ErrorCode.NOT_IMPLEMENTED, ErrorCode.UNAUTHENTICATED, ErrorCode.CSRF_FAILED
+        ErrorCode.NOT_IMPLEMENTED,
+        ErrorCode.UNAUTHENTICATED,
+        ErrorCode.CSRF_FAILED,
+        ErrorCode.RATE_LIMITED,
     ),
+    dependencies=[Depends(throttle)],
     openapi_extra=PHASE_2,
 )
 async def delete_me() -> Me:
@@ -81,8 +88,12 @@ async def delete_me() -> Me:
     "/me/restore",
     response_model=Me,
     responses=problem_responses(
-        ErrorCode.NOT_IMPLEMENTED, ErrorCode.UNAUTHENTICATED, ErrorCode.CSRF_FAILED
+        ErrorCode.NOT_IMPLEMENTED,
+        ErrorCode.UNAUTHENTICATED,
+        ErrorCode.CSRF_FAILED,
+        ErrorCode.RATE_LIMITED,
     ),
+    dependencies=[Depends(throttle)],
     openapi_extra=PHASE_2,
 )
 async def restore_me() -> Me:

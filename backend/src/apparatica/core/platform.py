@@ -83,6 +83,7 @@ class RateLimits(_Model):
     requests_per_ip: Window
     requests_per_author: Window
     checks_per_ip: Window
+    logins_per_ip: Window
     captcha: CaptchaRules
 
 

@@ -300,8 +300,8 @@ export interface paths {
         };
         /**
          * Oauth Login
-         * @description Start a login with an OAuth provider: a page the browser navigates to, not a fetch.
-         *     NOT_FOUND: the provider is disabled.
+         * @description Start a login with an OAuth provider: a page the browser navigates to, not a fetch, so
+         *     the rate limit is a redirect to the login page too. NOT_FOUND: the provider is disabled.
          */
         get: operations["oauth_login"];
         put?: never;
@@ -751,7 +751,7 @@ export interface components {
         };
         /**
          * EmailLogin
-         * @description A signed-in user after a login link: the session and CSRF cookies are set.
+         * @description A signed-in user after a login link: the session cookie is set.
          */
         EmailLogin: {
             user: components["schemas"]["Me"];
@@ -2943,7 +2943,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description Redirect to the authorization page of the provider */
+            /** @description Redirect to the authorization page of the provider; to /login?error=rate_limited when the address starts logins too often */
             302: {
                 headers: {
                     Location?: string;
@@ -3215,7 +3215,7 @@ export interface operations {
         };
         requestBody?: never;
         responses: {
-            /** @description The session is ended and its cookies cleared */
+            /** @description The session is ended and its cookie cleared */
             204: {
                 headers: {
                     [name: string]: unknown;
@@ -3224,6 +3224,15 @@ export interface operations {
             };
             /** @description Forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3269,6 +3278,15 @@ export interface operations {
             };
             /** @description Forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3361,6 +3379,15 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Error"];
                 };
             };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
             /** @description Internal Server Error */
             500: {
                 headers: {
@@ -3439,6 +3466,15 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Error"];
                 };
             };
+            /** @description Too Many Requests */
+            429: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
             /** @description Internal Server Error */
             500: {
                 headers: {
@@ -3488,6 +3524,15 @@ export interface operations {
             };
             /** @description Forbidden */
             403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Too Many Requests */
+            429: {
                 headers: {
                     [name: string]: unknown;
                 };

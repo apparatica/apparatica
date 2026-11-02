@@ -8,7 +8,10 @@ import asyncio
 import sys
 from collections.abc import Sequence
 from pathlib import Path
+from typing import get_args
 
+from apparatica.auth.roles import set_role
+from apparatica.auth.schemas import Role
 from apparatica.core.db import Database
 from apparatica.core.platform import load_platform_config
 from apparatica.core.settings import get_settings
@@ -140,6 +143,24 @@ def _add_profile(args: argparse.Namespace) -> int:
     return 0
 
 
+def _set_role(args: argparse.Namespace) -> int:
+    settings = get_settings()
+
+    async def run() -> bool:
+        database = Database(settings.database_url)
+        try:
+            async with database.sessions.begin() as session:
+                return await set_role(session, args.nick, args.role) is not None
+        finally:
+            await database.dispose()
+
+    if not asyncio.run(run()):
+        print(f"FAIL нет пользователя {args.nick}")
+        return 1
+    print(f"{args.nick}: {args.role}")
+    return 0
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="apparatica-admin", description="Apparatica administration"
@@ -187,6 +208,15 @@ def main(argv: Sequence[str] | None = None) -> int:
         "--default", action="store_true", help="check new submissions of the language with it"
     )
     add.set_defaults(handler=_add_profile)
+
+    users = commands.add_parser("users", help="users (FR-AUTH-07)")
+    user_commands = users.add_subparsers(required=True, metavar="command")
+    set_role_ = user_commands.add_parser(
+        "set-role", help="give a user a role; the first administrator is appointed so"
+    )
+    set_role_.add_argument("nick")
+    set_role_.add_argument("role", choices=get_args(Role))
+    set_role_.set_defaults(handler=_set_role)
 
     args = parser.parse_args(argv)
     return int(args.handler(args))

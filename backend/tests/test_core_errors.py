@@ -9,6 +9,7 @@ from fastapi.testclient import TestClient
 from apparatica.core.errors import ApiError, ErrorCode
 from apparatica.core.settings import Settings
 from apparatica.main import create_app
+from conftest import ApiClient
 
 PROBLEM = "application/problem+json"
 
@@ -35,7 +36,7 @@ def client(settings: Settings) -> Iterator[TestClient]:
         return {"page": page}
 
     app.include_router(router, prefix="/api/v1/test")
-    with TestClient(app, raise_server_exceptions=False) as test_client:
+    with ApiClient(app, raise_server_exceptions=False) as test_client:
         yield test_client
 
 

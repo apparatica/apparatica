@@ -16,7 +16,7 @@ from apparatica.main import create_app
 from apparatica.submissions.models import Artifact, StageResult, Submission, ToolchainProfile
 from apparatica.submissions.profiles import ProfileSpec, add_profile
 from apparatica.submissions.queue import Job, QueueUnavailableError
-from conftest import CONFIG_DIR, PROBLEMS, Postgres, repo_version
+from conftest import CONFIG_DIR, PROBLEMS, ApiClient, Postgres, forget_guest, repo_version
 from judge.core.jobs import WaveformJob
 
 PROBLEM = "application/problem+json"
@@ -100,7 +100,7 @@ def api(database_url: str, queue: RecordingQueue) -> Iterator[TestClient]:
     settings = Settings(
         environment="test", database_url=database_url, config_dir=CONFIG_DIR, cookie_secure=False
     )
-    with TestClient(create_app(settings, job_queue=queue), raise_server_exceptions=False) as client:
+    with ApiClient(create_app(settings, job_queue=queue), raise_server_exceptions=False) as client:
         yield client
 
 
@@ -161,13 +161,13 @@ def test_a_submission_is_queued(api: TestClient, queue: RecordingQueue) -> None:
     assert stored.headers["cache-control"] == "private, no-store"
     assert stored.json() == {key: body[key] for key in body if key != "quota"}
     # Every submission has its own seed.
-    api.cookies.clear()  # another guest: the Submit of this one is still unfinished
+    forget_guest(api)  # another guest: the Submit of this one is still unfinished
     assert submit(api).json()["seed"] != body["seed"]
 
 
 def test_a_submission_waits_in_its_queue(api: TestClient) -> None:
     first = submit(api).json()
-    api.cookies.clear()  # another guest
+    forget_guest(api)  # another guest
     second = submit(api).json()
     assert (first["queue_position"], second["queue_position"]) == (1, 2)
     assert api.get(f"/api/v1/submissions/{second['id']}").json()["queue_position"] == 2

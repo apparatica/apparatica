@@ -1,13 +1,14 @@
 """Login and logout (specs/05 §3, phase 2): the contract, stubs until T2.1a-T2.3.
 
-A login sets the session cookie `ap_session` and the CSRF cookie `ap_csrf` (ADR-0010). The first
-login creates the account with the current versions of the legal documents as accepted: the login
-page says that continuing accepts them (FR-AUTH-06).
+A login sets the session cookie `ap_session` (ADR-0010). The first login creates the account with
+the current versions of the legal documents as accepted: the login page says that continuing
+accepts them (FR-AUTH-06). Starts of logins and uses of login links are limited per address
+(NFR-SEC-06).
 """
 
 from typing import Annotated
 
-from fastapi import APIRouter, Path, Query, Request, status
+from fastapi import APIRouter, Depends, Path, Query, Request, status
 from fastapi.responses import RedirectResponse, Response
 
 from apparatica.auth.schemas import (
@@ -18,11 +19,13 @@ from apparatica.auth.schemas import (
     OAuthProvider,
 )
 from apparatica.auth.sessions import COOKIE, Sessions, SignedIn
+from apparatica.auth.throttle import login_limit, login_throttle, throttle
 from apparatica.core.errors import ApiError, ErrorCode, problem_responses
 
 router = APIRouter(tags=["auth"])
 
 PHASE_2 = {"x-phase": 2}
+LOGIN_FAILED = "/login?error={reason}"  # a page of the site; reasons in docs/api.md
 Provider = Annotated[OAuthProvider, Path(description="Enabled providers are in GET /config")]
 
 
@@ -38,7 +41,8 @@ def _stub(task: str) -> ApiError:
     response_class=RedirectResponse,
     responses={
         302: {
-            "description": "Redirect to the authorization page of the provider",
+            "description": "Redirect to the authorization page of the provider; to "
+            "/login?error=rate_limited when the address starts logins too often",
             "headers": {"Location": {"schema": {"type": "string", "format": "uri"}}},
         },
         **problem_responses(
@@ -48,10 +52,12 @@ def _stub(task: str) -> ApiError:
     openapi_extra=PHASE_2,
 )
 async def oauth_login(
-    provider: Provider, next: Annotated[NextPath | None, Query()] = None
+    provider: Provider, request: Request, next: Annotated[NextPath | None, Query()] = None
 ) -> RedirectResponse:
-    """Start a login with an OAuth provider: a page the browser navigates to, not a fetch.
-    NOT_FOUND: the provider is disabled."""
+    """Start a login with an OAuth provider: a page the browser navigates to, not a fetch, so
+    the rate limit is a redirect to the login page too. NOT_FOUND: the provider is disabled."""
+    if await login_limit(request) is not None:
+        return RedirectResponse(LOGIN_FAILED.format(reason="rate_limited"), status.HTTP_302_FOUND)
     raise _stub("T2.3")
 
 
@@ -96,6 +102,7 @@ async def oauth_callback(
             ErrorCode.RATE_LIMITED,
         ),
     },
+    dependencies=[Depends(throttle), Depends(login_throttle)],
     openapi_extra=PHASE_2,
 )
 async def request_login_link(body: EmailLoginRequest) -> None:
@@ -115,6 +122,7 @@ async def request_login_link(body: EmailLoginRequest) -> None:
         ErrorCode.CSRF_FAILED,
         ErrorCode.RATE_LIMITED,
     ),
+    dependencies=[Depends(throttle), Depends(login_throttle)],
     openapi_extra=PHASE_2,
 )
 async def verify_login_link(body: EmailLoginVerify) -> EmailLogin:
@@ -129,9 +137,10 @@ async def verify_login_link(body: EmailLoginVerify) -> EmailLogin:
     status_code=status.HTTP_204_NO_CONTENT,
     response_class=Response,
     responses={
-        204: {"description": "The session is ended and its cookies cleared"},
-        **problem_responses(ErrorCode.CSRF_FAILED),
+        204: {"description": "The session is ended and its cookie cleared"},
+        **problem_responses(ErrorCode.CSRF_FAILED, ErrorCode.RATE_LIMITED),
     },
+    dependencies=[Depends(throttle)],
     openapi_extra=PHASE_2,
 )
 async def logout(request: Request, response: Response) -> None:
@@ -149,8 +158,11 @@ async def logout(request: Request, response: Response) -> None:
     response_class=Response,
     responses={
         204: {"description": "Every session of the user is ended"},
-        **problem_responses(ErrorCode.UNAUTHENTICATED, ErrorCode.CSRF_FAILED),
+        **problem_responses(
+            ErrorCode.UNAUTHENTICATED, ErrorCode.CSRF_FAILED, ErrorCode.RATE_LIMITED
+        ),
     },
+    dependencies=[Depends(throttle)],
     openapi_extra=PHASE_2,
 )
 async def logout_all(session: SignedIn, request: Request, response: Response) -> None:

@@ -27,7 +27,7 @@ from apparatica.problems.models import Problem, ProblemVersion
 from apparatica.submissions.models import Submission
 from apparatica.submissions.profiles import add_profile
 from apparatica.submissions.quotas import Quotas
-from conftest import CONFIG_DIR, Postgres, as_guest, repo_version
+from conftest import CONFIG_DIR, ApiClient, Postgres, as_guest, forget_guest, repo_version
 
 KEY = b"k" * 32
 
@@ -165,7 +165,7 @@ def app_client(
     configured = Settings(
         environment="test", database_url=database_url, config_dir=config_dir, **settings
     )
-    return TestClient(create_app(configured, job_queue=queue), raise_server_exceptions=False)
+    return ApiClient(create_app(configured, job_queue=queue), raise_server_exceptions=False)
 
 
 @pytest.fixture
@@ -260,7 +260,7 @@ def test_submissions_belong_to_their_author(api: TestClient) -> None:
     author = api.cookies[COOKIE]
     other = api.app.state.guest_cookies.value(uuid.uuid4())  # type: ignore[attr-defined]
     for cookie in (None, other, author + "x"):
-        api.cookies.clear()
+        forget_guest(api)
         if cookie is not None:
             api.cookies.set(COOKIE, cookie)
         for response in (api.get(path), api.post(f"{path}/cancel")):
@@ -312,7 +312,7 @@ def test_the_list_of_own_submissions(api: TestClient, database_url: str) -> None
         response = api.get("/api/v1/submissions", params={"cursor": bad})
         assert (response.status_code, response.json()["code"]) == (422, "VALIDATION_ERROR")
 
-    api.cookies.clear()
+    forget_guest(api)
     new = api.get("/api/v1/submissions").json()
     assert new["items"] == []
     assert new["next_cursor"] is None
@@ -394,6 +394,7 @@ def test_rate_limits_of_requests(database_url: str, queue: RecordingQueue, tmp_p
         "requests_per_ip: {limit: 3, window_s: 60}\n"
         "requests_per_author: {limit: 2, window_s: 60}\n"
         "checks_per_ip: {limit: 1, window_s: 3600}\n"
+        "logins_per_ip: {limit: 100, window_s: 600}\n"
         "captcha:\n"
         "  per_guest: {limit: 3, window_s: 60}\n"
         "  per_ip: {limit: 10, window_s: 60}\n"
@@ -410,7 +411,7 @@ def test_rate_limits_of_requests(database_url: str, queue: RecordingQueue, tmp_p
         params = by_guest.json()["params"]
         assert (params["quota"], params["limit"], params["window_s"]) == ("requests", 2, 60)
         assert 0 < int(by_guest.headers["retry-after"]) <= 60
-        client.cookies.clear()
+        forget_guest(client)
         by_address = client.post(cancel)  # the fourth request of the address
         assert (by_address.status_code, by_address.json()["params"]["limit"]) == (429, 3)
         # Reads are not limited.
@@ -418,7 +419,7 @@ def test_rate_limits_of_requests(database_url: str, queue: RecordingQueue, tmp_p
 
     with app_client(database_url, queue, tmp_path, cookie_secure=False) as client:
         assert submit(client).status_code == 202
-        client.cookies.clear()  # a guest who drops the cookie
+        forget_guest(client)  # a guest who drops the cookie
         dropped = submit(client)
         assert dropped.status_code == 429
         assert dropped.json()["params"]["quota"] == "checks_per_ip"

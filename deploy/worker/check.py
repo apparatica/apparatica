@@ -36,13 +36,16 @@ class NoRedirect(urllib.request.HTTPRedirectHandler):
         return None  # the presigned URL is for the browser's address of the storage
 
 
-jar = http.cookiejar.CookieJar()  # the guest cookie of the first submission
+# The CSRF cookie of the first response and the guest cookie of the first submission.
+jar = http.cookiejar.CookieJar()
 opener = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar), NoRedirect)
 
 
 def request(method: str, path: str, body: Any = None, timeout: float = 30) -> Any:
     data = None if body is None else json.dumps(body).encode()
     headers = {"Host": HOST, "Content-Type": "application/json"}
+    if method != "GET":  # double submit of the CSRF token (docs/api.md)
+        headers["X-CSRF-Token"] = next((c.value or "" for c in jar if c.name == "ap_csrf"), "")
     req = urllib.request.Request(f"{SITE}{path}", data, headers, method=method)
     return opener.open(req, timeout=timeout)
 

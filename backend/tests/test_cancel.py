@@ -30,7 +30,7 @@ from apparatica.submissions.queue import DramatiqQueue
 from apparatica.submissions.quotas import Author, Quotas
 from apparatica.submissions.schemas import SubmissionCreate
 from apparatica.submissions.tokens import JobTokens
-from conftest import CONFIG_DIR, Postgres, as_guest, repo_version
+from conftest import CONFIG_DIR, ApiClient, Postgres, as_guest, repo_version
 from judge.core.jobs import CANCEL_CHANNEL, DoneRecord, cancel_key, submission_stream_key
 from judge.core.verdict import VerdictDetail
 
@@ -44,9 +44,7 @@ def database_url(postgres: Postgres, catalogue_template: str) -> str:
 
 def api(database_url: str, queue: RecordingQueue) -> TestClient:
     settings = Settings(environment="test", database_url=database_url, config_dir=CONFIG_DIR)
-    return as_guest(
-        TestClient(create_app(settings, job_queue=queue), raise_server_exceptions=False)
-    )
+    return as_guest(ApiClient(create_app(settings, job_queue=queue), raise_server_exceptions=False))
 
 
 def test_the_endpoint_asks_to_cancel_an_unfinished_check(database_url: str) -> None:

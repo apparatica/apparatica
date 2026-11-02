@@ -78,7 +78,7 @@ class EmailLoginVerify(BaseModel):
 
 
 class EmailLogin(BaseModel):
-    """A signed-in user after a login link: the session and CSRF cookies are set."""
+    """A signed-in user after a login link: the session cookie is set."""
 
     user: Me
     created: bool = Field(description="The account was created by this login (FR-AUTH-02)")

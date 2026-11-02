@@ -24,7 +24,7 @@ from apparatica.core.ratelimit import RateLimiter
 from apparatica.core.settings import Settings
 from apparatica.main import create_app
 from apparatica.submissions.profiles import add_profile
-from conftest import CONFIG_DIR, Postgres
+from conftest import CONFIG_DIR, ApiClient, Postgres
 
 KEY = b"c" * 32
 NOW = 1_800_000_000.0
@@ -180,7 +180,7 @@ def client(database_url: str, queue: RecordingQueue, overrides: Overrides) -> Te
         environment="test", database_url=database_url, config_dir=CONFIG_DIR, cookie_secure=False
     )
     app = create_app(settings, flag_overrides=overrides, job_queue=queue)
-    return TestClient(app, raise_server_exceptions=False)
+    return ApiClient(app, raise_server_exceptions=False)
 
 
 @pytest.fixture

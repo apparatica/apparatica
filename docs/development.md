@@ -222,9 +222,19 @@ poetry -C backend run apparatica-admin toolchain add sv-2026.10.2 \
 - **Неизменяемость.** Профиль неизменяем, как тег образа. Повторный `add` с теми же данными ничего не меняет, с другими — отказ.
 - **По умолчанию.** `--default` делает профиль профилем по умолчанию для языка; у прежнего профиля по умолчанию флаг снимается. Повторный `add` с `--default` переключает профиль.
 
+### Пользователи
+
+Роль пользователя (FR-AUTH-07, [api.md](api.md#пользователи-и-вход-ф2-контракт)) меняет администратор; до админки (T3.12) — командой. Так назначается и первый администратор:
+
+```sh
+poetry -C backend run apparatica-admin users set-role ada admin   # user, author, moderator, admin
+```
+
+Ник сравнивается без учёта регистра; нет такого пользователя — код 1.
+
 ### Тесты
 
-Тесты бэкенда (`backend/tests`) поднимают приложение через `TestClient`. Где нужна только связь с БД, вместо Postgres используется SQLite в памяти (`aiosqlite`).
+Тесты бэкенда (`backend/tests`) поднимают приложение через `TestClient`. Изменяющие запросы проходят проверку CSRF, поэтому тесты API используют `ApiClient` из `conftest.py`: он ставит cookie `ap_csrf` и заголовок `X-CSRF-Token`, как клиент сайта; саму проверку тестирует `test_csrf.py`. Где нужна только связь с БД, вместо Postgres используется SQLite в памяти (`aiosqlite`).
 
 Тесты схемы, миграций, импорта и API (`test_db.py`, `test_cli.py`, `test_problem_import.py`, `test_problems_api.py`, `test_submissions_api.py`, `test_job_tokens_and_profiles.py`) работают с настоящим Postgres; S3 в тестах импорта эмулирует moto. Как устроен Postgres в тестах:
 

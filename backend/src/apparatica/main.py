@@ -12,6 +12,7 @@ from fastapi.openapi.utils import get_openapi
 from pydantic import SecretStr
 
 from apparatica.auth import api as auth_api
+from apparatica.auth.csrf import CsrfMiddleware
 from apparatica.auth.guests import GuestCookies
 from apparatica.auth.sessions import Sessions
 from apparatica.captcha import api as captcha_api
@@ -135,7 +136,8 @@ def create_app(
     app.state.quotas = Quotas(platform.limits.quotas.guest, limiter, platform.rate_limits)
     app.state.captcha = Captcha(altcha, limiter, captcha_rules, app.state.flags)
     install_error_handlers(app)
-    app.add_middleware(RequestContextMiddleware)
+    app.add_middleware(CsrfMiddleware, secure=settings.cookie_secure)
+    app.add_middleware(RequestContextMiddleware)  # the outer one: CSRF_FAILED has a request id
     # Every operation may fail with INTERNAL; the routes declare their other errors.
     common = problem_responses(ErrorCode.INTERNAL)
     modules = (core_api, problems_api, submissions_api, captcha_api, auth_api, users_api)

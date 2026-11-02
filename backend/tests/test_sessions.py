@@ -20,7 +20,7 @@ from apparatica.core.ids import uuid7
 from apparatica.core.settings import Settings
 from apparatica.judging.housekeeping import SessionPurge
 from apparatica.main import create_app
-from conftest import CONFIG_DIR
+from conftest import CONFIG_DIR, ApiClient
 
 TTL = timedelta(days=30)
 NOW = datetime(2026, 11, 2, 12, tzinfo=UTC)
@@ -68,7 +68,7 @@ def api(database_url: str) -> Iterator[TestClient]:
     settings = Settings(
         environment="test", database_url=database_url, config_dir=CONFIG_DIR, cookie_secure=False
     )
-    with TestClient(create_app(settings), raise_server_exceptions=False) as client:
+    with ApiClient(create_app(settings), raise_server_exceptions=False) as client:
         yield client
 
 

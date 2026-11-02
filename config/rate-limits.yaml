@@ -1,10 +1,11 @@
 # Rate limits against abuse (specs/02 NFR-SEC-06), counted in valkey-cache: moving windows over the
-# requests to the mutating endpoints, the checks of one client address and the captcha. They may lose
-# their counters and are not shown to users; the quotas users see are in limits.yaml.
+# requests to the mutating endpoints, the checks and logins of one client address and the captcha.
+# They may lose their counters and are not shown to users; the quotas users see are in limits.yaml.
 # An address is an IPv4 address or an IPv6 /64 network.
 requests_per_ip:
   limit: 120
   window_s: 60
+# Of a guest or a signed-in user.
 requests_per_author:
   limit: 30
   window_s: 60
@@ -12,6 +13,11 @@ requests_per_author:
 checks_per_ip:
   limit: 300
   window_s: 3600
+# Starts of a login (a provider, a login link) and uses of login links; a whole class may sign in
+# from one address at the start of a lesson.
+logins_per_ip:
+  limit: 100
+  window_s: 600
 # Captcha before guest checks (FR-GST-05): once a guest or an address has sent `limit` checks in
 # `window_s` seconds, the next ones need a solved ALTCHA challenge; the `captcha` feature flag
 # asks for it before every guest check. A challenge is valid for `expires_s` seconds and once.

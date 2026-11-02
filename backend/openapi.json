@@ -1323,7 +1323,7 @@
           "auth"
         ],
         "summary": "Oauth Login",
-        "description": "Start a login with an OAuth provider: a page the browser navigates to, not a fetch.\nNOT_FOUND: the provider is disabled.",
+        "description": "Start a login with an OAuth provider: a page the browser navigates to, not a fetch, so\nthe rate limit is a redirect to the login page too. NOT_FOUND: the provider is disabled.",
         "operationId": "oauth_login",
         "parameters": [
           {
@@ -1363,7 +1363,7 @@
         ],
         "responses": {
           "302": {
-            "description": "Redirect to the authorization page of the provider",
+            "description": "Redirect to the authorization page of the provider; to /login?error=rate_limited when the address starts logins too often",
             "headers": {
               "Location": {
                 "schema": {
@@ -1736,7 +1736,7 @@
         "operationId": "logout",
         "responses": {
           "204": {
-            "description": "The session is ended and its cookies cleared"
+            "description": "The session is ended and its cookie cleared"
           },
           "500": {
             "description": "Internal Server Error",
@@ -1750,6 +1750,16 @@
           },
           "403": {
             "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1796,6 +1806,16 @@
           },
           "403": {
             "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1907,6 +1927,16 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         },
         "x-phase": 2
@@ -1998,6 +2028,16 @@
                 }
               }
             }
+          },
+          "429": {
+            "description": "Too Many Requests",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
           }
         },
         "x-phase": 2
@@ -2054,6 +2094,16 @@
           },
           "403": {
             "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too Many Requests",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2906,7 +2956,7 @@
           "next"
         ],
         "title": "EmailLogin",
-        "description": "A signed-in user after a login link: the session and CSRF cookies are set."
+        "description": "A signed-in user after a login link: the session cookie is set."
       },
       "EmailLoginRequest": {
         "properties": {

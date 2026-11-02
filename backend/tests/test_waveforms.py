@@ -21,7 +21,7 @@ from apparatica.main import create_app
 from apparatica.submissions.models import Artifact, StageResult, Submission, Waveform
 from apparatica.submissions.profiles import add_profile
 from apparatica.submissions.tokens import JobTokens
-from conftest import CONFIG_DIR, Postgres
+from conftest import CONFIG_DIR, ApiClient, Postgres, forget_guest
 from judge.core.jobs import StoredArtifact, TraceKey, WaveformRecord
 
 KEY = "k" * 32
@@ -86,7 +86,7 @@ def api(database_url: str, queue: RecordingQueue) -> Iterator[TestClient]:
         waveview_url="http://waveview.web.localhost:8080/",
     )
     app = create_app(settings, job_queue=queue)
-    with TestClient(app, raise_server_exceptions=False) as client:
+    with ApiClient(app, raise_server_exceptions=False) as client:
         yield client
 
 
@@ -302,7 +302,7 @@ def test_what_cannot_be_recorded(api: TestClient, database_url: str) -> None:
 
     run(database_url, untraced)
     assert request(api, submission_id).status_code == 404
-    api.cookies.clear()  # another guest
+    forget_guest(api)  # another guest
     assert request(api, running).status_code == 404
 
 
@@ -323,5 +323,5 @@ def test_downloads(api: TestClient, database_url: str) -> None:
         f'filename="{submission_id}-sim_run.log.zst"'
         in parse_qs(urlsplit(location).query)["response-content-disposition"][0]
     )
-    api.cookies.clear()  # another guest
+    forget_guest(api)  # another guest
     assert status("events") == 404
