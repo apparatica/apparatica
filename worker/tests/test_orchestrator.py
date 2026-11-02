@@ -104,7 +104,7 @@ def job(**fields: Any) -> JudgeJob:
     files = package_files(MUX4)
     return JudgeJob.model_validate(
         {
-            "submission_id": str(uuid.UUID(int=(1793003347000 << 80) | (7 << 76) | 1)),
+            "submission_id": str(uuid.UUID(int=(1793003347000 << 80) | (7 << 76) | (2 << 62) | 1)),
             "token": "v1.token",
             "problem": "mux4",
             "version": 1,
@@ -207,7 +207,7 @@ def test_a_check_has_two_attempts(orchestrator: Orchestrator) -> None:
 
 def waveform(**fields: Any) -> WaveformJob:
     return WaveformJob(
-        waveform_id=uuid.UUID(int=(1793003347000 << 80) | (7 << 76) | 99),
+        waveform_id=uuid.UUID(int=(1793003347000 << 80) | (7 << 76) | (2 << 62) | 99),
         check=job(**fields),
         stage="sim_run",
         stages=("precheck", "lint", "sim_run"),
