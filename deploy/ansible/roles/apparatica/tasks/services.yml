@@ -1,9 +1,38 @@
-# The services of the release: images built on the host, the long-running services waited for as
-# `just up` does, the demo problems imported, monitoring, the checks; then the current link.
+# The services of the release: its images pulled or built on the host, the long-running services
+# waited for as `just up` does, the demo problems imported, monitoring, the checks; then the current
+# link.
+
+# A release from before the published images has no file: its images are built on the host.
+- name: Keep the images of a release without them empty
+  ansible.builtin.copy:
+    dest: "{{ apparatica_root }}/releases/{{ apparatica_release }}/release.env"
+    content: ""
+    force: false
+    mode: "0644"
+
+- name: Read the images of the release
+  ansible.builtin.slurp:
+    src: "{{ apparatica_root }}/releases/{{ apparatica_release }}/release.env"
+  register: apparatica_release_env
+
+- name: List the published images of the release
+  ansible.builtin.set_fact:
+    apparatica_images: >-
+      {{ (apparatica_release_env.content | b64decode).splitlines()
+         | select('match', '^[A-Z_]+_IMAGE=') | map('regex_replace', '^[^=]+=', '') | list }}
+
+# A tag names one commit: an image already on the host is that one.
+- name: Pull the published images
+  ansible.builtin.shell: docker image inspect {{ item }} > /dev/null 2>&1 || docker pull --quiet {{ item }}
+  loop: "{{ apparatica_images }}"
+  register: apparatica_pull
+  changed_when: apparatica_pull.stdout != ""
+
+# Published images are never built here: a missing one fails the deploy instead.
 - name: Start the services of the release
   ansible.builtin.command: >-
-    {{ apparatica_compose }} up -d --build --wait --wait-timeout 900
-    caddy valkey-queue valkey-cache ingest worker
+    {{ apparatica_compose }} up -d {{ '--no-build' if apparatica_images else '--build' }}
+    --wait --wait-timeout 900 caddy valkey-queue valkey-cache ingest worker
   args:
     chdir: "{{ apparatica_root }}/releases/{{ apparatica_release }}"
   changed_when: true
@@ -60,7 +89,16 @@
   loop_control:
     label: "{{ item.path | basename }}"
 
-- name: Remove the images no release uses
-  ansible.builtin.command: docker image prune -f
+# Published images of the releases that are gone, and dangling ones of the builds on the host.
+- name: Remove the images no kept release uses
+  ansible.builtin.shell: |
+    set -euo pipefail
+    kept=$(cat {{ apparatica_root }}/releases/*/release.env | sed -n 's/^[A-Z_]*_IMAGE=//p' | sort -u)
+    for image in $(docker images --format '{{ '{{.Repository}}:{{.Tag}}' }}' | grep -E '^{{ apparatica_registry }}/(api|worker|web):'); do
+      echo "$kept" | grep -qxF "$image" || docker rmi "$image"
+    done
+    docker image prune -f
+  args:
+    executable: /bin/bash
   register: apparatica_prune
-  changed_when: "'Total reclaimed space: 0B' not in apparatica_prune.stdout"
+  changed_when: "'Untagged' in apparatica_prune.stdout or 'Total reclaimed space: 0B' not in apparatica_prune.stdout"

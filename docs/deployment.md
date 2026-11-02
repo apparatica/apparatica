@@ -1,6 +1,6 @@
 # Развёртывание
 
-Как платформа ставится на серверы: что на них работает, как их подготовить и как выкатить коммит. Серверы описаны кодом в `deploy/ansible`, сервисы — тот же `deploy/compose.yaml`, что у [стенда](stand.md), с `deploy/compose.server.yaml` сверху. Операции на работающем сервере (откат, логи, сертификаты, сбои) — в [`deploy/RUNBOOK.md`](../deploy/RUNBOOK.md).
+Как платформа ставится на серверы: что на них работает, как их подготовить и как выкатить коммит. Серверы описаны кодом в `deploy/ansible`, сервисы — тот же `deploy/compose.yaml`, что у [стенда](stand.md), с `deploy/compose.server.yaml` сверху. Операции на работающем сервере (откат, логи, сертификаты, сбои) — в [`deploy/RUNBOOK.md`](../deploy/RUNBOOK.md). Каждый коммит `master` после зелёного CI выкатывается на staging сам ([деплой из CI](#деплой-из-ci)).
 
 ## Окружения и хосты
 
@@ -36,7 +36,7 @@ just lint-ansible                     # ansible-lint и проверка син�
 
 | Роль | Хосты | Что делает |
 |---|---|---|
-| `base` | все | пакеты; SSH только по ключам (`PasswordAuthentication no`, `PermitRootLogin prohibit-password`); файрвол; ежедневные обновления Debian (`unattended-upgrades` с источниками Debian по умолчанию, без перезагрузок); журнал не больше 1 ГБ |
+| `base` | все | пакеты; SSH только по ключам (`PasswordAuthentication no`, `PermitRootLogin prohibit-password`); пользователь `deploy` с ключами `base_deploy_keys` из инвентаря и sudo без пароля ([деплой из CI](#деплой-из-ci)); файрвол; ежедневные обновления Debian (`unattended-upgrades` с источниками Debian по умолчанию, без перезагрузок); журнал не больше 1 ГБ |
 | `gvisor` | `worker` | `runsc` версии `gvisor_version` из apt-репозитория gVisor; платформа `systrap` по умолчанию (на VPS нет вложенной виртуализации) |
 | `docker` | все | Docker Engine версии `docker_version` с плагинами compose и buildx; `daemon.json`: драйвер cgroup `systemd`, логи контейнеров `json-file` до 5 файлов по 20 МБ, рантайм `runsc` у хостов `worker` |
 | `apparatica` | `app` | релиз, настройки, секреты, сервисы, проверки (ниже) |
@@ -49,7 +49,7 @@ just lint-ansible                     # ansible-lint и проверка син�
 
 | Путь | Что там |
 |---|---|
-| `/opt/apparatica/releases/<релиз>/` | файлы репозитория коммита релиза, кроме `brief/` |
+| `/opt/apparatica/releases/<релиз>/` | файлы репозитория коммита релиза, кроме `brief/`; `release.env` — образы `api`, `web`, `worker` релиза (пуст, если они собраны на хосте) |
 | `/opt/apparatica/current` | ссылка на запущенный релиз |
 | `/etc/apparatica/settings.env` | настройки compose из инвентаря: имена, `APX_ENVIRONMENT=production`, `APX_COOKIE_SECURE=true`, `SANDBOX_RUNTIME=runsc`, `GARAGE_CAPACITY_GB` |
 | `/etc/apparatica/secrets.env` | секреты (ниже), права `0600` |
@@ -84,12 +84,31 @@ docker compose -f deploy/compose.yaml -f deploy/compose.server.yaml \
 
 1. **Релиз.** На машине оператора `git archive` коммита `HEAD` упаковывает файлы репозитория без `brief/`. Если есть незакоммиченные изменения отслеживаемых или добавленных в индекс файлов, они входят в релиз (`git stash create`), а имя релиза получает суффикс: `<коммит>-dirty-<stash>`. Неотслеживаемые файлы не входят. Архив распаковывается в `/opt/apparatica/releases/<релиз>/`.
 2. **Настройки и секреты** — `/etc/apparatica` (выше).
-3. **Сервисы.** `up -d --build --wait` для `caddy valkey-queue valkey-cache ingest worker`, как `just up`: образы `api`, `web` и `worker` собираются на хосте из файлов релиза, образы тулчейна и просмотрщика скачиваются из GHCR. Миграции (`migrate`) и настройка Garage (`garage-setup`) выполняются до запуска API. Затем импортируются задачи релиза (`demo-problems`), а с `apparatica_monitoring` запускаются Prometheus и Grafana.
-4. **Ссылка `current`** переключается на релиз.
-5. **Проверки** (`apparatica_checks`): `storage-check` (ключи, presigned URL, CORS, сайт `waveview` и его заголовки) и `judge-check` (эталон и мутант `mux4` проверяются через `https://<сайт>` под gVisor) — то же, что `just stand-check`. Упавшая проверка роняет деплой, но новый релиз уже запущен; вернуть прежний — `just rollback`.
-6. **Уборка.** Остаются последние `apparatica_keep_releases` (5) релизов, текущий — всегда. Образы, которые не использует ни один контейнер, удаляются (`docker image prune`).
+3. **Образы.** С `-e apparatica_image_tag=sha-<коммит>` (так деплоит CI) релиз берёт опубликованные образы `ghcr.io/apparatica/{api,web,worker}:sha-<коммит>`: они записываются в `release.env` релиза, скачиваются, если их ещё нет на хосте, и ничего не собирается (`up --no-build`: нет образа — нет деплоя). Тег должен быть тегом коммита релиза, а дерево — чистым, иначе деплой останавливается до изменений на хосте. Без тега (`just deploy` оператора) образы собираются на хосте из файлов релиза. Образы тулчейна и просмотрщика всегда скачиваются из GHCR.
+4. **Сервисы.** `up -d --wait` для `caddy valkey-queue valkey-cache ingest worker`, как `just up`. Миграции (`migrate`) и настройка Garage (`garage-setup`) выполняются до запуска API. Затем импортируются задачи релиза (`demo-problems`), а с `apparatica_monitoring` запускаются Prometheus и Grafana.
+5. **Ссылка `current`** переключается на релиз.
+6. **Проверки** (`apparatica_checks`): `storage-check` (ключи, presigned URL, CORS, сайт `waveview` и его заголовки) и `judge-check` (эталон и мутант `mux4` проверяются через `https://<сайт>` под gVisor) — то же, что `just stand-check`. Упавшая проверка роняет деплой, но новый релиз уже запущен; вернуть прежний — `just rollback`.
+7. **Уборка.** Остаются последние `apparatica_keep_releases` (5) релизов, текущий — всегда. Опубликованные образы, которых нет в `release.env` оставшихся релизов, и висячие образы сборок удаляются.
 
 Первый деплой на чистом хосте длится около 15 минут: сборка образов и скачивание тулчейна. Следующие идут быстрее за счёт кэша сборки Docker.
+
+## Деплой из CI
+
+Workflow `.github/workflows/staging.yml` запускается после зелёного CI на push в `master` (`workflow_run`) и вручную из `master` (`workflow_dispatch`). Деплои идут по одному, по порядку: новый коммит ждёт текущего деплоя.
+
+| Job | Что делает |
+|---|---|
+| Images | собирает `api` (`backend/Dockerfile`), `worker`, `web` из коммита и публикует `ghcr.io/apparatica/<имя>:sha-<12 знаков коммита>`; метка `org.opencontainers.image.source` связывает пакет с репозиторием |
+| Deploy | environment `staging`: `just deploy staging -e ansible_user=deploy -e apparatica_image_tag=sha-<коммит>` с ключом `STAGING_SSH_KEY`; хост проверяется по `deploy/ansible/inventories/staging/known_hosts` |
+| End-to-end tests | `just e2e` против `https://staging.apparatica.app` в Chrome раннера; при падении — артефакт `e2e-staging-report` |
+
+**Пользователь `deploy`.** CI заходит не как `root`, а как `deploy` со своим ключом и выполняет те же плейбуки через sudo. По силе это root, и ограничивать его нет смысла: коммит `master` и так исполняется на хосте (у `sandboxd` docker socket). Свой пользователь отделяет ключ CI от ключей операторов: его можно отозвать, удалив из `base_deploy_keys`, и вход CI виден в журнале как `deploy`. Секрет доступен только job'ам environment `staging`, а environment принимает только ветку `master`. Pull request'ы и форки его не получают.
+
+**Настройка GitHub** (один раз, делает мейнтейнер):
+
+1. Settings → Environments → `staging`: Deployment branches and tags — Selected branches, `master`.
+2. Секрет environment `STAGING_SSH_KEY` — приватный ключ, чей публичный указан в `base_deploy_keys` (`ssh-keygen -t ed25519 -C apparatica-ci-staging`). Новый ключ попадает на хост через `just provision staging --tags host`.
+3. После первой публикации: пакеты `api`, `web`, `worker` организации — Package settings → Change visibility → Public, как у `toolchain` и `waveview`. Пакеты, созданные из Actions, приватны, и хост не скачает их без входа в GHCR. Затем перезапустите workflow.
 
 ## Мониторинг
 

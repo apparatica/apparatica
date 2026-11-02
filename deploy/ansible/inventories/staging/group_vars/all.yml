@@ -8,3 +8,7 @@ apparatica_waveview_host: waveview.staging.apparatica.app
 apparatica_garage_capacity_gb: 50
 # Prometheus and Grafana (Grafana on 127.0.0.1:3000 of the server, through an SSH tunnel).
 apparatica_monitoring: true
+
+# The key of CI (GitHub environment `staging`, secret STAGING_SSH_KEY), for the user deploy.
+base_deploy_keys:
+  - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIKBVNhycB8hCylkz7y4RkPBq48ZJxg9Tpx5+9IzD9PEK apparatica-ci-staging

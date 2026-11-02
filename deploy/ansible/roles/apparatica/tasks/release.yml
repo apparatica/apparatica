@@ -2,6 +2,7 @@
 # staged files (`git stash create`, the id ends in -dirty-<stash>). The briefs stay out.
 - name: Find the commit of the release
   delegate_to: localhost
+  become: false
   run_once: true
   ansible.builtin.shell: |
     set -eu
@@ -23,6 +24,7 @@
 
 - name: Pack the files of the release
   delegate_to: localhost
+  become: false
   run_once: true
   ansible.builtin.command:
     argv:
@@ -38,6 +40,14 @@
       - ":(exclude)brief"
   changed_when: false
 
+- name: Deploy published images only with their own commit
+  when: apparatica_image_tag != ""
+  ansible.builtin.assert:
+    that: apparatica_image_tag == "sha-" ~ apparatica_release
+    fail_msg: >-
+      The images {{ apparatica_image_tag }} are not those of the release {{ apparatica_release }}:
+      deploy the commit they were built from, with a clean tree.
+
 - name: Create the directory of the release
   ansible.builtin.file:
     path: "{{ apparatica_root }}/releases/{{ apparatica_release }}"
@@ -49,3 +59,15 @@
     src: /tmp/apparatica-{{ apparatica_release }}.tar.gz
     dest: "{{ apparatica_root }}/releases/{{ apparatica_release }}"
     creates: "{{ apparatica_root }}/releases/{{ apparatica_release }}/deploy/compose.yaml"
+
+- name: Write the images of the release
+  ansible.builtin.copy:
+    dest: "{{ apparatica_root }}/releases/{{ apparatica_release }}/release.env"
+    mode: "0644"
+    content: |
+      # Images of this release; none: built on the host from its files.
+      {% if apparatica_image_tag %}
+      API_IMAGE={{ apparatica_registry }}/api:{{ apparatica_image_tag }}
+      WORKER_IMAGE={{ apparatica_registry }}/worker:{{ apparatica_image_tag }}
+      WEB_IMAGE={{ apparatica_registry }}/web:{{ apparatica_image_tag }}
+      {% endif %}

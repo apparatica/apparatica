@@ -9,6 +9,12 @@ apparatica_repo: "{{ playbook_dir }}/../.."
 apparatica_checks: true
 apparatica_monitoring: false
 apparatica_garage_capacity_gb: 10
+# The published images of the release, ghcr.io/apparatica/<name>:<tag>: CI passes the tag of its
+# commit (sha-<12 digits>). Without it the images are built on the host from the files of the release.
+apparatica_registry: ghcr.io/apparatica
+apparatica_image_tag: ""
+# The images a release runs are written next to it (release.env), so a rollback takes them back too.
 apparatica_compose: >-
   docker compose -f deploy/compose.yaml -f deploy/compose.server.yaml
   --env-file {{ apparatica_config }}/settings.env --env-file {{ apparatica_config }}/secrets.env
+  --env-file {{ apparatica_root }}/releases/{{ apparatica_release }}/release.env

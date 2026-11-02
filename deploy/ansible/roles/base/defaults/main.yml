@@ -3,3 +3,6 @@ base_tcp_ports: [22, 80, 443]
 base_udp_ports: [443]
 # The journal of the host on disk, at most.
 base_journal_max: 1G
+# The user CI deploys as (docs/deployment.md#деплой-из-ci): its keys, sudo without a password.
+base_deploy_user: deploy
+base_deploy_keys: []

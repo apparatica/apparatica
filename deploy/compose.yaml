@@ -7,8 +7,10 @@
 # public: any stand reachable by others sets its own in deploy/.env (see .env.example).
 name: apparatica
 
+# The images of the platform: built from the repository by default; a server takes the published
+# ones of its release (API_IMAGE, WORKER_IMAGE, WEB_IMAGE: ghcr.io/apparatica/<name>:sha-<commit>).
 x-api-image: &api-image
-  image: apparatica-api:local
+  image: ${API_IMAGE:-apparatica-api:local}
   build:
     context: ..
     dockerfile: backend/Dockerfile
@@ -27,7 +29,7 @@ x-api-env: &api-env
   APX_QUEUE_URL: redis://api:${VALKEY_QUEUE_API_PASSWORD:-8b1e3f0c5a7d4e2b9c6f1a0d3e5b7c9a}@valkey-queue:6379/0
 
 x-worker-image: &worker-image
-  image: apparatica-worker:local
+  image: ${WORKER_IMAGE:-apparatica-worker:local}
   build:
     context: ..
     dockerfile: worker/Dockerfile
@@ -294,7 +296,7 @@ services:
     restart: unless-stopped
 
   web:
-    image: apparatica-web:local
+    image: ${WEB_IMAGE:-apparatica-web:local}
     build:
       context: ..
       dockerfile: web/Dockerfile
