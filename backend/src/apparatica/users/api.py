@@ -4,9 +4,14 @@ stubs until T2.1a, T2.4 and T2.7-T2.9. Every `/me` route answers UNAUTHENTICATED
 
 from typing import Annotated
 
-from fastapi import APIRouter, Path, status
+from fastapi import APIRouter, Depends, Path, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
+from apparatica.auth.accounts import me
+from apparatica.auth.models import User
 from apparatica.auth.schemas import Me, Nick
+from apparatica.auth.sessions import SignedIn
+from apparatica.core.db import get_session
 from apparatica.core.errors import ApiError, ErrorCode, problem_responses
 from apparatica.users.schemas import AccountExport, Draft, DraftSave, MeUpdate, Profile
 
@@ -14,6 +19,7 @@ router = APIRouter(tags=["users"])
 
 PHASE_2 = {"x-phase": 2}
 Slug = Annotated[str, Path(pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$", max_length=64)]
+Session = Annotated[AsyncSession, Depends(get_session)]
 
 
 def _stub(task: str) -> ApiError:
@@ -25,12 +31,15 @@ def _stub(task: str) -> ApiError:
 @router.get(
     "/me",
     response_model=Me,
-    responses=problem_responses(ErrorCode.NOT_IMPLEMENTED, ErrorCode.UNAUTHENTICATED),
+    responses=problem_responses(ErrorCode.UNAUTHENTICATED),
     openapi_extra=PHASE_2,
 )
-async def get_me() -> Me:
+async def get_me(signed_in: SignedIn, session: Session) -> Me:
     """The signed-in user; UNAUTHENTICATED for a guest."""
-    raise _stub("T2.1a")
+    user = await session.get(User, signed_in.user_id)
+    if user is None:  # deleted after the lookup of the session
+        raise ApiError(ErrorCode.UNAUTHENTICATED, "Sign in to continue")
+    return me(user)
 
 
 @router.patch(

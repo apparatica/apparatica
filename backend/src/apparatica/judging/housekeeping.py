@@ -10,6 +10,7 @@
   their rows and the files of their artifacts (decision ОВ-13).
 - **Addresses** — the salted hashes of client addresses older than `client_ip_hash_days` are
   cleared (NFR-PRIV-01).
+- **Sessions** — expired sessions of users are deleted (FR-AUTH-04).
 - **Problem stats** — the authors of every problem with a judged and with an accepted Submit, for
   the acceptance rate of the catalogue (FR-CAT-04).
 """
@@ -29,6 +30,7 @@ from pydantic import ValidationError
 from sqlalchemy import CursorResult, and_, delete, distinct, func, literal, select, update
 from sqlalchemy.dialects.postgresql import insert
 
+from apparatica.auth.models import UserSession
 from apparatica.core.db import Database
 from apparatica.core.storage import Storage
 from apparatica.judging.ingest import finalize, internal_error, transient
@@ -248,6 +250,23 @@ class AddressPurge:
         if cleared:
             log.info("address hashes cleared", count=cleared)
         return cleared
+
+
+@dataclass
+class SessionPurge:
+    database: Database
+    clock: Clock = field(default=_now)
+
+    async def __call__(self) -> int:
+        """Deletes the expired sessions; returns how many."""
+        async with self.database.sessions.begin() as session:
+            result = await session.execute(
+                delete(UserSession).where(UserSession.expires_at <= self.clock())
+            )
+        deleted = result.rowcount if isinstance(result, CursorResult) else 0
+        if deleted:
+            log.info("expired sessions deleted", count=deleted)
+        return deleted
 
 
 @dataclass

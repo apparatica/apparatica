@@ -1748,16 +1748,6 @@
               }
             }
           },
-          "501": {
-            "description": "Not Implemented",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
           "403": {
             "description": "Forbidden",
             "content": {
@@ -1786,16 +1776,6 @@
           },
           "500": {
             "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "501": {
-            "description": "Not Implemented",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1849,16 +1829,6 @@
           },
           "500": {
             "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "501": {
-            "description": "Not Implemented",
             "content": {
               "application/problem+json": {
                 "schema": {

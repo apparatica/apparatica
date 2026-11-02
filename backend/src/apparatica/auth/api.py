@@ -7,7 +7,7 @@ page says that continuing accepts them (FR-AUTH-06).
 
 from typing import Annotated
 
-from fastapi import APIRouter, Path, Query, status
+from fastapi import APIRouter, Path, Query, Request, status
 from fastapi.responses import RedirectResponse, Response
 
 from apparatica.auth.schemas import (
@@ -17,6 +17,7 @@ from apparatica.auth.schemas import (
     NextPath,
     OAuthProvider,
 )
+from apparatica.auth.sessions import COOKIE, Sessions, SignedIn
 from apparatica.core.errors import ApiError, ErrorCode, problem_responses
 
 router = APIRouter(tags=["auth"])
@@ -129,13 +130,17 @@ async def verify_login_link(body: EmailLoginVerify) -> EmailLogin:
     response_class=Response,
     responses={
         204: {"description": "The session is ended and its cookies cleared"},
-        **problem_responses(ErrorCode.NOT_IMPLEMENTED, ErrorCode.CSRF_FAILED),
+        **problem_responses(ErrorCode.CSRF_FAILED),
     },
     openapi_extra=PHASE_2,
 )
-async def logout() -> None:
+async def logout(request: Request, response: Response) -> None:
     """End the session of the request; without one there is nothing to end."""
-    raise _stub("T2.1a")
+    sessions: Sessions = request.app.state.sessions
+    token = request.cookies.get(COOKIE)
+    if token is not None:
+        await sessions.end(token)
+    sessions.clear_cookie(response)
 
 
 @router.post(
@@ -144,12 +149,12 @@ async def logout() -> None:
     response_class=Response,
     responses={
         204: {"description": "Every session of the user is ended"},
-        **problem_responses(
-            ErrorCode.NOT_IMPLEMENTED, ErrorCode.UNAUTHENTICATED, ErrorCode.CSRF_FAILED
-        ),
+        **problem_responses(ErrorCode.UNAUTHENTICATED, ErrorCode.CSRF_FAILED),
     },
     openapi_extra=PHASE_2,
 )
-async def logout_all() -> None:
+async def logout_all(session: SignedIn, request: Request, response: Response) -> None:
     """End every session of the user, this one included (FR-AUTH-04)."""
-    raise _stub("T2.1a")
+    sessions: Sessions = request.app.state.sessions
+    await sessions.end_all(session.user_id)
+    sessions.clear_cookie(response)

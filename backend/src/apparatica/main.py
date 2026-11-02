@@ -13,6 +13,7 @@ from pydantic import SecretStr
 
 from apparatica.auth import api as auth_api
 from apparatica.auth.guests import GuestCookies
+from apparatica.auth.sessions import Sessions
 from apparatica.captcha import api as captcha_api
 from apparatica.captcha.altcha import Altcha
 from apparatica.captcha.service import Captcha
@@ -29,7 +30,7 @@ from apparatica.core.flags import FeatureFlags, Overrides, database_overrides
 from apparatica.core.logging import configure_logging
 from apparatica.core.metrics import METRICS_PATH, metrics_endpoint
 from apparatica.core.platform import load_platform_config
-from apparatica.core.ratelimit import ClientAddresses, RateLimiter
+from apparatica.core.ratelimit import CACHE_TIMEOUT_S, ClientAddresses, RateLimiter
 from apparatica.core.requests import RequestContextMiddleware
 from apparatica.core.settings import Settings, get_settings
 from apparatica.core.storage import Storage
@@ -75,6 +76,18 @@ def create_app(
     if settings.cache_url is None and settings.environment == "production":
         raise RuntimeError("APX_CACHE_URL is required in production")
     limiter = RateLimiter.connect(settings.cache_url)  # connects on first use
+    cache = (
+        redis.asyncio.Redis.from_url(
+            settings.cache_url,
+            socket_connect_timeout=CACHE_TIMEOUT_S,
+            socket_timeout=CACHE_TIMEOUT_S,
+        )
+        if settings.cache_url is not None
+        else None
+    )
+    sessions = Sessions(
+        database, cache, ttl_s=settings.session_ttl_s, secure=settings.cookie_secure
+    )
     # One reader of the submission streams for the process (specs/07 §4.2); none without Valkey.
     hub = (
         StreamHub(redis.asyncio.Redis.from_url(settings.queue_url))
@@ -89,6 +102,8 @@ def create_app(
         finally:
             if hub is not None:
                 await hub.close()
+            if cache is not None:
+                await cache.aclose()
             await queue.close()
             await database.dispose()
 
@@ -114,6 +129,7 @@ def create_app(
     app.state.storage = Storage(settings)  # event journals, pictures of statements
     app.state.job_queue = queue
     app.state.guest_cookies = guest_cookies
+    app.state.sessions = sessions
     app.state.client_addresses = addresses
     app.state.rate_limiter = limiter
     app.state.quotas = Quotas(platform.limits.quotas.guest, limiter, platform.rate_limits)

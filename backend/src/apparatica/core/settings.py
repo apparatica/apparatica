@@ -84,6 +84,10 @@ class Settings(BaseSettings):
     cookie_secure: bool = Field(
         default=True, description="Secure cookies; off only for a stand served over plain HTTP"
     )
+    # Sessions of signed-in users (FR-AUTH-04, ADR-0010): renewed by use.
+    session_ttl_s: PositiveInt = Field(
+        default=30 * 86400, description="A session ends this long after its last use"
+    )
 
     # The ingestor (`apparatica ingest`, ADR-0009): its consumer in the group of judge:results.
     ingest_consumer: str | None = Field(
