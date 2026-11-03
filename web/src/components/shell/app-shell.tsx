@@ -6,10 +6,10 @@ import type { Theme } from "@/lib/theme";
 
 import { CommandPalette } from "./command-palette";
 import { GuestBanner } from "./guest-banner";
-import { GuestMenu } from "./guest-menu";
 import { NetworkBanner } from "./network-banner";
 import { BottomNav, Rail } from "./navigation";
 import { ThemeProvider } from "./theme";
+import { AccountMenu } from "./user-menu";
 
 function Logo() {
   return (
@@ -31,6 +31,8 @@ function Logo() {
 
 export interface AppShellProps {
   theme: Theme;
+  /** The browser has a session cookie: the header waits for the user rather than shows «Гость». */
+  signedIn?: boolean;
   /** The guest banner over the header, until the guest closes it. */
   guestBanner?: boolean;
   /** The path after the logo; a slot that pages fill. */
@@ -43,6 +45,7 @@ export interface AppShellProps {
 /** Header, left rail (bottom bar below 640 px) and the page; the layout of the mock-ups. */
 export function AppShell({
   theme,
+  signedIn = false,
   guestBanner = false,
   breadcrumbs,
   statusbar,
@@ -67,7 +70,7 @@ export function AppShell({
           {breadcrumbs}
           <div className="flex-1" />
           <CommandPalette />
-          <GuestMenu />
+          <AccountMenu signedIn={signedIn} />
         </header>
         <NetworkBanner />
         <div className="flex min-h-0 flex-1 gap-px">

@@ -20,6 +20,7 @@ import { LOCALE } from "@/i18n/request";
 import { ApiMocking } from "@/mocks/api-mocking";
 import { QueryProvider } from "@/lib/query";
 import { GUEST_BANNER_COOKIE, isGuestBannerClosed } from "@/lib/guest-banner";
+import { SESSION_COOKIE } from "@/lib/session";
 import { parseTheme, THEME_COOKIE, THEME_SCRIPT } from "@/lib/theme";
 import { ViewportProvider } from "@/lib/viewport";
 
@@ -34,8 +35,8 @@ export async function generateMetadata(): Promise<Metadata> {
 export default async function RootLayout({ children, breadcrumbs, statusbar }: LayoutProps<"/">) {
   const jar = await cookies();
   const theme = parseTheme(jar.get(THEME_COOKIE)?.value);
-  // Everyone is a guest until accounts (Ф2).
-  const guestBanner = !isGuestBannerClosed(jar.get(GUEST_BANNER_COOKIE)?.value);
+  const signedIn = jar.has(SESSION_COOKIE);
+  const guestBanner = !signedIn && !isGuestBannerClosed(jar.get(GUEST_BANNER_COOKIE)?.value);
   const phone = userAgent({ headers: await headers() }).device.type === "mobile";
   return (
     // An explicit choice is rendered by the server; "system" is set by THEME_SCRIPT before the
@@ -55,6 +56,7 @@ export default async function RootLayout({ children, breadcrumbs, statusbar }: L
               <TooltipProvider>
                 <AppShell
                   theme={theme}
+                  signedIn={signedIn}
                   guestBanner={guestBanner}
                   breadcrumbs={breadcrumbs}
                   statusbar={statusbar}

@@ -11,7 +11,6 @@ PROBLEM = "application/problem+json"
 @pytest.mark.parametrize(
     ("method", "path", "body"),
     [
-        ("PATCH", "/api/v1/me", {"nick": "ada", "display_name": None}),
         ("DELETE", "/api/v1/me", None),
         ("POST", "/api/v1/me/restore", None),
         ("GET", "/api/v1/me/export", None),
@@ -38,8 +37,6 @@ def test_stubs_are_not_implemented(client: TestClient, method: str, path: str, b
         ("GET", "/api/v1/auth/github/login?next=https://evil.example", None),
         ("POST", "/api/v1/auth/email/request", {"email": "not-an-address"}),
         ("POST", "/api/v1/auth/email/verify", {"token": "short"}),
-        ("PATCH", "/api/v1/me", {"nick": "Ada"}),
-        ("PATCH", "/api/v1/me", {"nick": "ab"}),
         ("PUT", "/api/v1/me/drafts/mux4", {"code": "", "problem_version": 0}),
         ("GET", "/api/v1/users/no%20such", None),
         ("GET", "/api/v1/problems?status=won", None),

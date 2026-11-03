@@ -1,13 +1,15 @@
 """The own account `/me` and public profiles `/users/{nick}` (specs/05 §3, phase 2): the contract,
-stubs until T2.1a, T2.4 and T2.7-T2.9. Every `/me` route answers UNAUTHENTICATED without a session.
+stubs until T2.7-T2.9. Every `/me` route answers UNAUTHENTICATED without a session.
 """
 
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Path, status
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from apparatica.auth.accounts import me
+from apparatica.auth.accounts import change_nick, me
 from apparatica.auth.models import User
 from apparatica.auth.schemas import Me, Nick
 from apparatica.auth.sessions import SignedIn
@@ -47,7 +49,6 @@ async def get_me(signed_in: SignedIn, session: Session) -> Me:
     "/me",
     response_model=Me,
     responses=problem_responses(
-        ErrorCode.NOT_IMPLEMENTED,
         ErrorCode.UNAUTHENTICATED,
         ErrorCode.CSRF_FAILED,
         ErrorCode.NICK_TAKEN,
@@ -58,10 +59,20 @@ async def get_me(signed_in: SignedIn, session: Session) -> Me:
     dependencies=[Depends(throttle)],
     openapi_extra=PHASE_2,
 )
-async def update_me(body: MeUpdate) -> Me:
+async def update_me(body: MeUpdate, signed_in: SignedIn, session: Session) -> Me:
     """Change the nick or the display name (FR-AUTH-02). NICK_CHANGE_TOO_SOON: `params.available_at`
     is when it may change again."""
-    raise _stub("T2.4")
+    now = datetime.now(UTC)
+    # Locked: two concurrent changes of the nick would both pass the check of 30 days.
+    user = await session.scalar(select(User).where(User.id == signed_in.user_id).with_for_update())
+    if user is None:
+        raise ApiError(ErrorCode.UNAUTHENTICATED, "Sign in to continue")
+    if "display_name" in body.model_fields_set:
+        user.display_name = body.display_name
+    if body.nick is not None:
+        await change_nick(session, user, body.nick, now)
+    await session.commit()
+    return me(user, now)
 
 
 @router.delete(

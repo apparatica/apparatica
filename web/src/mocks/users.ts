@@ -66,6 +66,13 @@ function byNick(nick: string): MockUser | undefined {
   return [...users.values()].find((user) => user.me.nick === nick);
 }
 
+/** The value of a session cookie of `nick`: tests sign in by setting it. */
+export function mockSession(nick: string): string {
+  const user = byNick(nick);
+  if (user === undefined) throw new Error(`no mock user ${nick}`);
+  return `mock.${user.me.id}`;
+}
+
 /** The signed-in user of a request, if any. */
 export function mockUser(cookies: Record<string, string>): MockUser | undefined {
   const value = cookies[SESSION];

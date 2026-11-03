@@ -1,10 +1,11 @@
-"""Accounts: the user as the API shows it to themselves (`Me`), and accounts that a first login
-creates (FR-AUTH-02)."""
+"""Accounts: the user as the API shows it to themselves (`Me`), accounts that a first login
+creates, and the nick that the user changes once in 30 days (FR-AUTH-02)."""
 
 import re
 import secrets
 import string
 from collections.abc import Iterator
+from datetime import UTC, datetime, timedelta
 from typing import cast
 
 from sqlalchemy import select
@@ -13,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from apparatica.auth.models import Identity, User
 from apparatica.auth.schemas import Me, Role
+from apparatica.core.errors import ApiError, ErrorCode
 from apparatica.core.ids import uuid7
 
 NICK_ALPHABET = string.ascii_lowercase + string.digits
@@ -20,9 +22,10 @@ NICK_LENGTH = (3, 24)  # ck_users_nick_format
 SUFFIX_LENGTH = 4
 DISPLAY_NAME_LENGTH = 60  # DisplayName
 ATTEMPTS = 5  # of a free nick, or of finding the account a concurrent login created
+NICK_CHANGE_EVERY = timedelta(days=30)  # FR-AUTH-02
 
 
-def me(user: User) -> Me:
+def me(user: User, now: datetime | None = None) -> Me:
     return Me(
         id=user.id,
         nick=user.nick,
@@ -31,9 +34,39 @@ def me(user: User) -> Me:
         email=user.email,
         role=cast(Role, user.role),  # ck_users_role
         created_at=user.created_at,
-        nick_change_available_at=None,  # nick changes arrive in T2.4
+        nick_change_available_at=nick_change_available_at(user, now or datetime.now(UTC)),
         delete_at=None,  # deletion arrives in T2.9
     )
+
+
+def nick_change_available_at(user: User, now: datetime) -> datetime | None:
+    """When the user may change the nick again; None: now. The nick of the first login does not
+    count: an account with the random nick of an email login renames itself at once."""
+    if user.nick_changed_at is None:
+        return None
+    available_at = user.nick_changed_at + NICK_CHANGE_EVERY
+    return available_at if available_at > now else None
+
+
+async def change_nick(session: AsyncSession, user: User, nick: str, now: datetime) -> None:
+    """Give `user` (locked by the caller) another nick. The old nick is free at once; the same nick
+    changes nothing. NICK_CHANGE_TOO_SOON within 30 days of the last change, NICK_TAKEN for a nick
+    of another account."""
+    if nick == user.nick:
+        return
+    available_at = nick_change_available_at(user, now)
+    if available_at is not None:
+        raise ApiError(
+            ErrorCode.NICK_CHANGE_TOO_SOON,
+            "The nick changes once in 30 days",
+            params={"available_at": available_at.isoformat()},
+        )
+    try:
+        async with session.begin_nested():  # a taken nick, also by a concurrent change
+            user.nick, user.nick_changed_at = nick, now
+            await session.flush()
+    except IntegrityError:
+        raise ApiError(ErrorCode.NICK_TAKEN, f"The nick '{nick}' is taken") from None
 
 
 def random_nick() -> str:

@@ -120,7 +120,7 @@ PostgreSQL 17+. Первичные ключи — UUIDv7 (сортируемы �
 
 ### Ф2 — пользователи
 
-**`users`**: `id uuid pk`, `nick citext unique`, `display_name text`, `avatar_url text`, `email citext null`, `role text` (`user`, `author`, `moderator`, `admin`), `is_hidden bool`, `created_at`, `deleted_at null`.
+**`users`**: `id uuid pk`, `nick citext unique`, `display_name text`, `avatar_url text`, `email citext null`, `role text` (`user`, `author`, `moderator`, `admin`), `is_hidden bool`, `created_at`, `nick_changed_at null` (последняя смена ника пользователем: ник меняется не чаще раза в 30 дней), `deleted_at null`.
 
 **`identities`**: `id`, `user_id fk`, `provider text`, `subject text`, `email text null`, `created_at`. Уникальность `(provider, subject)`.
 

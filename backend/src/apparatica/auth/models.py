@@ -33,6 +33,7 @@ class User(Base):
     email: Mapped[str | None] = mapped_column(CITEXT)  # never public
     role: Mapped[str] = mapped_column(server_default="user")
     created_at: Mapped[datetime] = created_at()
+    nick_changed_at: Mapped[datetime | None]  # by the user; the nick of the first login is not
 
 
 class Identity(Base):

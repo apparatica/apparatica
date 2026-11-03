@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import Annotated, Literal
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, StringConstraints
 
 # OAuth providers of the login routes; VK ID, Yandex ID and Google join in phase 4.
 OAuthProvider = Literal["github"]
@@ -40,7 +40,8 @@ Nick = Annotated[
         description="Unique, lowercase; the profile is /u/<nick>",
     ),
 ]
-DisplayName = Annotated[str, Field(min_length=1, max_length=60)]
+# Spaces around the name are dropped; a name of spaces only is no name.
+DisplayName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=60)]
 
 
 class Me(BaseModel):
