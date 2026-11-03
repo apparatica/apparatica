@@ -9,7 +9,7 @@ import { ThemeProvider } from "./theme";
 import { AccountMenu } from "./user-menu";
 
 const router = vi.hoisted(() => ({ refresh: vi.fn() }));
-vi.mock("next/navigation", () => ({ useRouter: () => router }));
+vi.mock("next/navigation", () => ({ useRouter: () => router, usePathname: () => "/settings" }));
 
 beforeEach(() => router.refresh.mockReset());
 afterEach(signOut);
@@ -25,6 +25,10 @@ function renderMenu(signedIn: boolean) {
 it("shows the guest chip without a session", () => {
   renderMenu(false);
   expect(screen.getByRole("button", { name: "Гость" })).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: "Войти" })).toHaveAttribute(
+    "href",
+    "/login?next=/settings",
+  );
 });
 
 it("shows the user, leads to the settings and logs out", async () => {

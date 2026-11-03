@@ -1,8 +1,11 @@
 "use client";
 
 import { Monitor, Moon, Sun, User } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 
+import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -11,6 +14,7 @@ import {
   DropdownMenuRadioItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { loginHref } from "@/lib/session";
 import { parseTheme, THEMES } from "@/lib/theme";
 
 import { useTheme } from "./theme";
@@ -39,19 +43,27 @@ export function ThemeItems() {
   );
 }
 
-/** The "Guest" chip of the header (sheet Guest) and its menu: the theme. «Войти» arrives with the
- * login page (T2.6). */
+/** The "Guest" chip of the header (sheet Guest) with its menu, the theme, and «Войти» beside it,
+ * returning to this page; the login pages do not show the button. */
 export function GuestMenu() {
   const t = useTranslations("shell");
+  const path = usePathname();
   return (
-    <DropdownMenu>
-      <DropdownMenuTrigger className="inline-flex h-[22px] cursor-pointer items-center gap-1.5 rounded-sm border border-bc px-2 font-mono text-[11px] text-mu hover:bg-sf2 hover:text-tx data-[state=open]:bg-sf2 pointer-coarse:h-11">
-        <User size={12} aria-hidden="true" />
-        {t("guest.label")}
-      </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <ThemeItems />
-      </DropdownMenuContent>
-    </DropdownMenu>
+    <>
+      <DropdownMenu>
+        <DropdownMenuTrigger className="inline-flex h-[22px] cursor-pointer items-center gap-1.5 rounded-sm border border-bc px-2 font-mono text-[11px] text-mu hover:bg-sf2 hover:text-tx data-[state=open]:bg-sf2 pointer-coarse:h-11">
+          <User size={12} aria-hidden="true" />
+          {t("guest.label")}
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <ThemeItems />
+        </DropdownMenuContent>
+      </DropdownMenu>
+      {!path.startsWith("/login") && (
+        <Button asChild className="h-[26px]">
+          <Link href={loginHref(path)}>{t("guest.login")}</Link>
+        </Button>
+      )}
+    </>
   );
 }

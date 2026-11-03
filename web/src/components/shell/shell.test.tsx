@@ -10,11 +10,12 @@ import { GuestBanner } from "./guest-banner";
 import { GuestMenu } from "./guest-menu";
 import { ThemeProvider, useResolvedTheme } from "./theme";
 
-const router = vi.hoisted(() => ({ push: vi.fn() }));
-vi.mock("next/navigation", () => ({ useRouter: () => router }));
+const router = vi.hoisted(() => ({ push: vi.fn(), path: "/problems/mux4" }));
+vi.mock("next/navigation", () => ({ useRouter: () => router, usePathname: () => router.path }));
 
 beforeEach(() => {
   router.push.mockReset();
+  router.path = "/problems/mux4";
   mockColorScheme("dark");
 });
 afterEach(clearThemeState);
@@ -131,8 +132,33 @@ it("closes the guest banner for good", async () => {
   expect(banner).toHaveTextContent(
     "Вы решаете как гость. Черновики хранятся только в этом браузере, а решения не попадут в рейтинг.",
   );
+  // «Войти» returns to this page.
+  expect(within(banner).getByRole("link", { name: "Войти" })).toHaveAttribute(
+    "href",
+    "/login?next=/problems/mux4",
+  );
   await userEvent.click(within(banner).getByRole("button", { name: "Закрыть баннер гостя" }));
   expect(banner).not.toBeInTheDocument();
   // The server reads it and renders no banner on the next pages.
   expect(document.cookie).toContain("ap_guest_banner=closed");
+});
+
+it("leads a guest to the login from the header, but not from the login pages", () => {
+  const { unmount } = renderWithProviders(<Header />);
+  expect(screen.getByRole("link", { name: "Войти" })).toHaveAttribute(
+    "href",
+    "/login?next=/problems/mux4",
+  );
+  unmount();
+
+  router.path = "/login";
+  renderWithProviders(
+    <>
+      <Header />
+      <GuestBanner />
+    </>,
+  );
+  expect(screen.getByRole("button", { name: "Гость" })).toBeInTheDocument();
+  expect(screen.queryByRole("link", { name: "Войти" })).not.toBeInTheDocument();
+  expect(screen.queryByRole("complementary", { name: "Гостевой режим" })).not.toBeInTheDocument();
 });

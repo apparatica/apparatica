@@ -2,16 +2,16 @@
 
 // The limits of a guest in the results panel (FR-GST-04, sheet Guest): the counter of the checks
 // left this hour, and when they are spent, the wait until the next one. «Войти и продолжить» and
-// the hint that signed-in users get more come with accounts (Ф2).
+// the hint that signed-in users get more are T2.6a.
 import { CalendarClock, Clock } from "lucide-react";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import type { Schemas } from "@/lib/api/client";
+import { formatCountdown } from "@/lib/clock";
 import { cn } from "@/lib/utils";
 
-import { formatCountdown } from "./limits";
 import { Banner } from "./result-banner";
 
 const timer = (chunks: ReactNode) => <span className="font-mono text-tx">{chunks}</span>;

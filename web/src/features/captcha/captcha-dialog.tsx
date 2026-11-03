@@ -1,9 +1,9 @@
 "use client";
 
-// The captcha before a check (FR-GST-05, sheet ModalsB): after `428 CAPTCHA_REQUIRED` the guest
-// solves an ALTCHA challenge and the check starts again with it. When checks were only too frequent,
-// the wait is shown too: once it is over, the check goes without the captcha. The hint that
-// signed-in users see fewer captchas comes with accounts (Ф2).
+// The captcha before a check (FR-GST-05, sheet ModalsB) or a login link: after `428
+// CAPTCHA_REQUIRED` the guest solves an ALTCHA challenge and the request goes again with it. When
+// checks were only too frequent, the wait is shown too: once it is over, the check goes without the
+// captcha. The hint that signed-in users see fewer captchas is T2.6a.
 import { useTranslations } from "next-intl";
 import { type ReactNode, useState } from "react";
 
@@ -17,11 +17,11 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { AltchaWidget } from "@/features/captcha/altcha-widget";
 import { apiUrl } from "@/lib/api/browser";
-import { useCountdown } from "@/lib/clock";
+import { formatCountdown, useCountdown } from "@/lib/clock";
 
-import { type CaptchaRequest, formatCountdown } from "./limits";
+import { AltchaWidget } from "./altcha-widget";
+import type { CaptchaRequest } from "./request";
 
 const timer = (chunks: ReactNode) => <span className="font-mono text-tx">{chunks}</span>;
 
@@ -31,9 +31,11 @@ export interface CaptchaDialogProps {
   /** Start the check again: with the solution, or without one after the wait. */
   onSolve: (solution: string | null) => void;
   onCancel: () => void;
+  /** What waits for the captcha: a check of a solution or a login link. */
+  purpose?: "check" | "login" | undefined;
 }
 
-export function CaptchaDialog({ request, onSolve, onCancel }: CaptchaDialogProps) {
+export function CaptchaDialog({ request, onSolve, onCancel, purpose }: CaptchaDialogProps) {
   return (
     <Dialog open={request !== null} onOpenChange={(open) => !open && onCancel()}>
       {request !== null && (
@@ -44,6 +46,7 @@ export function CaptchaDialog({ request, onSolve, onCancel }: CaptchaDialogProps
             request={request}
             onSolve={onSolve}
             onCancel={onCancel}
+            purpose={purpose}
           />
         </DialogContent>
       )}
@@ -55,6 +58,7 @@ function CaptchaForm({
   request,
   onSolve,
   onCancel,
+  purpose = "check",
 }: CaptchaDialogProps & { request: CaptchaRequest }) {
   const t = useTranslations("captcha");
   const [solution, setSolution] = useState<string | null>(null);
@@ -68,7 +72,8 @@ function CaptchaForm({
       <DialogHeader className="pb-4">
         <DialogTitle>{t("title")}</DialogTitle>
         <DialogDescription>
-          {t(request.reason)} {wait}
+          {t(purpose === "login" && request.reason === "always" ? "alwaysLogin" : request.reason)}{" "}
+          {wait}
         </DialogDescription>
       </DialogHeader>
       <DialogBody className="pt-0">

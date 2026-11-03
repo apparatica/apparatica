@@ -1,9 +1,10 @@
 // Login, the own account and profiles of the mock API (docs/frontend.md#моки-для-разработки). The
 // session is the cookie `ap_session=mock.<user id>`, readable by scripts unlike the real one. Users
 // live in memory: `ada` (ada@example.com) has solved and attempted problems; a login link to
-// another address creates a user, as the first login does. A login link of the mock is printed to
-// the console; any token works, one with `expired` in it is LOGIN_LINK_INVALID. CSRF is not
-// checked.
+// another address creates a user, as the first login does. The id of `ada` is fixed, so her
+// session outlives a reload of the page and is known to the mocks of the server too. A login link
+// of the mock is printed to the console; any token works, one with `expired` in it is
+// LOGIN_LINK_INVALID. CSRF is not checked.
 import { http, HttpResponse } from "msw";
 
 import type { Schemas } from "@/lib/api/client";
@@ -45,6 +46,7 @@ function newUser(nick: string, email: string | null, created = new Date()): Mock
 
 function seed(): Map<string, MockUser> {
   const ada = newUser("ada", "ada@example.com", new Date("2026-09-14T10:00:00Z"));
+  ada.me.id = "00000000-0000-4000-8000-00000000ada0";
   ada.me.display_name = "Ada";
   ada.statuses = {
     mux4: { status: "solved", solvedAt: "2026-09-14T10:20:00Z" },

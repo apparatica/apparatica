@@ -17,6 +17,8 @@ import {
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { notify } from "@/components/ui/toast";
+import { CaptchaDialog } from "@/features/captcha/captcha-dialog";
+import { captchaRequest } from "@/features/captcha/request";
 import { useSubmissionHistory } from "@/features/guest/submissions";
 import { isFinished } from "@/features/submission/machine";
 import { useSubmission } from "@/features/submission/use-submission";
@@ -24,11 +26,10 @@ import { browserApi } from "@/lib/api/browser";
 import type { Schemas } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 
-import { CaptchaDialog } from "./captcha-dialog";
 import { clearEditorStatus } from "./editor-status";
 import { EditorPane, type VersionUpdate } from "./editor-pane";
 import { type BenchLayout, saveBenchLayout } from "./layout";
-import { captchaRequest, checksSpentUntil } from "./limits";
+import { checksSpentUntil } from "./limits";
 import { useOpenSubmission } from "./open-submission";
 import { useLeftTab } from "./left-tab";
 import { type LeftTab, setPageQuery } from "./page-query";

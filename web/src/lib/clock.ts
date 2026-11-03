@@ -39,3 +39,14 @@ export function useCountdown(
   const left = until - Math.max(now, from ?? now);
   return left > 0 ? left : null;
 }
+
+/** A wait as a timer: "0:42", "12:41", "1:02:03"; whole seconds, rounded up. */
+export function formatCountdown(ms: number): string {
+  const total = Math.max(0, Math.ceil(ms / 1000));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const seconds = String(total % 60).padStart(2, "0");
+  return hours > 0
+    ? `${hours}:${String(minutes).padStart(2, "0")}:${seconds}`
+    : `${minutes}:${seconds}`;
+}
