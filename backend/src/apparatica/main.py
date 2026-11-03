@@ -6,6 +6,7 @@ from contextlib import asynccontextmanager
 from importlib.metadata import version
 from typing import Any
 
+import httpx2
 import redis.asyncio
 from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
@@ -15,6 +16,7 @@ from apparatica.auth import api as auth_api
 from apparatica.auth.csrf import CsrfMiddleware
 from apparatica.auth.email_login import EmailLogins
 from apparatica.auth.guests import GuestCookies
+from apparatica.auth.oauth import Adapter, GitHub, OAuthLogins
 from apparatica.auth.sessions import Sessions
 from apparatica.captcha import api as captcha_api
 from apparatica.captcha.altcha import Altcha
@@ -55,10 +57,11 @@ def create_app(
     flag_overrides: Overrides | None = None,
     job_queue: JobQueue | None = None,
     mailer: Mailer | None = None,
+    oauth_transport: httpx2.AsyncBaseTransport | None = None,
 ) -> FastAPI:
     """`flag_overrides` replaces the `feature_flags` table as the source of flag overrides,
     `job_queue` the queue of checks (by default from APX_QUEUE_URL), `mailer` the SMTP server of
-    APX_SMTP_URL."""
+    APX_SMTP_URL, `oauth_transport` the network of the requests to the OAuth providers."""
     settings = settings or get_settings()
     configure_logging(settings.log_level, settings.log_format)
     platform = load_platform_config(settings.config_dir)  # fail fast on a broken config
@@ -95,6 +98,7 @@ def create_app(
         database, cache, ttl_s=settings.session_ttl_s, secure=settings.cookie_secure
     )
     email_logins = _email_logins(settings, database, sessions, mailer)
+    oauth_logins = _oauth_logins(settings, database, sessions, oauth_transport)
     # One reader of the submission streams for the process (specs/07 §4.2); none without Valkey.
     hub = (
         StreamHub(redis.asyncio.Redis.from_url(settings.queue_url))
@@ -138,7 +142,8 @@ def create_app(
     app.state.guest_cookies = guest_cookies
     app.state.sessions = sessions
     app.state.email_logins = email_logins
-    app.state.auth_providers = _auth_providers(email_logins)
+    app.state.oauth_logins = oauth_logins
+    app.state.auth_providers = _auth_providers(oauth_logins, email_logins)
     app.state.client_addresses = addresses
     app.state.rate_limiter = limiter
     app.state.quotas = Quotas(platform.limits.quotas.guest, limiter, platform.rate_limits)
@@ -198,9 +203,48 @@ def _email_logins(
     return EmailLogins(database, mailer, sessions, base_url=settings.public_base_url)
 
 
-def _auth_providers(email_logins: EmailLogins | None) -> list[AuthProvider]:
-    """The configured ways to sign in, in the order of the login page; GitHub comes in T2.3."""
-    providers = []
+def _oauth_logins(
+    settings: Settings,
+    database: Database,
+    sessions: Sessions,
+    transport: httpx2.AsyncBaseTransport | None,
+) -> dict[str, OAuthLogins]:
+    """The OAuth providers whose apps are configured, by key; the callback of an app is
+    `<public_base_url>/api/v1/auth/<key>/callback`."""
+    apps: list[tuple[Adapter, str | None, SecretStr | None]] = [
+        (GitHub(), settings.github_client_id, settings.github_client_secret)
+    ]
+    logins = {}
+    for adapter, client_id, client_secret in apps:
+        name = f"APX_{adapter.key.upper()}"
+        if client_id is None and client_secret is None:
+            continue
+        if client_id is None or client_secret is None:
+            raise RuntimeError(f"{name}_CLIENT_ID and {name}_CLIENT_SECRET go together")
+        if settings.public_base_url is None:
+            raise RuntimeError(f"APX_PUBLIC_BASE_URL is required with {name}_CLIENT_ID")
+        logins[adapter.key] = OAuthLogins(
+            adapter,
+            database,
+            sessions,
+            client_id=client_id,
+            client_secret=client_secret.get_secret_value(),
+            redirect_uri=f"{settings.public_base_url}{API_PREFIX}/auth/{adapter.key}/callback",
+            timeout_s=settings.oauth_timeout_s,
+            secure=settings.cookie_secure,
+            transport=transport,
+        )
+    return logins
+
+
+def _auth_providers(
+    oauth_logins: dict[str, OAuthLogins], email_logins: EmailLogins | None
+) -> list[AuthProvider]:
+    """The configured ways to sign in, in the order of the login page: providers, then email."""
+    providers = [
+        AuthProvider(key=key, title=logins.adapter.title, kind="oauth")
+        for key, logins in oauth_logins.items()
+    ]
     if email_logins is not None:
         providers.append(AuthProvider(key="email", title="Email", kind="email"))
     return providers

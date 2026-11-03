@@ -260,6 +260,7 @@ def test_feature_flags_come_from_the_table(database_url: str, settings: Settings
         features = client.get("/api/v1/config").json()["features"]
     assert features == {
         "auth_email": True,
+        "auth_github": True,
         "captcha": True,
         "formal_stage": False,
         "industrial_mode": False,

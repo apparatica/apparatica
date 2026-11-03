@@ -28,6 +28,7 @@ FLAGS: dict[str, Flag] = {
     flag.key: flag
     for flag in (
         Flag("auth_email", True, "Login by a link in a letter, when SMTP is configured (Ф2)"),
+        Flag("auth_github", True, "Login with GitHub, when its OAuth app is configured (Ф2)"),
         Flag("captcha", False, "ALTCHA before guest checks and login links (Ф1)"),
         Flag("formal_stage", False, "Formal verification stage and its result tab (Ф5)"),
         Flag("industrial_mode", False, "Industrial practice mode (Ф7)"),

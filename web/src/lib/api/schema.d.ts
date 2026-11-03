@@ -322,7 +322,8 @@ export interface paths {
         /**
          * Oauth Callback
          * @description Where the provider returns the browser. A failure is a redirect to the login page, not an
-         *     error document: the browser shows the page.
+         *     error document: the browser shows the page. The first login creates the account; the login
+         *     replaces the session of this browser.
          */
         get: operations["oauth_callback"];
         put?: never;
@@ -2978,15 +2979,6 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Error"];
                 };
             };
-            /** @description Not Implemented */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Error"];
-                };
-            };
         };
     };
     oauth_callback: {
@@ -3034,15 +3026,6 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Not Implemented */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };

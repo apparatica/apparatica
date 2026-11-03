@@ -1383,16 +1383,6 @@
               }
             }
           },
-          "501": {
-            "description": "Not Implemented",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
           "404": {
             "description": "Not Found",
             "content": {
@@ -1423,7 +1413,7 @@
           "auth"
         ],
         "summary": "Oauth Callback",
-        "description": "Where the provider returns the browser. A failure is a redirect to the login page, not an\nerror document: the browser shows the page.",
+        "description": "Where the provider returns the browser. A failure is a redirect to the login page, not an\nerror document: the browser shows the page. The first login creates the account; the login\nreplaces the session of this browser.",
         "operationId": "oauth_callback",
         "parameters": [
           {
@@ -1505,16 +1495,6 @@
           },
           "500": {
             "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "501": {
-            "description": "Not Implemented",
             "content": {
               "application/problem+json": {
                 "schema": {

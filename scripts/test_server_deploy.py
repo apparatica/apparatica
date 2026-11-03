@@ -61,7 +61,10 @@ def compose(name: str) -> dict:  # type: ignore[type-arg]
 
 def test_every_secret_of_the_stand_is_generated() -> None:
     text = (DEPLOY / "compose.yaml").read_text(encoding="utf-8")
-    secrets = {name for name, _ in DEFAULTED.findall(text) if SECRET_NAME.search(name)}
+    # A secret without a default (the keys of OAuth apps) is issued elsewhere and optional.
+    secrets = {
+        name for name, default in DEFAULTED.findall(text) if SECRET_NAME.search(name) and default
+    }
     assert secrets == set(generator.SECRETS)
 
 

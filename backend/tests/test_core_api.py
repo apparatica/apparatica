@@ -33,6 +33,7 @@ def test_config(client: TestClient) -> None:
     assert body["version"] == VERSION
     assert body["features"] == {
         "auth_email": True,
+        "auth_github": True,
         "captcha": False,
         "formal_stage": False,
         "industrial_mode": False,

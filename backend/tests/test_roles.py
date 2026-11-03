@@ -33,9 +33,13 @@ LIMITS = (
 )
 
 
-def app_client(database_url: str, config_dir: Path = CONFIG_DIR) -> TestClient:
+def app_client(database_url: str, config_dir: Path = CONFIG_DIR, **fields: Any) -> TestClient:
     settings = Settings(
-        environment="test", database_url=database_url, config_dir=config_dir, cookie_secure=False
+        environment="test",
+        database_url=database_url,
+        config_dir=config_dir,
+        cookie_secure=False,
+        **fields,
     )
     app = create_app(settings)
     router = APIRouter()
@@ -111,8 +115,13 @@ def test_logins_are_limited_per_address(limits: Path) -> None:
     def login(client: TestClient) -> Any:
         return client.get("/api/v1/auth/github/login", follow_redirects=False)
 
-    with app_client("sqlite+aiosqlite:///:memory:", limits) as client:
-        assert login(client).status_code == 501  # T2.3
+    github = {
+        "public_base_url": "http://site.test",
+        "github_client_id": "client-id",
+        "github_client_secret": "client-secret",
+    }
+    with app_client("sqlite+aiosqlite:///:memory:", limits, **github) as client:
+        assert login(client).headers["location"].startswith("https://github.com/")
         link = client.post("/api/v1/auth/email/request", json={"email": "ada@example.com"})
         assert link.status_code == 404  # no SMTP: no email login
         limited = client.post("/api/v1/auth/email/verify", json={"token": "t" * 43})

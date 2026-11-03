@@ -1,4 +1,4 @@
-"""Login and logout (specs/05 §3, phase 2); OAuth logins are stubs until T2.3.
+"""Login and logout (specs/05 §3, phase 2).
 
 A login sets the session cookie `ap_session` (ADR-0010). The first login creates the account with
 the current versions of the legal documents as accepted: the login page says that continuing
@@ -11,8 +11,10 @@ from typing import Annotated
 from fastapi import APIRouter, BackgroundTasks, Depends, Path, Query, Request, status
 from fastapi.responses import RedirectResponse, Response
 
+from apparatica.auth import oauth
 from apparatica.auth.accounts import me
 from apparatica.auth.email_login import EmailLogins, normalize
+from apparatica.auth.oauth import LoginError, OAuthLogins
 from apparatica.auth.schemas import (
     EmailLogin,
     EmailLoginRequest,
@@ -40,10 +42,22 @@ async def _email_logins(request: Request) -> EmailLogins:
     return email_logins
 
 
-def _stub(task: str) -> ApiError:
-    return ApiError(
-        ErrorCode.NOT_IMPLEMENTED, f"Declared by the phase 2 contract; arrives in {task}"
-    )
+async def _oauth_logins(request: Request, provider: str) -> OAuthLogins:
+    """NOT_FOUND unless the OAuth app of the provider is configured and its flag is on."""
+    state = request.app.state
+    logins: OAuthLogins | None = state.oauth_logins.get(provider)
+    if logins is None or not await state.flags.enabled(f"auth_{provider}"):
+        raise ApiError(ErrorCode.NOT_FOUND, f"Login with {provider} is not enabled")
+    return logins
+
+
+async def _replace_session(request: Request, response: Response, token: str) -> None:
+    """Give the browser the session of a login, ending the one it had."""
+    sessions: Sessions = request.app.state.sessions
+    previous = request.cookies.get(COOKIE)
+    if previous is not None:
+        await sessions.end(previous)
+    sessions.set_cookie(response, token)
 
 
 @router.get(
@@ -56,9 +70,7 @@ def _stub(task: str) -> ApiError:
             "/login?error=rate_limited when the address starts logins too often",
             "headers": {"Location": {"schema": {"type": "string", "format": "uri"}}},
         },
-        **problem_responses(
-            ErrorCode.NOT_IMPLEMENTED, ErrorCode.NOT_FOUND, ErrorCode.VALIDATION_ERROR
-        ),
+        **problem_responses(ErrorCode.NOT_FOUND, ErrorCode.VALIDATION_ERROR),
     },
     openapi_extra=PHASE_2,
 )
@@ -67,9 +79,13 @@ async def oauth_login(
 ) -> RedirectResponse:
     """Start a login with an OAuth provider: a page the browser navigates to, not a fetch, so
     the rate limit is a redirect to the login page too. NOT_FOUND: the provider is disabled."""
+    logins = await _oauth_logins(request, provider)
     if await login_limit(request) is not None:
         return RedirectResponse(LOGIN_FAILED.format(reason="rate_limited"), status.HTTP_302_FOUND)
-    raise _stub("T2.3")
+    url, pending = logins.start(next)
+    response = RedirectResponse(url, status.HTTP_302_FOUND)
+    logins.set_cookie(response, pending)
+    return response
 
 
 @router.get(
@@ -82,21 +98,39 @@ async def oauth_login(
             "reasons in docs/api.md",
             "headers": {"Location": {"schema": {"type": "string"}}},
         },
-        **problem_responses(
-            ErrorCode.NOT_IMPLEMENTED, ErrorCode.NOT_FOUND, ErrorCode.VALIDATION_ERROR
-        ),
+        **problem_responses(ErrorCode.NOT_FOUND, ErrorCode.VALIDATION_ERROR),
     },
     openapi_extra=PHASE_2,
 )
 async def oauth_callback(
     provider: Provider,
+    request: Request,
     code: Annotated[str | None, Query(max_length=2048)] = None,
     state: Annotated[str | None, Query(max_length=2048)] = None,
     error: Annotated[str | None, Query(max_length=256, description="Set by the provider")] = None,
 ) -> RedirectResponse:
     """Where the provider returns the browser. A failure is a redirect to the login page, not an
-    error document: the browser shows the page."""
-    raise _stub("T2.3")
+    error document: the browser shows the page. The first login creates the account; the login
+    replaces the session of this browser."""
+    logins = await _oauth_logins(request, provider)
+    response: RedirectResponse
+    try:
+        login = await logins.finish(
+            code=code,
+            state=state,
+            error=error,
+            cookie=request.cookies.get(oauth.COOKIE),
+            user_agent=request.headers.get("user-agent"),
+        )
+    except LoginError as failed:
+        response = RedirectResponse(
+            LOGIN_FAILED.format(reason=failed.reason), status.HTTP_302_FOUND
+        )
+    else:
+        response = RedirectResponse(login.next or "/", status.HTTP_302_FOUND)
+        await _replace_session(request, response, login.session_token)
+    logins.clear_cookie(response)  # a login is finished once, whatever the answer
+    return response
 
 
 @router.post(
@@ -153,11 +187,7 @@ async def verify_login_link(
     login = await email_logins.verify(body.token, request.headers.get("user-agent"))
     if login is None:
         raise ApiError(ErrorCode.LOGIN_LINK_INVALID, "The link is unknown, used or expired")
-    sessions: Sessions = request.app.state.sessions
-    previous = request.cookies.get(COOKIE)
-    if previous is not None:  # the login replaces the session of this browser
-        await sessions.end(previous)
-    sessions.set_cookie(response, login.session_token)
+    await _replace_session(request, response, login.session_token)
     return EmailLogin(user=me(login.user), created=login.created, next=login.next)
 
 

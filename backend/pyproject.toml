@@ -5,7 +5,7 @@ description = "Apparatica backend: FastAPI application and results ingestor"
 license = "AGPL-3.0-or-later"
 readme = "README.md"
 requires-python = ">=3.13,<3.14"
-dependencies = ["apparatica-judge", "fastapi (>=0.120)", "uvicorn (>=0.38)", "pydantic-settings (>=2.11)", "sqlalchemy[asyncio] (>=2.0.44)", "asyncpg (>=0.30)", "alembic (>=1.17)", "structlog (>=25.4)", "pyyaml (>=6.0.2)", "boto3 (>=1.40,<2.0)", "dramatiq[redis] (>=2.2,<3)", "zstandard (>=0.23)", "limits (>=5.8,<6)", "prometheus-client (>=0.23,<1)"]
+dependencies = ["apparatica-judge", "fastapi (>=0.120)", "uvicorn (>=0.38)", "pydantic-settings (>=2.11)", "sqlalchemy[asyncio] (>=2.0.44)", "asyncpg (>=0.30)", "alembic (>=1.17)", "structlog (>=25.4)", "pyyaml (>=6.0.2)", "boto3 (>=1.40,<2.0)", "dramatiq[redis] (>=2.2,<3)", "zstandard (>=0.23)", "limits (>=5.8,<6)", "prometheus-client (>=0.23,<1)", "authlib (>=1.9.2,<2)", "httpx2 (>=2.16.0,<3.0.0)"]
 
 [project.scripts]
 apparatica = "apparatica.cli:main"
@@ -19,7 +19,6 @@ dev = [
     "import-linter>=2.3",
     "types-pyyaml (>=6.0)",
     "aiosqlite (>=0.21)",
-    "httpx2 (>=2.16.0,<3.0.0)",
     "testcontainers[postgres,redis] (>=4.13,<5.0)",
     "moto[s3] (>=5.1,<6.0)",
     "boto3-stubs[s3] (>=1.40,<2.0)",
@@ -39,6 +38,10 @@ addopts = ["-ra", "--strict-markers", "--strict-config"]
 strict = true
 untyped_calls_exclude = ["dramatiq.brokers.redis"]  # RedisBroker has no annotations
 files = ["src", "tests"]
+
+[[tool.mypy.overrides]]
+module = ["authlib.*"]  # no annotations
+ignore_missing_imports = true
 
 [build-system]
 requires = ["poetry-core>=2.0"]

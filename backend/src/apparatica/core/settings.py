@@ -8,7 +8,7 @@ from functools import cache
 from pathlib import Path
 from typing import Literal
 
-from pydantic import Field, PositiveFloat, PositiveInt, SecretStr
+from pydantic import Field, PositiveFloat, PositiveInt, SecretStr, field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -100,8 +100,14 @@ class Settings(BaseSettings):
     public_base_url: str | None = Field(
         default=None,
         pattern=r"^https?://[^/?#]+$",
-        description="Origin of the site as users reach it, for links in letters; required with"
-        " smtp_url",
+        description="Origin of the site as users reach it, for links in letters and the callbacks"
+        " of OAuth logins; required with smtp_url and with the keys of an OAuth app",
+    )
+    # OAuth apps of the login providers (FR-AUTH-01): a provider is configured by both its keys.
+    github_client_id: str | None = Field(default=None, description="Client ID of the GitHub app")
+    github_client_secret: SecretStr | None = None
+    oauth_timeout_s: PositiveFloat = Field(
+        default=10, description="Timeout of the requests to the providers at a login"
     )
 
     # The ingestor (`apparatica ingest`, ADR-0009): its consumer in the group of judge:results.
@@ -117,6 +123,12 @@ class Settings(BaseSettings):
         le=600,
         description="How often the ingestor recounts acceptance rates; 10 min at most (FR-CAT-04)",
     )
+
+    @field_validator("github_client_id", "github_client_secret", mode="before")
+    @classmethod
+    def _empty_is_unset(cls, value: object) -> object:
+        """deploy/compose.yaml passes the keys of an OAuth app through, empty when unset."""
+        return None if value == "" else value
 
 
 @cache

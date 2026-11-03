@@ -11,6 +11,7 @@ export const config: Schemas["ConfigResponse"] = {
   version: "0.1.0",
   features: {
     auth_email: true,
+    auth_github: true,
     captcha: false,
     formal_stage: false,
     industrial_mode: false,
