@@ -9,7 +9,13 @@ export const health: Schemas["HealthResponse"] = {
 
 export const config: Schemas["ConfigResponse"] = {
   version: "0.1.0",
-  features: { captcha: false, formal_stage: false, industrial_mode: false, reports: false },
+  features: {
+    auth_email: true,
+    captcha: false,
+    formal_stage: false,
+    industrial_mode: false,
+    reports: false,
+  },
   difficulties: [
     { key: "easy", title: "Easy", token: "e" },
     { key: "medium", title: "Medium", token: "m" },

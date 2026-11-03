@@ -1553,7 +1553,7 @@
           "auth"
         ],
         "summary": "Request Login Link",
-        "description": "Send a one-time login link valid for 15 minutes (FR-AUTH-05). The answer does not tell\nwhether an account exists. RATE_LIMITED: per address and per IP; CAPTCHA_REQUIRED: as for\nsubmissions.",
+        "description": "Send a one-time login link valid for 15 minutes (FR-AUTH-05). The answer does not tell\nwhether an account exists. NOT_FOUND: email login is disabled; RATE_LIMITED: per email address\nand per IP; CAPTCHA_REQUIRED: with the `captcha` flag.",
         "operationId": "request_login_link",
         "requestBody": {
           "content": {
@@ -1579,8 +1579,8 @@
               }
             }
           },
-          "501": {
-            "description": "Not Implemented",
+          "404": {
+            "description": "Not Found",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1639,7 +1639,7 @@
           "auth"
         ],
         "summary": "Verify Login Link",
-        "description": "Sign in with the token of a link. The link opens a page of the site that posts the token,\nso a link preview that fetches it does not spend it. LOGIN_LINK_INVALID: unknown, used or\nexpired.",
+        "description": "Sign in with the token of a link. The link opens a page of the site that posts the token,\nso a link preview that fetches it does not spend it. The first login creates the account.\nLOGIN_LINK_INVALID: unknown, used or expired; NOT_FOUND: email login is disabled.",
         "operationId": "verify_login_link",
         "requestBody": {
           "content": {
@@ -1672,8 +1672,8 @@
               }
             }
           },
-          "501": {
-            "description": "Not Implemented",
+          "404": {
+            "description": "Not Found",
             "content": {
               "application/problem+json": {
                 "schema": {

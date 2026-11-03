@@ -88,6 +88,21 @@ class Settings(BaseSettings):
     session_ttl_s: PositiveInt = Field(
         default=30 * 86400, description="A session ends this long after its last use"
     )
+    # Letters (specs/09 §1): login links (FR-AUTH-05). Unset means no email login; Mailpit in dev.
+    smtp_url: SecretStr | None = Field(
+        default=None,
+        description="smtp:// (plain), smtp+starttls:// or smtps:// URL, with user:password if any",
+    )
+    smtp_timeout_s: PositiveFloat = 10
+    mail_from: str = Field(
+        default="Apparatica <noreply@localhost>", description="From header of the letters"
+    )
+    public_base_url: str | None = Field(
+        default=None,
+        pattern=r"^https?://[^/?#]+$",
+        description="Origin of the site as users reach it, for links in letters; required with"
+        " smtp_url",
+    )
 
     # The ingestor (`apparatica ingest`, ADR-0009): its consumer in the group of judge:results.
     ingest_consumer: str | None = Field(

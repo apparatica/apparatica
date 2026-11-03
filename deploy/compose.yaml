@@ -172,6 +172,8 @@ services:
       # Presigned URLs of artifacts are signed for the storage as the browser reaches it (Caddy).
       APX_S3_PUBLIC_URL: http://s3.localhost:${HTTP_PORT:-8080}
       APX_WAVEVIEW_URL: http://waveview.web.localhost:${HTTP_PORT:-8080}
+      # Links in letters; letters need APX_SMTP_URL (Mailpit of compose.dev.yaml).
+      APX_PUBLIC_BASE_URL: http://localhost:${HTTP_PORT:-8080}
       # The stand is served over plain HTTP: a Secure cookie would not come back from
       # an address other than localhost.
       APX_COOKIE_SECURE: ${APX_COOKIE_SECURE:-false}

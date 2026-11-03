@@ -345,8 +345,8 @@ export interface paths {
         /**
          * Request Login Link
          * @description Send a one-time login link valid for 15 minutes (FR-AUTH-05). The answer does not tell
-         *     whether an account exists. RATE_LIMITED: per address and per IP; CAPTCHA_REQUIRED: as for
-         *     submissions.
+         *     whether an account exists. NOT_FOUND: email login is disabled; RATE_LIMITED: per email address
+         *     and per IP; CAPTCHA_REQUIRED: with the `captcha` flag.
          */
         post: operations["request_login_link"];
         delete?: never;
@@ -367,8 +367,8 @@ export interface paths {
         /**
          * Verify Login Link
          * @description Sign in with the token of a link. The link opens a page of the site that posts the token,
-         *     so a link preview that fetches it does not spend it. LOGIN_LINK_INVALID: unknown, used or
-         *     expired.
+         *     so a link preview that fetches it does not spend it. The first login creates the account.
+         *     LOGIN_LINK_INVALID: unknown, used or expired; NOT_FOUND: email login is disabled.
          */
         post: operations["verify_login_link"];
         delete?: never;
@@ -3081,6 +3081,15 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Error"];
                 };
             };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
             /** @description Unprocessable Content */
             422: {
                 headers: {
@@ -3110,15 +3119,6 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Not Implemented */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3168,6 +3168,15 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Error"];
                 };
             };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
             /** @description Unprocessable Content */
             422: {
                 headers: {
@@ -3188,15 +3197,6 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Not Implemented */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };

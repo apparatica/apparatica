@@ -1,5 +1,7 @@
 """Rate limits of the mutating endpoints and of logins (NFR-SEC-06): per client address, per guest
-and per signed-in user."""
+and per signed-in user; login links also per email address (FR-AUTH-05)."""
+
+import hashlib
 
 from fastapi import Request
 
@@ -62,3 +64,20 @@ async def login_limit(request: Request) -> ApiError | None:
         window_s=window.window_s,
         retry_after_s=retry,
     )
+
+
+async def email_throttle(request: Request, email: str) -> None:
+    """RATE_LIMITED (`quota: logins`) when an address is sent login links too often: whoever asks
+    for them. The key is a hash of the normalized address."""
+    state = request.app.state
+    window = state.platform.rate_limits.logins_per_email
+    key = hashlib.sha256(email.encode()).hexdigest()
+    retry = await state.rate_limiter.hit(window, "logins:email", key)
+    if retry is not None:
+        raise rate_limited(
+            "logins",
+            f"At most {window.limit} login links per {window.window_s} s to one address",
+            limit=window.limit,
+            window_s=window.window_s,
+            retry_after_s=retry,
+        )

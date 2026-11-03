@@ -1,7 +1,8 @@
 """When a guest check needs a captcha (FR-GST-05): always with the `captcha` feature flag, and once
 a guest or an address has sent `captcha.per_guest` / `captcha.per_ip` checks in their windows
 (`config/rate-limits.yaml`). The windows are moving windows in valkey-cache, like the other rate
-limits: an unreachable cache asks for no captcha.
+limits: an unreachable cache asks for no captcha. A request of a login link needs one only with the
+flag (FR-AUTH-05).
 """
 
 import math
@@ -65,6 +66,15 @@ class Captcha:
             reason = "frequent"
             known = [reset.timestamp() for reset in resets if reset is not None]
             retry = max(known) - time.time() if known else None
+        await self._verify(solution, reason, retry)
+
+    async def check_login(self, solution: str | None) -> None:
+        """Before a login link: a captcha only with the `captcha` flag, the rate limits of logins
+        (`logins_per_ip`, `logins_per_email`) stand for the windows of checks."""
+        if await self._flags.enabled("captcha"):
+            await self._verify(solution, "always", None)
+
+    async def _verify(self, solution: str | None, reason: Reason, retry: float | None) -> None:
         if solution is None:
             raise captcha_required(reason, retry)
         signature = self.altcha.verify(solution)

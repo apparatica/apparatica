@@ -1,4 +1,5 @@
-"""Tables of accounts: users, their identities at login providers and sessions (specs/04 §4, Ф2).
+"""Tables of accounts: users, their identities at login providers, sessions and the tokens of links
+in letters (specs/04 §4, Ф2).
 
 The first login creates the user; deletion of a user cascades to its identities and sessions.
 """
@@ -64,3 +65,22 @@ class UserSession(Base):
     expires_at: Mapped[datetime] = mapped_column(index=True)  # moves on with use
     last_seen_at: Mapped[datetime]
     user_agent: Mapped[str | None]
+
+
+class EmailToken(Base):
+    """A token of a link in a letter (ADR-0010): the letter has the token, the table its hash. A
+    login link is used once (`used_at`) and lives 15 minutes; the ingestor deletes expired rows."""
+
+    __tablename__ = "email_tokens"
+    __table_args__ = (
+        CheckConstraint("token_hash ~ '^[0-9a-f]{64}$'", name="token_hash_sha256"),
+        CheckConstraint("purpose IN ('login')", name="purpose"),
+    )
+
+    token_hash: Mapped[str] = mapped_column(primary_key=True)  # sha256 of the token, hex
+    email: Mapped[str] = mapped_column(CITEXT)
+    purpose: Mapped[str]
+    next: Mapped[str | None]  # where to go after login
+    created_at: Mapped[datetime] = created_at()
+    expires_at: Mapped[datetime] = mapped_column(index=True)
+    used_at: Mapped[datetime | None]

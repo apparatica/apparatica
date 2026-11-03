@@ -13,12 +13,14 @@ from pydantic import SecretStr
 
 from apparatica.auth import api as auth_api
 from apparatica.auth.csrf import CsrfMiddleware
+from apparatica.auth.email_login import EmailLogins
 from apparatica.auth.guests import GuestCookies
 from apparatica.auth.sessions import Sessions
 from apparatica.captcha import api as captcha_api
 from apparatica.captcha.altcha import Altcha
 from apparatica.captcha.service import Captcha
 from apparatica.core import api as core_api
+from apparatica.core.api import AuthProvider
 from apparatica.core.db import Database
 from apparatica.core.errors import (
     ERROR_COMPONENT,
@@ -29,6 +31,7 @@ from apparatica.core.errors import (
 )
 from apparatica.core.flags import FeatureFlags, Overrides, database_overrides
 from apparatica.core.logging import configure_logging
+from apparatica.core.mail import Mailer, SmtpMailer
 from apparatica.core.metrics import METRICS_PATH, metrics_endpoint
 from apparatica.core.platform import load_platform_config
 from apparatica.core.ratelimit import CACHE_TIMEOUT_S, ClientAddresses, RateLimiter
@@ -51,9 +54,11 @@ def create_app(
     settings: Settings | None = None,
     flag_overrides: Overrides | None = None,
     job_queue: JobQueue | None = None,
+    mailer: Mailer | None = None,
 ) -> FastAPI:
     """`flag_overrides` replaces the `feature_flags` table as the source of flag overrides,
-    `job_queue` the queue of checks (by default from APX_QUEUE_URL)."""
+    `job_queue` the queue of checks (by default from APX_QUEUE_URL), `mailer` the SMTP server of
+    APX_SMTP_URL."""
     settings = settings or get_settings()
     configure_logging(settings.log_level, settings.log_format)
     platform = load_platform_config(settings.config_dir)  # fail fast on a broken config
@@ -89,6 +94,7 @@ def create_app(
     sessions = Sessions(
         database, cache, ttl_s=settings.session_ttl_s, secure=settings.cookie_secure
     )
+    email_logins = _email_logins(settings, database, sessions, mailer)
     # One reader of the submission streams for the process (specs/07 §4.2); none without Valkey.
     hub = (
         StreamHub(redis.asyncio.Redis.from_url(settings.queue_url))
@@ -131,6 +137,8 @@ def create_app(
     app.state.job_queue = queue
     app.state.guest_cookies = guest_cookies
     app.state.sessions = sessions
+    app.state.email_logins = email_logins
+    app.state.auth_providers = _auth_providers(email_logins)
     app.state.client_addresses = addresses
     app.state.rate_limiter = limiter
     app.state.quotas = Quotas(platform.limits.quotas.guest, limiter, platform.rate_limits)
@@ -171,6 +179,31 @@ def _event_stream_schemas(schema: dict[str, Any]) -> None:
                 stream = response.get("content", {}).get("text/event-stream", {}).get("schema", {})
                 if "$ref" in stream:
                     stream.pop("type", None)
+
+
+def _email_logins(
+    settings: Settings, database: Database, sessions: Sessions, mailer: Mailer | None
+) -> EmailLogins | None:
+    """Login links need a mail server and the address of the site for the link; none without."""
+    if mailer is None and settings.smtp_url is not None:
+        mailer = SmtpMailer(
+            settings.smtp_url.get_secret_value(),
+            settings.mail_from,
+            timeout_s=settings.smtp_timeout_s,
+        )
+    if mailer is None:
+        return None
+    if settings.public_base_url is None:
+        raise RuntimeError("APX_PUBLIC_BASE_URL is required with APX_SMTP_URL")
+    return EmailLogins(database, mailer, sessions, base_url=settings.public_base_url)
+
+
+def _auth_providers(email_logins: EmailLogins | None) -> list[AuthProvider]:
+    """The configured ways to sign in, in the order of the login page; GitHub comes in T2.3."""
+    providers = []
+    if email_logins is not None:
+        providers.append(AuthProvider(key="email", title="Email", kind="email"))
+    return providers
 
 
 def _job_queue(settings: Settings) -> JobQueue:

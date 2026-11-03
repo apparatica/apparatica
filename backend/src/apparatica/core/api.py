@@ -75,12 +75,15 @@ async def health(request: Request, response: Response) -> HealthResponse:
 )
 async def config(request: Request) -> Response:
     state = request.app.state
+    features = await state.flags.values()
+    # The configured providers (main.py); the flag `auth_<key>` turns one off.
+    providers: list[AuthProvider] = state.auth_providers
     body = ConfigResponse(
         version=state.version,
-        features=await state.flags.values(),
+        features=features,
         difficulties=state.platform.difficulties,
         catalog=state.platform.catalog,
         limits=state.platform.limits,
-        auth_providers=[],  # enabled by T2.2 (email) and T2.3 (GitHub)
+        auth_providers=[p for p in providers if features.get(f"auth_{p.key}", True)],
     )
     return cached_json(request, body)

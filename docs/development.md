@@ -232,6 +232,8 @@ poetry -C backend run apparatica-admin users set-role ada admin   # user, author
 
 Ник сравнивается без учёта регистра; нет такого пользователя — код 1.
 
+Войти локально можно по ссылке из письма: письма ловит Mailpit стенда (http://localhost:8025, [stand.md](stand.md#адреса)). API на хосте шлёт в него с `APX_SMTP_URL=smtp://localhost:1025` и `APX_PUBLIC_BASE_URL=http://localhost:3000` (адрес `pnpm dev`). Без `APX_SMTP_URL` входа по почте нет: `auth_providers` в `GET /config` пуст, а эндпоинты входа по ссылке отвечают `404`.
+
 ### Тесты
 
 Тесты бэкенда (`backend/tests`) поднимают приложение через `TestClient`. Изменяющие запросы проходят проверку CSRF, поэтому тесты API используют `ApiClient` из `conftest.py`: он ставит cookie `ap_csrf` и заголовок `X-CSRF-Token`, как клиент сайта; саму проверку тестирует `test_csrf.py`. Где нужна только связь с БД, вместо Postgres используется SQLite в памяти (`aiosqlite`).
@@ -243,6 +245,8 @@ poetry -C backend run apparatica-admin users set-role ada admin   # user, author
 - **Образ.** По умолчанию `postgres:17-alpine`. Если Docker Hub недоступен, образ задаётся через `APX_TEST_POSTGRES_IMAGE`, например `mirror.gcr.io/library/postgres:17-alpine`.
 
 Тесты очереди (`backend/tests/test_queue.py`, `worker/tests/test_worker.py`) работают с настоящим Valkey: fixture поднимает его через testcontainers один раз на сессию, правила те же, что у Postgres. Образ по умолчанию — `valkey/valkey:8-alpine`, переопределяется через `APX_TEST_VALKEY_IMAGE` (например, `mirror.gcr.io/valkey/valkey:8-alpine`).
+
+Входы по ссылке (`test_email_login.py`) складывают письма в память, а отправку по SMTP проверяют на настоящем Mailpit (testcontainers, раз на модуль; образ — `APX_TEST_MAILPIT_IMAGE`, по умолчанию `axllent/mailpit:v1.33.0`).
 
 ### Воркер
 

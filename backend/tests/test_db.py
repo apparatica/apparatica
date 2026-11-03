@@ -259,6 +259,7 @@ def test_feature_flags_come_from_the_table(database_url: str, settings: Settings
     with TestClient(app) as client:
         features = client.get("/api/v1/config").json()["features"]
     assert features == {
+        "auth_email": True,
         "captcha": True,
         "formal_stage": False,
         "industrial_mode": False,

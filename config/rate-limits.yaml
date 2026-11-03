@@ -18,6 +18,11 @@ checks_per_ip:
 logins_per_ip:
   limit: 100
   window_s: 600
+# Login links sent to one email address, whoever asks for them: a few retries of a lost letter, not
+# a flood of letters to someone else's address.
+logins_per_email:
+  limit: 5
+  window_s: 3600
 # Captcha before guest checks (FR-GST-05): once a guest or an address has sent `limit` checks in
 # `window_s` seconds, the next ones need a solved ALTCHA challenge; the `captcha` feature flag
 # asks for it before every guest check. A challenge is valid for `expires_s` seconds and once.

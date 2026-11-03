@@ -31,6 +31,7 @@ just down          # остановить (и мониторинг); данны�
 | `127.0.0.1:5432` | Postgres (`apparatica` / `apparatica`), только с `compose.dev.yaml` |
 | `127.0.0.1:6379`, `6380` | `valkey-queue`, `valkey-cache`, только с `compose.dev.yaml` |
 | `127.0.0.1:3900` | S3 API Garage напрямую, только с `compose.dev.yaml` |
+| http://localhost:8025 | Mailpit: письма стенда, например со ссылкой входа; SMTP для API на хосте — `127.0.0.1:1025`. Только с `compose.dev.yaml` |
 
 Браузеры и большинство систем разрешают `*.localhost` в `127.0.0.1` сами. Если нет, добавьте имена в `hosts`.
 
@@ -54,6 +55,7 @@ just down          # остановить (и мониторинг); данны�
 | `toolchain-profile` | одноразовый: регистрирует образ профилем тулчейна по умолчанию (`deploy/worker/toolchain-profile.sh`) |
 | `sandboxd` | `apx-sandboxd` из образа воркера (`worker/Dockerfile`), см. [«Воркер и песочница»](#воркер-и-песочница) |
 | `worker` | `apparatica-worker`: проверки из очередей в песочницах `sandboxd`. С ключом хранилища `worker` и пользователем Valkey `worker`, без Postgres и Docker |
+| `mailpit` | только с `compose.dev.yaml`: SMTP-сервер, который никуда не отправляет письма, а показывает их (`MAILPIT_IMAGE`, по умолчанию `axllent/mailpit:v1.33.0`); `api` шлёт в него письма (`APX_SMTP_URL=smtp://mailpit:1025`), ссылки в них ведут на `APX_PUBLIC_BASE_URL` — `http://localhost:8080` |
 | `prometheus`, `grafana` | мониторинг, запускаются только `just monitoring` (профиль `monitoring`), см. [«Мониторинг»](#мониторинг) |
 | `storage-check`, `judge-check` | проверки стенда, запускаются только `just stand-check` (профиль `check`): хранилище (`deploy/garage/check.py`) и проверка решений (`deploy/worker/check.py`) |
 

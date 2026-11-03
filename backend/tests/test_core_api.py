@@ -32,6 +32,7 @@ def test_config(client: TestClient) -> None:
     body = response.json()
     assert body["version"] == VERSION
     assert body["features"] == {
+        "auth_email": True,
         "captcha": False,
         "formal_stage": False,
         "industrial_mode": False,

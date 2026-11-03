@@ -79,17 +79,19 @@ function unauthenticated() {
   return problem(401, "UNAUTHENTICATED", "Sign in first");
 }
 
-/** The user of an address, a new one with a free nick from it if there is none. */
+/** A nick like the API gives an email login: random, the address is not public. */
+function randomNick(): string {
+  const alphabet = "abcdefghijklmnopqrstuvwxyz0123456789";
+  const pick = () => alphabet[Math.floor(Math.random() * alphabet.length)];
+  return `user-${Array.from({ length: 6 }, pick).join("")}`;
+}
+
+/** The user of an address, a new one with a random free nick if there is none. */
 function userOf(email: string): { user: MockUser; created: boolean } {
   const found = [...users.values()].find((user) => user.me.email === email);
   if (found !== undefined) return { user: found, created: false };
-  const base =
-    email
-      .split("@")[0]
-      ?.toLowerCase()
-      .replaceAll(/[^a-z0-9_.-]/g, "") || "user";
-  let nick = base.padEnd(3, "0").slice(0, 24);
-  for (let n = 2; byNick(nick) !== undefined; n++) nick = `${base.slice(0, 20)}-${n}`;
+  let nick = randomNick();
+  while (byNick(nick) !== undefined) nick = randomNick();
   const user = newUser(nick, email);
   users.set(user.me.id, user);
   return { user, created: true };

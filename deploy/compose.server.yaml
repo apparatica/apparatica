@@ -19,6 +19,7 @@ services:
     environment:
       APX_S3_PUBLIC_URL: https://${S3_HOST:?}
       APX_WAVEVIEW_URL: https://${WAVEVIEW_HOST:?}
+      APX_PUBLIC_BASE_URL: https://${SITE_HOST:?}
 
   web:
     environment:

@@ -126,7 +126,7 @@ PostgreSQL 17+. Первичные ключи — UUIDv7 (сортируемы �
 
 **`sessions`**: `id_hash text pk` (sha256 от токена cookie), `user_id fk`, `created_at`, `expires_at`, `last_seen_at`, `user_agent text`.
 
-**`email_tokens`**: `token_hash text pk`, `email citext`, `purpose text`, `expires_at`, `used_at null`.
+**`email_tokens`**: `token_hash text pk`, `email citext`, `purpose text` (`login`), `next text null` (куда вернуться после входа), `created_at`, `expires_at`, `used_at null`. Истёкшие строки удаляет ингестор.
 
 **`drafts`**: `user_id fk`, `problem_id fk`, `code text`, `problem_version int`, `updated_at`; pk `(user_id, problem_id)`.
 

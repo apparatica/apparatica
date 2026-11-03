@@ -30,7 +30,7 @@ from pydantic import ValidationError
 from sqlalchemy import CursorResult, and_, delete, distinct, func, literal, select, update
 from sqlalchemy.dialects.postgresql import insert
 
-from apparatica.auth.models import UserSession
+from apparatica.auth.models import EmailToken, UserSession
 from apparatica.core.db import Database
 from apparatica.core.storage import Storage
 from apparatica.judging.ingest import finalize, internal_error, transient
@@ -266,6 +266,23 @@ class SessionPurge:
         deleted = result.rowcount if isinstance(result, CursorResult) else 0
         if deleted:
             log.info("expired sessions deleted", count=deleted)
+        return deleted
+
+
+@dataclass
+class EmailTokenPurge:
+    database: Database
+    clock: Clock = field(default=_now)
+
+    async def __call__(self) -> int:
+        """Deletes the expired tokens of links in letters, used or not; returns how many."""
+        async with self.database.sessions.begin() as session:
+            result = await session.execute(
+                delete(EmailToken).where(EmailToken.expires_at <= self.clock())
+            )
+        deleted = result.rowcount if isinstance(result, CursorResult) else 0
+        if deleted:
+            log.info("expired email tokens deleted", count=deleted)
         return deleted
 
 

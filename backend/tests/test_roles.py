@@ -24,6 +24,7 @@ LIMITS = (
     "requests_per_author: {limit: 2, window_s: 60}\n"
     "checks_per_ip: {limit: 100, window_s: 3600}\n"
     "logins_per_ip: {limit: 2, window_s: 600}\n"
+    "logins_per_email: {limit: 5, window_s: 3600}\n"
     "captcha:\n"
     "  per_guest: {limit: 3, window_s: 60}\n"
     "  per_ip: {limit: 10, window_s: 60}\n"
@@ -113,7 +114,7 @@ def test_logins_are_limited_per_address(limits: Path) -> None:
     with app_client("sqlite+aiosqlite:///:memory:", limits) as client:
         assert login(client).status_code == 501  # T2.3
         link = client.post("/api/v1/auth/email/request", json={"email": "ada@example.com"})
-        assert link.status_code == 501  # T2.2
+        assert link.status_code == 404  # no SMTP: no email login
         limited = client.post("/api/v1/auth/email/verify", json={"token": "t" * 43})
         assert limited.status_code == 429
         params = limited.json()["params"]

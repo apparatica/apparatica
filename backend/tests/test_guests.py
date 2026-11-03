@@ -395,6 +395,7 @@ def test_rate_limits_of_requests(database_url: str, queue: RecordingQueue, tmp_p
         "requests_per_author: {limit: 2, window_s: 60}\n"
         "checks_per_ip: {limit: 1, window_s: 3600}\n"
         "logins_per_ip: {limit: 100, window_s: 600}\n"
+        "logins_per_email: {limit: 5, window_s: 3600}\n"
         "captcha:\n"
         "  per_guest: {limit: 3, window_s: 60}\n"
         "  per_ip: {limit: 10, window_s: 60}\n"

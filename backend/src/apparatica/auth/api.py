@@ -1,4 +1,4 @@
-"""Login and logout (specs/05 §3, phase 2): the contract, stubs until T2.1a-T2.3.
+"""Login and logout (specs/05 §3, phase 2); OAuth logins are stubs until T2.3.
 
 A login sets the session cookie `ap_session` (ADR-0010). The first login creates the account with
 the current versions of the legal documents as accepted: the login page says that continuing
@@ -8,9 +8,11 @@ accepts them (FR-AUTH-06). Starts of logins and uses of login links are limited 
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, Query, Request, status
+from fastapi import APIRouter, BackgroundTasks, Depends, Path, Query, Request, status
 from fastapi.responses import RedirectResponse, Response
 
+from apparatica.auth.accounts import me
+from apparatica.auth.email_login import EmailLogins, normalize
 from apparatica.auth.schemas import (
     EmailLogin,
     EmailLoginRequest,
@@ -19,7 +21,7 @@ from apparatica.auth.schemas import (
     OAuthProvider,
 )
 from apparatica.auth.sessions import COOKIE, Sessions, SignedIn
-from apparatica.auth.throttle import login_limit, login_throttle, throttle
+from apparatica.auth.throttle import email_throttle, login_limit, login_throttle, throttle
 from apparatica.core.errors import ApiError, ErrorCode, problem_responses
 
 router = APIRouter(tags=["auth"])
@@ -27,6 +29,15 @@ router = APIRouter(tags=["auth"])
 PHASE_2 = {"x-phase": 2}
 LOGIN_FAILED = "/login?error={reason}"  # a page of the site; reasons in docs/api.md
 Provider = Annotated[OAuthProvider, Path(description="Enabled providers are in GET /config")]
+
+
+async def _email_logins(request: Request) -> EmailLogins:
+    """NOT_FOUND unless email login is configured (SMTP) and its flag `auth_email` is on."""
+    state = request.app.state
+    email_logins: EmailLogins | None = state.email_logins
+    if email_logins is None or not await state.flags.enabled("auth_email"):
+        raise ApiError(ErrorCode.NOT_FOUND, "Email login is not enabled")
+    return email_logins
 
 
 def _stub(task: str) -> ApiError:
@@ -95,7 +106,7 @@ async def oauth_callback(
     responses={
         202: {"description": "A link is sent if the address can sign in; the same either way"},
         **problem_responses(
-            ErrorCode.NOT_IMPLEMENTED,
+            ErrorCode.NOT_FOUND,
             ErrorCode.VALIDATION_ERROR,
             ErrorCode.CSRF_FAILED,
             ErrorCode.CAPTCHA_REQUIRED,
@@ -105,18 +116,25 @@ async def oauth_callback(
     dependencies=[Depends(throttle), Depends(login_throttle)],
     openapi_extra=PHASE_2,
 )
-async def request_login_link(body: EmailLoginRequest) -> None:
+async def request_login_link(
+    body: EmailLoginRequest, request: Request, background: BackgroundTasks
+) -> None:
     """Send a one-time login link valid for 15 minutes (FR-AUTH-05). The answer does not tell
-    whether an account exists. RATE_LIMITED: per address and per IP; CAPTCHA_REQUIRED: as for
-    submissions."""
-    raise _stub("T2.2")
+    whether an account exists. NOT_FOUND: email login is disabled; RATE_LIMITED: per email address
+    and per IP; CAPTCHA_REQUIRED: with the `captcha` flag."""
+    email_logins = await _email_logins(request)
+    await request.app.state.captcha.check_login(body.captcha)
+    await email_throttle(request, normalize(body.email))
+    letter = await email_logins.request(body.email, body.next)
+    # After the answer: its time does not depend on the mail server, failures are only logged.
+    background.add_task(email_logins.send, letter)
 
 
 @router.post(
     "/auth/email/verify",
     response_model=EmailLogin,
     responses=problem_responses(
-        ErrorCode.NOT_IMPLEMENTED,
+        ErrorCode.NOT_FOUND,
         ErrorCode.LOGIN_LINK_INVALID,
         ErrorCode.VALIDATION_ERROR,
         ErrorCode.CSRF_FAILED,
@@ -125,11 +143,22 @@ async def request_login_link(body: EmailLoginRequest) -> None:
     dependencies=[Depends(throttle), Depends(login_throttle)],
     openapi_extra=PHASE_2,
 )
-async def verify_login_link(body: EmailLoginVerify) -> EmailLogin:
+async def verify_login_link(
+    body: EmailLoginVerify, request: Request, response: Response
+) -> EmailLogin:
     """Sign in with the token of a link. The link opens a page of the site that posts the token,
-    so a link preview that fetches it does not spend it. LOGIN_LINK_INVALID: unknown, used or
-    expired."""
-    raise _stub("T2.2")
+    so a link preview that fetches it does not spend it. The first login creates the account.
+    LOGIN_LINK_INVALID: unknown, used or expired; NOT_FOUND: email login is disabled."""
+    email_logins = await _email_logins(request)
+    login = await email_logins.verify(body.token, request.headers.get("user-agent"))
+    if login is None:
+        raise ApiError(ErrorCode.LOGIN_LINK_INVALID, "The link is unknown, used or expired")
+    sessions: Sessions = request.app.state.sessions
+    previous = request.cookies.get(COOKIE)
+    if previous is not None:  # the login replaces the session of this browser
+        await sessions.end(previous)
+    sessions.set_cookie(response, login.session_token)
+    return EmailLogin(user=me(login.user), created=login.created, next=login.next)
 
 
 @router.post(

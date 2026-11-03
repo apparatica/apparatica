@@ -1,5 +1,6 @@
 # Development on the host next to the stand (specs/09 §1): the data services on localhost ports,
-# so that `apparatica serve`, `pnpm dev` and the tests run outside containers.
+# so that `apparatica serve`, `pnpm dev` and the tests run outside containers, and Mailpit: it
+# catches the letters of the stand (http://localhost:8025) and of a host API (smtp://localhost:1025).
 #
 #   docker compose -f deploy/compose.yaml -f deploy/compose.dev.yaml up -d    # just up
 services:
@@ -11,3 +12,15 @@ services:
     ports: ["127.0.0.1:${VALKEY_CACHE_PORT:-6380}:6379"]
   garage:
     ports: ["127.0.0.1:${GARAGE_S3_PORT:-3900}:3900"]
+  mailpit:
+    image: ${MAILPIT_IMAGE:-axllent/mailpit:v1.33.0}
+    ports:
+      - "127.0.0.1:${MAILPIT_WEB_PORT:-8025}:8025"
+      - "127.0.0.1:${MAILPIT_SMTP_PORT:-1025}:1025"
+    restart: unless-stopped
+  api:
+    environment:
+      APX_SMTP_URL: smtp://mailpit:1025
+    depends_on:
+      mailpit:
+        condition: service_started

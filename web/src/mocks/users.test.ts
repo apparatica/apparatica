@@ -22,7 +22,7 @@ async function signIn(email: string) {
 it("signs in by a login link and creates the user of a new address", async () => {
   const { data, response } = await signIn("Grace.Hopper@example.com");
   expect(data).toMatchObject({ created: true, next: "/problems/mux4" });
-  expect(data?.user.nick).toBe("grace.hopper");
+  expect(data?.user.nick).toMatch(/^user-[a-z0-9]{6}$/);
   const me = await client.GET("/api/v1/me", { headers: session(response) });
   expect(me.data?.email).toBe("grace.hopper@example.com");
   expect((await client.GET("/api/v1/me")).response.status).toBe(401);

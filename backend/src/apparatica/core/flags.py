@@ -27,7 +27,8 @@ class Flag:
 FLAGS: dict[str, Flag] = {
     flag.key: flag
     for flag in (
-        Flag("captcha", False, "ALTCHA before guest checks (Ф1)"),
+        Flag("auth_email", True, "Login by a link in a letter, when SMTP is configured (Ф2)"),
+        Flag("captcha", False, "ALTCHA before guest checks and login links (Ф1)"),
         Flag("formal_stage", False, "Formal verification stage and its result tab (Ф5)"),
         Flag("industrial_mode", False, "Industrial practice mode (Ф7)"),
         Flag("reports", False, "Reports about problems and solutions (Ф5)"),

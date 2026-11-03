@@ -13,8 +13,6 @@ PROBLEM = "application/problem+json"
     [
         ("GET", "/api/v1/auth/github/login?next=/problems/mux4", None),
         ("GET", "/api/v1/auth/github/callback?code=c&state=s", None),
-        ("POST", "/api/v1/auth/email/request", {"email": "ada@example.com", "next": "/"}),
-        ("POST", "/api/v1/auth/email/verify", {"token": "0123456789abcdef0123"}),
         ("PATCH", "/api/v1/me", {"nick": "ada", "display_name": None}),
         ("DELETE", "/api/v1/me", None),
         ("POST", "/api/v1/me/restore", None),
