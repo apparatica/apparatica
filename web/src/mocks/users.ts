@@ -234,8 +234,8 @@ export const userHandlers = [
       user: user.me,
       identities: [{ provider: "email", email: user.me.email, created_at: user.me.created_at }],
       consents: [
-        { document: "terms", version: "mock", accepted_at: user.me.created_at },
-        { document: "privacy", version: "mock", accepted_at: user.me.created_at },
+        { document: "terms", version: "2026-11-03", accepted_at: user.me.created_at },
+        { document: "privacy", version: "2026-11-03", accepted_at: user.me.created_at },
       ],
       submissions: mockSubmissions().map((submission) => ({
         id: submission.id,

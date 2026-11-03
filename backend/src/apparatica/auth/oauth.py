@@ -13,7 +13,9 @@ account (`accounts.sign_up`). The token is not kept.
 import base64
 import secrets
 from abc import ABC, abstractmethod
+from collections.abc import Mapping
 from dataclasses import dataclass
+from datetime import date
 from typing import Any, ClassVar, Literal
 from urllib.parse import urlsplit
 
@@ -130,10 +132,12 @@ class OAuthLogins:
         redirect_uri: str,
         timeout_s: float,
         secure: bool,
+        documents: Mapping[str, date],
         transport: httpx2.AsyncBaseTransport | None = None,
     ) -> None:
         self.adapter = adapter
         self._database, self._sessions = database, sessions
+        self._documents = documents  # accepted by a first login
         self._client_id, self._client_secret = client_id, client_secret
         self._redirect_uri = redirect_uri
         self._cookie_path = urlsplit(redirect_uri).path  # the cookie goes to the callback only
@@ -178,6 +182,7 @@ class OAuthLogins:
                 self.adapter.key,
                 profile.subject,
                 email=profile.email,
+                documents=self._documents,
                 nick=profile.nick,
                 display_name=profile.display_name,
                 avatar_url=profile.avatar_url,

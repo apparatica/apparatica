@@ -1,7 +1,7 @@
 """Schemas of the own account and of public profiles (specs/05 §3, phase 2); the account itself,
 `Me`, belongs to auth, which creates it at the first login."""
 
-from datetime import datetime
+from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
@@ -71,7 +71,7 @@ class ExportedDraft(Draft):
 
 class ExportedConsent(BaseModel):
     document: str = Field(examples=["terms", "privacy"])
-    version: str = Field(description="Version of the published document")
+    version: date = Field(description="The edition of the document (config/legal.yaml)")
     accepted_at: datetime
 
 

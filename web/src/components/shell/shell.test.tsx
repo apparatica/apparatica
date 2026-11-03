@@ -34,6 +34,7 @@ it("chooses the theme in the guest menu and remembers it", async () => {
   renderWithProviders(<Header />);
   await user.click(screen.getByRole("button", { name: "Гость" }));
   expect(screen.getByRole("menuitemradio", { name: "Системная" })).toBeChecked();
+  expect(screen.getByRole("menuitem", { name: "Документы" })).toHaveAttribute("href", "/legal");
 
   await user.click(screen.getByRole("menuitemradio", { name: "Светлая" }));
   expect(document.documentElement.dataset["theme"]).toBe("light");

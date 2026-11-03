@@ -1,6 +1,7 @@
 """`GET /health` and `GET /config` (specs/05 §3, phase 0)."""
 
 import asyncio
+from datetime import date
 from typing import Literal
 
 import structlog
@@ -8,7 +9,7 @@ from fastapi import APIRouter, Request, Response
 from pydantic import BaseModel, Field
 
 from apparatica.core.http import PRIVATE, cached_json
-from apparatica.core.platform import Catalog, Difficulty, Limits
+from apparatica.core.platform import Catalog, Difficulty, Limits, Operator
 
 router = APIRouter(tags=["core"])
 log = structlog.get_logger(__name__)
@@ -33,8 +34,22 @@ class AuthProvider(BaseModel):
     )
 
 
+class LegalVersions(BaseModel):
+    terms: date
+    privacy: date
+
+
+class LegalInfo(BaseModel):
+    """The legal documents (FR-AUTH-06): the site renders their texts, the operator filled in."""
+
+    draft: bool = Field(description="The texts await a lawyer; the site marks them as drafts")
+    operator: Operator
+    versions: LegalVersions = Field(description="The current editions, which a first login accepts")
+
+
 class ConfigResponse(BaseModel):
-    """What the frontend needs before anything else: features, levels, limits, login options."""
+    """What the frontend needs before anything else: features, levels, limits, login options,
+    the legal documents."""
 
     version: str
     features: dict[str, bool]
@@ -42,6 +57,7 @@ class ConfigResponse(BaseModel):
     catalog: Catalog
     limits: Limits
     auth_providers: list[AuthProvider]
+    legal: LegalInfo
 
 
 @router.get(
@@ -78,6 +94,7 @@ async def config(request: Request) -> Response:
     features = await state.flags.values()
     # The configured providers (main.py); the flag `auth_<key>` turns one off.
     providers: list[AuthProvider] = state.auth_providers
+    legal = state.platform.legal
     body = ConfigResponse(
         version=state.version,
         features=features,
@@ -85,5 +102,10 @@ async def config(request: Request) -> Response:
         catalog=state.platform.catalog,
         limits=state.platform.limits,
         auth_providers=[p for p in providers if features.get(f"auth_{p.key}", True)],
+        legal=LegalInfo(
+            draft=legal.draft,
+            operator=legal.operator,
+            versions=LegalVersions.model_validate(legal.documents.versions()),
+        ),
     )
     return cached_json(request, body)

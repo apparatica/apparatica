@@ -626,7 +626,8 @@ export interface components {
         };
         /**
          * ConfigResponse
-         * @description What the frontend needs before anything else: features, levels, limits, login options.
+         * @description What the frontend needs before anything else: features, levels, limits, login options,
+         *     the legal documents.
          */
         ConfigResponse: {
             /** Version */
@@ -641,6 +642,7 @@ export interface components {
             limits: components["schemas"]["Limits"];
             /** Auth Providers */
             auth_providers: components["schemas"]["AuthProvider"][];
+            legal: components["schemas"]["LegalInfo"];
         };
         /**
          * Diagnostic
@@ -801,7 +803,8 @@ export interface components {
             document: string;
             /**
              * Version
-             * @description Version of the published document
+             * Format: date
+             * @description The edition of the document (config/legal.yaml)
              */
             version: string;
             /**
@@ -984,6 +987,33 @@ export interface components {
             /** Ports */
             ports: components["schemas"]["Port"][];
         };
+        /**
+         * LegalInfo
+         * @description The legal documents (FR-AUTH-06): the site renders their texts, the operator filled in.
+         */
+        LegalInfo: {
+            /**
+             * Draft
+             * @description The texts await a lawyer; the site marks them as drafts
+             */
+            draft: boolean;
+            operator: components["schemas"]["Operator"];
+            /** @description The current editions, which a first login accepts */
+            versions: components["schemas"]["LegalVersions"];
+        };
+        /** LegalVersions */
+        LegalVersions: {
+            /**
+             * Terms
+             * Format: date
+             */
+            terms: string;
+            /**
+             * Privacy
+             * Format: date
+             */
+            privacy: string;
+        };
         /** Limits */
         Limits: {
             solution: components["schemas"]["SolutionLimits"];
@@ -1083,6 +1113,21 @@ export interface components {
             actual: string;
             /** Hint */
             hint?: string | null;
+        };
+        /**
+         * Operator
+         * @description Who processes the personal data of the users (GDPR art. 13), as the documents name them.
+         */
+        Operator: {
+            /** Name */
+            name: string;
+            /** Address */
+            address: string;
+            /**
+             * Email
+             * @description For requests about personal data
+             */
+            email: string;
         };
         /** Parameter */
         Parameter: {

@@ -2632,6 +2632,9 @@
             },
             "type": "array",
             "title": "Auth Providers"
+          },
+          "legal": {
+            "$ref": "#/components/schemas/LegalInfo"
           }
         },
         "type": "object",
@@ -2641,10 +2644,11 @@
           "difficulties",
           "catalog",
           "limits",
-          "auth_providers"
+          "auth_providers",
+          "legal"
         ],
         "title": "ConfigResponse",
-        "description": "What the frontend needs before anything else: features, levels, limits, login options."
+        "description": "What the frontend needs before anything else: features, levels, limits, login options,\nthe legal documents."
       },
       "Diagnostic": {
         "properties": {
@@ -3005,8 +3009,9 @@
           },
           "version": {
             "type": "string",
+            "format": "date",
             "title": "Version",
-            "description": "Version of the published document"
+            "description": "The edition of the document (config/legal.yaml)"
           },
           "accepted_at": {
             "type": "string",
@@ -3435,6 +3440,50 @@
         ],
         "title": "Interface"
       },
+      "LegalInfo": {
+        "properties": {
+          "draft": {
+            "type": "boolean",
+            "title": "Draft",
+            "description": "The texts await a lawyer; the site marks them as drafts"
+          },
+          "operator": {
+            "$ref": "#/components/schemas/Operator"
+          },
+          "versions": {
+            "$ref": "#/components/schemas/LegalVersions",
+            "description": "The current editions, which a first login accepts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "draft",
+          "operator",
+          "versions"
+        ],
+        "title": "LegalInfo",
+        "description": "The legal documents (FR-AUTH-06): the site renders their texts, the operator filled in."
+      },
+      "LegalVersions": {
+        "properties": {
+          "terms": {
+            "type": "string",
+            "format": "date",
+            "title": "Terms"
+          },
+          "privacy": {
+            "type": "string",
+            "format": "date",
+            "title": "Privacy"
+          }
+        },
+        "type": "object",
+        "required": [
+          "terms",
+          "privacy"
+        ],
+        "title": "LegalVersions"
+      },
       "Limits": {
         "properties": {
           "solution": {
@@ -3686,6 +3735,32 @@
           "actual"
         ],
         "title": "Mismatch"
+      },
+      "Operator": {
+        "properties": {
+          "name": {
+            "type": "string",
+            "title": "Name"
+          },
+          "address": {
+            "type": "string",
+            "title": "Address"
+          },
+          "email": {
+            "type": "string",
+            "title": "Email",
+            "description": "For requests about personal data"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "name",
+          "address",
+          "email"
+        ],
+        "title": "Operator",
+        "description": "Who processes the personal data of the users (GDPR art. 13), as the documents name them."
       },
       "Parameter": {
         "properties": {

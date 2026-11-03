@@ -17,7 +17,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select, update
 from test_captcha import solve
-from test_sessions import add_user, run
+from test_sessions import add_user, consents, run
 from testcontainers.core.container import DockerContainer
 
 from apparatica.auth import accounts
@@ -27,6 +27,7 @@ from apparatica.auth.sessions import COOKIE
 from apparatica.core.db import Database
 from apparatica.core.flags import Overrides
 from apparatica.core.mail import Letter, SmtpMailer, SmtpServer
+from apparatica.core.platform import load_platform_config
 from apparatica.core.settings import Settings
 from apparatica.judging.housekeeping import EmailTokenPurge
 from apparatica.main import create_app
@@ -36,6 +37,7 @@ SITE = "http://site.test"
 REQUEST = "/api/v1/auth/email/request"
 VERIFY = "/api/v1/auth/email/verify"
 LINK = re.compile(re.escape(SITE) + r"/login/email/verify#token=([A-Za-z0-9_-]{43})\n")
+DOCUMENTS = sorted(load_platform_config(CONFIG_DIR).legal.documents.versions().items())
 MAILPIT_IMAGE = os.environ.get("APX_TEST_MAILPIT_IMAGE", "axllent/mailpit:v1.33.0")
 
 
@@ -133,6 +135,8 @@ def test_a_link_signs_in_and_the_first_login_creates_the_account(
             return list(rows.tuples())
 
     assert run(database_url, identities) == [("email", "ada@example.com", "ada@example.com")]
+    # The login page says that continuing accepts the documents (FR-AUTH-06).
+    assert consents(database_url) == [(user["nick"], *document) for document in DOCUMENTS]
 
 
 def test_a_link_works_once(api: TestClient, mailer: MemoryMailer) -> None:
@@ -143,12 +147,15 @@ def test_a_link_works_once(api: TestClient, mailer: MemoryMailer) -> None:
     assert api.post(VERIFY, json={"token": "x" * 129}).status_code == 422
 
 
-def test_the_next_login_finds_the_account(api: TestClient, mailer: MemoryMailer) -> None:
+def test_the_next_login_finds_the_account(
+    api: TestClient, mailer: MemoryMailer, database_url: str
+) -> None:
     first = sign_in(api, mailer, "ada@example.com").json()
     earlier = api.cookies.get(COOKIE)
     again = sign_in(api, mailer, "ADA@example.com").json()
     assert (again["created"], again["next"]) == (False, None)
     assert again["user"] == first["user"]
+    assert len(consents(database_url)) == 2  # accepted by the first login only
     other = sign_in(api, mailer, "grace@example.com").json()
     assert other["created"] is True
     assert other["user"]["id"] != first["user"]["id"]
@@ -262,10 +269,14 @@ def test_a_taken_nick_is_drawn_again(database_url: str, monkeypatch: pytest.Monk
     async def scenario(database: Database) -> tuple[str, str]:
         await add_user(database, "user-aaaaaa")
         async with database.sessions.begin() as session:
-            first, created = await sign_up(session, "email", "ada@example.com", email=None)
+            first, created = await sign_up(
+                session, "email", "ada@example.com", email=None, documents={}
+            )
             assert created
         async with database.sessions.begin() as session:
-            again, created = await sign_up(session, "email", "ada@example.com", email=None)
+            again, created = await sign_up(
+                session, "email", "ada@example.com", email=None, documents={}
+            )
             assert not created
             assert again.id == first.id
             count = len((await session.scalars(select(User))).all())

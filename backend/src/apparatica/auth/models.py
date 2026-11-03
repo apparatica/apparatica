@@ -1,11 +1,12 @@
-"""Tables of accounts: users, their identities at login providers, sessions and the tokens of links
-in letters (specs/04 §4, Ф2).
+"""Tables of accounts: users, their identities at login providers, the legal documents they
+accepted, sessions and the tokens of links in letters (specs/04 §4, Ф2).
 
-The first login creates the user; deletion of a user cascades to its identities and sessions.
+The first login creates the user; deletion of a user cascades to its identities, consents and
+sessions.
 """
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from typing import get_args
 
 from sqlalchemy import CheckConstraint, ForeignKey, UniqueConstraint
@@ -50,6 +51,21 @@ class Identity(Base):
     subject: Mapped[str]  # the id of the account at the provider; the address for email
     email: Mapped[str | None]
     created_at: Mapped[datetime] = created_at()
+
+
+class Consent(Base):
+    """An edition of a legal document the user accepted (FR-AUTH-06): the first login accepts the
+    current ones (config/legal.yaml)."""
+
+    __tablename__ = "consents"
+    __table_args__ = (CheckConstraint("document IN ('terms', 'privacy')", name="document"),)
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    document: Mapped[str] = mapped_column(primary_key=True)
+    version: Mapped[date] = mapped_column(primary_key=True)
+    accepted_at: Mapped[datetime] = created_at()
 
 
 class UserSession(Base):

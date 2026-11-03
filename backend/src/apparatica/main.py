@@ -1,8 +1,9 @@
 """The FastAPI application: `apparatica serve` or `uvicorn --factory apparatica.main:create_app`."""
 
 import secrets
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Mapping
 from contextlib import asynccontextmanager
+from datetime import date
 from importlib.metadata import version
 from typing import Any
 
@@ -97,8 +98,10 @@ def create_app(
     sessions = Sessions(
         database, cache, ttl_s=settings.session_ttl_s, secure=settings.cookie_secure
     )
-    email_logins = _email_logins(settings, database, sessions, mailer)
-    oauth_logins = _oauth_logins(settings, database, sessions, oauth_transport)
+    # A first login accepts the current legal documents (FR-AUTH-06).
+    documents = platform.legal.documents.versions()
+    email_logins = _email_logins(settings, database, sessions, mailer, documents)
+    oauth_logins = _oauth_logins(settings, database, sessions, oauth_transport, documents)
     # One reader of the submission streams for the process (specs/07 §4.2); none without Valkey.
     hub = (
         StreamHub(redis.asyncio.Redis.from_url(settings.queue_url))
@@ -187,7 +190,11 @@ def _event_stream_schemas(schema: dict[str, Any]) -> None:
 
 
 def _email_logins(
-    settings: Settings, database: Database, sessions: Sessions, mailer: Mailer | None
+    settings: Settings,
+    database: Database,
+    sessions: Sessions,
+    mailer: Mailer | None,
+    documents: Mapping[str, date],
 ) -> EmailLogins | None:
     """Login links need a mail server and the address of the site for the link; none without."""
     if mailer is None and settings.smtp_url is not None:
@@ -200,7 +207,9 @@ def _email_logins(
         return None
     if settings.public_base_url is None:
         raise RuntimeError("APX_PUBLIC_BASE_URL is required with APX_SMTP_URL")
-    return EmailLogins(database, mailer, sessions, base_url=settings.public_base_url)
+    return EmailLogins(
+        database, mailer, sessions, base_url=settings.public_base_url, documents=documents
+    )
 
 
 def _oauth_logins(
@@ -208,6 +217,7 @@ def _oauth_logins(
     database: Database,
     sessions: Sessions,
     transport: httpx2.AsyncBaseTransport | None,
+    documents: Mapping[str, date],
 ) -> dict[str, OAuthLogins]:
     """The OAuth providers whose apps are configured, by key; the callback of an app is
     `<public_base_url>/api/v1/auth/<key>/callback`."""
@@ -232,6 +242,7 @@ def _oauth_logins(
             redirect_uri=f"{settings.public_base_url}{API_PREFIX}/auth/{adapter.key}/callback",
             timeout_s=settings.oauth_timeout_s,
             secure=settings.cookie_secure,
+            documents=documents,
             transport=transport,
         )
     return logins

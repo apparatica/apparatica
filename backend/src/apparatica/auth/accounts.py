@@ -1,18 +1,19 @@
 """Accounts: the user as the API shows it to themselves (`Me`), accounts that a first login
-creates, and the nick that the user changes once in 30 days (FR-AUTH-02)."""
+creates with the legal documents it accepts (FR-AUTH-06), and the nick that the user changes once
+in 30 days (FR-AUTH-02)."""
 
 import re
 import secrets
 import string
-from collections.abc import Iterator
-from datetime import UTC, datetime, timedelta
+from collections.abc import Iterator, Mapping
+from datetime import UTC, date, datetime, timedelta
 from typing import cast
 
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from apparatica.auth.models import Identity, User
+from apparatica.auth.models import Consent, Identity, User
 from apparatica.auth.schemas import Me, Role
 from apparatica.core.errors import ApiError, ErrorCode
 from apparatica.core.ids import uuid7
@@ -100,13 +101,16 @@ async def sign_up(
     subject: str,
     *,
     email: str | None,
+    documents: Mapping[str, date],
     nick: str | None = None,
     display_name: str | None = None,
     avatar_url: str | None = None,
 ) -> tuple[User, bool]:
     """The user of an identity, created with it at the first login; True when created. The
     identity is the key: accounts are not joined by email (ADR-0010). The nick, the name and the
-    avatar of the provider are those of a new account only: later logins do not change them."""
+    avatar of the provider are those of a new account only: later logins do not change them. A new
+    account accepts the `documents` (key → version): the login page says that continuing accepts
+    them (FR-AUTH-06)."""
     query = select(User).join(Identity).where(Identity.provider == provider)
     candidates = nicks(nick)
     name = (display_name or "").strip()[:DISPLAY_NAME_LENGTH].rstrip() or None
@@ -130,6 +134,10 @@ async def sign_up(
                     Identity(
                         id=uuid7(), user_id=user.id, provider=provider, subject=subject, email=email
                     )
+                )
+                session.add_all(
+                    Consent(user_id=user.id, document=key, version=version)
+                    for key, version in documents.items()
                 )
                 await session.flush()
         except IntegrityError:

@@ -16,7 +16,7 @@ import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import func, select
 from test_email_login import overrides
-from test_sessions import add_user, run
+from test_sessions import add_user, consents, run
 
 from apparatica.auth import oauth
 from apparatica.auth.accounts import nicks
@@ -24,6 +24,7 @@ from apparatica.auth.models import Identity, User
 from apparatica.auth.sessions import COOKIE
 from apparatica.core.db import Database
 from apparatica.core.flags import Overrides
+from apparatica.core.platform import load_platform_config
 from apparatica.core.settings import Settings
 from apparatica.main import create_app
 from conftest import CONFIG_DIR, ApiClient
@@ -198,6 +199,8 @@ def test_a_github_login_signs_in_and_the_first_one_creates_the_account(
     assert accounts(database_url) == [
         ("octocat", "monalisa octocat", "octocat@github.com", "github", "1")
     ]
+    documents = load_platform_config(CONFIG_DIR).legal.documents.versions()
+    assert consents(database_url) == [("octocat", *item) for item in sorted(documents.items())]
 
 
 def test_the_next_login_finds_the_account_and_keeps_its_profile(

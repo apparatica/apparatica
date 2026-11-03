@@ -8,9 +8,9 @@ the first use of a link creates it.
 
 import hashlib
 import secrets
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 from sqlalchemy import update
 
@@ -67,10 +67,12 @@ class EmailLogins:
         sessions: Sessions,
         *,
         base_url: str,
+        documents: Mapping[str, date],
         clock: Clock = _now,
     ) -> None:
         self._database, self._mailer, self._sessions = database, mailer, sessions
         self._base_url = base_url.rstrip("/")
+        self._documents = documents  # accepted by a first login
         self._clock = clock
 
     async def request(self, email: str, next: str | None, locale: str = "ru") -> Letter:
@@ -119,6 +121,8 @@ class EmailLogins:
             if link is None:
                 return None
             email, next = link
-            user, created = await sign_up(session, PROVIDER, email, email=email)
+            user, created = await sign_up(
+                session, PROVIDER, email, email=email, documents=self._documents
+            )
             session_token = await self._sessions.start(session, user.id, user_agent)
         return EmailLoginResult(user, created, next, session_token)

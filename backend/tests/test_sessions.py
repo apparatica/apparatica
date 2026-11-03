@@ -4,7 +4,7 @@ logout on one and on every device, the cache of sessions and the purge of expire
 import asyncio
 import hashlib
 from collections.abc import Iterator
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, date, datetime, timedelta
 from typing import Any
 
 import pytest
@@ -13,7 +13,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy import func, select, text, update
 from sqlalchemy.exc import IntegrityError
 
-from apparatica.auth.models import Identity, User, UserSession
+from apparatica.auth.models import Consent, Identity, User, UserSession
 from apparatica.auth.sessions import CACHE_TTL_S, COOKIE, RENEW_EVERY, Sessions
 from apparatica.core.db import Database
 from apparatica.core.ids import uuid7
@@ -56,6 +56,21 @@ async def start(sessions: Sessions, database: Database, user: User) -> str:
 async def rows(database: Database) -> list[UserSession]:
     async with database.sessions() as session:
         return list(await session.scalars(select(UserSession).order_by(UserSession.created_at)))
+
+
+def consents(database_url: str) -> list[tuple[str, str, date]]:
+    """(nick, document, version) of every accepted legal document."""
+
+    async def scenario(database: Database) -> list[tuple[str, str, date]]:
+        async with database.sessions() as session:
+            rows = await session.execute(
+                select(User.nick, Consent.document, Consent.version)
+                .join(Consent)
+                .order_by(User.created_at, Consent.document)
+            )
+            return [(nick, document, version) for nick, document, version in rows]
+
+    return run(database_url, scenario)  # type: ignore[no-any-return]
 
 
 def clock(value: datetime) -> Any:
@@ -131,6 +146,9 @@ def test_the_account_tables(database_url: str) -> None:
         await start(Sessions(database, None, ttl_s=60, secure=True), database, ada)
         bob = await add_user(database, "bob")
         await rejected(database, Identity(user_id=bob.id, provider="github", subject="1"))
+        await rejected(database, Consent(user_id=bob.id, document="rules", version=NOW.date()))
+        async with database.sessions.begin() as session:
+            session.add(Consent(user_id=ada.id, document="terms", version=NOW.date()))
 
         async with database.sessions() as session:
             found = await session.scalar(select(User.nick).where(User.email == "ada@example.com"))
@@ -138,9 +156,9 @@ def test_the_account_tables(database_url: str) -> None:
             assert (await session.get_one(User, ada.id)).role == "user"
         async with database.sessions.begin() as session:
             await session.execute(text("DELETE FROM users WHERE nick = 'ada'"))
-        async with database.sessions() as session:  # identities and sessions go with the user
-            assert await session.scalar(select(func.count()).select_from(Identity)) == 0
-            assert await session.scalar(select(func.count()).select_from(UserSession)) == 0
+        async with database.sessions() as session:  # identities, consents, sessions go with it
+            for table in (Identity, Consent, UserSession):
+                assert await session.scalar(select(func.count()).select_from(table)) == 0
 
     run(database_url, scenario)
 

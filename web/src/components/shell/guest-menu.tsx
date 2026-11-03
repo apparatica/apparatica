@@ -1,6 +1,6 @@
 "use client";
 
-import { Monitor, Moon, Sun, User } from "lucide-react";
+import { FileText, Monitor, Moon, Sun, User } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -9,9 +9,11 @@ import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
+  DropdownMenuItem,
   DropdownMenuLabel,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { loginHref } from "@/lib/session";
@@ -43,6 +45,19 @@ export function ThemeItems() {
   );
 }
 
+/** The legal documents (FR-AUTH-06): the shell has no footer, so the menus link to them. */
+export function DocumentsItem() {
+  const t = useTranslations("shell");
+  return (
+    <DropdownMenuItem asChild>
+      <Link href="/legal">
+        <FileText aria-hidden="true" />
+        {t("documents")}
+      </Link>
+    </DropdownMenuItem>
+  );
+}
+
 /** The "Guest" chip of the header (sheet Guest) with its menu, the theme, and «Войти» beside it,
  * returning to this page; the login pages do not show the button. */
 export function GuestMenu() {
@@ -57,6 +72,8 @@ export function GuestMenu() {
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">
           <ThemeItems />
+          <DropdownMenuSeparator />
+          <DocumentsItem />
         </DropdownMenuContent>
       </DropdownMenu>
       {!path.startsWith("/login") && (

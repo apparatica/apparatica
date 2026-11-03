@@ -35,6 +35,15 @@ export const config: Schemas["ConfigResponse"] = {
     { key: "github", title: "GitHub", kind: "oauth" },
     { key: "email", title: "Email", kind: "email" },
   ],
+  legal: {
+    draft: true,
+    operator: {
+      name: "[оператор — уточняется]",
+      address: "[адрес оператора — уточняется]",
+      email: "[почта для запросов — уточняется]",
+    },
+    versions: { terms: "2026-11-03", privacy: "2026-11-03" },
+  },
 };
 
 /** The tags of problems/tags.yaml, in its order. */

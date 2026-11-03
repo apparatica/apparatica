@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import time
 import uuid
 from collections.abc import Mapping
@@ -11,6 +12,7 @@ from apparatica.core.ids import uuid7
 from apparatica.core.platform import ConfigFileError, load_platform_config
 
 CONFIG_DIR = Path(__file__).parents[2] / "config"
+LEGAL_TEXTS = Path(__file__).parents[2] / "web" / "content" / "legal"
 
 
 def test_uuid7_layout_and_order() -> None:
@@ -84,6 +86,18 @@ def test_platform_config_of_the_repository() -> None:
     assert config.limits.quotas.guest.heavy_per_day == 0
 
 
+def test_every_change_of_a_legal_text_is_a_decision_on_its_version() -> None:
+    """A user accepts an edition of a document (FR-AUTH-06): its text must not change unnoticed."""
+    for key, document in load_platform_config(CONFIG_DIR).legal.documents:
+        text = (LEGAL_TEXTS / f"{key}.md").read_bytes().replace(b"\r\n", b"\n")
+        digest = hashlib.sha256(text).hexdigest()
+        assert digest == document.sha256, (
+            f"web/content/legal/{key}.md changed. In config/legal.yaml set documents.{key}.sha256:"
+            f" {digest}, and a new version (the date of the edition) if the change is one of"
+            " substance (docs/legal.md)"
+        )
+
+
 def test_platform_config_errors(tmp_path: Path) -> None:
     with pytest.raises(ConfigFileError, match=r"difficulties\.yaml"):
         load_platform_config(tmp_path)
@@ -91,7 +105,7 @@ def test_platform_config_errors(tmp_path: Path) -> None:
         "- {key: easy, title: Easy, token: e}\n- {key: easy, title: Easy, token: e}\n",
         encoding="utf-8",
     )
-    for name in ("catalog.yaml", "limits.yaml", "rate-limits.yaml"):
+    for name in ("catalog.yaml", "limits.yaml", "rate-limits.yaml", "legal.yaml"):
         (tmp_path / name).write_text((CONFIG_DIR / name).read_text("utf-8"), "utf-8")
     with pytest.raises(ConfigFileError, match="duplicate keys"):
         load_platform_config(tmp_path)

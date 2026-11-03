@@ -19,7 +19,7 @@ import { notify } from "@/components/ui/toast";
 import { logout, type Me, meKey } from "@/features/account/api";
 import { useMe } from "@/features/account/use-me";
 
-import { GuestMenu, ThemeItems } from "./guest-menu";
+import { DocumentsItem, GuestMenu, ThemeItems } from "./guest-menu";
 
 /** The avatar and the nick of the signed-in user (mock-up Dashboard) and their menu; the «Гость»
  * chip for a guest. `signedIn`: the browser has a session cookie, so the server renders a
@@ -69,6 +69,7 @@ export function UserMenu({ me }: { me: Me }) {
         <DropdownMenuSeparator />
         <ThemeItems />
         <DropdownMenuSeparator />
+        <DocumentsItem />
         <DropdownMenuItem onSelect={() => void signOut()}>
           <LogOut aria-hidden="true" />
           {t("logout")}

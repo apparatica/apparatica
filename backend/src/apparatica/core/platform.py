@@ -1,10 +1,11 @@
-"""Platform data from `config/*.yaml`: difficulty levels, the catalogue and limits, which the
-frontend shows, and the rate limits against abuse, which it does not.
+"""Platform data from `config/*.yaml`: difficulty levels, the catalogue, limits and the legal
+documents, which the frontend shows, and the rate limits against abuse, which it does not.
 
 Loaded once at startup and validated strictly: a broken file stops the process instead of serving
 a half-configured site.
 """
 
+from datetime import date
 from pathlib import Path
 from typing import Annotated
 
@@ -15,6 +16,7 @@ DIFFICULTIES_FILE = "difficulties.yaml"
 CATALOG_FILE = "catalog.yaml"
 LIMITS_FILE = "limits.yaml"
 RATE_LIMITS_FILE = "rate-limits.yaml"
+LEGAL_FILE = "legal.yaml"
 
 
 class _Model(BaseModel):
@@ -88,11 +90,48 @@ class RateLimits(_Model):
     captcha: CaptchaRules
 
 
+class Operator(_Model):
+    """Who processes the personal data of the users (GDPR art. 13), as the documents name them."""
+
+    name: str
+    address: str
+    email: str = Field(description="For requests about personal data")
+
+
+class LegalDocument(_Model):
+    version: date = Field(description="The date of the edition; a consent records it")
+    sha256: Annotated[
+        str,
+        Field(
+            pattern=r"^[0-9a-f]{64}$",
+            description="Of web/content/legal/<key>.md: a test fails on a text changed without a"
+            " decision on its version",
+        ),
+    ]
+
+
+class LegalDocuments(_Model):
+    """What a user accepts at the first login (FR-AUTH-06)."""
+
+    terms: LegalDocument
+    privacy: LegalDocument
+
+    def versions(self) -> dict[str, date]:
+        return {key: document.version for key, document in self}
+
+
+class Legal(_Model):
+    draft: bool = Field(description="The texts await a lawyer; the site marks them as drafts")
+    operator: Operator
+    documents: LegalDocuments
+
+
 class PlatformConfig(_Model):
     difficulties: Annotated[list[Difficulty], Field(min_length=1)]
     catalog: Catalog
     limits: Limits
     rate_limits: RateLimits
+    legal: Legal
 
 
 class ConfigFileError(Exception):
@@ -112,6 +151,7 @@ def load_platform_config(config_dir: Path) -> PlatformConfig:
         "catalog": _read(config_dir / CATALOG_FILE),
         "limits": _read(config_dir / LIMITS_FILE),
         "rate_limits": _read(config_dir / RATE_LIMITS_FILE),
+        "legal": _read(config_dir / LEGAL_FILE),
     }
     try:
         config = PlatformConfig.model_validate(data)

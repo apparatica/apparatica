@@ -41,6 +41,7 @@ it("shows the user, leads to the settings and logs out", async () => {
   await user.click(trigger);
   expect(screen.getByText("ada@example.com")).toBeInTheDocument();
   expect(screen.getByRole("menuitem", { name: "Настройки" })).toHaveAttribute("href", "/settings");
+  expect(screen.getByRole("menuitem", { name: "Документы" })).toHaveAttribute("href", "/legal");
   expect(screen.getByRole("menuitemradio", { name: "Системная" })).toBeChecked();
 
   await user.click(screen.getByRole("menuitem", { name: "Выйти" }));
