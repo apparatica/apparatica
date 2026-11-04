@@ -3,7 +3,11 @@
 // The captcha before a check (FR-GST-05, sheet ModalsB) or a login link: after `428
 // CAPTCHA_REQUIRED` the guest solves an ALTCHA challenge and the request goes again with it. When
 // checks were only too frequent, the wait is shown too: once it is over, the check goes without the
-// captcha. The hint that signed-in users see fewer captchas is T2.6a.
+// captcha. Only guests are asked before a check, so the dialog offers to log in: signed-in users
+// get higher limits and fewer captchas.
+import { Info } from "lucide-react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { type ReactNode, useState } from "react";
 
@@ -19,6 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { apiUrl } from "@/lib/api/browser";
 import { formatCountdown, useCountdown } from "@/lib/clock";
+import { loginHref } from "@/lib/session";
 
 import { AltchaWidget } from "./altcha-widget";
 import type { CaptchaRequest } from "./request";
@@ -61,6 +66,7 @@ function CaptchaForm({
   purpose = "check",
 }: CaptchaDialogProps & { request: CaptchaRequest }) {
   const t = useTranslations("captcha");
+  const path = usePathname();
   const [solution, setSolution] = useState<string | null>(null);
   const left = useCountdown(request.until, request.since);
   const waited = request.until !== null && left === null;
@@ -76,8 +82,22 @@ function CaptchaForm({
           {wait}
         </DialogDescription>
       </DialogHeader>
-      <DialogBody className="pt-0">
+      <DialogBody className="flex flex-col gap-3 pt-0">
         <AltchaWidget challengeUrl={apiUrl(request.challengeUrl)} onChange={setSolution} />
+        {purpose === "check" && (
+          <div className="flex gap-2.5 rounded-md border border-bd bg-sf2 px-3 py-2.5">
+            <Info size={14} aria-hidden="true" className="mt-[3px] flex-none text-mu" />
+            <div className="flex flex-col gap-0.5 leading-[1.4]">
+              <p>{t("more")}</p>
+              <Link
+                href={loginHref(path)}
+                className="self-start text-ac underline underline-offset-2"
+              >
+                {t("login")}
+              </Link>
+            </div>
+          </div>
+        )}
       </DialogBody>
       <DialogFooter>
         <Button onClick={onCancel}>{t("cancel")}</Button>

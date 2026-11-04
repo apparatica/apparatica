@@ -2,6 +2,7 @@ import { screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
+import { SessionProvider } from "@/features/account/session";
 import { renderWithProviders } from "@/test/render";
 import { signIn, signOut } from "@/test/session";
 
@@ -17,7 +18,9 @@ afterEach(signOut);
 function renderMenu(signedIn: boolean) {
   return renderWithProviders(
     <ThemeProvider initial="system">
-      <AccountMenu signedIn={signedIn} />
+      <SessionProvider signedIn={signedIn}>
+        <AccountMenu />
+      </SessionProvider>
     </ThemeProvider>,
   );
 }

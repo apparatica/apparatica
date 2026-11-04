@@ -3,7 +3,8 @@
 // The results panel of a problem page (specs/08 §3): the pipeline with the total time, the banner
 // of the check and the result tabs under it, and before the first check a hint on Run and Submit
 // (mock-up BenchEmpty). The viewer of the waves outlives the checks: it is made once and kept. The
-// limits of the guest show here too: the counter of checks left, the wait when they are spent.
+// limits show here too: the counter of checks left, the wait when they are spent; a guest is also
+// offered to log in for more.
 import { SquareTerminal } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { type ReactNode, useState } from "react";
@@ -12,13 +13,14 @@ import { useSeconds } from "@/components/domain/duration";
 import { Pipeline, type StageView } from "@/components/domain/pipeline";
 import { Shortcut } from "@/components/ui/kbd";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useGuest } from "@/features/account/session";
 import { type Check, isFinished, type Submission } from "@/features/submission/machine";
 import type { SubmissionState } from "@/features/submission/use-submission";
 import { Viewer } from "@/features/waveview/viewer";
 import type { Schemas } from "@/lib/api/client";
 import { useCountdown, useNow } from "@/lib/clock";
 
-import { LimitNotice, QuotaCounter } from "./limit-panel";
+import { LimitNotice, QuotaCounter, QuotaHint } from "./limit-panel";
 import { checksSpentUntil, quotaWarning } from "./limits";
 import { type BlockDetail, type BlockView, pipelineView } from "./pipeline-view";
 import { ResultBanner } from "./result-banner";
@@ -106,6 +108,7 @@ export function ResultsPanel({ submission, problem, busy, onCheck, onReveal }: R
     submission.refreshQuota,
   );
   const warning = quotaWarning(submission.quota);
+  const guest = useGuest();
   // The frame of the viewer is made when a test fails or the tab opens, before the trace is read:
   // Surfer boots meanwhile. Then it stays.
   const [viewerWanted, setViewerWanted] = useState(false);
@@ -242,6 +245,12 @@ export function ResultsPanel({ submission, problem, busy, onCheck, onReveal }: R
               <Shortcut keys={SUBMIT_KEYS} /> {t("submitShortcut")}
             </span>
           </p>
+        </div>
+      )}
+      {/* Under the results, as in the mock-up; a spent quota has its own offer to log in. */}
+      {guest && warning !== null && spentLeft === null && warning.remaining > 0 && (
+        <div className="flex-none bg-sf px-3.5 pt-2.5 pb-3.5">
+          <QuotaHint window={warning} />
         </div>
       )}
     </section>

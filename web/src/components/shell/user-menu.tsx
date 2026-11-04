@@ -17,16 +17,16 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import { notify } from "@/components/ui/toast";
 import { logout, type Me, meKey } from "@/features/account/api";
-import { useMe } from "@/features/account/use-me";
+import { useAccount } from "@/features/account/session";
 
 import { DocumentsItem, GuestMenu, ThemeItems } from "./guest-menu";
 
 /** The avatar and the nick of the signed-in user (mock-up Dashboard) and their menu; the «Гость»
- * chip for a guest. `signedIn`: the browser has a session cookie, so the server renders a
- * placeholder rather than «Гость» while the user loads; an ended session turns into a guest. */
-export function AccountMenu({ signedIn }: { signedIn: boolean }) {
-  const { data: me, isError } = useMe(signedIn);
-  if (!signedIn || me === null || isError) return <GuestMenu />;
+ * chip for a guest. With a session cookie the server renders a placeholder rather than «Гость»
+ * while the user loads. */
+export function AccountMenu() {
+  const me = useAccount();
+  if (me === null) return <GuestMenu />;
   if (me === undefined) return <Skeleton className="h-5 w-20" />;
   return <UserMenu me={me} />;
 }

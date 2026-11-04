@@ -357,6 +357,13 @@ describe("the limits of the guest", () => {
     expect(asked).toHaveAccessibleDescription(
       "Пройдите короткую проверку, чтобы запустить проверку решения.",
     );
+    expect(
+      within(asked).getByText("Для вошедших участников лимиты выше, а проверок капчи меньше."),
+    ).toBeInTheDocument();
+    expect(within(asked).getByRole("link", { name: "Войти →" })).toHaveAttribute(
+      "href",
+      expect.stringMatching(/^\/login/),
+    );
     const proceed = within(asked).getByRole("button", { name: "Продолжить" });
     expect(proceed).toBeDisabled();
 

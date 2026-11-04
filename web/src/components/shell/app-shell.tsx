@@ -2,6 +2,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
+import { SessionProvider } from "@/features/account/session";
 import type { Theme } from "@/lib/theme";
 
 import { CommandPalette } from "./command-palette";
@@ -31,7 +32,7 @@ function Logo() {
 
 export interface AppShellProps {
   theme: Theme;
-  /** The browser has a session cookie: the header waits for the user rather than shows «Гость». */
+  /** The browser has a session cookie: the page waits for the user rather than shows a guest. */
   signedIn?: boolean;
   /** The guest banner over the header, until the guest closes it. */
   guestBanner?: boolean;
@@ -54,32 +55,34 @@ export function AppShell({
   const t = useTranslations("shell");
   return (
     <ThemeProvider initial={theme}>
-      <div className="flex min-h-dvh flex-col bg-bg text-tx">
-        {guestBanner && <GuestBanner />}
-        <header className="group/header flex min-h-10 flex-none items-center gap-3 border-b border-bd bg-sf px-3 max-sm:min-h-12">
-          {/* Phones: the title of the page stands for the brand, the back link for the logo. */}
-          <Link
-            href="/"
-            className="flex items-center gap-2 rounded-md font-semibold group-has-[[data-phone-back]]/header:max-sm:hidden"
-          >
-            <Logo />
-            <span className="group-has-[[data-phone-title]]/header:max-sm:sr-only">
-              {t("brand")}
-            </span>
-          </Link>
-          {breadcrumbs}
-          <div className="flex-1" />
-          <CommandPalette />
-          <AccountMenu signedIn={signedIn} />
-        </header>
-        <NetworkBanner />
-        <div className="flex min-h-0 flex-1 gap-px">
-          <Rail />
-          <main className="min-w-0 flex-1 bg-sf pb-14 sm:pb-0">{children}</main>
+      <SessionProvider signedIn={signedIn}>
+        <div className="flex min-h-dvh flex-col bg-bg text-tx">
+          {guestBanner && <GuestBanner />}
+          <header className="group/header flex min-h-10 flex-none items-center gap-3 border-b border-bd bg-sf px-3 max-sm:min-h-12">
+            {/* Phones: the title of the page stands for the brand, the back link for the logo. */}
+            <Link
+              href="/"
+              className="flex items-center gap-2 rounded-md font-semibold group-has-[[data-phone-back]]/header:max-sm:hidden"
+            >
+              <Logo />
+              <span className="group-has-[[data-phone-title]]/header:max-sm:sr-only">
+                {t("brand")}
+              </span>
+            </Link>
+            {breadcrumbs}
+            <div className="flex-1" />
+            <CommandPalette />
+            <AccountMenu />
+          </header>
+          <NetworkBanner />
+          <div className="flex min-h-0 flex-1 gap-px">
+            <Rail />
+            <main className="min-w-0 flex-1 bg-sf pb-14 sm:pb-0">{children}</main>
+          </div>
+          {statusbar}
+          <BottomNav />
         </div>
-        {statusbar}
-        <BottomNav />
-      </div>
+      </SessionProvider>
     </ThemeProvider>
   );
 }

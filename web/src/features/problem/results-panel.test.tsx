@@ -3,6 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { SessionProvider, useAccount } from "@/features/account/session";
 import { applyEvent, type Check, checkOf, markLost } from "@/features/submission/machine";
 import type { SubmissionState } from "@/features/submission/use-submission";
 import type { ApiError, Schemas } from "@/lib/api/client";
@@ -12,9 +13,15 @@ import { type ScenarioName, scenarios } from "@/mocks/scenarios";
 import { server } from "@/mocks/server";
 import { eventsUntil, playCheck, queuedCheck } from "@/test/checks";
 import { renderWithProviders } from "@/test/render";
+import { signIn, signOut } from "@/test/session";
 import { fakeAdapter } from "@/test/waveview";
 
 import { ResultsPanel } from "./results-panel";
+
+vi.mock("next/navigation", async (original) => ({
+  ...(await original<typeof import("next/navigation")>()),
+  usePathname: () => "/problems/sync-fifo",
+}));
 
 // The clock stands still: the times on the panel do not depend on how fast the test runs.
 beforeEach(() => {
@@ -621,6 +628,15 @@ describe("the limits of the guest", () => {
     unmount();
     renderPanel(stateOf(null, { quota: quota(3) }));
     expect(screen.getByText("Проверок: 3 из 10 в час")).toBeInTheDocument();
+    // Signed-in users get more: the guest is offered to log in and come back.
+    const hint = screen.getByText(/^Осталось 3 проверки/);
+    expect(hint).toHaveTextContent(
+      "Осталось 3 проверки из 10 в этот час. Вошедшим доступно больше. Войти →",
+    );
+    expect(within(hint).getByRole("link", { name: "Войти →" })).toHaveAttribute(
+      "href",
+      "/login?next=/problems/sync-fifo",
+    );
   });
 
   it("wait in place of the verdict when the checks are spent", () => {
@@ -637,6 +653,12 @@ describe("the limits of the guest", () => {
       "Следующая проверка будет доступна через 12:41. Код сохранён в браузере, ничего не потеряется.",
     );
     expect(screen.getByRole("button", { name: "Run · 12:41" })).toBeDisabled();
+    expect(screen.getByRole("link", { name: "Войти и продолжить" })).toHaveAttribute(
+      "href",
+      "/login?next=/problems/sync-fifo",
+    );
+    // The offer to log in is there already.
+    expect(screen.queryByText(/^Осталось/)).not.toBeInTheDocument();
     expect(screen.queryByText(/^Неверный ответ/)).not.toBeInTheDocument();
     // The results of the last check stay.
     expect(screen.getByRole("tab", { name: "Консоль" })).toBeInTheDocument();
@@ -647,7 +669,33 @@ describe("the limits of the guest", () => {
     renderPanel(stateOf(null, { error: spent(42), failedAt: Date.now() }));
     expect(screen.getByRole("heading", { name: "Лимит проверок исчерпан" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Run · 0:42" })).toBeDisabled();
+    expect(screen.getByRole("link", { name: "Войти и продолжить" })).toBeInTheDocument();
     expect(screen.queryByText("Результатов пока нет")).not.toBeInTheDocument();
+  });
+
+  it("do not offer a signed-in user to log in", async () => {
+    signIn();
+    const Nick = () => useAccount()?.nick ?? null;
+    try {
+      renderWithProviders(
+        <SessionProvider signedIn>
+          <Nick />
+          <ResultsPanel
+            submission={stateOf(null, { quota: quota(2), error: spent(42), failedAt: Date.now() })}
+            problem={FIFO}
+            busy={false}
+            onCheck={vi.fn()}
+            onReveal={vi.fn()}
+          />
+        </SessionProvider>,
+      );
+      expect(await screen.findByText("ada")).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Лимит проверок исчерпан" })).toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: /^Войти/ })).not.toBeInTheDocument();
+      expect(screen.queryByText(/^Осталось/)).not.toBeInTheDocument();
+    } finally {
+      signOut();
+    }
   });
 
   it("read the quota again when the wait is over", async () => {

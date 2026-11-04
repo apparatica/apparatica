@@ -172,6 +172,8 @@ it("asks for a captcha when the API wants one and sends the link with it", async
   expect(dialog).toHaveAccessibleDescription(
     "Пройдите короткую проверку, чтобы получить ссылку для входа.",
   );
+  // The guest is logging in already.
+  expect(within(dialog).queryByRole("link", { name: "Войти →" })).not.toBeInTheDocument();
 
   await user.click(within(dialog).getByRole("button", { name: "Я не робот" }));
   await user.click(within(dialog).getByRole("button", { name: "Продолжить" }));
