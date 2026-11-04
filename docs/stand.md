@@ -125,7 +125,7 @@ Grafana открывается на http://grafana.localhost:8080: смотре�
 
 ```sh
 just up
-just e2e                                          # E2E_BASE_URL=http://localhost:8080, E2E_BROWSER=chrome
+just e2e                                          # E2E_BASE_URL=http://localhost:8080, E2E_BROWSER=chrome, E2E_MAILPIT_URL=http://localhost:8025
 E2E_BROWSER=msedge just e2e                       # Windows: Edge
 E2E_BASE_URL=http://localhost:18080 just e2e -g guest   # другой порт, фильтр по имени теста
 ```
@@ -135,6 +135,7 @@ E2E_BASE_URL=http://localhost:18080 just e2e -g guest   # другой порт,
 | Тест | Что проверяет |
 |---|---|
 | `guest-solves.spec.ts` | гость решает `mux4`: Run с ошибкой (мутант `m01`) падает на открытом тесте, «Показать на диаграмме» открывает FST в просмотрщике (панель волн в состоянии `normal`), Submit эталона — «Принято»; код вставляется в Monaco как из буфера, и тест сверяет его с телом `POST /submissions`; страница с вердиктом проходит axe |
+| `email-login.spec.ts` | гость входит по ссылке из письма: «Войти» в шапке задачи ведёт на `/login?next=/problems/mux4`, адрес (новый на каждый прогон, `e2e-…@example.com`) уходит в форму, письмо «Вход в Apparatica» читается из API Mailpit (`E2E_MAILPIT_URL`), ссылка из него возвращает на задачу вошедшим (кнопка меню с ником `user-…`, без баннера гостя), почта видна в настройках, повторное открытие ссылки — «Ссылка не подходит», «Выйти» снова делает браузер гостем; страница входа и страница негодной ссылки проходят axe. Без Mailpit (пустой `E2E_MAILPIT_URL`, так на staging) тест пропускается. Импорт гостевых решений из сценария 2 specs/09 §4.4 появится с ним самим (Ф4, T4.5) |
 | `accessibility.spec.ts` | axe на каталоге и странице задачи в светлой и тёмной темах, на широком экране и на телефоне (Pixel 7: без редактора, с блоком «Решать удобнее на компьютере») |
 | `security-headers.spec.ts` | CSP страницы: свой nonce у каждого ответа и у всех скриптов страницы, без `unsafe-eval`; страницы 404 с политикой; заголовки Caddy ([security.md](security.md#csp-сайта)) |
 

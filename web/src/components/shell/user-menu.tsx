@@ -43,11 +43,11 @@ export function UserMenu({ me }: { me: Me }) {
   };
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger
-        aria-label={t("menu", { nick: me.nick })}
-        className="inline-flex h-[26px] max-w-40 cursor-pointer items-center gap-2 rounded-md px-1 text-[12.5px] hover:bg-sf2 data-[state=open]:bg-sf2 pointer-coarse:h-11"
-      >
-        <Avatar name={me.display_name ?? me.nick} src={me.avatar_url} size={20} />
+      {/* Named by the visible nick, as the «Гость» chip by its label (WCAG 2.5.3). */}
+      <DropdownMenuTrigger className="inline-flex h-[26px] max-w-40 cursor-pointer items-center gap-2 rounded-md px-1 text-[12.5px] hover:bg-sf2 data-[state=open]:bg-sf2 pointer-coarse:h-11">
+        <span aria-hidden="true" className="flex">
+          <Avatar name={me.display_name ?? me.nick} src={me.avatar_url} size={20} />
+        </span>
         <span className="truncate max-sm:sr-only">{me.nick}</span>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">

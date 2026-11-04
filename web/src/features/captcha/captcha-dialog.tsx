@@ -85,7 +85,7 @@ function CaptchaForm({
       <DialogBody className="flex flex-col gap-3 pt-0">
         <AltchaWidget challengeUrl={apiUrl(request.challengeUrl)} onChange={setSolution} />
         {purpose === "check" && (
-          <div className="flex gap-2.5 rounded-md border border-bd bg-sf2 px-3 py-2.5">
+          <div className="flex gap-2.5 rounded-md border border-bd px-3 py-2.5">
             <Info size={14} aria-hidden="true" className="mt-[3px] flex-none text-mu" />
             <div className="flex flex-col gap-0.5 leading-[1.4]">
               <p>{t("more")}</p>

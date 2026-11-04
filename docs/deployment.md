@@ -107,7 +107,7 @@ Workflow `.github/workflows/staging.yml` запускается после зе�
 |---|---|
 | Images | собирает `api` (`backend/Dockerfile`), `worker`, `web` из коммита и публикует `ghcr.io/apparatica/<имя>:sha-<12 знаков коммита>`; метка `org.opencontainers.image.source` связывает пакет с репозиторием |
 | Deploy | environment `staging`: `just deploy staging -e ansible_user=deploy -e apparatica_image_tag=sha-<коммит>` с ключом `STAGING_SSH_KEY`; хост проверяется по `deploy/ansible/inventories/staging/known_hosts` |
-| End-to-end tests | `just e2e` против `https://staging.apparatica.app` в Chrome раннера; при падении — артефакт `e2e-staging-report` |
+| End-to-end tests | `just e2e` против `https://staging.apparatica.app` в Chrome раннера, без входа по ссылке из письма (`E2E_MAILPIT_URL` пуст: письма staging не попадают в Mailpit); при падении — артефакт `e2e-staging-report` |
 
 **Пользователь `deploy`.** CI заходит не как `root`, а как `deploy` со своим ключом и выполняет те же плейбуки через sudo. По силе это root, и ограничивать его нет смысла: коммит `master` и так исполняется на хосте (у `sandboxd` docker socket). Свой пользователь отделяет ключ CI от ключей операторов: его можно отозвать, удалив из `base_deploy_keys`, и вход CI виден в журнале как `deploy`. Секрет доступен только job'ам environment `staging`, а environment принимает только ветку `master`. Pull request'ы и форки его не получают.
 

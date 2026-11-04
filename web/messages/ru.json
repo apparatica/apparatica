@@ -27,7 +27,6 @@
       "login": "Войти"
     },
     "account": {
-      "menu": "Меню пользователя {nick}",
       "profile": "Профиль",
       "settings": "Настройки",
       "logout": "Выйти",

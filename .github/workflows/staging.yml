@@ -112,6 +112,8 @@ jobs:
         env:
           E2E_BASE_URL: ${{ env.SITE }}
           E2E_BROWSER: chrome
+          # Staging sends no letters to Mailpit: the login with a link is left to the stand.
+          E2E_MAILPIT_URL: ""
         run: |
           pnpm install --frozen-lockfile --filter @apparatica/e2e
           just e2e

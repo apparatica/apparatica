@@ -39,7 +39,7 @@ it("shows the user, leads to the settings and logs out", async () => {
   const user = userEvent.setup();
   signIn();
   renderMenu(true);
-  const trigger = await screen.findByRole("button", { name: "Меню пользователя ada" });
+  const trigger = await screen.findByRole("button", { name: "ada" });
   expect(trigger).toHaveTextContent("ada");
 
   await user.click(trigger);

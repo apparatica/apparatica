@@ -5,6 +5,8 @@
 // Environment:
 //   E2E_BASE_URL: the site of the stand, http://localhost:8080 by default
 //   E2E_BROWSER: Playwright channel of an installed browser, "chrome" by default ("msedge" on Windows)
+//   E2E_MAILPIT_URL: Mailpit of the stand, http://localhost:8025 by default; empty skips the login
+//     with a link (tests/email-login.spec.ts)
 import { defineConfig } from "@playwright/test";
 
 export default defineConfig({
