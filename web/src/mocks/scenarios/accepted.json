@@ -129,6 +129,7 @@
     "stage": "precheck",
     "state": "ready",
     "size_bytes": 0,
+    "error_code": null,
     "waveform": null
    },
    {
@@ -136,6 +137,7 @@
     "stage": "lint",
     "state": "ready",
     "size_bytes": 304,
+    "error_code": null,
     "waveform": null
    },
    {
@@ -143,6 +145,7 @@
     "stage": "sim_full",
     "state": "ready",
     "size_bytes": 0,
+    "error_code": null,
     "waveform": null
    },
    {
@@ -150,6 +153,7 @@
     "stage": null,
     "state": "ready",
     "size_bytes": 7161,
+    "error_code": null,
     "waveform": null
    }
   ]

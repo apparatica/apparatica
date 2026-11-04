@@ -1112,6 +1112,22 @@
               "title": "Stage"
             },
             "description": "Key of the stage"
+          },
+          {
+            "name": "scope",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "enum": [
+                "failure_window",
+                "full_test"
+              ],
+              "type": "string",
+              "description": "Which FST of the stage: the window or the whole test",
+              "default": "failure_window",
+              "title": "Scope"
+            },
+            "description": "Which FST of the stage: the window or the whole test"
           }
         ],
         "responses": {
@@ -1166,7 +1182,7 @@
           "submissions"
         ],
         "summary": "Request Waveform",
-        "description": "Recreate an expired FST of the failure window with the seed of the submission (FR-WAV-05);\nit is pending until GET /submissions/{id} shows it ready or failed. A kept or pending FST is\nanswered as it is, without spending the quota. NOT_FOUND: no such submission or no trace\nwindow in it; UNAUTHENTICATED: `full_test` is for signed-in users, NOT_IMPLEMENTED for them\nuntil it is done; RATE_LIMITED: `params.quota` is `waveforms`.",
+        "description": "Record an FST with the seed of the submission (FR-WAV-05): the expired failure window\nagain, or the whole failed test of a Run (`full_test`), for guests and users alike. It is\npending until GET /submissions/{id} shows it ready or failed. A kept or pending FST is\nanswered as it is, without spending the quota. NOT_FOUND: no such submission, no trace\nwindow in it, or `full_test` of a Submit; RATE_LIMITED: `params.quota` is `waveforms`.",
         "operationId": "request_waveform",
         "parameters": [
           {
@@ -1221,16 +1237,6 @@
               }
             }
           },
-          "401": {
-            "description": "Unauthorized",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
           "422": {
             "description": "Unprocessable Content",
             "content": {
@@ -1263,16 +1269,6 @@
           },
           "503": {
             "description": "Service Unavailable",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "501": {
-            "description": "Not Implemented",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -5009,7 +5005,7 @@
               "failed"
             ],
             "title": "State",
-            "description": "expired: removed by the retention rules (an FST can be recreated); pending, failed: an FST being recreated or not recreated (POST /submissions/{id}/waveform). One FST per stage: the latest"
+            "description": "expired: removed by the retention rules (an FST can be recreated); pending, failed: an FST being recreated or not recreated (POST /submissions/{id}/waveform). Up to two FST per stage, one per waveform.scope: the latest of each"
           },
           "size_bytes": {
             "anyOf": [
@@ -5022,6 +5018,18 @@
             ],
             "title": "Size Bytes",
             "description": "Null until the file exists"
+          },
+          "error_code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error Code",
+            "description": "With state=failed: why the FST was not recorded, e.g. TRACE_TOO_LARGE (a whole test above the FST limit of the problem)"
           },
           "waveform": {
             "anyOf": [
@@ -5041,6 +5049,7 @@
           "stage",
           "state",
           "size_bytes",
+          "error_code",
           "waveform"
         ],
         "title": "SubmissionArtifact"
@@ -5829,15 +5838,32 @@
               "failure_window",
               "full_test"
             ],
-            "title": "Scope"
+            "title": "Scope",
+            "description": "failure_window: around the first mismatch; full_test: the whole failed test"
           },
           "from_cycle": {
-            "type": "integer",
-            "title": "From Cycle"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "From Cycle",
+            "description": "First traced cycle; null until the FST of a whole test is recorded"
           },
           "to_cycle": {
-            "type": "integer",
-            "title": "To Cycle"
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "To Cycle",
+            "description": "Last traced cycle; null with from_cycle"
           },
           "cursor_cycle": {
             "anyOf": [
@@ -5910,20 +5936,8 @@
               "full_test"
             ],
             "title": "Scope",
-            "description": "full_test: the whole test, for signed-in users only (FR-WAV-05)",
+            "description": "full_test: the whole failed test of a Run (FR-WAV-05)",
             "default": "failure_window"
-          },
-          "test": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Test",
-            "description": "Test id for full_test; the failed test by default"
           }
         },
         "type": "object",

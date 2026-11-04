@@ -144,6 +144,8 @@ class Ingestor:
             session.add(row)
             await session.flush()  # before the row that refers to it
             waveform.status, waveform.artifact_id, waveform.error_code = "ready", row.id, None
+            if record.window is not None:
+                waveform.from_cycle, waveform.to_cycle = record.window
         else:
             waveform.status = "failed"
             waveform.error_code = record.error_code or FOREIGN_ARTIFACT

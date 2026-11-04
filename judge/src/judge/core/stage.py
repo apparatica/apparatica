@@ -24,6 +24,8 @@ FailureKind = Literal["forbidden", "compile", "wrong", "limit"]
 LimitKind = Literal["time", "memory", "output", "fst", "cycles", "size"]
 SkipReason = Literal["previous_failed", "not_in_pipeline", "cancelled"]
 SubmissionKind = Literal["run", "submit"]
+# What a failed check traces: a window around the first mismatch, or the whole test it is in.
+TraceScope = Literal["failure_window", "full_test"]
 Channel = Literal["out", "err", "sys"]
 
 
@@ -140,6 +142,7 @@ class StageContext:
     limits: StageLimits
     previous: Mapping[str, FinishedStage]
     build_cache: BuildCache = NO_CACHE
+    trace: TraceScope = "failure_window"
 
 
 # A stage's view of one console line: the text to show (None hides it) and a test progress update.

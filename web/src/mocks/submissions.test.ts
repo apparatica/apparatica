@@ -121,7 +121,7 @@ it("redirects to the artifact files", async () => {
 
   const kept = await client.POST("/api/v1/submissions/{id}/waveform", {
     params: { path: { id } },
-    body: { scope: "failure_window", test: null },
+    body: { scope: "failure_window" },
   });
   expect(kept.data?.state).toBe("ready"); // as it is: nothing to recreate
 });
@@ -143,13 +143,64 @@ it("recreates an expired trace", async () => {
   const request = (scope: "failure_window" | "full_test") =>
     client.POST("/api/v1/submissions/{id}/waveform", {
       params: { path: { id } },
-      body: { scope, test: null },
+      body: { scope },
     });
-  expect((await request("full_test")).error?.code).toBe("UNAUTHENTICATED");
   const pending = await request("failure_window");
   expect(pending.response.status).toBe(202);
   expect(pending.data?.state).toBe("pending");
   expect((await trace())?.state).toBe("ready"); // at Infinity speed the job is done at once
+});
+
+it("records the whole failed test of a Run", async () => {
+  configureMocks({ speed: Infinity });
+  const { data } = await submit("// mock: wrong-answer");
+  const id = data?.id ?? "";
+  const whole = await client.POST("/api/v1/submissions/{id}/waveform", {
+    params: { path: { id } },
+    body: { scope: "full_test" },
+  });
+  expect(whole.response.status).toBe(202);
+  expect(whole.data).toMatchObject({
+    state: "pending",
+    waveform: { scope: "full_test", from_cycle: null },
+  });
+  const done = await client.GET("/api/v1/submissions/{id}", { params: { path: { id } } });
+  const traces = done.data?.artifacts.filter((artifact) => artifact.kind === "fst") ?? [];
+  expect(traces.map((trace) => [trace.state, trace.waveform?.scope])).toEqual([
+    ["ready", "failure_window"],
+    ["ready", "full_test"],
+  ]);
+  const redirect = await fetch(
+    `${BASE}/api/v1/submissions/${id}/artifacts/fst?stage=sim_run&scope=full_test`,
+    { redirect: "manual" },
+  );
+  expect(redirect.status).toBe(302);
+  const quota = (await client.GET("/api/v1/submissions")).data?.quota?.waveforms;
+  expect(quota?.remaining).toBe((quota?.limit ?? 0) - 1);
+
+  const submitted = await submit("// mock: wrong-answer", "submit");
+  const refused = await client.POST("/api/v1/submissions/{id}/waveform", {
+    params: { path: { id: submitted.data?.id ?? "" } },
+    body: { scope: "full_test" },
+  });
+  expect(refused.error?.code).toBe("NOT_FOUND");
+});
+
+it("fails a whole test above the FST limit", async () => {
+  configureMocks({ speed: Infinity });
+  const { data } = await submit("// mock: wrong-answer\n// mock-fst: full-too-large");
+  const id = data?.id ?? "";
+  await client.POST("/api/v1/submissions/{id}/waveform", {
+    params: { path: { id } },
+    body: { scope: "full_test" },
+  });
+  const done = await client.GET("/api/v1/submissions/{id}", { params: { path: { id } } });
+  const whole = done.data?.artifacts.find((item) => item.waveform?.scope === "full_test");
+  expect(whole).toMatchObject({
+    state: "failed",
+    error_code: "TRACE_TOO_LARGE",
+    waveform: { scope: "full_test" },
+  });
 });
 
 it("limits the checks of a guest", async () => {

@@ -3,9 +3,10 @@
 // The waves tab of the results (FR-WAV-01..06, sheet CmpC, mock-up BenchWave): the trace of the
 // failed test in Surfer, in an isolated frame on the origin of the viewer (ADR-0004). The frame is
 // made once the waves are wanted (a test failed or the tab was opened) and stays for later checks.
-import { Crosshair, Download, Maximize2 } from "lucide-react";
+// "Открыть трассу целиком" switches a Run to the whole failed test, recorded on the first ask.
+import { Crosshair, Download, FoldHorizontal, Maximize2, UnfoldHorizontal } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { useEffect, useRef, useSyncExternalStore } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 
 import { useFileSize } from "@/components/domain/duration";
 import {
@@ -23,7 +24,7 @@ import type { TraceView, Viewer } from "@/features/waveview/viewer";
 import type { ApiError } from "@/lib/api/client";
 
 import { fstHref, useWaves } from "./use-waves";
-import { type Ports, signalItems, type Trace } from "./waves-view";
+import { canTraceWholeTest, type Ports, type Scope, signalItems, type Trace } from "./waves-view";
 
 export interface ResultsWavesProps {
   check: Check;
@@ -35,11 +36,11 @@ export interface ResultsWavesProps {
 }
 
 const traceKey = (trace: Trace) =>
-  `${trace.submission}:${trace.stage}:${String(trace.artifact.size_bytes)}`;
+  `${trace.submission}:${trace.stage}:${trace.waveform.scope}:${String(trace.artifact.size_bytes)}`;
 
-function useRecreateFailure(): (error: Error | ApiError) => void {
+function useRecreateFailure(): (error: Error | ApiError, scope: Scope) => void {
   const t = useTranslations("problem.results.waves");
-  return (error) => {
+  return (error, scope) => {
     let description = "detail" in error ? error.detail : error.message;
     if (
       "params" in error &&
@@ -52,7 +53,8 @@ function useRecreateFailure(): (error: Error | ApiError) => void {
       };
       description = t("quotaSpent", { limit, minutes: Math.max(1, Math.ceil(retry / 60)) });
     }
-    notify({ tone: "er", title: t("recreateFailed"), description });
+    const title = scope === "full_test" ? t("full.requestFailed") : t("recreateFailed");
+    notify({ tone: "er", title, description });
   };
 }
 
@@ -83,10 +85,14 @@ export function ResultsWaves({ check, submission, ports, viewer, wanted }: Resul
   const theme = useResolvedTheme();
   const recreateFailed = useRecreateFailure();
   const snapshot = useSyncExternalStore(viewer.subscribe, viewer.getSnapshot, viewer.getSnapshot);
+  // The check whose whole failed test is shown: a new check starts at its window again.
+  const [whole, setWhole] = useState<string | null>(null);
+  const scope: Scope = whole === check.id ? "full_test" : "failure_window";
   const { view, trace, bytes, recreate } = useWaves({
     check,
     submission: submission.submission,
     wanted,
+    scope,
   });
 
   useEffect(() => viewer.setTheme(`apparatica-${theme}`), [viewer, theme]);
@@ -110,8 +116,24 @@ export function ResultsWaves({ check, submission, ports, viewer, wanted }: Resul
   // Every render: the same trace again is a no-op of the viewer.
   useEffect(() => viewer.show(shown));
 
-  const recreateTrace = (target: Trace) =>
-    recreate.mutate(target, { onError: (error) => recreateFailed(error) });
+  const recordTrace = (target: Trace, wanted: Scope = scope) =>
+    recreate.mutate(
+      { trace: target, scope: wanted },
+      {
+        onError: (error) => {
+          recreateFailed(error, wanted);
+          if (view.kind === "unrequested") setWhole(null);
+        },
+      },
+    );
+  const openWhole = (window: Trace) => {
+    setWhole(check.id);
+    const asked = submission.submission?.artifacts.some(
+      (item) => item.kind === "fst" && item.waveform?.scope === "full_test",
+    );
+    if (asked !== true) recordTrace(window, "full_test");
+  };
+  const full = scope === "full_test";
 
   const state = ((): WaveformPanelState => {
     const viewerState = snapshot.state;
@@ -120,6 +142,17 @@ export function ResultsWaves({ check, submission, ports, viewer, wanted }: Resul
         return { kind: "empty", caption: t(`none.${view.reason}`) };
       case "waiting":
         return { kind: "loading" };
+      case "unrequested": {
+        if (recreate.isPending) return { kind: "loading", caption: t("full.pending") };
+        const limit = submission.quota?.waveforms.limit;
+        return {
+          kind: "empty",
+          title: t("full.unrequested"),
+          caption:
+            limit === undefined ? t("expiredCaptionNoLimit") : t("expiredCaption", { limit }),
+          action: <Button onClick={() => recordTrace(view.trace)}>{t("full.record")}</Button>,
+        };
+      }
       case "expired": {
         const limit = submission.quota?.waveforms.limit;
         return {
@@ -128,20 +161,23 @@ export function ResultsWaves({ check, submission, ports, viewer, wanted }: Resul
           caption:
             limit === undefined ? t("expiredCaptionNoLimit") : t("expiredCaption", { limit }),
           action: (
-            <Button loading={recreate.isPending} onClick={() => recreateTrace(view.trace)}>
+            <Button loading={recreate.isPending} onClick={() => recordTrace(view.trace)}>
               {t("recreate")}
             </Button>
           ),
         };
       }
       case "pending":
-        return { kind: "loading", caption: t("pending") };
+        return { kind: "loading", caption: full ? t("full.pending") : t("pending") };
       case "failed":
+        if (view.tooLarge) {
+          return { kind: "error", title: t("full.tooLarge"), caption: t("full.tooLargeCaption") };
+        }
         return {
           kind: "error",
-          title: t("failed"),
-          caption: t("failedCaption"),
-          onRetry: () => recreateTrace(view.trace),
+          title: full ? t("full.failed") : t("failed"),
+          caption: full ? t("full.failedCaption") : t("failedCaption"),
+          onRetry: () => recordTrace(view.trace),
           retrying: recreate.isPending,
         };
       case "noViewer":
@@ -170,24 +206,45 @@ export function ResultsWaves({ check, submission, ports, viewer, wanted }: Resul
   })();
 
   const waveform = trace?.waveform;
+  const from = waveform?.from_cycle ?? null;
+  const to = waveform?.to_cycle ?? null;
   const size = trace?.artifact.size_bytes;
   const viewerUrl = submission.submission?.waveview_url ?? null;
+  const test = trace?.test ?? "";
+  const title = (() => {
+    if (waveform === undefined) return undefined;
+    if (!full) return t("title", { from: from ?? 0, to: to ?? 0 });
+    return from === null || to === null
+      ? t("full.titleUnknown", { test })
+      : t("full.title", { from, to, test });
+  })();
+  const aside = (() => {
+    if (full) {
+      return (
+        <Button variant="ghost" className="h-6 px-2" onClick={() => setWhole(null)}>
+          <FoldHorizontal aria-hidden="true" />
+          {t("full.toWindow")}
+        </Button>
+      );
+    }
+    if (trace === null || !canTraceWholeTest(check)) return undefined;
+    return (
+      <Button variant="ghost" className="h-6 px-2" onClick={() => openWhole(trace)}>
+        <UnfoldHorizontal aria-hidden="true" />
+        {t("full.open")}
+      </Button>
+    );
+  })();
   return (
     <WaveformPanel
       state={state}
-      title={
-        waveform === undefined
-          ? undefined
-          : t("title", { from: waveform.from_cycle, to: waveform.to_cycle })
-      }
+      title={title}
       info={
-        waveform === undefined || size == null
+        from === null || to === null || size == null
           ? undefined
-          : t("info", {
-              cycles: waveform.to_cycle - waveform.from_cycle + 1,
-              size: fileSize(size),
-            })
+          : t("info", { cycles: to - from + 1, size: fileSize(size) })
       }
+      aside={aside}
       tools={
         trace !== null && (
           <>
@@ -202,11 +259,11 @@ export function ResultsWaves({ check, submission, ports, viewer, wanted }: Resul
                 <Crosshair aria-hidden="true" />
               </Button>
             </Tooltip>
-            <Tooltip content={t("fit")}>
+            <Tooltip content={full ? t("full.fit") : t("fit")}>
               <Button
                 variant="ghost"
                 size="icon"
-                aria-label={t("fit")}
+                aria-label={full ? t("full.fit") : t("fit")}
                 className="h-6 w-6"
                 onClick={() => viewer.fit()}
               >

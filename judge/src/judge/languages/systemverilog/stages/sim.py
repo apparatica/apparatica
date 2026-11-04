@@ -459,7 +459,8 @@ class SimStage:
     def _trace_window(
         self, ctx: StageContext, outcome: StageOutcome, result: tbproto.TbResult | None
     ) -> tuple[int, int] | None:
-        """The window around the first mismatch of an open test, if a trace is due."""
+        """The window around the first mismatch of an open test, or that whole test when
+        `ctx.trace` asks for it (FR-WAV-05), if a trace is due."""
         assert isinstance(ctx.config, SimConfig)
         config = ctx.config
         if not config.trace or config.design is not None or outcome.failure_kind != "wrong":
@@ -470,6 +471,10 @@ class SimStage:
         failed = next(t for t in result.tests if t.id == first.test)
         if failed.group != OPEN_GROUP:
             return None  # hidden tests are never traced
+        if ctx.trace == "full_test":
+            # One cycle past the end of the test: the run stops on the edge the window ends at.
+            last = failed.end_cycle if failed.end_cycle is not None else first.cycle
+            return failed.start_cycle or 0, max(last, first.cycle) + 1
         return max(0, first.cycle - config.trace_before), first.cycle + config.trace_after
 
     def _with_trace(

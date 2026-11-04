@@ -66,6 +66,7 @@ ATTEMPTS_TTL_S = 7 * 86400  # longer than any check waits and runs
 ARTIFACT_KINDS: dict[str, ArtifactKind] = {"trace.fst": "fst", "tb_result.jsonl": "tb_result"}
 # Why a waveform job recorded no FST.
 TRACE_NOT_REPRODUCED = "TRACE_NOT_REPRODUCED"  # no window, or not around the same mismatch
+TRACE_TOO_LARGE = "TRACE_TOO_LARGE"  # the FST is larger than the fst_mb of the stage
 STORAGE_UNAVAILABLE = "STORAGE_UNAVAILABLE"
 
 ExecutorFactory = Callable[[JudgeJob, SandboxLimits], Executor]
@@ -142,10 +143,11 @@ class Orchestrator:
             self.valkey.expire(key, ATTEMPTS_TTL_S)
             log.info("waveform started", waveform_id=waveform, attempt=attempt, queue=queue)
             artifact: StoredArtifact | None = None
+            window: tuple[int, int] | None = None
             error_code: str | None = ATTEMPTS_EXHAUSTED
             if attempt <= ATTEMPT_MAX:
                 try:
-                    artifact, error_code = self._waveform(job, cancellation), None
+                    (artifact, window), error_code = self._waveform(job, cancellation), None
                 except _UnavailableError as error:
                     error_code = error.error_code
             if cancellation.lease_lost:  # another worker records it now
@@ -163,6 +165,7 @@ class Orchestrator:
                 token=check.token,
                 waveform_id=job.waveform_id,
                 artifact=artifact,
+                window=window,
                 error_code=error_code,
             )
             self.results.write(record, final=True)
@@ -199,8 +202,11 @@ class Orchestrator:
             job, attempt, tuple(results), artifacts, cancelled=cancellation.cancelled
         )
 
-    def _waveform(self, job: WaveformJob, cancellation: Cancellation) -> StoredArtifact:
-        """The FST of the traced stage, stored next to the attempts of the check."""
+    def _waveform(
+        self, job: WaveformJob, cancellation: Cancellation
+    ) -> tuple[StoredArtifact, tuple[int, int]]:
+        """The FST of the traced stage, stored next to the attempts of the check, and the cycles
+        it covers."""
         check = job.check
         package = self._package(check)
         files: dict[tuple[str, str], bytes] = {}
@@ -211,6 +217,7 @@ class Orchestrator:
             check.seed,
             check.code.encode(),
             stages=job.stages,
+            trace=job.scope,
         )
         # Nobody watches the events: the check has finished, its console is stored.
         results = self._run(check, package, pipeline, FanoutSink(), cancellation, files)
@@ -220,19 +227,21 @@ class Orchestrator:
              if stage == job.stage and ARTIFACT_KINDS.get(name) == "fst"),
             None,
         )  # fmt: skip
-        reproduced = (
-            traced is not None
-            and traced.metrics.get("first_failure") == job.first_failure.model_dump()
-        )
-        if trace is None or not reproduced:
+        if traced is None or traced.metrics.get("first_failure") != job.first_failure.model_dump():
             raise _UnavailableError(TRACE_NOT_REPRODUCED)
+        if traced.metrics.get("trace") == "too_large":
+            raise _UnavailableError(TRACE_TOO_LARGE)
+        if trace is None:
+            raise _UnavailableError(TRACE_NOT_REPRODUCED)
+        start, stop = traced.metrics["trace_window"]
         try:
-            return self.artifacts.put(
+            stored = self.artifacts.put(
                 check, f"w-{job.waveform_id}", "fst", job.stage, f"{job.stage}/trace.fst", trace
             )
         except STORAGE_ERRORS as error:
             log.error("waveform not stored", waveform_id=str(job.waveform_id), error=str(error))
             raise _UnavailableError(STORAGE_UNAVAILABLE) from error
+        return stored, (start, stop)
 
     def _package(self, job: JudgeJob) -> _Package:
         try:

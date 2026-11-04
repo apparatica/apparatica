@@ -30,6 +30,7 @@ from apparatica.submissions.schemas import (
     SubmissionPage,
     SubmissionStatus,
     WaveformRequest,
+    WaveformScope,
 )
 from judge.core.jobs import submission_stream_key
 from judge.core.package import Slug
@@ -264,6 +265,9 @@ async def get_artifact(
     id: SubmissionId,
     kind: ArtifactKind,
     stage: Annotated[str | None, Query(max_length=64, description="Key of the stage")] = None,
+    scope: Annotated[
+        WaveformScope, Query(description="Which FST of the stage: the window or the whole test")
+    ] = "failure_window",
 ) -> RedirectResponse:
     """Download the latest file of an artifact of the caller's submission: `stage` names the
     stage of a log or an FST, events have none. NOT_FOUND also when it has expired."""
@@ -277,6 +281,7 @@ async def get_artifact(
         submission_id=id,
         kind=kind,
         stage=stage,
+        scope=scope,
         author=author,
     )
     headers = {"Cache-Control": PRIVATE}
@@ -289,12 +294,10 @@ async def get_artifact(
     response_model=SubmissionArtifact,
     responses=problem_responses(
         ErrorCode.NOT_FOUND,
-        ErrorCode.UNAUTHENTICATED,
         ErrorCode.VALIDATION_ERROR,
         ErrorCode.CSRF_FAILED,
         ErrorCode.RATE_LIMITED,
         ErrorCode.JUDGE_UNAVAILABLE,
-        ErrorCode.NOT_IMPLEMENTED,
     ),
     dependencies=[Depends(throttle)],
     openapi_extra=PHASE_1,
@@ -306,11 +309,11 @@ async def request_waveform(
     id: SubmissionId,
     body: WaveformRequest,
 ) -> SubmissionArtifact:
-    """Recreate an expired FST of the failure window with the seed of the submission (FR-WAV-05);
-    it is pending until GET /submissions/{id} shows it ready or failed. A kept or pending FST is
-    answered as it is, without spending the quota. NOT_FOUND: no such submission or no trace
-    window in it; UNAUTHENTICATED: `full_test` is for signed-in users, NOT_IMPLEMENTED for them
-    until it is done; RATE_LIMITED: `params.quota` is `waveforms`."""
+    """Record an FST with the seed of the submission (FR-WAV-05): the expired failure window
+    again, or the whole failed test of a Run (`full_test`), for guests and users alike. It is
+    pending until GET /submissions/{id} shows it ready or failed. A kept or pending FST is
+    answered as it is, without spending the quota. NOT_FOUND: no such submission, no trace
+    window in it, or `full_test` of a Submit; RATE_LIMITED: `params.quota` is `waveforms`."""
     state = request.app.state
     return await artifacts.request_waveform(
         session,

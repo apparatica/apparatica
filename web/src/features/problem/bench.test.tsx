@@ -341,6 +341,63 @@ it("recreates expired waves and then offers them", async () => {
   ).toBeInTheDocument();
 });
 
+describe("the whole failed test", () => {
+  async function wavesOf(code: string) {
+    configureMocks({ speed: Infinity });
+    writeDraft("sync-fifo", {
+      code: `${code}\nmodule sync_fifo; endmodule`,
+      version: FIFO.version,
+    });
+    renderBench();
+    await editor();
+    await userEvent.click(screen.getByRole("button", { name: /Run/ }));
+    const results = screen.getByRole("region", { name: "Результаты проверки" });
+    await userEvent.click(
+      await within(results).findByRole("button", { name: "Показать на диаграмме" }),
+    );
+    const waves = within(results).getByRole("region", { name: "Волны" });
+    expect(await within(waves).findByText("Просмотрщик волн недоступен")).toBeInTheDocument();
+    return within(waves);
+  }
+
+  it("is recorded for a guest and switches back to the window", async () => {
+    const waves = await wavesOf("// mock: wrong-answer");
+    const title = () => waves.getByRole("heading", { level: 3 });
+    expect(title()).toHaveTextContent("Такты 0–46 · окно вокруг первого расхождения");
+
+    await userEvent.click(waves.getByRole("button", { name: "Открыть трассу целиком" }));
+    // Pending first, then polled until it is recorded.
+    expect(await waves.findByRole("status", { name: /^Записываем весь тест/ })).toBeInTheDocument();
+    await waitFor(
+      () =>
+        expect(title()).toHaveTextContent(
+          "Такты 0–46 · весь тест «заполнение до full и опустошение»",
+        ),
+      { timeout: 5000 },
+    );
+    expect(waves.getByRole("link", { name: "Скачать FST" })).toHaveAttribute(
+      "href",
+      expect.stringMatching(/\/artifacts\/fst\?stage=sim_run&scope=full_test$/),
+    );
+    await userEvent.click(waves.getByRole("button", { name: "К окну расхождения" }));
+    expect(title()).toHaveTextContent("Такты 0–46 · окно вокруг первого расхождения");
+    // Recorded once: opened again without a request.
+    await userEvent.click(waves.getByRole("button", { name: "Открыть трассу целиком" }));
+    expect(title()).toHaveTextContent(/весь тест/);
+  });
+
+  it("above the FST limit says so and keeps the window", async () => {
+    const waves = await wavesOf("// mock: wrong-answer\n// mock-fst: full-too-large");
+    await userEvent.click(waves.getByRole("button", { name: "Открыть трассу целиком" }));
+    expect(
+      await waves.findByText("Весь тест не помещается в лимит FST", {}, { timeout: 5000 }),
+    ).toBeInTheDocument();
+    expect(waves.queryByRole("button", { name: "Повторить" })).not.toBeInTheDocument();
+    await userEvent.click(waves.getByRole("button", { name: "К окну расхождения" }));
+    expect(waves.getByText("Просмотрщик волн недоступен")).toBeInTheDocument();
+  });
+});
+
 describe("the limits of the guest", () => {
   const dialog = () => screen.findByRole("dialog", { name: "Подтвердите, что вы человек" });
 

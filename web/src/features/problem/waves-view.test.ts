@@ -6,7 +6,7 @@ import versions from "@/mocks/problem-versions.json";
 import { type ScenarioName, scenarios } from "@/mocks/scenarios";
 import { eventsUntil, playCheck } from "@/test/checks";
 
-import { signalItems, tracedTest, wavesView } from "./waves-view";
+import { canTraceWholeTest, signalItems, tracedTest, wavesView } from "./waves-view";
 
 const FIFO = versions.find(
   (problem) => problem.slug === "sync-fifo",
@@ -57,6 +57,38 @@ describe("the trace", () => {
     expect(view("wrong-answer", { ...stored("wrong-answer"), waveview_url: null }).kind).toBe(
       "noViewer",
     );
+  });
+
+  it("of the whole test is its own FST, asked for once", () => {
+    const check = playCheck(scenarios["wrong-answer"]);
+    const submission = stored("wrong-answer");
+    expect(canTraceWholeTest(check)).toBe(true);
+    const window = wavesView(check, submission, 5 * MB, "full_test");
+    expect(window).toMatchObject({ kind: "unrequested", trace: { stage: "sim_run" } });
+
+    const [fst] = submission.artifacts.filter((artifact) => artifact.kind === "fst");
+    const traced = fst?.waveform;
+    if (fst === undefined || traced == null) throw new Error("no trace window");
+    const whole = (artifact: Partial<Schemas["SubmissionArtifact"]>) => ({
+      ...submission,
+      artifacts: [
+        ...submission.artifacts,
+        { ...fst, waveform: { ...traced, scope: "full_test" as const }, ...artifact },
+      ],
+    });
+    expect(wavesView(check, whole({ state: "pending" }), 5 * MB, "full_test").kind).toBe("pending");
+    expect(
+      wavesView(check, whole({ state: "failed", error_code: "TRACE_TOO_LARGE" }), MB, "full_test"),
+    ).toMatchObject({ kind: "failed", tooLarge: true });
+    expect(wavesView(check, whole({ size_bytes: 9000 }), 5 * MB, "full_test")).toMatchObject({
+      kind: "ready",
+      trace: { waveform: { scope: "full_test" }, artifact: { size_bytes: 9000 } },
+    });
+    // The window stays the window.
+    expect(wavesView(check, whole({ size_bytes: 9000 }), 5 * MB)).toMatchObject({
+      kind: "ready",
+      trace: { waveform: { scope: "failure_window" }, artifact: { size_bytes: 2491 } },
+    });
   });
 
   it("larger than the limit is for download only", () => {

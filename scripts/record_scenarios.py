@@ -387,6 +387,7 @@ def artifact(
         "stage": stage,
         "state": "ready",
         "size_bytes": size,
+        "error_code": None,
         "waveform": waveform,
     }
 

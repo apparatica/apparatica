@@ -18,6 +18,7 @@ from judge.core.stage import (
     StageOutcome,
     StagePlan,
     StageResult,
+    TraceScope,
 )
 from judge.languages.systemverilog.stages.sim import (
     BINARY_LIMIT,
@@ -39,6 +40,7 @@ def context(
     *,
     cache: BuildCache | None = None,
     solution: bytes = CANONICAL,
+    scope: TraceScope = "failure_window",
     **config: Any,
 ) -> StageContext:
     problem = load_manifest(PACKAGE)
@@ -66,6 +68,7 @@ def context(
         limits=stage_limits(problem, "sim_full", "sim", RESOURCE_CLASSES),
         previous=previous,
         build_cache=cache or NoCache(),
+        trace=scope,
     )
 
 
@@ -363,6 +366,20 @@ def test_open_failure_with_recorded_trace() -> None:
     t2 = outcome.summary.tests[1]
     assert (t2.status, t2.cycle, t2.mismatches[0].hint) == ("failed", 18, "После 9 — 0")
     assert outcome.summary.caption == "упал тест тест t2, такт 18"
+
+
+def test_a_full_trace_covers_the_failed_test() -> None:
+    plan = interpret(context(scope="full_test"), run_with(OPEN_FAIL))
+    assert isinstance(plan, StagePlan)
+    argv = plan.commands[0].argv
+    assert "+apx_trace_from=7" in argv  # t2 starts at 7, fails at 18 and ends at 21
+    assert "+apx_trace_to=22" in argv
+    outcome = outcome_of(
+        context(scope="full_test"), run_with(OPEN_FAIL), run_with(OPEN_FAIL, trace=b"FST")
+    )
+    assert outcome.metrics["trace"] == "recorded"
+    assert outcome.metrics["trace_window"] == [7, 22]
+    assert outcome.metrics["trace_cursor_ps"] == 180_000
 
 
 def test_trace_must_reproduce_the_mismatch() -> None:

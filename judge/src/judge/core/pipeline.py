@@ -41,6 +41,7 @@ from judge.core.stage import (
     StageResult,
     StageSummary,
     SubmissionKind,
+    TraceScope,
 )
 
 # Runs per stage: the first one plus follow-ups such as the trace window of `sim`.
@@ -63,6 +64,8 @@ class Job:
     solution: bytes
     # Stage keys to run instead of pipelines.practice.<kind>, e.g. only the checks of a template.
     stages: tuple[str, ...] | None = None
+    # A whole failed test is traced on request (FR-WAV-05), not only the window of the mismatch.
+    trace: TraceScope = "failure_window"
 
 
 @dataclass(frozen=True)
@@ -142,6 +145,7 @@ def run_pipeline(
                 limits=stage_limits(job.problem, item.key, item.stage.stage_type, resource_classes),
                 previous=dict(finished),
                 build_cache=build_cache,
+                trace=job.trace,
             )
             result, outcome = _run_stage(item.stage, ctx, executor, sink, cancel, cancel_note)
             outputs = outcome.outputs if outcome else {}

@@ -114,7 +114,7 @@ PostgreSQL 17+. Первичные ключи — UUIDv7 (сортируемы �
 
 `guest_id` есть с Ф0. Добавляется очистка гостевых отправок старше 14 дней (решение ОВ-13).
 
-**`waveforms`**: `id uuid pk`, `submission_id fk` (каскад), `stage_key text`, `status text` (`pending`, `ready`, `failed`), `error_code text null`, `artifact_id fk null` (FST, когда `ready`), `created_at`, `finished_at null`. Пересоздание FST по запросу (FR-WAV-05): заявка и задание воркера; одна заявка в `pending` на этап.
+**`waveforms`**: `id uuid pk`, `submission_id fk` (каскад), `stage_key text`, `scope text` (`failure_window`, `full_test`; T2.12), `status text` (`pending`, `ready`, `failed`), `error_code text null`, `from_cycle int null`, `to_cycle int null` (такты записанного FST), `artifact_id fk null` (FST, когда `ready`), `created_at`, `finished_at null`. Запись FST по запросу (FR-WAV-05) — пересоздание окна или весь упавший тест: заявка и задание воркера; одна заявка в `pending` на этап и охват.
 
 **`problem_stats`**: `problem_id pk fk`, `authors int` (авторы хотя бы одного Submit с вердиктом), `accepted_authors int` (авторы принятого Submit), `updated_at`. Процент принятых каталога (FR-CAT-04); пересчитывается ингестором по `submissions` всех версий задачи. Гости учитываются, пока хранятся их отправки.
 

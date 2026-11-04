@@ -1,6 +1,7 @@
 // The waves tab of the results (FR-WAV-*, sheet CmpC, mock-up BenchWave): which trace the check
 // has and what the panel shows for it. The judge records one FST per sim stage, the window around
-// the first mismatch of the failed open test (docs/api.md#артефакты-и-волны).
+// the first mismatch of the failed open test; the whole test of a Run is recorded on request
+// (FR-WAV-05, docs/api.md#артефакты-и-волны).
 import { type Check, isFinished, type Submission } from "@/features/submission/machine";
 import type { SignalItem } from "@/features/waveview/viewer";
 import type { Schemas } from "@/lib/api/client";
@@ -9,6 +10,7 @@ import { failureOf } from "./pipeline-view";
 
 export type Artifact = Schemas["SubmissionArtifact"];
 export type Waveform = Schemas["Waveform"];
+export type Scope = Waveform["scope"];
 
 export interface Trace {
   submission: string;
@@ -34,19 +36,24 @@ export type WavesView =
   | { kind: "none"; reason: NoWaves }
   /** The check is over, its artifacts are being read. */
   | { kind: "waiting" }
+  /** The whole test is wanted but not asked for yet; `trace` is the window. */
+  | { kind: "unrequested"; trace: Trace }
   | { kind: "expired"; trace: Trace }
   | { kind: "pending"; trace: Trace }
-  /** The recreation failed. */
-  | { kind: "failed"; trace: Trace }
+  /** The recording failed; `tooLarge`: the whole test is above the FST limit of the problem. */
+  | { kind: "failed"; trace: Trace; tooLarge: boolean }
   /** The toolchain profile of the check has no viewer: download only. */
   | { kind: "noViewer"; trace: Trace }
   | { kind: "tooBig"; trace: Trace; sizeBytes: number }
   | { kind: "ready"; trace: Trace; viewerUrl: string };
 
-function traceOf(check: Check, submission: Submission): Trace | null {
+function traceOf(check: Check, submission: Submission, scope: Scope): Trace | null {
   const traces = submission.artifacts.filter(
     (artifact): artifact is Artifact & { stage: string; waveform: Waveform } =>
-      artifact.kind === "fst" && artifact.stage !== null && artifact.waveform !== null,
+      artifact.kind === "fst" &&
+      artifact.stage !== null &&
+      artifact.waveform !== null &&
+      artifact.waveform.scope === scope,
   );
   const stage = check.verdict?.first_failure?.stage;
   const artifact = traces.find((item) => item.stage === stage) ?? traces[0];
@@ -63,16 +70,26 @@ function traceOf(check: Check, submission: Submission): Trace | null {
   };
 }
 
-/** `submission` is the stored submission of the check; `maxBytes` the largest FST to view. */
+/** Whether the whole failed test can be traced: only for a Run (FR-WAV-05). */
+export function canTraceWholeTest(check: Check): boolean {
+  return check.kind === "run";
+}
+
+/** `submission` is the stored submission of the check; `maxBytes` the largest FST to view;
+ * `scope` the trace wanted: the window, or the whole test once it was asked for. */
 export function wavesView(
   check: Check,
   submission: Submission | null,
   maxBytes: number,
+  scope: Scope = "failure_window",
 ): WavesView {
   if (!isFinished(check)) return { kind: "none", reason: "running" };
   // Read again after `finalized`: until then it has no artifacts.
   if (submission?.id !== check.id || submission.finished_at === null) return { kind: "waiting" };
-  const trace = traceOf(check, submission);
+  const window = traceOf(check, submission, "failure_window");
+  const trace =
+    scope === "full_test" && window !== null ? traceOf(check, submission, scope) : window;
+  if (window !== null && trace === null) return { kind: "unrequested", trace: window };
   if (trace === null) {
     const failure = failureOf(check);
     const reason =
@@ -85,7 +102,7 @@ export function wavesView(
     case "pending":
       return { kind: "pending", trace };
     case "failed":
-      return { kind: "failed", trace };
+      return { kind: "failed", trace, tooLarge: trace.artifact.error_code === "TRACE_TOO_LARGE" };
     case "ready":
       break;
   }

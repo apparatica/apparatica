@@ -13,7 +13,7 @@ from typing import Annotated, Literal
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
 from judge.core.package import Slug
-from judge.core.stage import StageResult, SubmissionKind
+from judge.core.stage import StageResult, SubmissionKind, TraceScope
 
 ACTOR = "judge_submission"
 WAVEFORM_ACTOR = "judge_waveform"
@@ -112,8 +112,8 @@ class TraceKey(BaseModel):
 
 class WaveformJob(BaseModel):
     """The payload of a `judge_waveform` message: record the trace window of a finished check
-    again, with its seed, after the FST expired (FR-WAV-05). The pipeline runs up to the traced
-    stage without events; only the FST of that stage is kept."""
+    again, with its seed, after the FST expired, or the whole failed test (FR-WAV-05). The
+    pipeline runs up to the traced stage without events; only the FST of that stage is kept."""
 
     model_config = ConfigDict(extra="forbid", frozen=True)
 
@@ -122,6 +122,7 @@ class WaveformJob(BaseModel):
     stage: str = Field(description="Key of the traced stage")
     stages: tuple[str, ...] = Field(description="Stages to run: the pipeline up to `stage`")
     first_failure: TraceKey
+    scope: TraceScope = "failure_window"
 
 
 class _Record(BaseModel):
@@ -191,6 +192,9 @@ class WaveformRecord(BaseModel):
     token: str = Field(description="The job token of the waveform job")
     waveform_id: uuid.UUID
     artifact: StoredArtifact | None
+    window: tuple[int, int] | None = Field(
+        default=None, description="Cycles the recorded FST covers, from and to"
+    )
     error_code: str | None = Field(default=None, description="Why no FST was recorded")
 
 

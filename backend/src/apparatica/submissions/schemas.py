@@ -92,9 +92,13 @@ class Waveform(BaseModel):
     """What an FST trace covers (ADR-0004)."""
 
     test: str = Field(description="Id of the traced test", examples=["t7"])
-    scope: WaveformScope
-    from_cycle: int
-    to_cycle: int
+    scope: WaveformScope = Field(
+        description="failure_window: around the first mismatch; full_test: the whole failed test"
+    )
+    from_cycle: int | None = Field(
+        description="First traced cycle; null until the FST of a whole test is recorded"
+    )
+    to_cycle: int | None = Field(description="Last traced cycle; null with from_cycle")
     cursor_cycle: int | None = Field(description="Cycle of the first mismatch")
     cursor_time_ps: int | None = Field(
         description="FST time of the first mismatch in picoseconds: the axis of the viewer is"
@@ -111,19 +115,21 @@ class SubmissionArtifact(BaseModel):
     state: ArtifactState = Field(
         description="expired: removed by the retention rules (an FST can be recreated);"
         " pending, failed: an FST being recreated or not recreated"
-        " (POST /submissions/{id}/waveform). One FST per stage: the latest"
+        " (POST /submissions/{id}/waveform). Up to two FST per stage, one per waveform.scope:"
+        " the latest of each"
     )
     size_bytes: int | None = Field(description="Null until the file exists")
+    error_code: str | None = Field(
+        description="With state=failed: why the FST was not recorded, e.g. TRACE_TOO_LARGE"
+        " (a whole test above the FST limit of the problem)"
+    )
     waveform: Waveform | None = Field(description="With kind=fst")
 
 
 class WaveformRequest(BaseModel):
     scope: WaveformScope = Field(
         default="failure_window",
-        description="full_test: the whole test, for signed-in users only (FR-WAV-05)",
-    )
-    test: str | None = Field(
-        default=None, description="Test id for full_test; the failed test by default"
+        description="full_test: the whole failed test of a Run (FR-WAV-05)",
     )
 
 

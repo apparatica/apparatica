@@ -208,6 +208,7 @@
     "stage": "precheck",
     "state": "ready",
     "size_bytes": 0,
+    "error_code": null,
     "waveform": null
    },
    {
@@ -215,6 +216,7 @@
     "stage": "lint",
     "state": "ready",
     "size_bytes": 304,
+    "error_code": null,
     "waveform": null
    },
    {
@@ -222,6 +224,7 @@
     "stage": "sim_run",
     "state": "ready",
     "size_bytes": 0,
+    "error_code": null,
     "waveform": null
    },
    {
@@ -229,6 +232,7 @@
     "stage": "sim_run",
     "state": "ready",
     "size_bytes": 2491,
+    "error_code": null,
     "waveform": {
      "test": "t2",
      "scope": "failure_window",
@@ -300,6 +304,7 @@
     "stage": null,
     "state": "ready",
     "size_bytes": 7715,
+    "error_code": null,
     "waveform": null
    }
   ]

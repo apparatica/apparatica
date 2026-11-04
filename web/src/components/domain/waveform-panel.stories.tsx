@@ -1,5 +1,5 @@
 import type { Meta, StoryObj } from "@storybook/nextjs-vite";
-import { Crosshair } from "lucide-react";
+import { Crosshair, UnfoldHorizontal } from "lucide-react";
 import { fn } from "storybook/test";
 
 import { Button } from "@/components/ui/button";
@@ -41,6 +41,18 @@ export const Normal: Story = {
     tools: (
       <Button variant="ghost" size="icon" aria-label="К расхождению" className="h-6 w-6">
         <Crosshair aria-hidden="true" />
+      </Button>
+    ),
+  },
+};
+
+/** The switch of the trace stays in the header in every state. */
+export const WithAside: Story = {
+  args: {
+    aside: (
+      <Button variant="ghost" className="h-6 px-2">
+        <UnfoldHorizontal aria-hidden="true" />
+        Открыть трассу целиком
       </Button>
     ),
   },

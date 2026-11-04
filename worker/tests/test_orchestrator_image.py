@@ -283,17 +283,26 @@ def test_an_expired_trace_is_recorded_again(
         waveform.model_copy(update={"waveform_id": uuid.uuid4(), "first_failure": moved}),
         "judge.light",
     )
+    whole = waveform.model_copy(update={"waveform_id": uuid.uuid4(), "scope": "full_test"})
+    orchestrator.record_waveform(whole, "judge.light")
     records = [
         RESULT_RECORD.validate_python(record)
         for _, record in read_stream(orchestrator.valkey, RESULTS_STREAM)
     ]
-    recorded, refused = [r for r in records if isinstance(r, WaveformRecord)]
+    recorded, refused, full = [r for r in records if isinstance(r, WaveformRecord)]
     assert recorded.error_code is None
+    assert recorded.window == tuple(sim.metrics["trace_window"])
     assert recorded.artifact is not None
     assert recorded.artifact.key.endswith(f"/w-{waveform.waveform_id}/sim_run/trace.fst")
     assert (recorded.artifact.kind, recorded.artifact.stage) == ("fst", "sim_run")
     assert recorded.artifact.size_bytes == len(read(s3, recorded.artifact.key)) > 0
     assert (refused.artifact, refused.error_code) == (None, TRACE_NOT_REPRODUCED)
+    # The whole failed test: from its first cycle to one past its last, around the same mismatch.
+    assert full.error_code is None
+    assert full.artifact is not None
+    assert full.window is not None
+    assert full.window[0] <= failure.cycle < full.window[1]
+    assert full.window != recorded.window
     # No events: the finished check keeps its stream as it was.
     stream = read_stream(orchestrator.valkey, submission_stream_key(job.submission_id))
     assert len(stream) == events

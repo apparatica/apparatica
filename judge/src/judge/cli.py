@@ -29,6 +29,7 @@ from judge.core.package import (
 from judge.core.pipeline import Job, PipelineConfigError, run_pipeline
 from judge.core.registry import UnknownLanguageError, get_language
 from judge.core.scaffold import ScaffoldError, create_package
+from judge.core.stage import TraceScope
 from judge.core.statement import StatementCommand
 from judge.core.validate import DEFAULT_SEEDS, Check, PackageValidator, describe
 from judge.core.verdict import aggregate
@@ -176,7 +177,8 @@ def _run(args: argparse.Namespace) -> int:
         target.write_bytes(data)
 
     print(f"# {problem.id}@{problem.version} · {args.kind} · seed {seed}", flush=True)
-    job = Job(problem, args.path, args.kind, seed, solution)
+    trace: TraceScope = "full_test" if args.full_trace else "failure_window"
+    job = Job(problem, args.path, args.kind, seed, solution, trace=trace)
     with (out / "events.jsonl").open("wb") as events:
         sink = FanoutSink(ConsoleSink(), JsonlSink(events))
         with _executor_factory(args, classes)(problem) as executor:
@@ -293,6 +295,11 @@ def _parser() -> argparse.ArgumentParser:
     run.add_argument("--kind", choices=("run", "submit"), default="run")
     run.add_argument("--seed", type=int, help="reproduce a run (default: a new random seed)")
     run.add_argument("--out", type=Path, default=Path("out"), help="results directory (./out)")
+    run.add_argument(
+        "--full-trace",
+        action="store_true",
+        help="trace the whole failed test, not the window around the first mismatch",
+    )
     _executor_options(run)
     run.set_defaults(handler=_run)
 

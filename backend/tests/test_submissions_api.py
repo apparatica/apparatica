@@ -357,7 +357,7 @@ def test_a_finished_submission(api: TestClient, database_url: str) -> None:
     assert sim["summary"]["hidden_tests"] == {"total": 2, "passed": 1, "failed_index": 1}
     assert sim["summary"]["tests"] == []
     # The testbench result file holds hidden expected values: never listed (specs/07 §4.4).
-    common = {"stage": "sim_full", "size_bytes": 100, "waveform": None}
+    common = {"stage": "sim_full", "size_bytes": 100, "error_code": None, "waveform": None}
     assert body["artifacts"] == [
         {"kind": "log", "state": "ready", **common},
         {"kind": "fst", "state": "expired", **common},

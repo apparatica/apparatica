@@ -1,8 +1,10 @@
 // Submissions of the mock API. A check replays a recorded scenario (scenarios.ts) in real time from
 // its creation: a reload or a reconnect finds it where the real check would be. The scenario is
 // picked by a `mock: <name>` mark in the code, e.g. `// mock: wrong-answer`; `mock-fst: expired`
-// shows its FST expired until it is recreated, `mock-fst: large` too large to view. The viewer of
-// the waves is NEXT_PUBLIC_MOCK_WAVEVIEW_URL, none without it (docs/frontend.md). A check belongs to
+// shows its FST expired until it is recreated, `mock-fst: large` too large to view,
+// `mock-fst: full-too-large` fails the whole test with TRACE_TOO_LARGE. The whole test of a Run is
+// the window FST again, from cycle 0. The viewer of the waves is NEXT_PUBLIC_MOCK_WAVEVIEW_URL,
+// none without it (docs/frontend.md). A check belongs to
 // the signed-in user of users.ts or to the one guest of the mock, with the quotas of either; only
 // the guest is asked for a captcha.
 import { http, HttpResponse } from "msw";
@@ -22,6 +24,7 @@ import {
 } from "./scenarios";
 
 type Submission = Schemas["Submission"];
+type Artifact = Schemas["SubmissionArtifact"];
 type SubmissionCreate = Schemas["SubmissionCreate"];
 
 /** Presigned URLs of artifacts point here. */
@@ -29,6 +32,7 @@ export const STORAGE = "https://storage.mock/artifacts";
 const MARK = /\bmock:\s*([\w-]+)/;
 const EXPIRED_MARK = /\bmock-fst:\s*expired\b/;
 const LARGE_MARK = /\bmock-fst:\s*large\b/;
+const FULL_TOO_LARGE_MARK = /\bmock-fst:\s*full-too-large\b/;
 const LARGE_FST_BYTES = 48 * 1024 * 1024;
 const DEFAULT_SCENARIO: Record<SubmissionCreate["kind"], ScenarioName> = {
   run: "run-passed",
@@ -55,7 +59,9 @@ interface Check {
   cancelled?: number;
   expired: boolean; // the FST, until it is recreated
   large: boolean; // the FST is reported too large to view
+  fullTooLarge: boolean; // the whole test is above the FST limit
   waveform?: number; // when it was recreated
+  full?: number; // when the whole test was asked for
 }
 
 const defaults = {
@@ -143,15 +149,9 @@ function submissionOf(check: Check, now = Date.now()): Submission {
         started_at: at(stage.started_at),
         finished_at: at(stage.finished_at),
       })),
-      artifacts: final.artifacts.map((artifact) => {
-        if (artifact.kind !== "fst") return artifact;
-        if (check.large) return { ...artifact, size_bytes: LARGE_FST_BYTES };
-        if (check.waveform === undefined) {
-          return check.expired ? { ...artifact, state: "expired" } : artifact;
-        }
-        return now - check.waveform < WAVEFORM_MS / options.speed
-          ? { ...artifact, state: "pending", size_bytes: null }
-          : artifact;
+      artifacts: final.artifacts.flatMap((artifact) => {
+        if (artifact.kind !== "fst") return [artifact];
+        return [windowFst(check, artifact, now), ...wholeTestFst(check, artifact, now)];
       }),
     };
   }
@@ -168,6 +168,32 @@ function submissionOf(check: Check, now = Date.now()): Submission {
     stages,
     artifacts: [],
   };
+}
+
+function windowFst(check: Check, artifact: Artifact, now: number): Artifact {
+  if (check.large) return { ...artifact, size_bytes: LARGE_FST_BYTES };
+  if (check.waveform === undefined) {
+    return check.expired ? { ...artifact, state: "expired" } : artifact;
+  }
+  return now - check.waveform < WAVEFORM_MS / options.speed
+    ? { ...artifact, state: "pending", size_bytes: null }
+    : artifact;
+}
+
+/** The whole failed test, once asked for: the window FST again, from cycle 0. */
+function wholeTestFst(check: Check, window: Artifact, now: number): Artifact[] {
+  if (check.full === undefined || window.waveform === null) return [];
+  const waveform = { ...window.waveform, scope: "full_test" as const };
+  if (now - check.full < WAVEFORM_MS / options.speed) {
+    const unknown = { ...waveform, from_cycle: null, to_cycle: null };
+    return [{ ...window, state: "pending", size_bytes: null, waveform: unknown }];
+  }
+  if (check.fullTooLarge) {
+    const unknown = { ...waveform, from_cycle: null, to_cycle: null };
+    const failed = { state: "failed", size_bytes: null, error_code: "TRACE_TOO_LARGE" } as const;
+    return [{ ...window, ...failed, waveform: unknown }];
+  }
+  return [{ ...window, waveform: { ...waveform, from_cycle: 0 } }];
 }
 
 /** The author of a request: its signed-in user, else the guest. */
@@ -228,7 +254,7 @@ function quota(author: string): Schemas["QuotaStatus"] {
     ),
     waveforms: quotaWindow(
       limits.waveforms_per_hour,
-      all.flatMap((check) => (check.waveform === undefined ? [] : [check.waveform])),
+      all.flatMap((check) => [check.waveform, check.full].filter((at) => at !== undefined)),
     ),
   };
 }
@@ -361,6 +387,7 @@ export const submissionHandlers = [
       created: Date.now(),
       expired: EXPIRED_MARK.test(body.code),
       large: LARGE_MARK.test(body.code),
+      fullTooLarge: FULL_TOO_LARGE_MARK.test(body.code),
     };
     checks.set(check.id, check);
     const created: Schemas["SubmissionCreated"] = {
@@ -408,19 +435,22 @@ export const submissionHandlers = [
   http.get(api("/api/v1/submissions/:id/artifacts/:kind"), ({ cookies, params, request }) => {
     const check = own(String(params.id), cookies);
     if (check === undefined) return notFound(String(params.id));
-    const stage = new URL(request.url).searchParams.get("stage");
+    const query = new URL(request.url).searchParams;
+    const stage = query.get("stage");
+    const scope = query.get("scope") ?? "failure_window";
     const artifact = submissionOf(check).artifacts.find(
       (item) =>
         item.kind === params.kind &&
         (stage === null || item.stage === stage) &&
+        (item.waveform === null || item.waveform.scope === scope) &&
         item.state === "ready",
     );
     if (artifact === undefined)
       return problem(404, "NOT_FOUND", `No ${String(params.kind)} artifact`);
-    const query = artifact.stage === null ? "" : `?stage=${artifact.stage}`;
+    const location = artifact.stage === null ? "" : `?stage=${artifact.stage}`;
     return new HttpResponse(null, {
       status: 302,
-      headers: { Location: `${STORAGE}/${check.id}/${artifact.kind}${query}` },
+      headers: { Location: `${STORAGE}/${check.id}/${artifact.kind}${location}` },
     });
   }),
 
@@ -451,17 +481,17 @@ export const submissionHandlers = [
     const check = own(String(params.id), cookies);
     if (check === undefined) return notFound(String(params.id));
     const body = (await request.json()) as Schemas["WaveformRequest"];
-    if (body.scope === "full_test") {
-      return check.author === GUEST
-        ? problem(401, "UNAUTHENTICATED", "A whole test is recorded for signed-in users")
-        : problem(501, "NOT_IMPLEMENTED", "A whole test cannot be recorded yet");
-    }
+    const scope = body.scope ?? "failure_window";
     const submission = submissionOf(check);
-    const trace = submission.artifacts.find((artifact) => artifact.kind === "fst");
-    if (trace === undefined || submission.finished_at === null) {
+    const fsts = submission.artifacts.filter((artifact) => artifact.kind === "fst");
+    if (fsts.length === 0 || submission.finished_at === null) {
       return problem(404, "NOT_FOUND", "The submission has no trace window");
     }
-    if (trace.state === "ready" || trace.state === "pending") {
+    if (scope === "full_test" && check.request.kind !== "run") {
+      return problem(404, "NOT_FOUND", "A whole test is traced only for a Run");
+    }
+    const trace = fsts.find((artifact) => artifact.waveform?.scope === scope);
+    if (trace !== undefined && (trace.state === "ready" || trace.state === "pending")) {
       return HttpResponse.json(trace, { status: 202 }); // as it is: no quota spent
     }
     const waves = quota(check.author).waveforms;
@@ -474,8 +504,21 @@ export const submissionHandlers = [
         retry_after_s: retry,
       });
     }
-    check.waveform = Date.now();
-    const pending: Schemas["SubmissionArtifact"] = { ...trace, state: "pending", size_bytes: null };
+    if (scope === "full_test") check.full = Date.now();
+    else check.waveform = Date.now();
+    const [window] = fsts;
+    const waveform =
+      window?.waveform && scope === "full_test"
+        ? { ...window.waveform, scope, from_cycle: null, to_cycle: null }
+        : (window?.waveform ?? null);
+    const pending: Artifact = {
+      kind: "fst",
+      stage: window?.stage ?? null,
+      state: "pending",
+      size_bytes: null,
+      error_code: null,
+      waveform,
+    };
     return HttpResponse.json(pending, { status: 202 });
   }),
 ];

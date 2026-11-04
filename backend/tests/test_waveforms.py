@@ -52,6 +52,9 @@ WAVEFORM = {
     "cursor_time_ps": 180_000,
     "signals": SIGNALS,
 }
+# The whole failed test t2: its cycles are known once it is recorded.
+WHOLE = WAVEFORM | {"scope": "full_test", "from_cycle": None, "to_cycle": None}
+NONE = {"size_bytes": None, "error_code": None}
 
 
 @pytest.fixture
@@ -160,26 +163,25 @@ def test_an_expired_trace_is_recorded_again(
     submission_id = failed_run(api, database_url, fst_expires=expired)
     viewer = api.get(f"/api/v1/submissions/{submission_id}").json()["waveview_url"]
     assert viewer == "http://waveview.web.localhost:8080/2026.10.1/index.html"
+    kept = {"size_bytes": 100, "error_code": None}
     assert artifacts(api, submission_id) == [
-        {"kind": "events", "stage": None, "state": "ready", "size_bytes": 100, "waveform": None},
-        {"kind": "log", "stage": "sim_run", "state": "ready", "size_bytes": 100, "waveform": None},
-        {
-            "kind": "fst",
-            "stage": "sim_run",
-            "state": "expired",
-            "size_bytes": 100,
-            "waveform": WAVEFORM,
-        },
+        {"kind": "events", "stage": None, "state": "ready", "waveform": None} | kept,
+        {"kind": "log", "stage": "sim_run", "state": "ready", "waveform": None} | kept,
+        {"kind": "fst", "stage": "sim_run", "state": "expired", "waveform": WAVEFORM} | kept,
     ]
 
-    pending = {"kind": "fst", "stage": "sim_run", "state": "pending", "size_bytes": None}
+    pending = {"kind": "fst", "stage": "sim_run", "state": "pending"} | NONE
     response = request(api, submission_id)
     assert response.status_code == 202, response.text
     assert response.json() == pending | {"waveform": WAVEFORM}
     assert artifacts(api, submission_id)[-1] == pending | {"waveform": WAVEFORM}
     [(queue_name, job)] = queue.waveforms
     assert queue_name == "judge.light"
-    assert (job.stage, job.stages) == ("sim_run", ("precheck", "lint", "sim_run"))
+    assert (job.stage, job.stages, job.scope) == (
+        "sim_run",
+        ("precheck", "lint", "sim_run"),
+        "failure_window",
+    )
     assert job.first_failure == TraceKey(test="t2", cycle=18, signal="y")
     check = job.check
     assert (check.submission_id, check.kind, check.code) == (submission_id, "run", CODE)
@@ -206,6 +208,7 @@ def test_an_expired_trace_is_recorded_again(
     record(database_url, done)
     record(database_url, done)  # redelivered: one artifact
     ready = {"kind": "fst", "stage": "sim_run", "state": "ready", "size_bytes": 2500}
+    ready |= {"error_code": None}
     assert artifacts(api, submission_id)[-1] == ready | {"waveform": WAVEFORM}
     assert request(api, submission_id).json()["state"] == "ready"
     assert len(queue.waveforms) == 1
@@ -222,6 +225,81 @@ def test_an_expired_trace_is_recorded_again(
         f'attachment; filename="{submission_id}-sim_run.fst"'
     ]
     assert query["response-content-type"] == ["application/octet-stream"]
+
+
+def test_a_whole_test_is_recorded_for_a_guest(
+    api: TestClient, database_url: str, queue: RecordingQueue
+) -> None:
+    submission_id = failed_run(api, database_url, fst_expires=None)
+    pending = {"kind": "fst", "stage": "sim_run", "state": "pending"} | NONE | {"waveform": WHOLE}
+    response = request(api, submission_id, scope="full_test")
+    assert response.status_code == 202, response.text
+    assert response.json() == pending
+    [(_, job)] = queue.waveforms
+    assert (job.scope, job.first_failure.test) == ("full_test", "t2")
+    # The window stays as it is, the whole test comes after it.
+    assert [(a["state"], a["waveform"]["scope"]) for a in artifacts(api, submission_id)[2:]] == [
+        ("ready", "failure_window"),
+        ("pending", "full_test"),
+    ]
+    assert request(api, submission_id).json()["state"] == "ready"  # the window: kept
+    assert request(api, submission_id, scope="full_test").json() == pending
+    assert len(queue.waveforms) == 1
+    assert api.get("/api/v1/submissions").json()["quota"]["waveforms"]["remaining"] == 4
+
+    stored = StoredArtifact(
+        kind="fst",
+        stage="sim_run",
+        key=f"2026/10/{submission_id}/w-{job.waveform_id}/sim_run/trace.fst",
+        size_bytes=9000,
+        sha256="2" * 64,
+    )
+    done = WaveformRecord(
+        submission_id=submission_id,
+        token=job.check.token,
+        waveform_id=job.waveform_id,
+        artifact=stored,
+        window=(7, 22),
+    )
+    record(database_url, done)
+    whole = WAVEFORM | {"scope": "full_test", "from_cycle": 7, "to_cycle": 22}
+    assert artifacts(api, submission_id)[-1] == {
+        "kind": "fst",
+        "stage": "sim_run",
+        "state": "ready",
+        "size_bytes": 9000,
+        "error_code": None,
+        "waveform": whole,
+    }
+    base = f"/api/v1/submissions/{submission_id}/artifacts/fst?stage=sim_run"
+    window = api.get(base, follow_redirects=False).headers["location"]
+    assert urlsplit(window).path == f"/artifacts/2026/10/{submission_id}/1/fst"
+    full = urlsplit(api.get(f"{base}&scope=full_test", follow_redirects=False).headers["location"])
+    assert full.path == f"/artifacts/{stored.key}"
+    assert parse_qs(full.query)["response-content-disposition"] == [
+        f'attachment; filename="{submission_id}-sim_run-full.fst"'
+    ]
+
+
+def test_a_whole_test_above_the_fst_limit(
+    api: TestClient, database_url: str, queue: RecordingQueue
+) -> None:
+    submission_id = failed_run(api, database_url, fst_expires=None)
+    request(api, submission_id, scope="full_test")
+    [(_, job)] = queue.waveforms
+    too_large = WaveformRecord(
+        submission_id=submission_id,
+        token=job.check.token,
+        waveform_id=job.waveform_id,
+        artifact=None,
+        error_code="TRACE_TOO_LARGE",
+    )
+    record(database_url, too_large)
+    failed = artifacts(api, submission_id)[-1]
+    assert (failed["state"], failed["error_code"]) == ("failed", "TRACE_TOO_LARGE")
+    assert failed["waveform"] == WHOLE
+    base = f"/api/v1/submissions/{submission_id}/artifacts/fst?stage=sim_run"
+    assert api.get(f"{base}&scope=full_test", follow_redirects=False).status_code == 404
 
 
 def test_a_failed_recording_can_be_asked_again(
@@ -285,9 +363,17 @@ def test_an_unavailable_queue_fails_the_recording(
 
 def test_what_cannot_be_recorded(api: TestClient, database_url: str) -> None:
     submission_id = failed_run(api, database_url, fst_expires=None)
-    full = request(api, submission_id, scope="full_test", test="t2")
-    assert full.status_code == 401
-    assert full.json()["code"] == "UNAUTHENTICATED"
+
+    async def kind(database: Database) -> None:
+        async with database.sessions.begin() as session:
+            await session.execute(
+                update(Submission).where(Submission.id == submission_id).values(kind="submit")
+            )
+
+    run(database_url, kind)
+    full = request(api, submission_id, scope="full_test")  # a whole test only of a Run
+    assert full.status_code == 404
+    assert request(api, submission_id).json()["state"] == "ready"  # its window is
     # No trace window: still running, or nothing was traced.
     running = uuid.UUID(submit(api).json()["id"])
     assert request(api, running).status_code == 404

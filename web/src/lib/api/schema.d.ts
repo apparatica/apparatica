@@ -263,11 +263,11 @@ export interface paths {
         put?: never;
         /**
          * Request Waveform
-         * @description Recreate an expired FST of the failure window with the seed of the submission (FR-WAV-05);
-         *     it is pending until GET /submissions/{id} shows it ready or failed. A kept or pending FST is
-         *     answered as it is, without spending the quota. NOT_FOUND: no such submission or no trace
-         *     window in it; UNAUTHENTICATED: `full_test` is for signed-in users, NOT_IMPLEMENTED for them
-         *     until it is done; RATE_LIMITED: `params.quota` is `waveforms`.
+         * @description Record an FST with the seed of the submission (FR-WAV-05): the expired failure window
+         *     again, or the whole failed test of a Run (`full_test`), for guests and users alike. It is
+         *     pending until GET /submissions/{id} shows it ready or failed. A kept or pending FST is
+         *     answered as it is, without spending the quota. NOT_FOUND: no such submission, no trace
+         *     window in it, or `full_test` of a Submit; RATE_LIMITED: `params.quota` is `waveforms`.
          */
         post: operations["request_waveform"];
         delete?: never;
@@ -1694,7 +1694,7 @@ export interface components {
             stage: string | null;
             /**
              * State
-             * @description expired: removed by the retention rules (an FST can be recreated); pending, failed: an FST being recreated or not recreated (POST /submissions/{id}/waveform). One FST per stage: the latest
+             * @description expired: removed by the retention rules (an FST can be recreated); pending, failed: an FST being recreated or not recreated (POST /submissions/{id}/waveform). Up to two FST per stage, one per waveform.scope: the latest of each
              * @enum {string}
              */
             state: "ready" | "expired" | "pending" | "failed";
@@ -1703,6 +1703,11 @@ export interface components {
              * @description Null until the file exists
              */
             size_bytes: number | null;
+            /**
+             * Error Code
+             * @description With state=failed: why the FST was not recorded, e.g. TRACE_TOO_LARGE (a whole test above the FST limit of the problem)
+             */
+            error_code: string | null;
             /** @description With kind=fst */
             waveform: components["schemas"]["Waveform"] | null;
         };
@@ -2016,13 +2021,20 @@ export interface components {
             test: string;
             /**
              * Scope
+             * @description failure_window: around the first mismatch; full_test: the whole failed test
              * @enum {string}
              */
             scope: "failure_window" | "full_test";
-            /** From Cycle */
-            from_cycle: number;
-            /** To Cycle */
-            to_cycle: number;
+            /**
+             * From Cycle
+             * @description First traced cycle; null until the FST of a whole test is recorded
+             */
+            from_cycle: number | null;
+            /**
+             * To Cycle
+             * @description Last traced cycle; null with from_cycle
+             */
+            to_cycle: number | null;
             /**
              * Cursor Cycle
              * @description Cycle of the first mismatch
@@ -2051,16 +2063,11 @@ export interface components {
         WaveformRequest: {
             /**
              * Scope
-             * @description full_test: the whole test, for signed-in users only (FR-WAV-05)
+             * @description full_test: the whole failed test of a Run (FR-WAV-05)
              * @default failure_window
              * @enum {string}
              */
             scope: "failure_window" | "full_test";
-            /**
-             * Test
-             * @description Test id for full_test; the failed test by default
-             */
-            test?: string | null;
         };
         /**
          * WaveformSignal
@@ -2810,6 +2817,8 @@ export interface operations {
             query?: {
                 /** @description Key of the stage */
                 stage?: string | null;
+                /** @description Which FST of the stage: the window or the whole test */
+                scope?: "failure_window" | "full_test";
             };
             header?: never;
             path: {
@@ -2881,15 +2890,6 @@ export interface operations {
                     "application/json": components["schemas"]["SubmissionArtifact"];
                 };
             };
-            /** @description Unauthorized */
-            401: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Error"];
-                };
-            };
             /** @description Forbidden */
             403: {
                 headers: {
@@ -2928,15 +2928,6 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Not Implemented */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -152,23 +152,26 @@ class Artifact(Base):
 
 
 WAVEFORM_STATUSES = ("pending", "ready", "failed")
+WAVEFORM_SCOPES = ("failure_window", "full_test")
 
 
 class Waveform(Base):
-    """A trace window recorded again after its FST expired (FR-WAV-05): a job of the worker that
-    ends with an FST artifact (`ready`) or without one (`failed`)."""
+    """A trace window recorded again after its FST expired, or the whole failed test (FR-WAV-05):
+    a job of the worker that ends with an FST artifact (`ready`) or without one (`failed`)."""
 
     __tablename__ = "waveforms"
     __table_args__ = (
         CheckConstraint(_one_of("status", WAVEFORM_STATUSES), name="status_known"),
+        CheckConstraint(_one_of("scope", WAVEFORM_SCOPES), name="scope_known"),
         CheckConstraint(
             "(status = 'ready') = (artifact_id IS NOT NULL)", name="artifact_iff_ready"
         ),
-        # One job at a time per traced stage: a repeated request finds the pending one.
+        # One job at a time per traced stage and scope: a repeated request finds the pending one.
         Index(
             "uq_waveforms_pending",
             "submission_id",
             "stage_key",
+            "scope",
             unique=True,
             postgresql_where=text("status = 'pending'"),
         ),
@@ -179,8 +182,12 @@ class Waveform(Base):
         ForeignKey("submissions.id", ondelete="CASCADE"), index=True
     )
     stage_key: Mapped[str]
+    scope: Mapped[str] = mapped_column(server_default="failure_window")
     status: Mapped[str] = mapped_column(server_default="pending")
     error_code: Mapped[str | None]
+    # The cycles the recorded FST covers, as the worker reported them.
+    from_cycle: Mapped[int | None]
+    to_cycle: Mapped[int | None]
     artifact_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("artifacts.id", ondelete="SET NULL")
     )

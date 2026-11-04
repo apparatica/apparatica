@@ -1,7 +1,8 @@
 "use client";
 
 // The container of the waveforms (components.md, sheet CmpC; FR-WAV-02): a 32 px header with the
-// title on the left and "47 тактов · FST 2,4 кБ" and the tools on the right, the viewer under it.
+// title on the left and "47 тактов · FST 2,4 кБ", the switch of the trace and the tools on the
+// right, the viewer under it.
 // Five states: normal (the viewer), loading (skeleton rows), empty ("Волн пока нет"), error
 // ("Не удалось загрузить волны" with "Повторить"), too big (the size and "Скачать FST"). The viewer
 // stays mounted in every state, under an opaque cover: a frame that boots or holds a file keeps
@@ -41,6 +42,8 @@ export interface WaveformPanelProps {
   title?: ReactNode;
   /** Right of the header: "47 тактов · FST 2,4 кБ". */
   info?: ReactNode;
+  /** After the info, in every state: e.g. "Открыть трассу целиком". */
+  aside?: ReactNode;
   /** Buttons at the right end of the header, in the normal state. */
   tools?: ReactNode;
   /** The viewer: shown in the normal state, kept (covered) in the others. */
@@ -147,6 +150,7 @@ export function WaveformPanel({
   state,
   title,
   info,
+  aside,
   tools,
   children,
   className,
@@ -165,6 +169,7 @@ export function WaveformPanel({
         </h3>
         <div className="flex flex-none items-center gap-2">
           {info !== undefined && <span className="font-mono text-label text-mu">{info}</span>}
+          {aside}
           {normal && tools}
         </div>
       </div>

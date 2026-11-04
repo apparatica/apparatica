@@ -312,6 +312,7 @@ async def waveform_state(database: Database, waveform_id: uuid.UUID) -> tuple[An
             waveform.error_code,
             waveform.finished_at,
             artifact and (artifact.kind, artifact.stage_key, artifact.expires_at),
+            (waveform.from_cycle, waveform.to_cycle),
         )
 
 
@@ -320,10 +321,10 @@ def test_a_recorded_waveform_becomes_an_artifact(database_url: str) -> None:
         submission = await new_submission(database)
         ingest = ingestor(database).ingest
         waveform = await new_waveform(database, submission)
-        assert await ingest(recorded(submission, waveform)) is None  # no `finalized`
+        assert await ingest(recorded(submission, waveform, window=(3, 40))) is None  # no event
         await ingest(recorded(submission, waveform))  # redelivered
-        # A Run keeps its FST 7 days (config/retention.yaml).
-        ready = ("ready", None, NOW, ("fst", "sim_run", NOW + timedelta(days=7)))
+        # A Run keeps its FST 7 days (config/retention.yaml); the cycles come from the worker.
+        ready = ("ready", None, NOW, ("fst", "sim_run", NOW + timedelta(days=7)), (3, 40))
         assert await waveform_state(database, waveform) == ready
         assert len((await state(database, submission))["artifacts"]) == 1
 

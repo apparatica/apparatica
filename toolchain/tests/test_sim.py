@@ -9,7 +9,7 @@ from judge.core.limits import load_resource_classes, sandbox_limits
 from judge.core.package import load_manifest
 from judge.core.pipeline import Job, run_pipeline
 from judge.core.registry import get_language
-from judge.core.stage import StageResult, SubmissionKind
+from judge.core.stage import StageResult, SubmissionKind, TraceScope
 from sandbox import IMAGE, RUNTIME
 
 ROOT = Path(__file__).parents[2]
@@ -31,11 +31,13 @@ IGNORES_EN = CORRECT.replace("else if (en)", "else")  # fails only the hidden te
 
 
 class Run:
-    def __init__(self, solution: str, kind: SubmissionKind) -> None:
+    def __init__(
+        self, solution: str, kind: SubmissionKind, trace: TraceScope = "failure_window"
+    ) -> None:
         self.events: list[Event] = []
         self.artifacts: dict[tuple[str, str], bytes] = {}
         problem = load_manifest(PACKAGE)
-        job = Job(problem, PACKAGE, kind, seed=41917, solution=solution.encode())
+        job = Job(problem, PACKAGE, kind, seed=41917, solution=solution.encode(), trace=trace)
         with LocalDockerExecutor(
             IMAGE, sandbox_limits(problem, RESOURCE_CLASSES), runtime=RUNTIME
         ) as executor:
@@ -95,6 +97,19 @@ def test_open_failure_with_trace_window() -> None:
     fst = run.artifacts[("sim_run", "trace.fst")]
     assert fst[:1] == b"\x00"  # FST header block
     assert sim.summary.caption == f"упал тест переход через 9, такт {failure['cycle']}"
+
+
+def test_a_full_trace_covers_the_whole_failed_test() -> None:
+    window = Run(NO_WRAP, "run").sim
+    run = Run(NO_WRAP, "run", trace="full_test")
+    sim = run.sim
+    assert sim.metrics["first_failure"] == window.metrics["first_failure"]
+    assert sim.metrics["trace"] == "recorded"
+    start, stop = sim.metrics["trace_window"]
+    cycle = sim.metrics["first_failure"]["cycle"]
+    assert start < cycle < stop
+    assert (start, stop) != tuple(window.metrics["trace_window"])
+    assert run.artifacts[("sim_run", "trace.fst")][:1] == b"\x00"
 
 
 def test_hidden_failure_is_not_traced_and_stays_anonymous() -> None:

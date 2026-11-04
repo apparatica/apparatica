@@ -117,6 +117,7 @@
     "stage": "precheck",
     "state": "ready",
     "size_bytes": 0,
+    "error_code": null,
     "waveform": null
    },
    {
@@ -124,6 +125,7 @@
     "stage": null,
     "state": "ready",
     "size_bytes": 2504,
+    "error_code": null,
     "waveform": null
    }
   ]
