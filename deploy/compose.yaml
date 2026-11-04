@@ -43,6 +43,7 @@ x-postgres-image: &postgres-image
     context: postgres
     args:
       POSTGRES_BASE_IMAGE: ${POSTGRES_BASE_IMAGE:-postgres:17-trixie}
+      DEBIAN_MIRROR: ${POSTGRES_DEBIAN_MIRROR:-}
 
 # The backup storage of WAL-G (docs/backups.md): on the stand the bucket `backups` of its own Garage,
 # on a server a bucket of another provider (compose.server.yaml). Backups are encrypted with

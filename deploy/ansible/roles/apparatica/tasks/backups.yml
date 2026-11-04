@@ -30,7 +30,8 @@
     daemon_reload: true
   loop: [apparatica-backup.timer, apparatica-backup-check.timer]
 
-# Until the first full backup the archive of WAL restores nothing.
+# Until the first full backup the archive of WAL restores nothing. WAL-G retries an unreachable
+# storage (a refused TLS certificate too) without end, so the deploy fails here instead of waiting.
 - name: Look for a full backup
   when: apparatica_backups
   ansible.builtin.command: >-
@@ -39,6 +40,7 @@
     chdir: "{{ apparatica_root }}/current"
   register: apparatica_backup_list
   changed_when: false
+  timeout: 120
 
 - name: Look for the records of the runs
   when: apparatica_backups

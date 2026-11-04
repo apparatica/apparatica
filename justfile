@@ -191,8 +191,9 @@ stand-check: && backup-check
     {{ compose }} run --rm storage-check
     {{ compose }} run --rm judge-check
 
-# A full backup of the database of the stand and the restore check of it (docs/backups.md)
+# The root certificates of a server's storage, a full backup of the stand's database, its restore check (docs/backups.md)
 backup-check:
+    {{ compose }} exec -T postgres test -s /etc/ssl/certs/ca-certificates.crt
     {{ compose }} exec -T -u postgres postgres apx-backup push
     {{ compose }} run --rm backup-check
 

@@ -5,6 +5,16 @@
 ARG POSTGRES_BASE_IMAGE=postgres:17-trixie
 FROM ${POSTGRES_BASE_IMAGE}
 
+# The root certificates for WAL-G: the base image has none, and a storage over TLS is refused.
+# DEBIAN_MIRROR optionally replaces deb.debian.org (e.g. http://mirror.yandex.ru/debian) for slow networks.
+ARG DEBIAN_MIRROR=
+RUN if [ -n "${DEBIAN_MIRROR}" ]; then \
+        sed -i "s#http://deb.debian.org/debian#${DEBIAN_MIRROR}#g" /etc/apt/sources.list.d/debian.sources; \
+    fi \
+    && apt-get update \
+    && apt-get install -y --no-install-recommends ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
+
 # The release binary of WAL-G for Postgres, checked against its digest on GitHub. WALG_URL: a mirror
 # of the same file where GitHub is unreachable.
 ARG WALG_VERSION=v3.0.9

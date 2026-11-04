@@ -117,7 +117,7 @@ Grafana открывается на http://grafana.localhost:8080: смотре�
 - порты `compose.dev.yaml` — если, например, 5432 уже занят Postgres на хосте;
 - рантайм песочниц (`SANDBOX_RUNTIME`) и образ тулчейна (`TOOLCHAIN_IMAGE`, `TOOLCHAIN_DIGEST`, `TOOLCHAIN_PROFILE_ID`), см. [«Воркер и песочница»](#воркер-и-песочница);
 - пароль администратора Grafana (`GRAFANA_ADMIN_PASSWORD`);
-- образы. Если Docker Hub недоступен, их можно брать через зеркало (`VALKEY_IMAGE=mirror.gcr.io/valkey/valkey:8-alpine` …; базовые образы сборки — `POSTGRES_BASE_IMAGE`, `PYTHON_IMAGE`, `NODE_IMAGE`, `DOCKER_CLI_IMAGE`; мониторинг — `PROMETHEUS_IMAGE`, `ALERTMANAGER_IMAGE`, `NODE_EXPORTER_IMAGE`, `GRAFANA_IMAGE`; `just alerts-test` читает `PROMETHEUS_IMAGE` и `ALERTMANAGER_IMAGE` из окружения, не из `deploy/.env`).
+- образы. Если Docker Hub недоступен, их можно брать через зеркало (`VALKEY_IMAGE=mirror.gcr.io/valkey/valkey:8-alpine` …; базовые образы сборки — `POSTGRES_BASE_IMAGE`, `PYTHON_IMAGE`, `NODE_IMAGE`, `DOCKER_CLI_IMAGE`; пакеты Debian образа Postgres — с зеркала `POSTGRES_DEBIAN_MIRROR=http://mirror.yandex.ru/debian`, если недоступен `deb.debian.org`; мониторинг — `PROMETHEUS_IMAGE`, `ALERTMANAGER_IMAGE`, `NODE_EXPORTER_IMAGE`, `GRAFANA_IMAGE`; `just alerts-test` читает `PROMETHEUS_IMAGE` и `ALERTMANAGER_IMAGE` из окружения, не из `deploy/.env`).
 
 ## e2e-тесты
 
