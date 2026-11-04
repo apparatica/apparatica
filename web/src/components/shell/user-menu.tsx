@@ -1,6 +1,6 @@
 "use client";
 
-import { LogOut, Settings } from "lucide-react";
+import { LogOut, Settings, User } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 
@@ -16,6 +16,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { notify } from "@/components/ui/toast";
 import { afterLogout, logout, type Me } from "@/features/account/api";
 import { useAccount } from "@/features/account/session";
+import { profileHref } from "@/features/profile/href";
 
 import { DocumentsItem, GuestMenu, ThemeItems } from "./guest-menu";
 
@@ -55,6 +56,12 @@ export function UserMenu({ me }: { me: Me }) {
           {me.email !== null && <span className="truncate text-caption text-mu">{me.email}</span>}
         </div>
         <DropdownMenuSeparator />
+        <DropdownMenuItem asChild>
+          <Link href={profileHref(me.nick)}>
+            <User aria-hidden="true" />
+            {t("profile")}
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuItem asChild>
           <Link href="/settings">
             <Settings aria-hidden="true" />

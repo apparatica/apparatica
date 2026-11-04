@@ -23,11 +23,18 @@ import {
 // Error pages stand in the middle of the window, below the header.
 const PAGE = "py-16 sm:py-24";
 
-/** 404: the address leads nowhere; for a problem page, the problem is not published. */
-export function NotFoundState({ kind = "page" }: { kind?: "page" | "problem" }) {
+const NOT_FOUND = {
+  page: "notFound",
+  problem: "problemNotFound",
+  profile: "profileNotFound",
+} as const;
+
+/** 404: the address leads nowhere; for a problem page, the problem is not published; for a profile,
+ * nobody has the nick. */
+export function NotFoundState({ kind = "page" }: { kind?: keyof typeof NOT_FOUND }) {
   const t = useTranslations("errors");
   const path = usePathname();
-  const key = kind === "problem" ? "problemNotFound" : "notFound";
+  const key = NOT_FOUND[kind];
   return (
     <PageState
       heading="h1"

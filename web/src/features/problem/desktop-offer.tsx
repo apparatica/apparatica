@@ -9,9 +9,9 @@ import { useId, useSyncExternalStore } from "react";
 
 import { Button } from "@/components/ui/button";
 import { notify } from "@/components/ui/toast";
+import { canShare, copyLink, type Shared, shareLink } from "@/lib/share";
 
 const never = () => () => {};
-const canShare = () => typeof navigator.share === "function";
 
 /** The page without its tab and submission: the problem itself. */
 const problemUrl = () => `${window.location.origin}${window.location.pathname}`;
@@ -21,23 +21,12 @@ export function DesktopOffer({ title }: { title: string }) {
   const heading = useId();
   const share = useSyncExternalStore(never, canShare, () => false);
 
-  const copy = async () => {
-    try {
-      await navigator.clipboard.writeText(problemUrl());
-      notify({ tone: "ok", title: t("copied") });
-    } catch {
-      notify({ tone: "er", title: t("copyFailed") });
-    }
+  const report = (shared: Shared) => {
+    if (shared === "copied") notify({ tone: "ok", title: t("copied") });
+    if (shared === "failed") notify({ tone: "er", title: t("copyFailed") });
   };
-  const send = async () => {
-    try {
-      await navigator.share({ title, url: problemUrl() });
-    } catch (error) {
-      // Closing the sheet is not a failure; a refused share leaves the copy.
-      if (error instanceof DOMException && error.name === "AbortError") return;
-      await copy();
-    }
-  };
+  const copy = async () => report(await copyLink(problemUrl()));
+  const send = async () => report(await shareLink(title, problemUrl()));
 
   return (
     <aside

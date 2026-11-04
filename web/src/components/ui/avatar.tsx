@@ -14,11 +14,13 @@ export function initialsOf(name: string, letters: 1 | 2 = 2): string {
     .toUpperCase();
 }
 
-// Sheet CmpD: 20, 28 and 40 px, a --bc border, initials (one letter in the small ones).
+// Sheet CmpD: 20, 28 and 40 px, a --bc border, initials (one letter in the small ones); 64 px is
+// the head of a profile (mock-up Profile).
 const SIZES = {
   20: { box: "size-5 text-[8px]", letters: 1 },
   28: { box: "size-7 text-[11px]", letters: 1 },
   40: { box: "size-10 text-[16px]", letters: 2 },
+  64: { box: "size-16 text-[24px]", letters: 2 },
 } as const;
 
 export function Avatar({

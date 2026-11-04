@@ -3,7 +3,7 @@
 // The command palette (specs/08 §2): Ctrl+K (⌘K) or "Quick search" in the header; problems found
 // by GET /problems?q= with their difficulty, and actions of the site. Sheet CmpD.
 import { keepPreviousData, useQuery } from "@tanstack/react-query";
-import { CodeXml, List, type LucideIcon, Search } from "lucide-react";
+import { CodeXml, List, type LucideIcon, Search, User } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { useDeferredValue, useEffect, useState } from "react";
@@ -20,6 +20,8 @@ import {
 } from "@/components/ui/command";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Shortcut, useApple } from "@/components/ui/kbd";
+import { useAccount } from "@/features/account/session";
+import { profileHref } from "@/features/profile/href";
 import { browserApi } from "@/lib/api/browser";
 import { useConfig } from "@/lib/config";
 import { ariaKeys, isShortcut, type Key } from "@/lib/shortcuts";
@@ -55,6 +57,7 @@ export function CommandPalette() {
   const [query, setQuery] = useState("");
   const q = useDeferredValue(query.trim());
   const levels = useConfig().data?.difficulties ?? [];
+  const me = useAccount();
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -85,6 +88,16 @@ export function CommandPalette() {
       icon: List,
       run: () => router.push("/problems"),
     },
+    ...(me == null
+      ? []
+      : [
+          {
+            id: "profile",
+            label: t("actions.profile"),
+            icon: User,
+            run: () => router.push(profileHref(me.nick)),
+          },
+        ]),
     ...THEMES.map((theme) => ({
       id: `theme-${theme}`,
       label: t(`actions.${theme}`),

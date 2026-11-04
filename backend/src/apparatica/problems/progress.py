@@ -7,15 +7,67 @@ and the profile read it.
 """
 
 import uuid
+from collections.abc import Sequence
+from dataclasses import dataclass
 from datetime import datetime
 
 from sqlalchemy import case, func, select
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from apparatica.problems.models import ProblemVersion, UserProblemStatus
+from apparatica.problems.models import Problem, ProblemVersion, UserProblemStatus
 
 ACCEPTED = ("accepted", "accepted_with_warnings")
+
+
+@dataclass(frozen=True)
+class Solved:
+    slug: str
+    number: int
+    title: str
+    difficulty: str
+    solved_at: datetime
+
+
+@dataclass(frozen=True)
+class Progress:
+    """`levels`: (level, solved, published problems) in the order of the configuration; `solved`:
+    the published problems the user solved, newest first."""
+
+    levels: list[tuple[str, int, int]]
+    solved: list[Solved]
+
+
+async def progress_of(
+    session: AsyncSession, user_id: uuid.UUID, difficulty_order: Sequence[str]
+) -> Progress:
+    """What the profile of the user shows (FR-USR-04): an unpublished problem is not counted."""
+    current = (
+        select(Problem, ProblemVersion)
+        .join(ProblemVersion, ProblemVersion.id == Problem.current_version_id)
+        .where(Problem.is_published)
+    )
+    rows = await session.execute(
+        current.add_columns(UserProblemStatus.first_solved_at)
+        .join(UserProblemStatus, UserProblemStatus.problem_id == Problem.id)
+        .where(UserProblemStatus.user_id == user_id, UserProblemStatus.status == "solved")
+        .order_by(UserProblemStatus.first_solved_at.desc(), Problem.number)
+    )
+    solved = [
+        Solved(problem.slug, problem.number, version.title, version.difficulty, solved_at)
+        for problem, version, solved_at in rows
+    ]
+    counts = await session.execute(
+        current.with_only_columns(ProblemVersion.difficulty, func.count()).group_by(
+            ProblemVersion.difficulty
+        )
+    )
+    totals = {level: count for level, count in counts}
+    levels = [
+        (key, sum(item.difficulty == key for item in solved), totals.get(key, 0))
+        for key in difficulty_order
+    ]
+    return Progress(levels, solved)
 
 
 async def record_check(

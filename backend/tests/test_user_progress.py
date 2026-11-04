@@ -1,6 +1,6 @@
 """Signed-in users (T2.7a): their submissions and quotas, the statuses of problems that the ingestor
 keeps (FR-USR-06), the catalogue with them (FR-CAT-03), the history with filters (FR-USR-03) and
-drafts on the server (FR-EDT-02)."""
+drafts on the server (FR-EDT-02); public profiles with the solved problems (FR-USR-04, T2.8)."""
 
 import uuid
 from collections.abc import Iterator
@@ -237,6 +237,57 @@ def test_the_catalogue_of_a_user(api: TestClient, database_url: str) -> None:
     assert sorted(slugs("solved", "attempted")) == ["mux4", "sync-fifo"]
     assert "mux4" not in slugs("not_started")
     assert len(slugs("not_started")) == len(mine) - 2
+
+
+def test_the_profile_of_a_user(api: TestClient, database_url: str) -> None:
+    missing = api.get("/api/v1/users/nobody")
+    assert (missing.status_code, missing.json()["code"]) == (404, "NOT_FOUND")
+    sign_in(api, database_url, display_name="Ada Lovelace", email="ada@example.com")
+    profile = api.get("/api/v1/users/ada")
+    assert profile.status_code == 200
+    body = profile.json()
+    assert (body["nick"], body["display_name"]) == ("ada", "Ada Lovelace")
+    assert body["solved"] == []
+    levels = [level.key for level in api.app.state.platform.difficulties]  # type: ignore[attr-defined]
+    assert [item["difficulty"] for item in body["progress"]] == levels
+    assert {item["solved"] for item in body["progress"]} == {0}
+    published = api.get("/api/v1/problems").json()["progress"]
+    assert [item["total"] for item in body["progress"]] == [item["total"] for item in published]
+
+    wrong = checked(api, kind="submit")
+    finish(api, database_url, wrong, LINT, WRONG)
+    tried = checked(api, problem="sync-fifo", version=repo_version("sync-fifo"))
+    finish(api, database_url, tried, LINT, SIM)  # a Run does not solve it
+    assert api.get("/api/v1/users/ada").json()["solved"] == []
+    accepted = checked(api, kind="submit")
+    finish(api, database_url, accepted, LINT, SIM)
+
+    api.cookies.clear()  # the same for everyone
+    response = api.get("/api/v1/users/ada")
+    assert response.headers["cache-control"].startswith("public")
+    body = response.json()
+    [solved] = body["solved"]
+    assert solved["slug"] == "mux4"
+    assert solved["number"] > 0
+    assert solved["title"]
+    [solved_at] = [at for status, at, _ in statuses(database_url) if status == "solved"]
+    assert datetime.fromisoformat(solved["solved_at"]) == solved_at
+    by_level = {item["difficulty"]: item["solved"] for item in body["progress"]}
+    assert by_level[solved["difficulty"]] == 1
+    assert sum(by_level.values()) == 1
+    etag = response.headers["etag"]
+    assert api.get("/api/v1/users/ada", headers={"If-None-Match": etag}).status_code == 304
+
+    async def unpublish(database: Database) -> None:
+        async with database.sessions.begin() as session:
+            await session.execute(
+                update(Problem).where(Problem.slug == "mux4").values(is_published=False)
+            )
+
+    run(database_url, unpublish)
+    body = api.get("/api/v1/users/ada").json()
+    assert body["solved"] == []  # only published problems count
+    assert "ada@example.com" not in response.text
 
 
 def test_users_count_in_the_acceptance_and_are_not_purged(

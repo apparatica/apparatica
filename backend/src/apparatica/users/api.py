@@ -1,5 +1,5 @@
 """The own account `/me` and public profiles `/users/{nick}` (specs/05 §3, phase 2): the contract,
-stubs until T2.8-T2.9. Every `/me` route answers UNAUTHENTICATED without a session.
+stubs until T2.9. Every `/me` route answers UNAUTHENTICATED without a session.
 """
 
 from datetime import UTC, datetime
@@ -16,8 +16,8 @@ from apparatica.auth.sessions import SignedIn
 from apparatica.auth.throttle import draft_throttle, throttle
 from apparatica.core.db import get_session
 from apparatica.core.errors import ApiError, ErrorCode, problem_responses
-from apparatica.core.http import PRIVATE
-from apparatica.users import drafts
+from apparatica.core.http import PRIVATE, cached_json
+from apparatica.users import drafts, profiles
 from apparatica.users.schemas import AccountExport, Draft, DraftSave, MeUpdate, Profile
 
 router = APIRouter(tags=["users"])
@@ -191,11 +191,15 @@ async def save_draft(
 @router.get(
     "/users/{nick}",
     response_model=Profile,
-    responses=problem_responses(
-        ErrorCode.NOT_IMPLEMENTED, ErrorCode.NOT_FOUND, ErrorCode.VALIDATION_ERROR
-    ),
+    responses=problem_responses(ErrorCode.NOT_FOUND, ErrorCode.VALIDATION_ERROR),
     openapi_extra=PHASE_2,
 )
-async def get_profile(nick: Annotated[Nick, Path()]) -> Profile:
+async def get_profile(
+    request: Request, session: Session, nick: Annotated[Nick, Path()]
+) -> Response:
     """A public profile (FR-USR-04). NOT_FOUND also for a hidden account or one being deleted."""
-    raise _stub("T2.8")
+    levels = [level.key for level in request.app.state.platform.difficulties]
+    profile = await profiles.get_profile(session, nick, levels)
+    if profile is None:
+        raise ApiError(ErrorCode.NOT_FOUND, f"No user {nick!r}")
+    return cached_json(request, profile)

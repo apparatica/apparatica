@@ -14,7 +14,6 @@ PROBLEM = "application/problem+json"
         ("DELETE", "/api/v1/me", None),
         ("POST", "/api/v1/me/restore", None),
         ("GET", "/api/v1/me/export", None),
-        ("GET", "/api/v1/users/ada", None),
     ],
 )
 def test_stubs_are_not_implemented(client: TestClient, method: str, path: str, body: Any) -> None:
