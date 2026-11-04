@@ -1,0 +1,147 @@
+# Unit tests of rules/backups.yml: `just alerts-test` (promtool test rules). The series carry the
+# labels of the node job, as Prometheus scrapes them; time starts at 0, the epoch.
+rule_files:
+  - ../rules/backups.yml
+
+evaluation_interval: 1m
+
+tests:
+  # A backup made at 0: quiet for 26 hours, firing after them.
+  - interval: 1h
+    input_series:
+      - series: apparatica_backup_last_success_timestamp_seconds{task="backup", job="node", instance="node-exporter:9100"}
+        values: 0x30
+    alert_rule_test:
+      - eval_time: 25h
+        alertname: BackupTooOld
+        exp_alerts: []
+      - eval_time: 27h
+        alertname: BackupTooOld
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              task: backup
+              job: node
+              instance: node-exporter:9100
+            exp_annotations:
+              summary: Полному бэкапу Postgres больше 26 часов
+              description: >-
+                Последний удачный полный бэкап — 1d 3h 0m 0s назад. Восстановление воспроизводит весь
+                WAL после последнего бэкапа и с каждым днём идёт дольше (RTO — 2 часа).
+              runbook: deploy/RUNBOOK.md#бэкапы
+
+  # A backup every day: never firing.
+  - interval: 1h
+    input_series:
+      - series: apparatica_backup_last_success_timestamp_seconds{task="backup", job="node", instance="node-exporter:9100"}
+        values: 0x23 86400x23 172800x23
+    alert_rule_test:
+      - eval_time: 71h
+        alertname: BackupTooOld
+        exp_alerts: []
+
+  # A host whose backups never succeeded (a failed run, no success) fires at once, and says so.
+  - interval: 1h
+    input_series:
+      - series: apparatica_backup_last_run_success{task="backup", job="node", instance="node-exporter:9100"}
+        values: 0x3
+      - series: apparatica_backup_last_run_timestamp_seconds{task="backup", job="node", instance="node-exporter:9100"}
+        values: 0x3
+    alert_rule_test:
+      - eval_time: 1h
+        alertname: BackupTooOld
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              task: backup
+              job: node
+              instance: node-exporter:9100
+            exp_annotations:
+              summary: Полному бэкапу Postgres больше 26 часов
+              description: >-
+                Последний удачный полный бэкап — не было ни одного. Восстановление воспроизводит весь
+                WAL после последнего бэкапа и с каждым днём идёт дольше (RTO — 2 часа).
+              runbook: deploy/RUNBOOK.md#бэкапы
+
+  # A failed check fires until a check succeeds; the staleness alert stays out of its way.
+  - interval: 1d
+    input_series:
+      - series: apparatica_backup_last_run_success{task="restore_check", job="node", instance="node-exporter:9100"}
+        values: 1 0x9 1
+      - series: apparatica_backup_last_success_timestamp_seconds{task="restore_check", job="node", instance="node-exporter:9100"}
+        values: 0x11
+    alert_rule_test:
+      - eval_time: 0
+        alertname: RestoreCheckFailed
+        exp_alerts: []
+      - eval_time: 1d
+        alertname: RestoreCheckFailed
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              task: restore_check
+              job: node
+              instance: node-exporter:9100
+            exp_annotations:
+              summary: Проверка восстановления бэкапа не прошла
+              description: >-
+                Последний бэкап не восстановился или в восстановленной базе нет данных. Причина — в
+                journalctl -u apparatica-backup-check. Алерт держится до удачной проверки.
+              runbook: deploy/RUNBOOK.md#бэкапы
+      - eval_time: 9d
+        alertname: RestoreCheckTooOld
+        exp_alerts: []
+      - eval_time: 11d
+        alertname: RestoreCheckFailed
+        exp_alerts: []
+
+  # Checks that stopped: firing after 8 days.
+  - interval: 1d
+    input_series:
+      - series: apparatica_backup_last_run_success{task="restore_check", job="node", instance="node-exporter:9100"}
+        values: 1x10
+      - series: apparatica_backup_last_success_timestamp_seconds{task="restore_check", job="node", instance="node-exporter:9100"}
+        values: 0x10
+    alert_rule_test:
+      - eval_time: 7d
+        alertname: RestoreCheckTooOld
+        exp_alerts: []
+      - eval_time: 9d
+        alertname: RestoreCheckTooOld
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              task: restore_check
+              job: node
+              instance: node-exporter:9100
+            exp_annotations:
+              summary: Проверка восстановления бэкапа не проходила больше 8 дней
+              description: >-
+                Последняя удачная проверка — 9d 0h 0m 0s назад. Еженедельный таймер
+                apparatica-backup-check.timer не запускается.
+              runbook: deploy/RUNBOOK.md#бэкапы
+
+  # node-exporter down, or a file it cannot read, for 15 minutes.
+  - interval: 1m
+    input_series:
+      - series: up{job="node", instance="node-exporter:9100"}
+        values: 1x10 0x30
+      - series: node_textfile_scrape_error{job="node", instance="node-exporter:9100"}
+        values: 0x40
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: HostMetricsMissing
+        exp_alerts: []
+      - eval_time: 30m
+        alertname: HostMetricsMissing
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              job: node
+              instance: node-exporter:9100
+            exp_annotations:
+              summary: Prometheus не получает метрики хоста
+              description: >-
+                node-exporter недоступен или не читает файлы метрик бэкапов: алерты бэкапов не
+                сработают.
+              runbook: deploy/RUNBOOK.md#алерты

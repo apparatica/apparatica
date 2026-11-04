@@ -84,9 +84,35 @@ dc exec -T -u postgres postgres wal-g backup-list           # полные бэ�
 dc exec -T postgres psql -U apparatica -c 'select * from pg_stat_archiver'   # архив WAL
 systemctl start apparatica-backup          # полный бэкап сейчас
 systemctl start apparatica-backup-check    # проверка восстановления сейчас
+grep -v '^#' /var/lib/apparatica/metrics/*.prom   # последние запуски, как их видят алерты
 ```
 
+**`BackupTooOld`** (полному бэкапу больше 26 часов): в `journalctl -u apparatica-backup` — почему падает `apx-backup push`. Частые причины: хранилище (ключ, бакет, доступность), дыра в архиве WAL (`wal-verify` в конце бэкапа — см. ниже «Архив WAL не уходит»), таймер выключен (`systemctl list-timers`). После исправления — `systemctl start apparatica-backup`: удачный запуск закрывает алерт.
+
+**`RestoreCheckFailed`** (проверка восстановления не прошла): в `journalctl -u apparatica-backup-check` — на чём остановилась `apx-backup check`: скачивание бэкапа, воспроизведение WAL, запуск Postgres или подсчёт строк. Не прочитался бэкап или WAL — это уже авария бэкапов: восстановление не гарантировано, нужен новый полный бэкап (`systemctl start apparatica-backup`) и повторная проверка. **`RestoreCheckTooOld`**: таймер `apparatica-backup-check.timer` не запускается — `systemctl list-timers`, `just deploy` его вернёт.
+
 **Архив WAL не уходит** (`failed_count` растёт, в `dc logs postgres` ошибки `wal-push`): Postgres не удаляет неархивированный WAL, и он копится в томе `postgres`. Причины — ключ или бакет (проверьте `BACKUP_S3_*`), недоступность хранилища, отказ `WALG_PREVENT_WAL_OVERWRITE` (в префиксе архив другого кластера: новая база пишет в старые бэкапы, см. «Восстановление базы»). После исправления Postgres дошлёт накопленное сам. Если до заполнения диска не успеть — `apparatica_backups: false` и деплой выключают архив; после включения обратно сразу сделайте полный бэкап.
+
+## Алерты
+
+Как устроены — [docs/alerts.md](../docs/alerts.md). Сообщения приходят в чат Telegram окружения; правила бэкапов — в разделе выше. Prometheus и Alertmanager снаружи не видны: алерты и заглушки — в Grafana (Alerting), или из контейнеров:
+
+```sh
+dc --profile monitoring exec prometheus wget -qO- localhost:9090/api/v1/alerts   # что сработало
+dc --profile monitoring logs --tail 50 alertmanager                             # ошибки отправки в Telegram
+# пробный алерт: «Тревога» через 30 с, «Отбой» минут через 5-10
+site=$(sed -n 's/^SITE_HOST=//p' /etc/apparatica/settings.env)
+dc --profile monitoring exec alertmanager amtool --alertmanager.url=http://localhost:9093 \
+  alert add alertname=Test "site=\"$site\"" \
+  --annotation='summary="Пробный алерт"' --annotation='description="Проверка доставки."'
+# заглушить известную проблему на сутки
+dc --profile monitoring exec alertmanager amtool --alertmanager.url=http://localhost:9093 \
+  silence add alertname=BackupTooOld --duration=24h --comment='"<почему>"'
+```
+
+**`HostMetricsMissing`** (Prometheus не получает метрики хоста): `dc --profile monitoring ps node-exporter` и его логи. Ошибка `failed to parse textfile data` — испорчен файл в `/var/lib/apparatica/metrics`: удалите его и запустите юнит его задачи (`systemctl start apparatica-backup` или `apparatica-backup-check`), он запишет новый.
+
+**Сообщения не приходят**: в логах `alertmanager` ошибки `telegram` — неверный токен (`401`), бот не в чате или неверный id (`400 chat not found`), Telegram недоступен с хоста. Токен меняется в `secrets.env` (`TELEGRAM_BOT_TOKEN`), id — в инвентаре (`apparatica_alert_telegram_chat_id`), затем `just deploy`.
 
 ## Восстановление базы
 

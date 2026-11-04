@@ -15,6 +15,7 @@
   loop:
     - { path: "{{ apparatica_config }}", mode: "0700" }
     - { path: "{{ apparatica_root }}/releases", mode: "0755" }
+    - { path: "{{ apparatica_metrics_dir }}", mode: "0755" }
 
 - name: Install the generator of the secrets
   ansible.builtin.copy:
@@ -46,6 +47,20 @@
     fail_msg: >-
       Backups need apparatica_backup_s3_url, _region, _bucket in the inventory and BACKUP_S3_KEY_ID,
       BACKUP_S3_KEY_SECRET in {{ apparatica_config }}/secrets.env (docs/backups.md).
+
+# Issued by BotFather: a chat without the token of its bot, or a token without its chat, would stop
+# Alertmanager.
+- name: Check the settings of the alerts
+  vars:
+    apparatica_telegram_token: >-
+      {{ (apparatica_secrets_env.content | b64decode) is search('(?m)^TELEGRAM_BOT_TOKEN=.') }}
+  ansible.builtin.assert:
+    that:
+      - (apparatica_alert_telegram_chat_id | string != "") == (apparatica_telegram_token | bool)
+      - apparatica_alert_telegram_chat_id | string is match('^(-?[0-9]+)?$')
+    fail_msg: >-
+      Alerts to Telegram need both apparatica_alert_telegram_chat_id (an integer) in the inventory
+      and TELEGRAM_BOT_TOKEN in {{ apparatica_config }}/secrets.env, or neither (docs/alerts.md).
 
 - name: Write the settings
   ansible.builtin.template:

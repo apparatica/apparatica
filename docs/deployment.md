@@ -80,7 +80,7 @@ docker compose -f deploy/compose.yaml -f deploy/compose.server.yaml \
 
 Ключ шифрования бэкапов `BACKUP_ENCRYPTION_KEY` генерируется так же, но менять его нельзя: старые бэкапы станут нечитаемыми.
 
-Ключи, которые выдаёт провайдер, не генерируются: ключ хранилища бэкапов (`BACKUP_S3_KEY_ID`, `BACKUP_S3_KEY_SECRET`, [backups.md](backups.md#на-сервере)) и ключи OAuth-приложений (`APX_GITHUB_CLIENT_ID`, `APX_GITHUB_CLIENT_SECRET`). Без них сервер работает без входа через провайдера; чтобы включить вход через GitHub, допишите их в `secrets.env` и повторите деплой. Callback URL приложения — `https://<SITE_HOST>/api/v1/auth/github/callback` ([configuration.md](configuration.md#переменные-окружения)).
+Ключи, которые выдаёт провайдер, не генерируются: ключ хранилища бэкапов (`BACKUP_S3_KEY_ID`, `BACKUP_S3_KEY_SECRET`, [backups.md](backups.md#на-сервере)), токен бота алертов (`TELEGRAM_BOT_TOKEN`, [alerts.md](alerts.md#бот-и-чат)) и ключи OAuth-приложений (`APX_GITHUB_CLIENT_ID`, `APX_GITHUB_CLIENT_SECRET`). Без них сервер работает без входа через провайдера; чтобы включить вход через GitHub, допишите их в `secrets.env` и повторите деплой. Callback URL приложения — `https://<SITE_HOST>/api/v1/auth/github/callback` ([configuration.md](configuration.md#переменные-окружения)).
 
 **Сохраните копию `secrets.env` вне сервера** (менеджер паролей): без `BACKUP_ENCRYPTION_KEY` из неё бэкапы не расшифровать, без остальных ключей восстановленные данные не прочитать ключами нового сервера, а гости потеряют свои отправки. Смена секрета — в [RUNBOOK](../deploy/RUNBOOK.md#смена-секрета).
 
@@ -91,11 +91,11 @@ docker compose -f deploy/compose.yaml -f deploy/compose.server.yaml \
 1. **Релиз.** На машине оператора `git archive` коммита `HEAD` упаковывает файлы репозитория без `brief/`. Если есть незакоммиченные изменения отслеживаемых или добавленных в индекс файлов, они входят в релиз (`git stash create`), а имя релиза получает суффикс: `<коммит>-dirty-<stash>`. Неотслеживаемые файлы не входят. Архив распаковывается в `/opt/apparatica/releases/<релиз>/`.
 2. **Настройки и секреты** — `/etc/apparatica` (выше).
 3. **Образы.** Образ Postgres с WAL-G (`deploy/postgres`) всегда собирается на хосте и называется по git-дереву этого каталога: `POSTGRES_IMAGE=apparatica-postgres:<хэш>` в `release.env`. Уже собранный не пересобирается, и пока `deploy/postgres` не меняется, контейнер Postgres не пересоздаётся. С `-e apparatica_image_tag=sha-<коммит>` (так деплоит CI) релиз берёт опубликованные образы `ghcr.io/apparatica/{api,web,worker}:sha-<коммит>`: они записываются в `release.env` релиза, скачиваются, если их ещё нет на хосте, и ничего не собирается (`up --no-build`: нет образа — нет деплоя). Тег должен быть тегом коммита релиза, а дерево — чистым, иначе деплой останавливается до изменений на хосте. Без тега (`just deploy` оператора) образы собираются на хосте из файлов релиза. Образы тулчейна и просмотрщика всегда скачиваются из GHCR.
-4. **Сервисы.** `up -d --wait` для `caddy valkey-queue valkey-cache ingest worker`, как `just up`. Миграции (`migrate`) и настройка Garage (`garage-setup`) выполняются до запуска API. Затем импортируются задачи релиза (`demo-problems`), а с `apparatica_monitoring` запускаются Prometheus и Grafana.
+4. **Сервисы.** `up -d --wait` для `caddy valkey-queue valkey-cache ingest worker`, как `just up`. Миграции (`migrate`) и настройка Garage (`garage-setup`) выполняются до запуска API. Затем импортируются задачи релиза (`demo-problems`), а с `apparatica_monitoring` запускаются Prometheus, Alertmanager, node-exporter и Grafana.
 5. **Ссылка `current`** переключается на релиз.
 6. **Проверки** (`apparatica_checks`): `storage-check` (ключи, presigned URL, CORS, сайт `waveview` и его заголовки) и `judge-check` (эталон и мутант `mux4` проверяются через `https://<сайт>` под gVisor) — то же, что `just stand-check`, кроме бэкапа: его проверяет еженедельный таймер. Упавшая проверка роняет деплой, но новый релиз уже запущен; вернуть прежний — `just rollback`.
 7. **Уборка.** Остаются последние `apparatica_keep_releases` (5) релизов, текущий — всегда. Опубликованные образы и образы Postgres, которых нет в `release.env` оставшихся релизов, и висячие образы сборок удаляются.
-8. **Бэкапы.** С `apparatica_backups: true` ставятся таймеры бэкапов, а если в хранилище ещё нет полного бэкапа, он делается сразу; с `false` таймеры удаляются ([backups.md](backups.md#на-сервере)).
+8. **Бэкапы.** С `apparatica_backups: true` ставятся таймеры бэкапов, а если в хранилище ещё нет полного бэкапа или записи о нём для алертов, он делается сразу; с `false` таймеры удаляются ([backups.md](backups.md#на-сервере)).
 
 Первый деплой на чистом хосте длится около 15 минут: сборка образов и скачивание тулчейна. Следующие идут быстрее за счёт кэша сборки Docker.
 
@@ -119,7 +119,9 @@ Workflow `.github/workflows/staging.yml` запускается после зе�
 
 ## Мониторинг
 
-Prometheus и Grafana из профиля `monitoring` ([stand.md](stand.md#мониторинг)) работают на хосте приложения. Grafana не опубликована, её открывают через SSH-туннель:
+Prometheus, Alertmanager, node-exporter и Grafana из профиля `monitoring` ([stand.md](stand.md#мониторинг)) работают на хосте приложения (`apparatica_monitoring: true`). Порты не публикуются, кроме Grafana на loopback. node-exporter видит корень хоста только для чтения и читает метрики бэкапов из `/var/lib/apparatica/metrics`. Алерты уходят в Telegram, если заданы `apparatica_alert_telegram_chat_id` и `TELEGRAM_BOT_TOKEN` ([alerts.md](alerts.md)).
+
+Grafana не опубликована, её открывают через SSH-туннель:
 
 ```sh
 ssh -L 3000:127.0.0.1:3000 root@apparatica.app   # затем http://localhost:3000

@@ -1,9 +1,21 @@
 # Prometheus of the stand (`just monitoring`, docs/stand.md#мониторинг): the metrics of the API,
-# the ingestor and the worker (docs/configuration.md#метрики). The ports are reachable only in the
+# the ingestor, the worker (docs/configuration.md#метрики) and of the host (node-exporter); the alert
+# rules of rules/ go to Alertmanager (docs/alerts.md). The ports are reachable only in the
 # compose network.
 global:
   scrape_interval: 15s
   evaluation_interval: 15s
+  # The site in every alert: which environment a message is about (ALERT_SITE of compose).
+  external_labels:
+    site: ${ALERT_SITE}
+
+rule_files:
+  - /etc/prometheus/rules/*.yml
+
+alerting:
+  alertmanagers:
+    - static_configs:
+        - targets: ["alertmanager:9093"]
 
 scrape_configs:
   - job_name: api
@@ -15,3 +27,6 @@ scrape_configs:
   - job_name: worker
     static_configs:
       - targets: ["worker:9100"]
+  - job_name: node
+    static_configs:
+      - targets: ["node-exporter:9100"]

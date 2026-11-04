@@ -13,8 +13,12 @@ apparatica_backup_s3_url: https://06127661db7bdce1f8d118d524def246.eu.r2.cloudfl
 apparatica_backup_s3_region: auto
 apparatica_backup_s3_bucket: apparatica-staging-backups
 
-# Prometheus and Grafana (Grafana on 127.0.0.1:3000 of the server, through an SSH tunnel).
+# Prometheus, Alertmanager and Grafana (Grafana on 127.0.0.1:3000 of the server, through an SSH
+# tunnel).
 apparatica_monitoring: true
+# Alerts (docs/alerts.md): a private chat with the bot @apparatica_status_bot, whose token,
+# TELEGRAM_BOT_TOKEN, is in /etc/apparatica/secrets.env.
+apparatica_alert_telegram_chat_id: 1278330698
 
 # The key of CI (GitHub environment `staging`, secret STAGING_SSH_KEY), for the user deploy.
 base_deploy_keys:

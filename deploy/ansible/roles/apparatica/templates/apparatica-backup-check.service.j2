@@ -11,3 +11,5 @@ WorkingDirectory={{ apparatica_root }}/current
 ExecStart=/usr/bin/docker compose -f deploy/compose.yaml -f deploy/compose.server.yaml \
   --env-file {{ apparatica_config }}/settings.env --env-file {{ apparatica_config }}/secrets.env \
   --env-file release.env run --rm backup-check
+# Success or failure, for the alerts (docs/alerts.md).
+ExecStopPost=/usr/local/sbin/apparatica-backup-metrics {{ apparatica_metrics_dir }} restore_check

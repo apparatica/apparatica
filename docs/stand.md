@@ -12,7 +12,7 @@ just up            # собрать образы, мигрировать БД, �
 just stand-check   # проверить хранилище (права ключей, presigned URL, CORS, сайт waveview),
                    # проверку решений гостя через весь стенд, бэкап базы и восстановление из него
 just backup-check  # только бэкап базы и проверка восстановления (docs/backups.md)
-just monitoring    # Prometheus и Grafana рядом с запущенным стендом
+just monitoring    # Prometheus, Alertmanager, node-exporter и Grafana рядом с запущенным стендом
 just logs api web  # логи сервисов
 just down          # остановить (и мониторинг); данные в томах остаются (удалить: docker compose … down -v)
 ```
@@ -57,7 +57,7 @@ just down          # остановить (и мониторинг); данны�
 | `sandboxd` | `apx-sandboxd` из образа воркера (`worker/Dockerfile`), см. [«Воркер и песочница»](#воркер-и-песочница) |
 | `worker` | `apparatica-worker`: проверки из очередей в песочницах `sandboxd`. С ключом хранилища `worker` и пользователем Valkey `worker`, без Postgres и Docker |
 | `mailpit` | только с `compose.dev.yaml`: SMTP-сервер, который никуда не отправляет письма, а показывает их (`MAILPIT_IMAGE`, по умолчанию `axllent/mailpit:v1.33.0`); `api` шлёт в него письма (`APX_SMTP_URL=smtp://mailpit:1025`), ссылки в них ведут на `APX_PUBLIC_BASE_URL` — `http://localhost:8080` |
-| `prometheus`, `grafana` | мониторинг, запускаются только `just monitoring` (профиль `monitoring`), см. [«Мониторинг»](#мониторинг) |
+| `prometheus`, `alertmanager`, `node-exporter`, `grafana` | мониторинг и алерты, запускаются только `just monitoring` (профиль `monitoring`), см. [«Мониторинг»](#мониторинг) |
 | `storage-check`, `judge-check`, `backup-check` | проверки стенда, запускаются только `just stand-check` (профиль `check`): хранилище (`deploy/garage/check.py`), проверка решений (`deploy/worker/check.py`) и восстановление последнего бэкапа базы (`apx-backup check`, [backups.md](backups.md)) |
 
 Одноразовые сервисы идемпотентны и выполняются при каждом `up`: повторный импорт пропускает неизменённые версии, настройка Garage ничего не пересоздаёт.
@@ -87,7 +87,7 @@ TOOLCHAIN_PROFILE_ID=sv-dev-1   # профиль неизменяем: у дру
 
 ## Мониторинг
 
-`just monitoring` поднимает рядом с запущенным стендом Prometheus и Grafana (профиль `monitoring`; `just up` их не запускает). Prometheus (`deploy/prometheus/prometheus.yml`) раз в 15 с опрашивает `api:8000/metrics`, `ingest:9100` и `worker:9100` ([configuration.md](configuration.md#метрики)) и хранит данные 7 дней в томе `prometheus`. Снаружи его не видно.
+`just monitoring` поднимает рядом с запущенным стендом Prometheus, Alertmanager, node-exporter и Grafana (профиль `monitoring`; `just up` их не запускает). Prometheus (`deploy/prometheus/prometheus.yml`) раз в 15 с опрашивает `api:8000/metrics`, `ingest:9100`, `worker:9100` ([configuration.md](configuration.md#метрики)) и `node-exporter:9100` (на стенде — метрики, которые видит его контейнер) и хранит данные 7 дней в томе `prometheus`. Снаружи их не видно.
 
 Grafana открывается на http://grafana.localhost:8080: смотреть можно без входа, менять — под `admin` с паролем `GRAFANA_ADMIN_PASSWORD` (по умолчанию `apparatica`). Источник данных и дашборды подключаются из `deploy/grafana/provisioning`. Дашборд «Apparatica: очереди и проверки» (`deploy/grafana/dashboards/apparatica.json`) открывается по умолчанию и меняется только в репозитории: в интерфейсе он только для чтения. На нём:
 - очереди: сколько проверок ждёт, сколько ждёт самая старая, p50/p95 ожидания, записи `judge:results` без записи в базу;
@@ -95,7 +95,7 @@ Grafana открывается на http://grafana.localhost:8080: смотре�
 - p50/p95 времени этапов и доля `internal_error` по этапам, итоги проверок;
 - запросы и ошибки API, p95 времени ответа по роутам, задержка стрима и открытые стримы, записи ингестора.
 
-Алерты NFR-OBS-04 появятся с production (T3.14).
+Правила алертов (`deploy/prometheus/rules`) загружаются и на стенде, но бэкапы тут не пишут метрик для них, а Alertmanager без `TELEGRAM_BOT_TOKEN` и `TELEGRAM_CHAT_ID` ничего не отправляет: алерты видно в Grafana → Alerting ([alerts.md](alerts.md#доставка)). Проверка правил и конфигураций без стенда — `just alerts-test`.
 
 ## Хранилище
 
@@ -117,7 +117,7 @@ Grafana открывается на http://grafana.localhost:8080: смотре�
 - порты `compose.dev.yaml` — если, например, 5432 уже занят Postgres на хосте;
 - рантайм песочниц (`SANDBOX_RUNTIME`) и образ тулчейна (`TOOLCHAIN_IMAGE`, `TOOLCHAIN_DIGEST`, `TOOLCHAIN_PROFILE_ID`), см. [«Воркер и песочница»](#воркер-и-песочница);
 - пароль администратора Grafana (`GRAFANA_ADMIN_PASSWORD`);
-- образы. Если Docker Hub недоступен, их можно брать через зеркало (`VALKEY_IMAGE=mirror.gcr.io/valkey/valkey:8-alpine` …; базовые образы сборки — `POSTGRES_BASE_IMAGE`, `PYTHON_IMAGE`, `NODE_IMAGE`, `DOCKER_CLI_IMAGE`; мониторинг — `PROMETHEUS_IMAGE`, `GRAFANA_IMAGE`).
+- образы. Если Docker Hub недоступен, их можно брать через зеркало (`VALKEY_IMAGE=mirror.gcr.io/valkey/valkey:8-alpine` …; базовые образы сборки — `POSTGRES_BASE_IMAGE`, `PYTHON_IMAGE`, `NODE_IMAGE`, `DOCKER_CLI_IMAGE`; мониторинг — `PROMETHEUS_IMAGE`, `ALERTMANAGER_IMAGE`, `NODE_EXPORTER_IMAGE`, `GRAFANA_IMAGE`; `just alerts-test` читает `PROMETHEUS_IMAGE` и `ALERTMANAGER_IMAGE` из окружения, не из `deploy/.env`).
 
 ## e2e-тесты
 

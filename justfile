@@ -159,10 +159,23 @@ up:
     {{ compose }} up -d --build --wait caddy valkey-queue valkey-cache ingest worker
     {{ compose }} run --rm demo-problems
 
-# Start Prometheus and Grafana next to the running stand (http://grafana.localhost:8080;
-# docs/stand.md#мониторинг)
+# Start Prometheus, Alertmanager, node-exporter and Grafana next to the running stand
+# (http://grafana.localhost:8080; docs/stand.md#мониторинг)
 monitoring:
-    {{ compose }} --profile monitoring up -d --wait prometheus grafana
+    {{ compose }} --profile monitoring up -d --wait prometheus alertmanager node-exporter grafana
+
+prometheus_image := env("PROMETHEUS_IMAGE", "prom/prometheus:v3.5.0")
+alertmanager_image := env("ALERTMANAGER_IMAGE", "prom/alertmanager:v0.28.1")
+prometheus_dir := quote(justfile_directory() / "deploy" / "prometheus" + ":/etc/prometheus:ro")
+alertmanager_dir := quote(justfile_directory() / "deploy" / "alertmanager" + ":/etc/apparatica/alertmanager:ro")
+
+# Check the alerts (docs/alerts.md): the configuration of Prometheus and the unit tests of its rules
+# (promtool), the configuration of Alertmanager without Telegram and with it (amtool)
+alerts-test:
+    docker run --rm -v {{ prometheus_dir }} --entrypoint promtool {{ prometheus_image }} check config /etc/prometheus/prometheus.yml
+    docker run --rm -v {{ prometheus_dir }} -w /etc/prometheus/tests --entrypoint sh {{ prometheus_image }} -c "promtool test rules *.yml"
+    docker run --rm -v {{ alertmanager_dir }} --entrypoint sh {{ alertmanager_image }} /etc/apparatica/alertmanager/start.sh check
+    docker run --rm -v {{ alertmanager_dir }} -e TELEGRAM_BOT_TOKEN=123456:test -e TELEGRAM_CHAT_ID=-100123 --entrypoint sh {{ alertmanager_image }} /etc/apparatica/alertmanager/start.sh check
 
 # Stop the stand; the data volumes stay (remove them with: docker compose ... down -v)
 down:

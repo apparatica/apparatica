@@ -8,8 +8,9 @@
 #
 # Settings: SITE_HOST, S3_HOST, WAVEVIEW_HOST (public names), SANDBOX_RUNTIME=runsc,
 # APX_ENVIRONMENT=production, APX_COOKIE_SECURE=true; POSTGRES_ARCHIVE_MODE and, with backups on,
-# BACKUP_S3_URL, BACKUP_S3_REGION, BACKUP_S3_BUCKET. Every secret of compose.yaml comes from
-# secrets.env: its public development defaults are never used (Ansible checks it).
+# BACKUP_S3_URL, BACKUP_S3_REGION, BACKUP_S3_BUCKET; TELEGRAM_CHAT_ID of the alerts. Every secret of
+# compose.yaml comes from secrets.env: its public development defaults are never used (Ansible
+# checks it).
 
 services:
   # Backups go to the storage of another provider (BACKUP_S3_* of settings.env and secrets.env,
@@ -44,6 +45,21 @@ services:
       - ./Caddyfile.server:/etc/caddy/Caddyfile:ro
       - caddy-data:/data
       - caddy-config:/config
+
+  prometheus:
+    environment:
+      ALERT_SITE: ${SITE_HOST:?}
+
+  # The root of the host, read-only: its filesystems and the metrics of the backups, which the
+  # backup units write to /var/lib/apparatica/metrics (apparatica_metrics_dir of Ansible,
+  # docs/alerts.md).
+  node-exporter:
+    command:
+      - --path.rootfs=/host
+      - --collector.textfile.directory=/host/var/lib/apparatica/metrics
+    pid: host
+    volumes:
+      - /:/host:ro,rslave
 
   # Grafana is not public: an SSH tunnel to the port on the loopback of the server.
   grafana:

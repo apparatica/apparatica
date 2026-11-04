@@ -1,6 +1,14 @@
 # Backups of Postgres (docs/backups.md): systemd timers of the full backup and of the restore check,
-# both through compose of the current release. Off: the timers are gone, the archive of WAL is off
-# (settings.env), the backups already in the storage stay.
+# both through compose of the current release; every run is recorded for the alerts (docs/alerts.md).
+# Off: the timers and the records are gone, the archive of WAL is off (settings.env), the backups
+# already in the storage stay.
+- name: Install the recorder of the runs
+  when: apparatica_backups
+  ansible.builtin.copy:
+    src: apparatica-backup-metrics.py
+    dest: /usr/local/sbin/apparatica-backup-metrics
+    mode: "0755"
+
 - name: Write the units of the backups
   when: apparatica_backups
   ansible.builtin.template:
@@ -32,11 +40,29 @@
   register: apparatica_backup_list
   changed_when: false
 
-- name: Make the first full backup
-  when: apparatica_backups and 'No backups found' in apparatica_backup_list.stderr ~ apparatica_backup_list.stdout
+- name: Look for the records of the runs
+  when: apparatica_backups
+  ansible.builtin.stat:
+    path: "{{ apparatica_metrics_dir }}/{{ item }}.prom"
+  loop: [backup, restore_check]
+  register: apparatica_backup_records
+
+# Without a record of a run the alerts stay quiet, so a deploy makes the missing ones: a full backup
+# it waits for, then a restore check of it in the background.
+- name: Make a full backup when there is none or no record of one
+  when: >-
+    apparatica_backups and ('No backups found' in apparatica_backup_list.stderr ~ apparatica_backup_list.stdout
+    or not apparatica_backup_records.results[0].stat.exists)
   ansible.builtin.systemd_service:
     name: apparatica-backup.service
     state: started
+
+- name: Start a restore check when there is no record of one
+  when: apparatica_backups and not apparatica_backup_records.results[1].stat.exists
+  ansible.builtin.systemd_service:
+    name: apparatica-backup-check.service
+    state: started
+    no_block: true
 
 - name: Stop the timers of the backups
   when: not apparatica_backups
@@ -47,13 +73,16 @@
   loop: [apparatica-backup.timer, apparatica-backup-check.timer]
   failed_when: false
 
-- name: Remove the units of the backups
+- name: Remove the units and the records of the backups
   when: not apparatica_backups
   ansible.builtin.file:
-    path: /etc/systemd/system/{{ item }}
+    path: "{{ item }}"
     state: absent
   loop:
-    - apparatica-backup.service
-    - apparatica-backup.timer
-    - apparatica-backup-check.service
-    - apparatica-backup-check.timer
+    - /etc/systemd/system/apparatica-backup.service
+    - /etc/systemd/system/apparatica-backup.timer
+    - /etc/systemd/system/apparatica-backup-check.service
+    - /etc/systemd/system/apparatica-backup-check.timer
+    - /usr/local/sbin/apparatica-backup-metrics
+    - "{{ apparatica_metrics_dir }}/backup.prom"
+    - "{{ apparatica_metrics_dir }}/restore_check.prom"

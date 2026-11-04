@@ -1,0 +1,61 @@
+# Alerts on the backups of Postgres (NFR-REL-04, NFR-OBS-04; docs/alerts.md). The metrics come from
+# apparatica-backup-metrics, which the systemd units of the backups run after every run, through the
+# textfile collector of node-exporter. A host without backups has none of them: the rules stay quiet.
+# Tests: deploy/prometheus/tests/backups.yml (`just alerts-test`).
+groups:
+  - name: backups
+    rules:
+      # The daily full backup is 24 h apart, plus up to 10 minutes of the timer's delay and the
+      # backup itself. A host whose backups never succeeded has runs and no success: the value is 0.
+      - alert: BackupTooOld
+        expr: >-
+          time() - apparatica_backup_last_success_timestamp_seconds{task="backup"} > 26 * 3600
+          or apparatica_backup_last_run_success{task="backup"}
+          unless apparatica_backup_last_success_timestamp_seconds{task="backup"}
+        labels:
+          severity: critical
+        annotations:
+          summary: Полному бэкапу Postgres больше 26 часов
+          description: >-
+            Последний удачный полный бэкап —
+            {{ if $value }}{{ $value | humanizeDuration }} назад{{ else }}не было ни одного{{ end }}.
+            Восстановление воспроизводит весь WAL после последнего бэкапа и с каждым днём идёт
+            дольше (RTO — 2 часа).
+          runbook: deploy/RUNBOOK.md#бэкапы
+
+      - alert: RestoreCheckFailed
+        expr: apparatica_backup_last_run_success{task="restore_check"} == 0
+        labels:
+          severity: critical
+        annotations:
+          summary: Проверка восстановления бэкапа не прошла
+          description: >-
+            Последний бэкап не восстановился или в восстановленной базе нет данных. Причина — в
+            journalctl -u apparatica-backup-check. Алерт держится до удачной проверки.
+          runbook: deploy/RUNBOOK.md#бэкапы
+
+      # The check is weekly: a missed week means the timer or the check itself is broken.
+      - alert: RestoreCheckTooOld
+        expr: >-
+          time() - apparatica_backup_last_success_timestamp_seconds{task="restore_check"} > 8 * 86400
+          unless apparatica_backup_last_run_success{task="restore_check"} == 0
+        labels:
+          severity: critical
+        annotations:
+          summary: Проверка восстановления бэкапа не проходила больше 8 дней
+          description: >-
+            Последняя удачная проверка — {{ $value | humanizeDuration }} назад.
+            Еженедельный таймер apparatica-backup-check.timer не запускается.
+          runbook: deploy/RUNBOOK.md#бэкапы
+
+      # Without the metrics of the host the rules above cannot fire.
+      - alert: HostMetricsMissing
+        expr: up{job="node"} == 0 or node_textfile_scrape_error == 1
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: Prometheus не получает метрики хоста
+          description: >-
+            node-exporter недоступен или не читает файлы метрик бэкапов: алерты бэкапов не сработают.
+          runbook: deploy/RUNBOOK.md#алерты

@@ -426,7 +426,8 @@ services:
 
   # Monitoring (NFR-OBS-02, docs/stand.md#мониторинг): `just monitoring`, not started by `up`
   # (profile monitoring). Grafana is behind Caddy at grafana.localhost with the dashboards of
-  # deploy/grafana; the stand's metrics ports are reachable only in this network.
+  # deploy/grafana; the stand's metrics ports are reachable only in this network. The alert rules of
+  # deploy/prometheus/rules go to Alertmanager (docs/alerts.md).
   prometheus:
     image: ${PROMETHEUS_IMAGE:-prom/prometheus:v3.5.0}
     profiles: [monitoring]
@@ -434,9 +435,33 @@ services:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
       - --storage.tsdb.retention.time=7d
+    environment:
+      ALERT_SITE: localhost:${HTTP_PORT:-8080}  # the site an alert names
     volumes:
       - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus/rules:/etc/prometheus/rules:ro
       - prometheus:/prometheus
+    restart: unless-stopped
+
+  # Alerts to Telegram with TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID (a bot of BotFather and its chat),
+  # nowhere without them: the stand sees them in Grafana (deploy/alertmanager/start.sh).
+  alertmanager:
+    image: ${ALERTMANAGER_IMAGE:-prom/alertmanager:v0.28.1}
+    profiles: [monitoring]
+    entrypoint: ["sh", "/etc/apparatica/alertmanager/start.sh"]
+    environment:
+      TELEGRAM_BOT_TOKEN: ${TELEGRAM_BOT_TOKEN:-}
+      TELEGRAM_CHAT_ID: ${TELEGRAM_CHAT_ID:-}
+    volumes:
+      - ./alertmanager:/etc/apparatica/alertmanager:ro
+      - alertmanager:/alertmanager
+    restart: unless-stopped
+
+  # The metrics of the host. On the stand only those its container sees; a server gives it the root
+  # of the host and the metrics of the backups (compose.server.yaml).
+  node-exporter:
+    image: ${NODE_EXPORTER_IMAGE:-prom/node-exporter:v1.9.1}
+    profiles: [monitoring]
     restart: unless-stopped
 
   grafana:
@@ -458,6 +483,7 @@ services:
       - grafana:/var/lib/grafana
     depends_on:
       - prometheus
+      - alertmanager
     restart: unless-stopped
 
   caddy:
@@ -486,6 +512,7 @@ volumes:
   caddy-data:
   waveview-site:
   prometheus:
+  alertmanager:
   grafana:
   toolchain-versions:
   sandboxd-socket:

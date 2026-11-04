@@ -7,7 +7,15 @@ apparatica_keep_releases: 5
 apparatica_repo: "{{ playbook_dir }}/../.."
 # The checks of `just stand-check` against the public names after a deploy.
 apparatica_checks: true
+# Prometheus, Alertmanager, node-exporter and Grafana (docs/deployment.md#мониторинг).
 apparatica_monitoring: false
+# Alerts (docs/alerts.md): Alertmanager sends them to this Telegram chat with the bot whose token,
+# TELEGRAM_BOT_TOKEN, goes to secrets.env by hand (BotFather issues it). Empty: no messages, the
+# alerts are seen in Grafana only.
+apparatica_alert_telegram_chat_id: ""
+# The metrics the backup units write for the alerts; node-exporter reads them from there
+# (compose.server.yaml).
+apparatica_metrics_dir: /var/lib/apparatica/metrics
 # Backups of Postgres with WAL-G (docs/backups.md): the archive of WAL, a full backup daily at
 # apparatica_backup_time, the restore check weekly at apparatica_backup_check_time (systemd calendar
 # events, UTC). The bucket of another provider; its keys BACKUP_S3_KEY_ID and BACKUP_S3_KEY_SECRET

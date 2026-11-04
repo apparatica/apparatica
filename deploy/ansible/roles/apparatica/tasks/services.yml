@@ -60,7 +60,8 @@
 
 - name: Start the monitoring
   when: apparatica_monitoring
-  ansible.builtin.command: "{{ apparatica_compose }} --profile monitoring up -d prometheus grafana"
+  ansible.builtin.command: >-
+    {{ apparatica_compose }} --profile monitoring up -d prometheus alertmanager node-exporter grafana
   args:
     chdir: "{{ apparatica_root }}/releases/{{ apparatica_release }}"
   changed_when: true

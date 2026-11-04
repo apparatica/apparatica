@@ -1,0 +1,12 @@
+# The Alertmanager of the stand (docs/alerts.md): its alerts and silences in Grafana → Alerting.
+apiVersion: 1
+datasources:
+  - name: Alertmanager
+    uid: alertmanager
+    type: alertmanager
+    access: proxy
+    url: http://alertmanager:9093
+    editable: false
+    jsonData:
+      implementation: prometheus
+      handleGrafanaManagedAlerts: false

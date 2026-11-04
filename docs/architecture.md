@@ -19,7 +19,7 @@ Apparatica — модульный монолит на бэкенде, отдел
 | `valkey-cache` | Кэш ответов и сессий, rate limit, общий рейтинг. Может потерять данные без последствий | Valkey |
 | `garage` | Файлы в отдельных бакетах: пакеты задач, артефакты (логи, FST, нетлисты), кэш сборок, статика просмотрщика волн | Garage (S3 API) |
 | `apx-sandboxd` | На хосте воркера: создаёт и уничтожает контейнеры песочницы с фиксированными флагами. Единственный процесс с доступом к Docker | небольшой самописный сервис |
-| мониторинг | Собирает метрики `api`, `ingest` и `worker` по внутренней сети (`/metrics`, [configuration.md](configuration.md#метрики)) и показывает дашборд очередей и проверок | Prometheus, Grafana |
+| мониторинг | Собирает метрики `api`, `ingest`, `worker` и хоста по внутренней сети (`/metrics`, [configuration.md](configuration.md#метрики)), показывает дашборд очередей и проверок, шлёт алерты в Telegram ([alerts.md](alerts.md)) | Prometheus, node-exporter, Alertmanager, Grafana |
 
 ### `ingest`
 

@@ -49,7 +49,8 @@ Poetry создаёт виртуальное окружение внутри к�
 | `just mock-problems` | пересоздаёт демо-задачи моков (`web/src/mocks/problem-versions.json`) из пакетов `problems/` ([frontend.md](frontend.md#моки-для-разработки)) |
 | `just up`, `just down`, `just logs` | стенд в docker compose: все сервисы и демо-задачи на http://localhost:8080 ([stand.md](stand.md)) |
 | `just stand-check` | проверка запущенного стенда: хранилище и проверка решений гостя через весь стенд |
-| `just monitoring` | Prometheus и Grafana с дашбордом очередей рядом с запущенным стендом ([stand.md](stand.md#мониторинг)) |
+| `just monitoring` | Prometheus, Alertmanager, node-exporter и Grafana с дашбордом очередей рядом с запущенным стендом ([stand.md](stand.md#мониторинг)) |
+| `just alerts-test` | конфигурации Prometheus и Alertmanager и модульные тесты правил алертов в их образах ([alerts.md](alerts.md#проверка)) |
 | `just e2e` | e2e-тесты Playwright и axe против запущенного стенда ([stand.md](stand.md#e2e-тесты)) |
 | `just validate-problems` | `judge validate` всех пакетов `problems/` в образе тулчейна (нужен Docker) |
 | `just schemas` | перегенерирует JSON Schema из моделей судьи: `problem.yaml` и записи протокола тестбенча (`judge/schemas/`) |

@@ -1,0 +1,18 @@
+{{/* A Telegram message of the alerts of a group (docs/alerts.md): plain text, one paragraph per
+alert, the site from the external label of Prometheus, the runbook annotation (a path in the
+repository) as a link. */}}
+{{ define "apparatica.telegram" -}}
+{{ if eq .Status "firing" }}Тревога{{ else }}Отбой{{ end }} · {{ .CommonLabels.site }}
+{{- range .Alerts }}
+
+{{ if eq .Status "firing" -}}
+{{ .Annotations.summary }}
+{{ .Annotations.description }}
+{{- with .Annotations.runbook }}
+Что делать: https://github.com/apparatica/apparatica/blob/master/{{ . }}
+{{- end }}
+{{- else -}}
+Прошло: {{ .Annotations.summary }}
+{{- end }}
+{{- end }}
+{{- end }}
