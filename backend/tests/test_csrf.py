@@ -10,7 +10,7 @@ from fastapi.testclient import TestClient
 
 from apparatica.auth import api as auth_api
 from apparatica.auth.csrf import COOKIE, HEADER, SAFE_METHODS
-from apparatica.auth.throttle import throttle
+from apparatica.auth.throttle import draft_throttle, throttle
 from apparatica.captcha import api as captcha_api
 from apparatica.core import api as core_api
 from apparatica.core.flags import no_overrides
@@ -24,8 +24,8 @@ from conftest import CONFIG_DIR, CSRF_TOKEN
 # A mutating route that works without a database: logout without a session.
 LOGOUT = "/api/v1/auth/logout"
 MODULES = (core_api, problems_api, submissions_api, captcha_api, auth_api, users_api)
-# The autosave of drafts gets its own window in T2.7: it must not spend the requests of checks.
-NOT_THROTTLED = {"save_draft"}
+# The autosave of drafts has its own window: it must not spend the requests of checks.
+OWN_WINDOW = {"save_draft": draft_throttle}
 
 
 def make_client(**settings: object) -> TestClient:
@@ -162,4 +162,4 @@ def test_every_mutating_route_is_protected(client: TestClient) -> None:
     for name, route in routes.items():
         assert "403" in declared[name]["responses"], name
         calls = {dependency.call for dependency in route.dependant.dependencies}
-        assert (throttle in calls) != (name in NOT_THROTTLED), name
+        assert OWN_WINDOW.get(name, throttle) in calls, name

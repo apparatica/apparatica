@@ -2,9 +2,9 @@
 
 A submission is checked against the current version of a published problem with the default
 toolchain profile of its language and a fresh 63-bit seed: the triple makes a run reproducible
-(specs/04 §1). A submission belongs to its author, a guest until accounts arrive (phase 2): other
-callers get NOT_FOUND, as if it did not exist. Before it is stored come the quotas of the author
-(`quotas`), the captcha (`apparatica.captcha.service`), then the checks of the address.
+(specs/04 §1). A submission belongs to its author, the signed-in user or a guest: other callers
+get NOT_FOUND, as if it did not exist. Before it is stored come the quotas of the author
+(`quotas`), the captcha of a guest (`apparatica.captcha.service`), then the checks of the address.
 
 The submission is committed before it is queued, so that a worker finds what it is given. A queue
 that cannot be reached fails the submission with `internal_error`: it would otherwise wait forever.
@@ -13,6 +13,7 @@ that cannot be reached fails the submission with `internal_error`: it would othe
 import base64
 import secrets
 import uuid
+from collections.abc import Sequence
 from datetime import UTC, datetime
 from typing import get_args
 
@@ -118,7 +119,9 @@ async def create_submission(
         problem_id=version.problem_id,
         resource_class=version.resource_class,
     )
-    await captcha.check(author.guest_id, author.address, request.captcha)
+    guest = author.guest_id if author.user_id is None else None  # users need no captcha
+    if guest is not None:
+        await captcha.check(guest, author.address, request.captcha)
     await quotas.admit_address(author)
 
     submission = SubmissionRow(
@@ -129,12 +132,14 @@ async def create_submission(
         seed=secrets.randbits(63),
         toolchain_profile_id=profile.id,
         queue_class=version.resource_class,
-        guest_id=author.guest_id,
+        guest_id=guest,
+        user_id=author.user_id,
         client_ip_hash=author.address,
     )
     session.add(submission)
     await session.commit()
-    await captcha.count(author.guest_id, author.address)
+    if guest is not None:
+        await captcha.count(guest, author.address)
     job = JudgeJob(
         submission_id=submission.id,
         token=tokens.issue(submission.id),
@@ -160,23 +165,26 @@ async def create_submission(
         await session.commit()
         raise ApiError(ErrorCode.JUDGE_UNAVAILABLE, "The queue of checks is unavailable") from error
     if submission.kind == "run":
-        await preempt_runs(session, submission, version.problem_id, queue)
-    result = await get_submission(session, submission.id, queue, author.guest_id, waveview=waveview)
+        await preempt_runs(session, submission, version.problem_id, queue, author)
+    result = await get_submission(session, submission.id, queue, author, waveview=waveview)
     assert result is not None
-    return SubmissionCreated(**dict(result), quota=await quotas.status(session, author.guest_id))
+    return SubmissionCreated(**dict(result), quota=await quotas.status(session, author))
 
 
 async def preempt_runs(
-    session: AsyncSession, submission: SubmissionRow, problem_id: uuid.UUID, queue: JobQueue
+    session: AsyncSession,
+    submission: SubmissionRow,
+    problem_id: uuid.UUID,
+    queue: JobQueue,
+    author: Author,
 ) -> None:
-    """A new Run cancels the unfinished Runs of the same problem by the same author (FR-JDG-10).
-    The author is a guest until accounts arrive (phase 2)."""
+    """A new Run cancels the unfinished Runs of the same problem by the same author (FR-JDG-10)."""
     previous = await session.scalars(
         select(SubmissionRow.id)
         .join(ProblemVersion, ProblemVersion.id == SubmissionRow.problem_version_id)
         .where(
             ProblemVersion.problem_id == problem_id,
-            SubmissionRow.guest_id == submission.guest_id,
+            author.owns(),
             SubmissionRow.kind == "run",
             SubmissionRow.status.in_(("queued", "running")),
             SubmissionRow.id != submission.id,
@@ -190,17 +198,11 @@ async def preempt_runs(
 
 
 async def cancel_submission(
-    session: AsyncSession, submission_id: uuid.UUID, queue: JobQueue, guest_id: uuid.UUID | None
+    session: AsyncSession, submission_id: uuid.UUID, queue: JobQueue, author: Author
 ) -> None:
     """Ask for the cancellation; the status changes when the ingestor stores it (`finalized`)."""
-    status = (
-        await session.scalar(
-            select(SubmissionRow.status).where(
-                SubmissionRow.id == submission_id, SubmissionRow.guest_id == guest_id
-            )
-        )
-        if guest_id is not None  # `== None` would match the submissions without an author
-        else None
+    status = await session.scalar(
+        select(SubmissionRow.status).where(SubmissionRow.id == submission_id, author.owns())
     )
     if status is None:
         raise ApiError(ErrorCode.NOT_FOUND, f"No submission {submission_id}")
@@ -216,19 +218,17 @@ async def get_submission(
     session: AsyncSession,
     submission_id: uuid.UUID,
     queue: JobQueue,
-    guest_id: uuid.UUID | None,
+    author: Author,
     *,
     waveview: str | None = None,
 ) -> Submission | None:
-    """The submission if `guest_id` is its author; `waveview` is the origin of the viewer site."""
-    if guest_id is None:  # `== None` would match the submissions without an author
-        return None
+    """The submission of this author; `waveview` is the origin of the viewer site."""
     row = await session.execute(
         select(SubmissionRow, ProblemVersion, Problem.slug, ToolchainProfile.waveview)
         .join(ProblemVersion, ProblemVersion.id == SubmissionRow.problem_version_id)
         .join(Problem, Problem.id == ProblemVersion.problem_id)
         .join(ToolchainProfile, ToolchainProfile.id == SubmissionRow.toolchain_profile_id)
-        .where(SubmissionRow.id == submission_id, SubmissionRow.guest_id == guest_id)
+        .where(SubmissionRow.id == submission_id, author.owns())
     )
     found = row.one_or_none()
     if found is None:
@@ -308,11 +308,13 @@ async def get_submission(
 
 
 async def watch_submission(
-    session: AsyncSession, submission_id: uuid.UUID, guest_id: uuid.UUID | None
+    session: AsyncSession, submission_id: uuid.UUID, author: Author
 ) -> Watched | None:
     """What the event stream of a submission needs (specs/07 §4.2), for its author."""
-    submission = await session.get(SubmissionRow, submission_id)
-    if submission is None or guest_id is None or submission.guest_id != guest_id:
+    submission = await session.scalar(
+        select(SubmissionRow).where(SubmissionRow.id == submission_id, author.owns())
+    )
+    if submission is None:
         return None
     journal = await session.scalar(
         select(Artifact.storage_key)
@@ -337,26 +339,30 @@ async def watch_submission(
 
 async def list_submissions(
     session: AsyncSession,
-    guest_id: uuid.UUID | None,
+    author: Author,
     *,
     problem: str | None,
+    statuses: Sequence[str] = (),
     cursor: str | None,
     limit: int,
 ) -> tuple[list[SubmissionSummary], str | None]:
-    """A page of the submissions of a guest, newest first, and the cursor of the next page."""
+    """A page of the submissions of the author, newest first, and the cursor of the next page;
+    `problem` and any of `statuses` filter them (FR-USR-03)."""
     after = _decode_cursor(cursor) if cursor is not None else None
-    if guest_id is None:
+    if author.key is None:
         return [], None
     query = (
         select(SubmissionRow, ProblemVersion, Problem.slug)
         .join(ProblemVersion, ProblemVersion.id == SubmissionRow.problem_version_id)
         .join(Problem, Problem.id == ProblemVersion.problem_id)
-        .where(SubmissionRow.guest_id == guest_id)
+        .where(author.owns())
         .order_by(SubmissionRow.created_at.desc(), SubmissionRow.id.desc())
         .limit(limit + 1)
     )
     if problem is not None:
         query = query.where(Problem.slug == problem)
+    if statuses:
+        query = query.where(SubmissionRow.status.in_(statuses))
     if after is not None:
         query = query.where(tuple_(SubmissionRow.created_at, SubmissionRow.id) < after)
     rows = (await session.execute(query)).all()

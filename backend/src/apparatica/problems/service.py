@@ -4,6 +4,7 @@ A problem is visible once published; its versions up to the current one stay rea
 submissions refer to them), newer imported ones are not visible until they are published.
 """
 
+import uuid
 from collections.abc import Sequence
 from decimal import Decimal
 from typing import Any
@@ -14,10 +15,12 @@ from sqlalchemy import (
     Float,
     Select,
     Text,
+    and_,
     cast,
     exists,
     func,
     literal,
+    null,
     or_,
     select,
 )
@@ -25,7 +28,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
 from apparatica.problems import assets
-from apparatica.problems.models import Problem, ProblemStats, ProblemVersion, Tag
+from apparatica.problems.models import (
+    Problem,
+    ProblemStats,
+    ProblemVersion,
+    Tag,
+    UserProblemStatus,
+)
 from apparatica.problems.schemas import (
     DifficultyTotal,
     PipelineInfo,
@@ -81,17 +90,32 @@ async def list_problems(
     sort: Sort,
     page: int,
     per_page: int,
+    user_id: uuid.UUID | None = None,
+    statuses: Sequence[str] = (),
 ) -> ProblemPage:
-    """Filters of one kind are alternatives (any of the levels, any of the tags). Problems without
-    an acceptance rate sort after the others in both directions."""
+    """Filters of one kind are alternatives (any of the levels, any of the tags, any of the
+    `statuses` of the user). Problems without an acceptance rate sort after the others in both
+    directions. With `user_id` the problems and the progress carry the statuses of the user."""
+    current = _current()
+    status: ColumnElement[Any] = null()  # the guest's are in the browser
+    solved: ColumnElement[Any] = null()
+    if user_id is not None:
+        mine = and_(
+            UserProblemStatus.problem_id == Problem.id, UserProblemStatus.user_id == user_id
+        )
+        current = current.outerjoin(UserProblemStatus, mine)
+        status = func.coalesce(UserProblemStatus.status, "not_started")
+        solved = func.count().filter(UserProblemStatus.status == "solved")
     conditions: list[ColumnElement[bool]] = []
+    if statuses:
+        conditions.append(status.in_(statuses))
     if difficulties:
         conditions.append(ProblemVersion.difficulty.in_(difficulties))
     if tags:
         conditions.append(ProblemVersion.tags.overlap(literal(list(tags), ARRAY(Text))))
     if q and q.strip():
         conditions.append(_matches(q.strip()))
-    filtered = _current().where(*conditions)
+    filtered = current.where(*conditions)
 
     total = await session.scalar(select(func.count()).select_from(filtered.subquery()))
     # Levels unknown to the configuration sort after the known ones.
@@ -106,7 +130,7 @@ async def list_problems(
     key = keys[sort.removeprefix("-")]
     order = [(key.desc() if sort.startswith("-") else key.asc()).nulls_last(), Problem.number]
     rows = await session.execute(
-        filtered.add_columns(acceptance)
+        filtered.add_columns(acceptance, status)
         .outerjoin(ProblemStats, ProblemStats.problem_id == Problem.id)
         .order_by(*order)
         .limit(per_page)
@@ -120,20 +144,22 @@ async def list_problems(
             difficulty=version.difficulty,
             tags=version.tags,
             acceptance=None if rate is None else round(rate, 4),
-            status=None,
+            status=problem_status,
         )
-        for problem, version, rate in rows
+        for problem, version, rate, problem_status in rows
     ]
 
     levels = await session.execute(
-        _current()
-        .with_only_columns(ProblemVersion.difficulty, func.count())
-        .group_by(ProblemVersion.difficulty)
+        current.with_only_columns(ProblemVersion.difficulty, func.count(), solved).group_by(
+            ProblemVersion.difficulty
+        )
     )
-    counts = {level: count for level, count in levels}
+    counts = {level: (count, done) for level, count, done in levels}
+    empty = (0, None if user_id is None else 0)
     progress = [
-        DifficultyTotal(difficulty=key, total=counts.get(key, 0), solved=None)
+        DifficultyTotal(difficulty=key, total=count, solved=done)
         for key in difficulty_order
+        for count, done in [counts.get(key, empty)]
     ]
     return ProblemPage(
         items=items, page=page, per_page=per_page, total=total or 0, progress=progress

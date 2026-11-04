@@ -1,11 +1,11 @@
 """The own account `/me` and public profiles `/users/{nick}` (specs/05 §3, phase 2): the contract,
-stubs until T2.7-T2.9. Every `/me` route answers UNAUTHENTICATED without a session.
+stubs until T2.8-T2.9. Every `/me` route answers UNAUTHENTICATED without a session.
 """
 
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, status
+from fastapi import APIRouter, Depends, Path, Request, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,9 +13,11 @@ from apparatica.auth.accounts import change_nick, me
 from apparatica.auth.models import User
 from apparatica.auth.schemas import Me, Nick
 from apparatica.auth.sessions import SignedIn
-from apparatica.auth.throttle import throttle
+from apparatica.auth.throttle import draft_throttle, throttle
 from apparatica.core.db import get_session
 from apparatica.core.errors import ApiError, ErrorCode, problem_responses
+from apparatica.core.http import PRIVATE
+from apparatica.users import drafts
 from apparatica.users.schemas import AccountExport, Draft, DraftSave, MeUpdate, Profile
 
 router = APIRouter(tags=["users"])
@@ -135,23 +137,25 @@ async def export_me() -> AccountExport:
     "/me/drafts/{slug}",
     response_model=Draft,
     responses=problem_responses(
-        ErrorCode.NOT_IMPLEMENTED,
         ErrorCode.UNAUTHENTICATED,
         ErrorCode.NOT_FOUND,
         ErrorCode.VALIDATION_ERROR,
     ),
     openapi_extra=PHASE_2,
 )
-async def get_draft(slug: Slug) -> Draft:
+async def get_draft(response: Response, signed_in: SignedIn, session: Session, slug: Slug) -> Draft:
     """The saved draft of a problem; NOT_FOUND: none (FR-EDT-02)."""
-    raise _stub("T2.7")
+    draft = await drafts.get_draft(session, signed_in.user_id, slug)
+    if draft is None:
+        raise ApiError(ErrorCode.NOT_FOUND, f"No draft of {slug!r}")
+    response.headers["Cache-Control"] = PRIVATE
+    return draft
 
 
 @router.put(
     "/me/drafts/{slug}",
     response_model=Draft,
     responses=problem_responses(
-        ErrorCode.NOT_IMPLEMENTED,
         ErrorCode.UNAUTHENTICATED,
         ErrorCode.CSRF_FAILED,
         ErrorCode.NOT_FOUND,
@@ -159,11 +163,29 @@ async def get_draft(slug: Slug) -> Draft:
         ErrorCode.VALIDATION_ERROR,
         ErrorCode.RATE_LIMITED,
     ),
+    dependencies=[Depends(draft_throttle)],
     openapi_extra=PHASE_2,
 )
-async def save_draft(slug: Slug, body: DraftSave) -> Draft:
-    """Save the draft of a published problem; the last save wins. NOT_FOUND: no such problem."""
-    raise _stub("T2.7")
+async def save_draft(
+    request: Request,
+    response: Response,
+    signed_in: SignedIn,
+    session: Session,
+    slug: Slug,
+    body: DraftSave,
+) -> Draft:
+    """Save the draft of a published problem; the last save wins. NOT_FOUND: no such problem.
+    RATE_LIMITED: the autosave has its own window, apart from the other requests."""
+    draft = await drafts.save_draft(
+        session,
+        signed_in.user_id,
+        slug,
+        body,
+        limits=request.app.state.platform.limits.solution,
+        now=datetime.now(UTC),
+    )
+    response.headers["Cache-Control"] = PRIVATE
+    return draft
 
 
 @router.get(

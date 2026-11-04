@@ -9,6 +9,12 @@ requests_per_ip:
 requests_per_author:
   limit: 30
   window_s: 60
+# Autosaves of drafts of one signed-in user (FR-EDT-02): a second after the last change, so a steady
+# typist sends up to one a second. Its own window: typing spends neither the requests above nor
+# those of an address a class shares.
+drafts_per_user:
+  limit: 120
+  window_s: 60
 # Checks of guests who drop their cookie; generous, since a classroom shares one address.
 checks_per_ip:
   limit: 300

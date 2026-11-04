@@ -29,7 +29,7 @@ from apparatica.submissions.models import Artifact, StageResult, ToolchainProfil
 from apparatica.submissions.models import Submission as SubmissionRow
 from apparatica.submissions.models import Waveform as WaveformRow
 from apparatica.submissions.queue import QUEUE_UNAVAILABLE, JobQueue, QueueUnavailableError
-from apparatica.submissions.quotas import Quotas
+from apparatica.submissions.quotas import Author, Quotas
 from apparatica.submissions.schemas import (
     ArtifactKind,
     ArtifactState,
@@ -143,18 +143,16 @@ async def download_url(
     submission_id: uuid.UUID,
     kind: ArtifactKind,
     stage: str | None,
-    guest_id: uuid.UUID | None,
+    author: Author,
 ) -> str:
     """A presigned URL of the latest file of this kind and stage that is still kept."""
-    if guest_id is None:  # `== None` would match the submissions without an author
-        raise ApiError(ErrorCode.NOT_FOUND, f"No submission {submission_id}")
     now = datetime.now(UTC)
     artifact = await session.scalar(
         select(Artifact)
         .join(SubmissionRow, SubmissionRow.id == Artifact.submission_id)
         .where(
             Artifact.submission_id == submission_id,
-            SubmissionRow.guest_id == guest_id,
+            author.owns(),
             Artifact.kind == kind,
             Artifact.stage_key.is_(None) if stage is None else Artifact.stage_key == stage,
             Artifact.purged_at.is_(None),
@@ -176,23 +174,23 @@ async def request_waveform(
     submission_id: uuid.UUID,
     request: WaveformRequest,
     *,
-    guest_id: uuid.UUID | None,
+    author: Author,
     tokens: JobTokens,
     queue: JobQueue,
     quotas: Quotas,
 ) -> SubmissionArtifact:
     """The FST of the failure window: as it is while kept or being recorded, else a new job."""
-    if request.scope == "full_test":  # accounts arrive in phase 2
-        raise ApiError(ErrorCode.UNAUTHENTICATED, "A whole test is recorded for signed-in users")
+    if request.scope == "full_test":
+        if author.user_id is None:
+            raise ApiError(
+                ErrorCode.UNAUTHENTICATED, "A whole test is recorded for signed-in users"
+            )
+        raise ApiError(ErrorCode.NOT_IMPLEMENTED, "A whole test cannot be recorded yet")
     # Locked: two requests at once queue one job.
-    submission = (
-        await session.scalar(
-            select(SubmissionRow)
-            .where(SubmissionRow.id == submission_id, SubmissionRow.guest_id == guest_id)
-            .with_for_update()
-        )
-        if guest_id is not None
-        else None
+    submission = await session.scalar(
+        select(SubmissionRow)
+        .where(SubmissionRow.id == submission_id, author.owns())
+        .with_for_update()
     )
     if submission is None:
         raise ApiError(ErrorCode.NOT_FOUND, f"No submission {submission_id}")
@@ -231,8 +229,7 @@ async def request_waveform(
         if current.state in ("ready", "pending"):
             return current
 
-    assert guest_id is not None
-    await quotas.admit_waveform(guest_id)
+    await quotas.admit_waveform(author)
     row = WaveformRow(
         id=uuid7(), submission_id=submission_id, stage_key=stage.stage_key, status="pending"
     )

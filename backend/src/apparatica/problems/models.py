@@ -1,4 +1,5 @@
-"""Tables of problems, their immutable versions, tags and reference solutions (specs/04 §4)."""
+"""Tables of problems, their immutable versions, tags, reference solutions and the statuses of
+problems for each user (specs/04 §4)."""
 
 import uuid
 from datetime import datetime
@@ -85,6 +86,27 @@ class ProblemStats(Base):
     authors: Mapped[int]  # with a judged Submit
     accepted_authors: Mapped[int]  # with an accepted Submit
     updated_at: Mapped[datetime]
+
+
+class UserProblemStatus(Base):
+    """Whether a user solved or tried a problem (FR-CAT-03, FR-USR-06): the ingestor writes it when
+    a check of the user ends, the catalogue and the profile read it."""
+
+    __tablename__ = "user_problem_status"
+    __table_args__ = (
+        CheckConstraint("status IN ('attempted', 'solved')", name="status"),
+        CheckConstraint(
+            "(status = 'solved') = (first_solved_at IS NOT NULL)", name="solved_at_iff_solved"
+        ),
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    problem_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("problems.id"), primary_key=True)
+    status: Mapped[str]
+    first_solved_at: Mapped[datetime | None]  # the first accepted Submit
+    last_submission_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("submissions.id"))
 
 
 class ReferenceSolution(Base):

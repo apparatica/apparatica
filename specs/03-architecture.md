@@ -99,7 +99,7 @@ backend/src/apparatica/
   admin/         SQLAdmin-представления и действия
 ```
 
-Зависимости модулей: `submissions → problems, auth`, `users → submissions, auth, problems`, `judging → submissions, leaderboards, users`, `leaderboards → problems, users`, `moderation → problems, submissions, users`. Модуль `core` ни от кого не зависит. Аккаунт (пользователь, входы, сессии) принадлежит `auth`: его создаёт первый вход, а отправкам нужен автор запроса; `users` стоит выше `submissions`, потому что история, профиль и экспорт читают отправки.
+Зависимости модулей: `submissions → problems, auth`, `problems → auth`, `users → submissions, auth, problems`, `judging → submissions, problems, leaderboards, users`, `leaderboards → problems, users`, `moderation → problems, submissions, users`. Модуль `core` ни от кого не зависит. Аккаунт (пользователь, входы, сессии) принадлежит `auth`: его создаёт первый вход, а отправкам нужен автор запроса; `users` стоит выше `submissions`, потому что история, профиль и экспорт читают отправки. Статусы задач пользователя (`user_problem_status`) принадлежат `problems`, как и процент принятых: каталог фильтрует и сортирует по ним в одном запросе, поэтому `problems` читает сессию из `auth`, а пишет статусы ингестор (`judging`).
 
 ## 4. C4 — компоненты судьи
 

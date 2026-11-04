@@ -149,7 +149,8 @@ def create_app(
     app.state.auth_providers = _auth_providers(oauth_logins, email_logins)
     app.state.client_addresses = addresses
     app.state.rate_limiter = limiter
-    app.state.quotas = Quotas(platform.limits.quotas.guest, limiter, platform.rate_limits)
+    quotas = platform.limits.quotas
+    app.state.quotas = Quotas(quotas.guest, quotas.user, limiter, platform.rate_limits)
     app.state.captcha = Captcha(altcha, limiter, captcha_rules, app.state.flags)
     install_error_handlers(app)
     app.add_middleware(CsrfMiddleware, secure=settings.cookie_secure)

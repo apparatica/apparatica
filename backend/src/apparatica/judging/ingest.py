@@ -10,7 +10,9 @@ under a row lock of the submission, so that a redelivered or reordered record ch
 - `done` stores every stage result of the attempt and its artifacts and aggregates the verdict
   with the judge core; `attempt_failed` ends the check with internal_error;
 - a finished submission takes no more records; a final record for it publishes `finalized` again,
-  in case the first publication was lost.
+  in case the first publication was lost;
+- the end of a check of a signed-in user updates their status of the problem in the same
+  transaction (`apparatica.problems.progress`, FR-USR-06).
 
 A `waveform` record ends a recreated FST (FR-WAV-05) under a row lock of its `waveforms` row: the
 FST becomes an artifact and the row `ready`, or the row is `failed`. Only a ready row is final, so
@@ -34,6 +36,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from apparatica.core.db import Database
 from apparatica.core.ids import uuid7
 from apparatica.judging.retention import Retention
+from apparatica.problems.progress import record_check
 from apparatica.submissions.events import FinalizedEvent
 from apparatica.submissions.models import Artifact, Submission, Waveform
 from apparatica.submissions.models import StageResult as StageResultRow
@@ -116,7 +119,7 @@ class Ingestor:
             if submission is None or submission.status != "queued":
                 return None
             log.info("waiting check cancelled", submission_id=str(submission_id))
-            return finalize(submission, Verdict(status="cancelled"), self.clock())
+            return await finalize(session, submission, Verdict(status="cancelled"), self.clock())
 
     async def _apply_waveform(self, session: AsyncSession, record: WaveformRecord) -> None:
         waveform = await session.get(Waveform, record.waveform_id, with_for_update=True)
@@ -201,7 +204,7 @@ class Ingestor:
             attempt=record.attempt,
             status=verdict.status,
         )
-        return finalize(submission, verdict, now)
+        return await finalize(session, submission, verdict, now)
 
     async def _store_artifacts(
         self, session: AsyncSession, submission: Submission, record: DoneRecord
@@ -298,11 +301,23 @@ def internal_error(code: str) -> Verdict:
     return Verdict(status="internal_error", detail=VerdictDetail(error_codes=[code]))
 
 
-def finalize(submission: Submission, verdict: Verdict, now: datetime) -> FinalizedEvent:
+async def finalize(
+    session: AsyncSession, submission: Submission, verdict: Verdict, now: datetime
+) -> FinalizedEvent:
     """The final status of a submission (only the ingestor sets it) and its event."""
     submission.status = verdict.status
     submission.verdict_detail = verdict.detail.model_dump(mode="json")
     submission.finished_at = now
+    if submission.user_id is not None:
+        await record_check(
+            session,
+            user_id=submission.user_id,
+            problem_version_id=submission.problem_version_id,
+            submission_id=submission.id,
+            kind=submission.kind,
+            status=verdict.status,
+            finished_at=now,
+        )
     return finalized(submission)
 
 

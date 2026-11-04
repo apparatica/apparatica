@@ -69,7 +69,7 @@ layers = [
     "apparatica.admin | apparatica.judging",
     "apparatica.users",
     "apparatica.submissions",
-    "apparatica.captcha | apparatica.auth",
     "apparatica.problems",
+    "apparatica.captcha | apparatica.auth",
     "apparatica.core",
 ]

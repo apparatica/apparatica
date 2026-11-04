@@ -7,9 +7,10 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Path, Query, Request, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from apparatica.auth.sessions import CurrentSession
 from apparatica.core.db import get_session
 from apparatica.core.errors import ApiError, ErrorCode, problem_responses
-from apparatica.core.http import IMMUTABLE, cached_bytes, cached_json
+from apparatica.core.http import IMMUTABLE, PRIVATE, PUBLIC, cached_bytes, cached_json
 from apparatica.problems import service
 from apparatica.problems.assets import PICTURES, picture_type
 from apparatica.problems.schemas import (
@@ -46,12 +47,13 @@ async def list_tags(request: Request, session: Session) -> Response:
 @router.get(
     "/problems",
     response_model=ProblemPage,
-    responses=problem_responses(ErrorCode.VALIDATION_ERROR, ErrorCode.NOT_IMPLEMENTED),
+    responses=problem_responses(ErrorCode.VALIDATION_ERROR, ErrorCode.UNAUTHENTICATED),
     openapi_extra=PHASE_0,
 )
 async def list_problems(
     request: Request,
     session: Session,
+    viewer: CurrentSession,
     difficulty: Annotated[list[str], Query(description="Any of these levels")] = [],  # noqa: B006
     tag: Annotated[list[str], Query(description="Any of these tags")] = [],  # noqa: B006
     q: Annotated[str | None, Query(max_length=100, description="In the title or tags")] = None,
@@ -65,8 +67,11 @@ async def list_problems(
         int | None, Query(ge=1, le=100, description="catalog.per_page of GET /config if unset")
     ] = None,
 ) -> Response:
-    if status:
-        raise ApiError(ErrorCode.NOT_IMPLEMENTED, "The status filter arrives in T2.7")
+    """The published problems. For a signed-in user they carry the statuses of the user, and the
+    answer is private; a guest's browser keeps the guest's statuses (FR-CAT-03), so the `status`
+    filter is UNAUTHENTICATED for a guest."""
+    if status and viewer is None:
+        raise ApiError(ErrorCode.UNAUTHENTICATED, "The status filter is for signed-in users")
     platform = request.app.state.platform
     levels = [level.key for level in platform.difficulties]
     body = await service.list_problems(
@@ -78,8 +83,12 @@ async def list_problems(
         sort=sort,
         page=page,
         per_page=per_page or platform.catalog.per_page,
+        user_id=viewer.user_id if viewer is not None else None,
+        statuses=status,
     )
-    return cached_json(request, body)
+    response = cached_json(request, body, PUBLIC if viewer is None else PRIVATE)
+    response.headers["Vary"] = "Cookie"  # a guest's answer must not be reused after a login
+    return response
 
 
 @router.get(

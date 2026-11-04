@@ -64,13 +64,16 @@ class Submission(Base):
         CheckConstraint("seed >= 0", name="seed_non_negative"),
         CheckConstraint("attempt > 0", name="attempt_positive"),
         Index("ix_submissions_guest_id_created_at", "guest_id", text("created_at DESC")),
+        Index("ix_submissions_user_id_created_at", "user_id", text("created_at DESC")),
         Index("ix_submissions_problem_version_id_status", "problem_version_id", "status"),
         Index("ix_submissions_ast_hash", "ast_hash"),
     )
 
     id: Mapped[uuid.UUID] = uuid_pk()
     problem_version_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("problem_versions.id"))
+    # The author: a signed-in user, else a guest (FR-GST-01); never both.
     guest_id: Mapped[uuid.UUID | None]
+    user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
     kind: Mapped[str]
     code: Mapped[str]  # as sent by the user
     code_hash: Mapped[str | None]  # sha256 of the canonical text, the cache key

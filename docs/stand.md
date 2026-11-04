@@ -45,7 +45,7 @@ just down          # остановить (и мониторинг); данны�
 | `web` | Next.js, standalone-сервер (`web/Dockerfile`); серверный рендер читает `api` напрямую (`API_URL=http://api:8000`) и стартует после него; `S3_PUBLIC_URL` и `WAVEVIEW_URL` — origin хранилища и просмотрщика для CSP страниц |
 | `postgres` | PostgreSQL 17, локаль `builtin C.UTF-8` (регистр символов — средствами PostgreSQL, поиск по кириллице не зависит от ОС образа) |
 | `valkey-queue` | очереди и стримы: AOF, без вытеснения. Пользователи и их ключи — `deploy/valkey/queue-users.acl.in` ([security.md](security.md#права-компонентов)); пароли — `VALKEY_QUEUE_API_PASSWORD`, `VALKEY_QUEUE_WORKER_PASSWORD`, `VALKEY_QUEUE_INGEST_PASSWORD`. API ставит в него проверки как `api`, воркер берёт их как `worker`, ингестор читает результаты как `ingest` |
-| `valkey-cache` | кэш и rate limit: без сохранения на диск, LRU. API хранит в нём счётчики rate limit и квоты волн ([api.md](api.md#гости-и-лимиты-ф1)) |
+| `valkey-cache` | кэш и rate limit: без сохранения на диск, LRU. API хранит в нём счётчики rate limit и квоты волн ([api.md](api.md#авторы-и-лимиты)) |
 | `garage` | S3-хранилище (ADR-0013), один узел |
 | `waveview` | одноразовый: копирует сайт просмотрщика из образа `WAVEVIEW_IMAGE` (по умолчанию `ghcr.io/apparatica/waveview:<версия>`) в том для `garage-setup`; локальная сборка — `WAVEVIEW_IMAGE=apparatica-waveview:dev` ([waveview.md](waveview.md)) |
 | `garage-setup` | одноразовый: раскладка узла, бакеты, ключи компонентов и их права, сайт `waveview` и загрузка в него новых версий просмотрщика, CORS, правила жизненного цикла (`deploy/garage/setup.py`) |

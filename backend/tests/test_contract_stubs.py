@@ -14,11 +14,7 @@ PROBLEM = "application/problem+json"
         ("DELETE", "/api/v1/me", None),
         ("POST", "/api/v1/me/restore", None),
         ("GET", "/api/v1/me/export", None),
-        ("GET", "/api/v1/me/drafts/mux4", None),
-        ("PUT", "/api/v1/me/drafts/mux4", {"code": "module m; endmodule", "problem_version": 2}),
         ("GET", "/api/v1/users/ada", None),
-        ("GET", "/api/v1/problems?status=solved", None),
-        ("GET", "/api/v1/submissions?status=accepted", None),
     ],
 )
 def test_stubs_are_not_implemented(client: TestClient, method: str, path: str, body: Any) -> None:
@@ -37,7 +33,6 @@ def test_stubs_are_not_implemented(client: TestClient, method: str, path: str, b
         ("GET", "/api/v1/auth/github/login?next=https://evil.example", None),
         ("POST", "/api/v1/auth/email/request", {"email": "not-an-address"}),
         ("POST", "/api/v1/auth/email/verify", {"token": "short"}),
-        ("PUT", "/api/v1/me/drafts/mux4", {"code": "", "problem_version": 0}),
         ("GET", "/api/v1/users/no%20such", None),
         ("GET", "/api/v1/problems?status=won", None),
         ("GET", "/api/v1/submissions?status=won", None),

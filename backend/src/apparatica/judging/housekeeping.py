@@ -38,6 +38,7 @@ from apparatica.judging.leader import Leadership
 from apparatica.judging.publish import publish_finalized
 from apparatica.problems.models import Problem as ProblemRow
 from apparatica.problems.models import ProblemStats, ProblemVersion
+from apparatica.problems.progress import ACCEPTED
 from apparatica.submissions.events import FinalizedEvent
 from apparatica.submissions.models import Artifact, Submission, Waveform
 from judge.core.jobs import ATTEMPT_MAX, lease_key
@@ -48,7 +49,6 @@ from judge.core.stage import SubmissionKind
 log = structlog.get_logger(__name__)
 
 WATCHDOG_TIMEOUT = "WATCHDOG_TIMEOUT"
-ACCEPTED = ("accepted", "accepted_with_warnings")
 UNJUDGED = ("queued", "running", "cancelled", "internal_error")  # no verdict on the solution
 FALLBACK_CHECK_TIMEOUT_S = 3600.0  # the limits of a version that no longer parses
 Clock = Callable[[], datetime]
@@ -137,7 +137,7 @@ class Watchdog:
             submission = await session.get(Submission, submission_id, with_for_update=True)
             if submission is None or submission.status != "running":  # the ingestor was faster
                 return None
-            return finalize(submission, internal_error(WATCHDOG_TIMEOUT), now)
+            return await finalize(session, submission, internal_error(WATCHDOG_TIMEOUT), now)
 
 
 @dataclass
@@ -199,7 +199,8 @@ class GuestPurge:
                 await session.scalars(
                     select(Submission.id)
                     .where(
-                        Submission.guest_id.is_not(None),  # phase 2: and no user
+                        Submission.guest_id.is_not(None),
+                        Submission.user_id.is_(None),
                         Submission.created_at < cutoff,
                         Submission.status.not_in(("queued", "running")),  # the ingestor's
                     )
@@ -294,7 +295,7 @@ class ProblemStatsRefresh:
     async def __call__(self) -> int:
         """Counts the authors of every problem, over all its versions; returns how many problems.
         Guest submissions count while they are kept (`guest_submissions_days`)."""
-        author = Submission.guest_id  # phase 2: the user, or the guest
+        author = func.coalesce(Submission.user_id, Submission.guest_id)
         counts = (
             select(
                 ProblemRow.id,

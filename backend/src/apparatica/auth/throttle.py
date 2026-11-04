@@ -39,6 +39,24 @@ async def throttle(request: Request, guest: Guest, session: CurrentSession) -> N
             )
 
 
+async def draft_throttle(request: Request, session: CurrentSession) -> None:
+    """FastAPI dependency of the autosave of drafts: RATE_LIMITED (`quota: requests`) when the user
+    saves too often (`drafts_per_user`). Its own window: typing spends neither the requests of the
+    author nor those of an address a class shares. A guest has nothing to save here."""
+    if session is None:
+        return
+    window = request.app.state.platform.rate_limits.drafts_per_user
+    retry = await request.app.state.rate_limiter.hit(window, "drafts:user", str(session.user_id))
+    if retry is not None:
+        raise rate_limited(
+            "requests",
+            f"At most {window.limit} saves of drafts per {window.window_s} s",
+            limit=window.limit,
+            window_s=window.window_s,
+            retry_after_s=retry,
+        )
+
+
 async def login_throttle(request: Request) -> None:
     """FastAPI dependency of a route that starts a login or uses a login link: RATE_LIMITED
     (`quota: logins`) when the address does it too often."""

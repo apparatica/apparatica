@@ -26,7 +26,7 @@ from apparatica.main import create_app
 from apparatica.problems.models import Problem, ProblemVersion
 from apparatica.submissions.models import Submission
 from apparatica.submissions.profiles import add_profile
-from apparatica.submissions.quotas import Quotas
+from apparatica.submissions.quotas import Author, Quotas
 from conftest import CONFIG_DIR, ApiClient, Postgres, as_guest, forget_guest, repo_version
 
 KEY = b"k" * 32
@@ -123,8 +123,8 @@ def test_the_waveform_quota() -> None:
     async def scenario() -> None:
         config = load_platform_config(CONFIG_DIR)
         quota = Quota(checks_per_hour=10, concurrent=1, heavy_per_day=0, waveforms_per_hour=2)
-        quotas = Quotas(quota, RateLimiter.connect(None), config.rate_limits)
-        guest = uuid.uuid4()
+        quotas = Quotas(quota, quota, RateLimiter.connect(None), config.rate_limits)
+        guest = Author(guest_id=uuid.uuid4())
         await quotas.admit_waveform(guest)
         await quotas.admit_waveform(guest)
         with pytest.raises(ApiError) as spent:
@@ -134,7 +134,9 @@ def test_the_waveform_quota() -> None:
         assert 3500 < spent.value.params["retry_after_s"] <= 3600
         none = Quota(checks_per_hour=10, concurrent=1, heavy_per_day=0, waveforms_per_hour=0)
         with pytest.raises(ApiError):
-            await Quotas(none, RateLimiter.connect(None), config.rate_limits).admit_waveform(guest)
+            await Quotas(none, none, RateLimiter.connect(None), config.rate_limits).admit_waveform(
+                guest
+            )
 
     asyncio.run(scenario())
 
@@ -393,6 +395,7 @@ def test_rate_limits_of_requests(database_url: str, queue: RecordingQueue, tmp_p
     (tmp_path / "rate-limits.yaml").write_text(
         "requests_per_ip: {limit: 3, window_s: 60}\n"
         "requests_per_author: {limit: 2, window_s: 60}\n"
+        "drafts_per_user: {limit: 100, window_s: 60}\n"
         "checks_per_ip: {limit: 1, window_s: 3600}\n"
         "logins_per_ip: {limit: 100, window_s: 600}\n"
         "logins_per_email: {limit: 5, window_s: 3600}\n"

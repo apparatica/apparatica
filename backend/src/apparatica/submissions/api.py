@@ -1,7 +1,9 @@
-"""Submissions (specs/05 §3). The author is the guest of the `ap_guest` cookie, which the first
-submission sets (FR-GST-01); a submission of someone else is NOT_FOUND."""
+"""Submissions (specs/05 §3). The author is the signed-in user, else the guest of the `ap_guest`
+cookie, which the first submission of a guest sets (FR-GST-01); a submission of someone else is
+NOT_FOUND."""
 
 import uuid
+from dataclasses import replace
 from typing import Annotated
 
 import structlog
@@ -10,6 +12,7 @@ from fastapi.responses import RedirectResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from apparatica.auth.guests import Guest
+from apparatica.auth.sessions import CurrentSession
 from apparatica.auth.throttle import throttle
 from apparatica.core.db import get_session
 from apparatica.core.errors import ApiError, ErrorCode, problem_responses
@@ -49,6 +52,17 @@ async def _submission_id(id: uuid.UUID) -> uuid.UUID:
 SubmissionId = Annotated[uuid.UUID, Depends(_submission_id)]
 
 
+async def current_author(request: Request, guest: Guest, session: CurrentSession) -> Author:
+    """The author of the request: the signed-in user, else the guest of the cookie, if any."""
+    address = request.app.state.client_addresses.hash(request)
+    if session is not None:
+        return Author(user_id=session.user_id, address=address)
+    return Author(guest_id=guest, address=address)
+
+
+CurrentAuthor = Annotated[Author, Depends(current_author)]
+
+
 @router.post(
     "/submissions",
     status_code=status.HTTP_202_ACCEPTED,
@@ -68,14 +82,20 @@ SubmissionId = Annotated[uuid.UUID, Depends(_submission_id)]
     openapi_extra=PHASE_0,
 )
 async def create_submission(
-    request: Request, response: Response, session: Session, body: SubmissionCreate, guest: Guest
+    request: Request,
+    response: Response,
+    session: Session,
+    body: SubmissionCreate,
+    author: CurrentAuthor,
 ) -> SubmissionCreated:
     """A Run or a Submit of the current version of a problem; the check runs in the background.
-    Sets the guest cookie with the first submission. RATE_LIMITED: `params.quota` names the
-    spent quota (docs/api.md). CAPTCHA_REQUIRED: solve GET /captcha/challenge and repeat with
-    `captcha`."""
+    Sets the guest cookie with the first submission of a guest. RATE_LIMITED: `params.quota`
+    names the spent quota (docs/api.md). CAPTCHA_REQUIRED (guests only): solve
+    GET /captcha/challenge and repeat with `captcha`."""
     state = request.app.state
-    author = Author(guest_id=guest or uuid.uuid4(), address=state.client_addresses.hash(request))
+    new_guest = uuid.uuid4() if author.key is None else None
+    if new_guest is not None:
+        author = replace(author, guest_id=new_guest)
     submission = await service.create_submission(
         session,
         body,
@@ -88,8 +108,8 @@ async def create_submission(
         waveview=state.settings.waveview_url,
     )
     structlog.contextvars.bind_contextvars(submission_id=str(submission.id))
-    if guest is None:
-        state.guest_cookies.set(response, author.guest_id)
+    if new_guest is not None:
+        state.guest_cookies.set(response, new_guest)
     response.headers["Location"] = str(request.url_for("get_submission", id=submission.id))
     response.headers["Cache-Control"] = PRIVATE
     return submission
@@ -98,33 +118,32 @@ async def create_submission(
 @router.get(
     "/submissions",
     response_model=SubmissionPage,
-    responses=problem_responses(ErrorCode.VALIDATION_ERROR, ErrorCode.NOT_IMPLEMENTED),
+    responses=problem_responses(ErrorCode.VALIDATION_ERROR),
     openapi_extra=PHASE_1,
 )
 async def list_submissions(
     request: Request,
     response: Response,
     session: Session,
-    guest: Guest,
+    author: CurrentAuthor,
     problem: Annotated[Slug | None, Query(description="Slug of a problem")] = None,
     status: Annotated[
         list[SubmissionStatus],
-        Query(description="Any of these statuses (phase 2, FR-USR-03)"),
+        Query(description="Any of these statuses (FR-USR-03)"),
     ] = [],  # noqa: B006
     cursor: Annotated[str | None, Query(max_length=256)] = None,
     limit: Annotated[int, Query(ge=1, le=100)] = 20,
 ) -> SubmissionPage:
-    """Own submissions (the guest by cookie) and the quotas left; empty without a guest."""
-    if status:
-        raise ApiError(ErrorCode.NOT_IMPLEMENTED, "The status filter arrives in T2.7")
+    """Own submissions, newest first, and the quotas left: of the signed-in user, else of the
+    guest by cookie; empty without either."""
     items, next_cursor = await service.list_submissions(
-        session, guest, problem=problem, cursor=cursor, limit=limit
+        session, author, problem=problem, statuses=status, cursor=cursor, limit=limit
     )
     response.headers["Cache-Control"] = PRIVATE
     return SubmissionPage(
         items=items,
         next_cursor=next_cursor,
-        quota=await request.app.state.quotas.status(session, guest),
+        quota=await request.app.state.quotas.status(session, author),
     )
 
 
@@ -135,12 +154,12 @@ async def list_submissions(
     openapi_extra=PHASE_0,
 )
 async def get_submission(
-    request: Request, response: Response, session: Session, guest: Guest, id: SubmissionId
+    request: Request, response: Response, session: Session, author: CurrentAuthor, id: SubmissionId
 ) -> Submission:
     """A submission of the caller with its stages and artifacts."""
     state = request.app.state
     submission = await service.get_submission(
-        session, id, state.job_queue, guest, waveview=state.settings.waveview_url
+        session, id, state.job_queue, author, waveview=state.settings.waveview_url
     )
     if submission is None:
         raise ApiError(ErrorCode.NOT_FOUND, f"No submission {id}")
@@ -166,7 +185,7 @@ async def get_submission(
 async def stream_submission_events(
     request: Request,
     session: Session,
-    guest: Guest,
+    author: CurrentAuthor,
     id: SubmissionId,
     from_: Annotated[
         EventId | None, Query(alias="from", description="Continue after this event id")
@@ -183,7 +202,7 @@ async def stream_submission_events(
     """The live log and progress of a check (specs/07 §4); after the stream expires, the same
     events from the archive. The status is final only with the `finalized` event. While the check
     waits, `queue` events carry its position; they have no `id:`."""
-    watched = await service.watch_submission(session, id, guest)
+    watched = await service.watch_submission(session, id, author)
     if watched is None:
         raise ApiError(ErrorCode.NOT_FOUND, f"No submission {id}")
     after = last_event_id or from_ or "0-0"
@@ -218,11 +237,11 @@ async def stream_submission_events(
     openapi_extra=PHASE_1,
 )
 async def cancel_submission(
-    request: Request, session: Session, guest: Guest, id: SubmissionId
+    request: Request, session: Session, author: CurrentAuthor, id: SubmissionId
 ) -> None:
     """Cancel a queued or running check of the caller; the result comes as `finalized` with
     `cancelled`."""
-    await service.cancel_submission(session, id, request.app.state.job_queue, guest)
+    await service.cancel_submission(session, id, request.app.state.job_queue, author)
 
 
 @router.get(
@@ -241,7 +260,7 @@ async def cancel_submission(
 async def get_artifact(
     request: Request,
     session: Session,
-    guest: Guest,
+    author: CurrentAuthor,
     id: SubmissionId,
     kind: ArtifactKind,
     stage: Annotated[str | None, Query(max_length=64, description="Key of the stage")] = None,
@@ -258,7 +277,7 @@ async def get_artifact(
         submission_id=id,
         kind=kind,
         stage=stage,
-        guest_id=guest,
+        author=author,
     )
     headers = {"Cache-Control": PRIVATE}
     return RedirectResponse(url, status_code=status.HTTP_302_FOUND, headers=headers)
@@ -275,24 +294,29 @@ async def get_artifact(
         ErrorCode.CSRF_FAILED,
         ErrorCode.RATE_LIMITED,
         ErrorCode.JUDGE_UNAVAILABLE,
+        ErrorCode.NOT_IMPLEMENTED,
     ),
     dependencies=[Depends(throttle)],
     openapi_extra=PHASE_1,
 )
 async def request_waveform(
-    request: Request, session: Session, guest: Guest, id: SubmissionId, body: WaveformRequest
+    request: Request,
+    session: Session,
+    author: CurrentAuthor,
+    id: SubmissionId,
+    body: WaveformRequest,
 ) -> SubmissionArtifact:
     """Recreate an expired FST of the failure window with the seed of the submission (FR-WAV-05);
     it is pending until GET /submissions/{id} shows it ready or failed. A kept or pending FST is
     answered as it is, without spending the quota. NOT_FOUND: no such submission or no trace
-    window in it; UNAUTHENTICATED: `full_test` is for signed-in users; RATE_LIMITED:
-    `params.quota` is `waveforms`."""
+    window in it; UNAUTHENTICATED: `full_test` is for signed-in users, NOT_IMPLEMENTED for them
+    until it is done; RATE_LIMITED: `params.quota` is `waveforms`."""
     state = request.app.state
     return await artifacts.request_waveform(
         session,
         id,
         body,
-        guest_id=guest,
+        author=author,
         tokens=state.job_tokens,
         queue=state.job_queue,
         quotas=state.quotas,

@@ -22,6 +22,7 @@ from conftest import CONFIG_DIR, ApiClient
 LIMITS = (
     "requests_per_ip: {limit: 100, window_s: 60}\n"
     "requests_per_author: {limit: 2, window_s: 60}\n"
+    "drafts_per_user: {limit: 100, window_s: 60}\n"
     "checks_per_ip: {limit: 100, window_s: 3600}\n"
     "logins_per_ip: {limit: 2, window_s: 600}\n"
     "logins_per_email: {limit: 5, window_s: 3600}\n"

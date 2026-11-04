@@ -79,7 +79,7 @@ def test_a_new_run_preempts_the_unfinished_runs_of_its_author(database_url: str)
     quota = Quota(checks_per_hour=10, concurrent=3, heavy_per_day=0, waveforms_per_hour=5)
     rules = load_platform_config(CONFIG_DIR).rate_limits
     limiter = RateLimiter.connect(None)
-    quotas = Quotas(quota, limiter, rules)
+    quotas = Quotas(quota, quota, limiter, rules)
     # Five checks of one guest within a minute: more than the captcha allows.
     frequent = rules.captcha.model_copy(update={"per_guest": rules.checks_per_ip})
     altcha = Altcha(b"c" * 32, max_number=1000, expires_s=600)

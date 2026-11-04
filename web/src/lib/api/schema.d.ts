@@ -62,7 +62,12 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** List Problems */
+        /**
+         * List Problems
+         * @description The published problems. For a signed-in user they carry the statuses of the user, and the
+         *     answer is private; a guest's browser keeps the guest's statuses (FR-CAT-03), so the `status`
+         *     filter is UNAUTHENTICATED for a guest.
+         */
         get: operations["list_problems"];
         put?: never;
         post?: never;
@@ -144,16 +149,17 @@ export interface paths {
         };
         /**
          * List Submissions
-         * @description Own submissions (the guest by cookie) and the quotas left; empty without a guest.
+         * @description Own submissions, newest first, and the quotas left: of the signed-in user, else of the
+         *     guest by cookie; empty without either.
          */
         get: operations["list_submissions"];
         put?: never;
         /**
          * Create Submission
          * @description A Run or a Submit of the current version of a problem; the check runs in the background.
-         *     Sets the guest cookie with the first submission. RATE_LIMITED: `params.quota` names the
-         *     spent quota (docs/api.md). CAPTCHA_REQUIRED: solve GET /captcha/challenge and repeat with
-         *     `captcha`.
+         *     Sets the guest cookie with the first submission of a guest. RATE_LIMITED: `params.quota`
+         *     names the spent quota (docs/api.md). CAPTCHA_REQUIRED (guests only): solve
+         *     GET /captcha/challenge and repeat with `captcha`.
          */
         post: operations["create_submission"];
         delete?: never;
@@ -260,8 +266,8 @@ export interface paths {
          * @description Recreate an expired FST of the failure window with the seed of the submission (FR-WAV-05);
          *     it is pending until GET /submissions/{id} shows it ready or failed. A kept or pending FST is
          *     answered as it is, without spending the quota. NOT_FOUND: no such submission or no trace
-         *     window in it; UNAUTHENTICATED: `full_test` is for signed-in users; RATE_LIMITED:
-         *     `params.quota` is `waveforms`.
+         *     window in it; UNAUTHENTICATED: `full_test` is for signed-in users, NOT_IMPLEMENTED for them
+         *     until it is done; RATE_LIMITED: `params.quota` is `waveforms`.
          */
         post: operations["request_waveform"];
         delete?: never;
@@ -504,6 +510,7 @@ export interface paths {
         /**
          * Save Draft
          * @description Save the draft of a published problem; the last save wins. NOT_FOUND: no such problem.
+         *     RATE_LIMITED: the autosave has its own window, apart from the other requests.
          */
         put: operations["save_draft"];
         post?: never;
@@ -2266,6 +2273,15 @@ export interface operations {
                     "application/json": components["schemas"]["ProblemPage"];
                 };
             };
+            /** @description Unauthorized */
+            401: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
             /** @description Unprocessable Content */
             422: {
                 headers: {
@@ -2277,15 +2293,6 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Not Implemented */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2455,7 +2462,7 @@ export interface operations {
             query?: {
                 /** @description Slug of a problem */
                 problem?: string | null;
-                /** @description Any of these statuses (phase 2, FR-USR-03) */
+                /** @description Any of these statuses (FR-USR-03) */
                 status?: ("queued" | "running" | "accepted" | "accepted_with_warnings" | "wrong_answer" | "compile_error" | "limit_exceeded" | "forbidden_construct" | "cancelled" | "internal_error")[];
                 cursor?: string | null;
                 limit?: number;
@@ -2486,15 +2493,6 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Not Implemented */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -2928,6 +2926,15 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -3692,15 +3699,6 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Error"];
                 };
             };
-            /** @description Not Implemented */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Error"];
-                };
-            };
         };
     };
     save_draft: {
@@ -3783,15 +3781,6 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Not Implemented */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };

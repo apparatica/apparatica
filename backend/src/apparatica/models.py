@@ -4,5 +4,6 @@ from apparatica.auth import models as auth_models
 from apparatica.core import models as core_models
 from apparatica.problems import models as problems_models
 from apparatica.submissions import models as submissions_models
+from apparatica.users import models as users_models
 
-__all__ = ["auth_models", "core_models", "problems_models", "submissions_models"]
+__all__ = ["auth_models", "core_models", "problems_models", "submissions_models", "users_models"]

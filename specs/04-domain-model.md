@@ -134,7 +134,7 @@ PostgreSQL 17+. Первичные ключи — UUIDv7 (сортируемы �
 
 **`user_problem_status`**: `user_id`, `problem_id`, `status` (`attempted`/`solved`), `first_solved_at`, `last_submission_id`; pk `(user_id, problem_id)`. Обновляется ингестором.
 
-Миграция `submissions`: `user_id uuid null fk`, индекс `(user_id, created_at desc)`, `imported_from_guest bool default false`.
+Миграция `submissions`: `user_id uuid null fk`, индекс `(user_id, created_at desc)`. У отправки автор — `user_id` или `guest_id`, не оба. `imported_from_guest bool default false` добавит импорт гостевых решений (Ф4).
 
 ### Ф3 — качество решений
 

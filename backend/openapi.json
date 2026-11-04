@@ -121,6 +121,7 @@
           "problems"
         ],
         "summary": "List Problems",
+        "description": "The published problems. For a signed-in user they carry the statuses of the user, and the\nanswer is private; a guest's browser keeps the guest's statuses (FR-CAT-03), so the `status`\nfilter is UNAUTHENTICATED for a guest.",
         "operationId": "list_problems",
         "parameters": [
           {
@@ -273,8 +274,8 @@
               }
             }
           },
-          "501": {
-            "description": "Not Implemented",
+          "401": {
+            "description": "Unauthorized",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -548,7 +549,7 @@
           "submissions"
         ],
         "summary": "Create Submission",
-        "description": "A Run or a Submit of the current version of a problem; the check runs in the background.\nSets the guest cookie with the first submission. RATE_LIMITED: `params.quota` names the\nspent quota (docs/api.md). CAPTCHA_REQUIRED: solve GET /captcha/challenge and repeat with\n`captcha`.",
+        "description": "A Run or a Submit of the current version of a problem; the check runs in the background.\nSets the guest cookie with the first submission of a guest. RATE_LIMITED: `params.quota`\nnames the spent quota (docs/api.md). CAPTCHA_REQUIRED (guests only): solve\nGET /captcha/challenge and repeat with `captcha`.",
         "operationId": "create_submission",
         "requestBody": {
           "required": true,
@@ -669,7 +670,7 @@
           "submissions"
         ],
         "summary": "List Submissions",
-        "description": "Own submissions (the guest by cookie) and the quotas left; empty without a guest.",
+        "description": "Own submissions, newest first, and the quotas left: of the signed-in user, else of the\nguest by cookie; empty without either.",
         "operationId": "list_submissions",
         "parameters": [
           {
@@ -713,11 +714,11 @@
                 ],
                 "type": "string"
               },
-              "description": "Any of these statuses (phase 2, FR-USR-03)",
+              "description": "Any of these statuses (FR-USR-03)",
               "default": [],
               "title": "Status"
             },
-            "description": "Any of these statuses (phase 2, FR-USR-03)"
+            "description": "Any of these statuses (FR-USR-03)"
           },
           {
             "name": "cursor",
@@ -772,16 +773,6 @@
           },
           "422": {
             "description": "Unprocessable Content",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "501": {
-            "description": "Not Implemented",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -1175,7 +1166,7 @@
           "submissions"
         ],
         "summary": "Request Waveform",
-        "description": "Recreate an expired FST of the failure window with the seed of the submission (FR-WAV-05);\nit is pending until GET /submissions/{id} shows it ready or failed. A kept or pending FST is\nanswered as it is, without spending the quota. NOT_FOUND: no such submission or no trace\nwindow in it; UNAUTHENTICATED: `full_test` is for signed-in users; RATE_LIMITED:\n`params.quota` is `waveforms`.",
+        "description": "Recreate an expired FST of the failure window with the seed of the submission (FR-WAV-05);\nit is pending until GET /submissions/{id} shows it ready or failed. A kept or pending FST is\nanswered as it is, without spending the quota. NOT_FOUND: no such submission or no trace\nwindow in it; UNAUTHENTICATED: `full_test` is for signed-in users, NOT_IMPLEMENTED for them\nuntil it is done; RATE_LIMITED: `params.quota` is `waveforms`.",
         "operationId": "request_waveform",
         "parameters": [
           {
@@ -1272,6 +1263,16 @@
           },
           "503": {
             "description": "Service Unavailable",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2198,16 +2199,6 @@
               }
             }
           },
-          "501": {
-            "description": "Not Implemented",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -2246,7 +2237,7 @@
           "users"
         ],
         "summary": "Save Draft",
-        "description": "Save the draft of a published problem; the last save wins. NOT_FOUND: no such problem.",
+        "description": "Save the draft of a published problem; the last save wins. NOT_FOUND: no such problem.\nRATE_LIMITED: the autosave has its own window, apart from the other requests.",
         "operationId": "save_draft",
         "parameters": [
           {
@@ -2284,16 +2275,6 @@
           },
           "500": {
             "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "501": {
-            "description": "Not Implemented",
             "content": {
               "application/problem+json": {
                 "schema": {
