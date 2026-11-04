@@ -5,6 +5,7 @@ import { setProjectAnnotations } from "@storybook/react";
 import { cleanup } from "@testing-library/react";
 import { afterAll, afterEach, beforeAll } from "vitest";
 
+import { setStoreOwner } from "@/features/guest/local-store";
 import { stopAllBackground } from "@/features/submission/background";
 import { resetConnectivity } from "@/lib/connectivity";
 import { server } from "@/mocks/server";
@@ -27,5 +28,6 @@ afterEach(() => {
   stopAllBackground();
   resetConnectivity();
   localStorage.clear(); // the local history of a guest
+  setStoreOwner("guest");
 });
 afterAll(() => server.close());

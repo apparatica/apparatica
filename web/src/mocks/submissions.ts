@@ -2,7 +2,9 @@
 // its creation: a reload or a reconnect finds it where the real check would be. The scenario is
 // picked by a `mock: <name>` mark in the code, e.g. `// mock: wrong-answer`; `mock-fst: expired`
 // shows its FST expired until it is recreated, `mock-fst: large` too large to view. The viewer of
-// the waves is NEXT_PUBLIC_MOCK_WAVEVIEW_URL, none without it (docs/frontend.md).
+// the waves is NEXT_PUBLIC_MOCK_WAVEVIEW_URL, none without it (docs/frontend.md). A check belongs to
+// the signed-in user of users.ts or to the one guest of the mock, with the quotas of either; only
+// the guest is asked for a captcha.
 import { http, HttpResponse } from "msw";
 
 import type { Schemas } from "@/lib/api/client";
@@ -10,6 +12,7 @@ import type { Schemas } from "@/lib/api/client";
 import { captchaError, resetCaptcha } from "./captcha";
 import * as fixtures from "./fixtures";
 import { api, problem } from "./http";
+import { mockUser } from "./users";
 import {
   isScenarioName,
   type Scenario,
@@ -33,6 +36,8 @@ const DEFAULT_SCENARIO: Record<SubmissionCreate["kind"], ScenarioName> = {
 };
 const WAVEFORM_MS = 2000; // a recreated FST is ready after this long
 const HOUR_MS = 3_600_000;
+/** The author of the checks without a session. */
+const GUEST = "guest";
 const NO_VERDICT: Schemas["VerdictDetail"] = {
   first_failure: null,
   limit: null,
@@ -42,6 +47,8 @@ const NO_VERDICT: Schemas["VerdictDetail"] = {
 
 interface Check {
   id: string;
+  /** A user id, or GUEST. */
+  author: string;
   scenario: Scenario;
   request: SubmissionCreate;
   created: number;
@@ -163,9 +170,19 @@ function submissionOf(check: Check, now = Date.now()): Submission {
   };
 }
 
-/** Every check of the mock as it is now, newest first: one author, the guest or the user. */
-export function mockSubmissions(): Submission[] {
+/** The author of a request: its signed-in user, else the guest. */
+const authorOf = (cookies: Record<string, string>) => mockUser(cookies)?.me.id ?? GUEST;
+
+/** The checks of the author of the request; others are NOT_FOUND, as in the API. */
+function own(id: string, cookies: Record<string, string>): Check | undefined {
+  const check = checks.get(id);
+  return check?.author === authorOf(cookies) ? check : undefined;
+}
+
+/** Every check of the author as it is now, newest first; the guest's without `author`. */
+export function mockSubmissions(author: string = GUEST): Submission[] {
   return [...checks.values()]
+    .filter((check) => check.author === author)
     .sort((a, b) => b.created - a.created)
     .map((check) => submissionOf(check));
 }
@@ -199,17 +216,18 @@ function quotaWindow(limit: number, used: number[]): Schemas["QuotaWindow"] {
   };
 }
 
-/** The guest quotas of the config fixture, spent by the checks of the mock. */
-function quota(): Schemas["QuotaStatus"] {
-  const { guest } = fixtures.config.limits.quotas;
-  const all = [...checks.values()];
+/** The quotas of the config fixture for the author, spent by their checks. */
+function quota(author: string): Schemas["QuotaStatus"] {
+  const { guest, user } = fixtures.config.limits.quotas;
+  const limits = author === GUEST ? guest : user;
+  const all = [...checks.values()].filter((check) => check.author === author);
   return {
     checks: quotaWindow(
-      guest.checks_per_hour,
+      limits.checks_per_hour,
       all.map((check) => check.created),
     ),
     waveforms: quotaWindow(
-      guest.waveforms_per_hour,
+      limits.waveforms_per_hour,
       all.flatMap((check) => (check.waveform === undefined ? [] : [check.waveform])),
     ),
   };
@@ -302,8 +320,8 @@ function notFound(id: string) {
 /** `GET /submissions/{id}/events`; `dropAfter` ends the stream after that many events, before
  * `finalized`: a dropped connection for the client. */
 export function eventsHandler(settings: { dropAfter?: number } = {}) {
-  return http.get(api("/api/v1/submissions/:id/events"), ({ params, request }) => {
-    const check = checks.get(String(params.id));
+  return http.get(api("/api/v1/submissions/:id/events"), ({ cookies, params, request }) => {
+    const check = own(String(params.id), cookies);
     if (check === undefined) return notFound(String(params.id));
     const after =
       request.headers.get("Last-Event-ID") ?? new URL(request.url).searchParams.get("from");
@@ -318,23 +336,26 @@ export function eventsHandler(settings: { dropAfter?: number } = {}) {
 }
 
 export const submissionHandlers = [
-  http.post(api("/api/v1/submissions"), async ({ request }) => {
+  http.post(api("/api/v1/submissions"), async ({ cookies, request }) => {
     const body = (await request.json()) as SubmissionCreate;
-    const left = quota().checks;
+    const author = authorOf(cookies);
+    const left = quota(author).checks;
     if (left.remaining === 0) {
       const retry = Math.ceil((Date.parse(left.reset_at ?? "") - Date.now()) / 1000);
-      return problem(429, "RATE_LIMITED", `Guest limit is ${left.limit} checks per hour`, {
+      const who = author === GUEST ? "Guest" : "User";
+      return problem(429, "RATE_LIMITED", `${who} limit is ${left.limit} checks per hour`, {
         quota: "checks",
         limit: left.limit,
         window_s: HOUR_MS / 1000,
         retry_after_s: retry,
       });
     }
-    // After the quotas, as in the API.
-    const captcha = await captchaError(body);
+    // After the quotas, as in the API; users need none.
+    const captcha = author === GUEST ? await captchaError(body) : null;
     if (captcha !== null) return captcha;
     const check: Check = {
       id: crypto.randomUUID(),
+      author,
       scenario: scenarioFor(body),
       request: body,
       created: Date.now(),
@@ -342,27 +363,31 @@ export const submissionHandlers = [
       large: LARGE_MARK.test(body.code),
     };
     checks.set(check.id, check);
-    const created: Schemas["SubmissionCreated"] = { ...submissionOf(check), quota: quota() };
+    const created: Schemas["SubmissionCreated"] = {
+      ...submissionOf(check),
+      quota: quota(author),
+    };
     return HttpResponse.json(created, {
       status: 202,
       headers: { Location: new URL(`/api/v1/submissions/${check.id}`, request.url).href },
     });
   }),
 
-  http.get(api("/api/v1/submissions"), ({ request }) => {
+  http.get(api("/api/v1/submissions"), ({ cookies, request }) => {
     const params = new URL(request.url).searchParams;
     const slug = params.get("problem");
     const statuses = params.getAll("status");
-    const items = mockSubmissions()
+    const author = authorOf(cookies);
+    const items = mockSubmissions(author)
       .filter((submission) => slug === null || submission.problem === slug)
       .filter((submission) => statuses.length === 0 || statuses.includes(submission.status))
       .map(summaryOf);
-    const page: Schemas["SubmissionPage"] = { items, next_cursor: null, quota: quota() };
+    const page: Schemas["SubmissionPage"] = { items, next_cursor: null, quota: quota(author) };
     return HttpResponse.json(page);
   }),
 
-  http.get(api("/api/v1/submissions/:id"), ({ params }) => {
-    const check = checks.get(String(params.id));
+  http.get(api("/api/v1/submissions/:id"), ({ cookies, params }) => {
+    const check = own(String(params.id), cookies);
     return check === undefined
       ? notFound(String(params.id))
       : HttpResponse.json(submissionOf(check));
@@ -370,8 +395,8 @@ export const submissionHandlers = [
 
   eventsHandler(),
 
-  http.post(api("/api/v1/submissions/:id/cancel"), ({ params }) => {
-    const check = checks.get(String(params.id));
+  http.post(api("/api/v1/submissions/:id/cancel"), ({ cookies, params }) => {
+    const check = own(String(params.id), cookies);
     if (check === undefined) return notFound(String(params.id));
     if (submissionOf(check).finished_at !== null) {
       return problem(409, "SUBMISSION_FINISHED", "The check is over");
@@ -380,8 +405,8 @@ export const submissionHandlers = [
     return new HttpResponse(null, { status: 202 });
   }),
 
-  http.get(api("/api/v1/submissions/:id/artifacts/:kind"), ({ params, request }) => {
-    const check = checks.get(String(params.id));
+  http.get(api("/api/v1/submissions/:id/artifacts/:kind"), ({ cookies, params, request }) => {
+    const check = own(String(params.id), cookies);
     if (check === undefined) return notFound(String(params.id));
     const stage = new URL(request.url).searchParams.get("stage");
     const artifact = submissionOf(check).artifacts.find(
@@ -422,12 +447,14 @@ export const submissionHandlers = [
     });
   }),
 
-  http.post(api("/api/v1/submissions/:id/waveform"), async ({ params, request }) => {
-    const check = checks.get(String(params.id));
+  http.post(api("/api/v1/submissions/:id/waveform"), async ({ cookies, params, request }) => {
+    const check = own(String(params.id), cookies);
     if (check === undefined) return notFound(String(params.id));
     const body = (await request.json()) as Schemas["WaveformRequest"];
     if (body.scope === "full_test") {
-      return problem(401, "UNAUTHENTICATED", "A whole test is recorded for signed-in users");
+      return check.author === GUEST
+        ? problem(401, "UNAUTHENTICATED", "A whole test is recorded for signed-in users")
+        : problem(501, "NOT_IMPLEMENTED", "A whole test cannot be recorded yet");
     }
     const submission = submissionOf(check);
     const trace = submission.artifacts.find((artifact) => artifact.kind === "fst");
@@ -437,7 +464,7 @@ export const submissionHandlers = [
     if (trace.state === "ready" || trace.state === "pending") {
       return HttpResponse.json(trace, { status: 202 }); // as it is: no quota spent
     }
-    const waves = quota().waveforms;
+    const waves = quota(check.author).waveforms;
     if (waves.remaining === 0) {
       const retry = Math.ceil((Date.parse(waves.reset_at ?? "") - Date.now()) / 1000);
       return problem(429, "RATE_LIMITED", `At most ${waves.limit} waveforms per hour`, {

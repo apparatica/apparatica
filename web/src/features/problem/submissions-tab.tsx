@@ -1,7 +1,8 @@
 "use client";
 
-// «Мои отправки» of the problem page (FR-PRB-06, FR-GST-03, sheets LeftTabsA/B): the submissions of
-// this browser for the problem, newest first. A click opens the code and the results of one; the
+// «Мои отправки» of the problem page (FR-PRB-06, FR-GST-03, FR-USR-03, sheets LeftTabsA/B): the
+// submissions of the problem, newest first — of this browser for a guest, of the account for a
+// signed-in user (the list of the server, kept in memory: local-store.ts). A click opens the code and the results of one; the
 // empty state hints at Run and Submit. The shown check updates its own row; while another one is
 // unfinished, the tab reads the list of the server every few seconds. Phones have no editor: there
 // the list is only read, and the empty state does not hint at the keys.
@@ -12,6 +13,7 @@ import type { ReactNode } from "react";
 
 import { SubmissionList, type SubmissionRowView } from "@/components/domain/submission-list";
 import { Shortcut } from "@/components/ui/kbd";
+import { useGuest } from "@/features/account/session";
 import type { LocalSubmission } from "@/features/guest/submissions";
 import { submissionKeys, syncSubmissions } from "@/features/submission/api";
 
@@ -34,6 +36,7 @@ const SYNC_MS = 5000;
 
 export function SubmissionsTab({ problem, submissions, selected, onOpen }: SubmissionsTabProps) {
   const t = useTranslations("problem.submissions");
+  const guest = useGuest(); // a signed-in user's list is of the account, not of the browser
   const waiting =
     submissions?.some(
       (item) =>
@@ -54,7 +57,7 @@ export function SubmissionsTab({ problem, submissions, selected, onOpen }: Submi
         <SquareTerminal size={22} className="text-mu" aria-hidden="true" />
         <h2 className="text-[14px] font-medium">{t("emptyTitle")}</h2>
         {onOpen === undefined ? (
-          <p className="max-w-[340px] text-mu">{t("emptyPhone")}</p>
+          <p className="max-w-[340px] text-mu">{t(guest ? "emptyPhone" : "emptyPhoneUser")}</p>
         ) : (
           <>
             <p className="max-w-[340px] text-mu">{t.rich("emptyDescription", { b: strong })}</p>
@@ -109,7 +112,9 @@ export function SubmissionsTab({ problem, submissions, selected, onOpen }: Submi
     <div className="flex flex-col">
       <SubmissionList rows={rows} selected={selected} onOpen={onOpen} />
       <p className="px-3.5 py-3 text-caption text-mu">
-        {onOpen === undefined ? t("notePhone") : t("note")}
+        {onOpen === undefined
+          ? t(guest ? "notePhone" : "notePhoneUser")
+          : t(guest ? "note" : "noteUser")}
       </p>
     </div>
   );

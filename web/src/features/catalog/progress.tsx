@@ -1,28 +1,26 @@
 "use client";
 
 // The progress summary of the catalogue (FR-CAT-03): solved problems of every level out of all
-// its problems. The solved ones come from the local history, so the server renders placeholders.
+// its problems. A guest's solved ones come from the local history, so the server renders
+// placeholders for them.
 import { useTranslations } from "next-intl";
 
 import { DifficultyBadge, difficultyTone } from "@/components/domain/difficulty-badge";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { History } from "@/features/guest/history";
 import type { Schemas } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
-
-import { solvedByLevel } from "./view";
 
 export function ProgressSummary({
   levels,
   progress,
-  history,
+  solved,
 }: {
   levels: Schemas["Difficulty"][];
   progress: Schemas["DifficultyTotal"][];
-  history: History | null;
+  /** By level; null while unknown. */
+  solved: Readonly<Record<string, number>> | null;
 }) {
   const t = useTranslations("problems.progress");
-  const solved = history === null ? null : solvedByLevel(history);
   return (
     <section
       aria-label={t("label")}

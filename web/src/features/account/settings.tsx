@@ -6,7 +6,6 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { LogIn, LogOut } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
 import { type FormEvent, type ReactNode, useState } from "react";
 
@@ -18,7 +17,7 @@ import { notify } from "@/components/ui/toast";
 import { ErrorState } from "@/features/errors/states";
 import type { ApiError, Schemas } from "@/lib/api/client";
 
-import { logout, type Me, meKey, updateMe } from "./api";
+import { afterLogout, logout, type Me, meKey, updateMe } from "./api";
 import { useMe } from "./use-me";
 
 // Nick of the API (auth.schemas.Nick); the name is at most 60 characters.
@@ -182,14 +181,9 @@ function ProfileForm({ me }: { me: Me }) {
 
 function Sessions() {
   const t = useTranslations("settings.sessions");
-  const queryClient = useQueryClient();
-  const router = useRouter();
   const end = useMutation({
     mutationFn: () => logout(true),
-    onSuccess: () => {
-      queryClient.setQueryData(meKey, null);
-      router.refresh(); // the server renders the page of a guest
-    },
+    onSuccess: () => afterLogout.reload(),
     onError: () => notify({ tone: "er", title: t("failed") }),
   });
   return (

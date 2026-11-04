@@ -21,6 +21,11 @@ export async function updateMe(body: Schemas["MeUpdate"]): Promise<Me> {
   return data;
 }
 
+/** Loads the page anew after a logout, as a guest: nothing of the user stays in the memory of the
+ * page (the local stores, the cache of queries, the editor saving to the server); a seam for
+ * tests. */
+export const afterLogout = { reload: () => window.location.reload() };
+
 /** Ends the session of this browser, or every session of the user. */
 export async function logout(everywhere = false): Promise<void> {
   const { error } = await api.POST(everywhere ? "/api/v1/auth/logout-all" : "/api/v1/auth/logout");

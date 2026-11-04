@@ -18,16 +18,23 @@ import { ProblemList } from "./problem-list";
 import { EmptyCatalog, ProblemTable } from "./problem-table";
 import { ProgressSummary } from "./progress";
 import { type CatalogQuery, catalogHref, hasFilters, withoutFilters } from "./query";
-import { catalogView } from "./view";
+import { catalogView, ownHistory, solvedByLevel, solvedOfProgress } from "./view";
 
 export function Catalog({ query, data }: { query: CatalogQuery; data: CatalogData }) {
   const t = useTranslations("problems");
   const router = useRouter();
   const [busy, startTransition] = useTransition();
   const [shown, show] = useOptimistic(query);
-  const history = useHistory();
+  // A signed-in user's statuses come with the data; the guest's of this browser are not shown.
+  const local = useHistory();
+  const history = data.own ? ownHistory(data.problems) : local;
   const phone = usePhone();
   const view = catalogView(data, query, history);
+  const solved = data.own
+    ? solvedOfProgress(data.progress)
+    : history === null
+      ? null
+      : solvedByLevel(history);
 
   const navigate = (next: CatalogQuery) =>
     startTransition(() => {
@@ -42,9 +49,7 @@ export function Catalog({ query, data }: { query: CatalogQuery; data: CatalogDat
         <h1 className="text-title-1">{t("title")}</h1>
         <p className="text-mu">{t("subtitle")}</p>
       </div>
-      {!phone && (
-        <ProgressSummary levels={data.levels} progress={data.progress} history={history} />
-      )}
+      {!phone && <ProgressSummary levels={data.levels} progress={data.progress} solved={solved} />}
       <CatalogFilters
         query={shown}
         levels={data.levels}

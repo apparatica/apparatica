@@ -3,7 +3,9 @@
 import { cache } from "react";
 
 import type { ApiError, Schemas } from "@/lib/api/client";
-import { serverApi } from "@/lib/api/server";
+import { serverApi, sessionApi } from "@/lib/api/server";
+
+import type { AccountDrafts } from "./server-draft";
 
 export interface ProblemData {
   problem: Schemas["ProblemDetail"];
@@ -34,3 +36,17 @@ export const loadProblem = cache(async (slug: string): Promise<ProblemData | nul
     tags,
   };
 });
+
+/** The draft of the user of the request (`session` is the session cookie); null for a guest or an
+ * ended session. Any other failure leaves the page to the local draft, as for a guest. */
+export async function loadServerDraft(
+  slug: string,
+  session: string | null,
+): Promise<AccountDrafts | null> {
+  if (session === null) return null;
+  const { data, response } = await sessionApi(session).GET("/api/v1/me/drafts/{slug}", {
+    params: { path: { slug } },
+  });
+  if (data !== undefined) return { draft: data };
+  return response.status === 404 ? { draft: null } : null;
+}

@@ -9,12 +9,12 @@ import { server } from "@/mocks/server";
 import { renderWithProviders } from "@/test/render";
 import { signIn, signOut } from "@/test/session";
 
+import { afterLogout } from "./api";
 import { SettingsPage } from "./settings";
 
-const router = vi.hoisted(() => ({ refresh: vi.fn() }));
-vi.mock("next/navigation", () => ({ useRouter: () => router }));
+const reload = vi.spyOn(afterLogout, "reload").mockImplementation(() => {});
 
-beforeEach(() => router.refresh.mockReset());
+beforeEach(() => reload.mockClear());
 afterEach(signOut);
 
 function renderPage() {
@@ -97,8 +97,6 @@ it("logs out on every device", async () => {
   renderPage();
   const sessions = await screen.findByRole("region", { name: "Сеансы" });
   await user.click(within(sessions).getByRole("button", { name: "Выйти на всех устройствах" }));
-  expect(
-    await screen.findByRole("heading", { name: "Войдите, чтобы открыть настройки" }),
-  ).toBeInTheDocument();
-  expect(router.refresh).toHaveBeenCalled();
+  await waitFor(() => expect(reload).toHaveBeenCalled()); // the page of a guest
+  expect(document.cookie).not.toContain("ap_session=mock.");
 });

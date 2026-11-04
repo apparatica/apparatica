@@ -2,11 +2,17 @@
 // the draft a second after the last change, the reset to the template and the notice that the
 // problem changed since the draft was written. A plain store outside React (useSyncExternalStore),
 // so that the editor events change it without effects setting state.
+//
+// A signed-in user's draft is saved on the server as well, the local one stays as the backup: the
+// editor opens with the newer of the two, a draft of another device or of this browser before the
+// login. One save is sent at a time, the newest code after it; a closed tab sends its last one at
+// once. A failed save waits for the next change.
 import type { editor } from "monaco-editor/editor";
 
 import { type Draft, readDraft, writeDraft } from "@/features/guest/drafts";
 
 import { updateEditorStatus } from "./editor-status";
+import { type AccountDrafts, isSignedOut, saveServerDraft, type ServerDraft } from "./server-draft";
 
 export const AUTOSAVE_DELAY_MS = 1000;
 
@@ -39,7 +45,13 @@ export interface WorkspaceOptions {
   version: number;
   template: string;
   delayMs?: number;
+  /** The drafts of a signed-in user on the server; null for a guest. */
+  account?: AccountDrafts | null;
+  /** Saves on the server; saveServerDraft by default. */
+  saveRemote?: typeof saveServerDraft;
 }
+
+type Code = Pick<Draft, "code" | "version">;
 
 export class Workspace {
   private snapshot: WorkspaceSnapshot = { ready: false, savedAt: null, draftVersion: null };
@@ -51,9 +63,15 @@ export class Workspace {
   private disposers: (() => void)[] = [];
   private timer: ReturnType<typeof setTimeout> | null = null;
   private readonly delayMs: number;
+  /** Saves to the server; null for a guest and once the session has ended. */
+  private saveRemote: typeof saveServerDraft | null;
+  private sending = false;
+  /** The code to send after the save in flight. */
+  private next: Code | null = null;
 
   constructor(private readonly options: WorkspaceOptions) {
     this.delayMs = options.delayMs ?? AUTOSAVE_DELAY_MS;
+    this.saveRemote = options.account ? (options.saveRemote ?? saveServerDraft) : null;
   }
 
   subscribe = (listener: () => void): (() => void) => {
@@ -90,7 +108,7 @@ export class Workspace {
       updateEditorStatus({ line: position.lineNumber, column: position.column }),
     );
     // A closed tab does not wait for the timer.
-    const onPageHide = () => this.flush();
+    const onPageHide = () => this.flush(true);
     window.addEventListener("pagehide", onPageHide);
     this.disposers = [
       () => content.dispose(),
@@ -121,7 +139,7 @@ export class Workspace {
     if (editor == null || model == null) {
       // The editor is still loading: it opens with the code, saved as the draft if it can be.
       this.opened = code;
-      this.draft = writeDraft(this.options.problem, { code, version: this.options.version });
+      this.store({ code, version: this.options.version });
       this.set({ ...this.snapshot }); // the editor renders again with it
       return;
     }
@@ -150,12 +168,12 @@ export class Workspace {
     this.save();
   }
 
-  /** Saves a pending change now. */
-  flush(): void {
+  /** Saves a pending change now; `closing`: the tab is closing. */
+  flush(closing = false): void {
     if (this.timer === null) return;
     clearTimeout(this.timer);
     this.timer = null;
-    this.save();
+    this.save(closing);
   }
 
   private schedule(): void {
@@ -166,21 +184,60 @@ export class Workspace {
     }, this.delayMs);
   }
 
-  private save(): void {
+  private save(closing = false): void {
     if (this.editor === null) return;
-    const saved = writeDraft(this.options.problem, {
-      code: this.editor.getValue(),
-      version: this.options.version,
-    });
-    if (saved === null) return; // storage full or disabled: the indicator keeps the last save
-    this.draft = saved;
-    this.set({ ...this.snapshot, savedAt: saved.savedAt });
-    updateEditorStatus({ savedAt: saved.savedAt });
+    this.store({ code: this.editor.getValue(), version: this.options.version }, closing);
+  }
+
+  /** Saves the code locally and on the server. The indicator shows the local save, or the one
+   * of the server when storage is full or disabled. */
+  private store(code: Code, closing = false): void {
+    const saved = writeDraft(this.options.problem, code);
+    if (saved !== null) {
+      this.draft = saved;
+      this.saved(saved.savedAt);
+    }
+    this.send(code, closing, saved === null);
+  }
+
+  private send(code: Code, closing: boolean, showSaved: boolean): void {
+    const save = this.saveRemote;
+    if (save === null) return;
+    if (this.sending && !closing) {
+      this.next = code;
+      return;
+    }
+    this.next = null; // older than this code
+    this.sending = true;
+    save(this.options.problem, code, { keepalive: closing }).then(
+      (draft) => {
+        if (showSaved) this.saved(draft.updated_at);
+        this.sent();
+      },
+      (error: unknown) => {
+        if (isSignedOut(error)) this.saveRemote = null; // the local draft goes on
+        this.sent();
+      },
+    );
+  }
+
+  private sent(): void {
+    this.sending = false;
+    const next = this.next;
+    this.next = null;
+    if (next !== null) this.send(next, false, false);
+  }
+
+  private saved(savedAt: string): void {
+    this.set({ ...this.snapshot, savedAt });
+    updateEditorStatus({ savedAt });
   }
 
   private readDraft(): Draft | null {
     // Read once: later the editor holds the code.
-    if (this.draft === undefined) this.draft = readDraft(this.options.problem);
+    if (this.draft === undefined) {
+      this.draft = newer(readDraft(this.options.problem), this.options.account?.draft ?? null);
+    }
     return this.draft;
   }
 
@@ -188,4 +245,17 @@ export class Workspace {
     this.snapshot = snapshot;
     for (const listener of this.listeners) listener();
   }
+}
+
+/** The newer of the local draft and the one of the server; the clocks of the browser and of the
+ * server differ a little, which matters only for saves seconds apart on two devices. */
+function newer(local: Draft | null, server: ServerDraft | null): Draft | null {
+  if (server === null) return local;
+  const remote: Draft = {
+    code: server.code,
+    version: server.problem_version,
+    savedAt: server.updated_at,
+  };
+  if (local === null) return remote;
+  return Date.parse(remote.savedAt) > Date.parse(local.savedAt) ? remote : local;
 }

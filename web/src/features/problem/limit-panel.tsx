@@ -69,7 +69,8 @@ export function LimitNotice({ left, layout }: LimitNoticeProps) {
   const guest = useGuest();
   const path = usePathname();
   const time = formatCountdown(left);
-  const body = t.rich("spentBody", { time, timer });
+  // A signed-in user's draft is on the server too.
+  const body = t.rich(guest ? "spentBody" : "spentBodyUser", { time, timer });
   const wait = (
     <>
       {guest && (

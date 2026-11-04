@@ -3,6 +3,7 @@ import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { readDraft, writeDraft } from "@/features/guest/drafts";
 
 import { clearEditorStatus, readEditorStatus } from "./editor-status";
+import type { ServerDraft } from "./server-draft";
 import { type SolutionEditor, Workspace } from "./workspace";
 
 const TEMPLATE = "module sync_fifo;\n  // Ваше решение\nendmodule\n";
@@ -189,4 +190,130 @@ it("keeps the indicator when the storage is full", () => {
   editor.type("x");
   vi.advanceTimersByTime(1000);
   expect(space.getSnapshot().savedAt).toBeNull();
+});
+
+/** The server of the drafts of a signed-in user: every save, answered when `answer` is called. */
+function remoteDrafts() {
+  const saves: { code: string; keepalive: boolean; answer: (error?: unknown) => void }[] = [];
+  const save = vi.fn(
+    (_problem: string, draft: { code: string; version: number }, { keepalive = false } = {}) =>
+      new Promise<ServerDraft>((resolve, reject) => {
+        saves.push({
+          code: draft.code,
+          keepalive,
+          answer: (error) =>
+            error === undefined
+              ? resolve({
+                  code: draft.code,
+                  problem_version: draft.version,
+                  updated_at: new Date().toISOString(),
+                })
+              : reject(error),
+        });
+      }),
+  );
+  return { save, saves };
+}
+
+const serverDraft = (code: string, updatedAt: string, version = 2): ServerDraft => ({
+  code,
+  problem_version: version,
+  updated_at: updatedAt,
+});
+
+it("opens the newer of the local draft and the server's", () => {
+  writeDraft("sync-fifo", { code: "local", version: 2 }, new Date("2026-10-27T18:00:00Z"));
+  const options = { problem: "sync-fifo", version: 2, template: TEMPLATE };
+  const newer = serverDraft("other device", "2026-10-28T08:00:00Z", 1);
+  const fromServer = new Workspace({ ...options, account: { draft: newer } });
+  expect(fromServer.initialCode()).toBe("other device");
+  fromServer.attach(new FakeEditor(fromServer.initialCode()).asEditor());
+  expect(fromServer.getSnapshot()).toMatchObject({
+    savedAt: "2026-10-28T08:00:00Z",
+    draftVersion: 1,
+  });
+
+  const older = serverDraft("stale", "2026-10-26T08:00:00Z");
+  expect(new Workspace({ ...options, account: { draft: older } }).initialCode()).toBe("local");
+  // The draft of this browser before the login.
+  expect(new Workspace({ ...options, account: { draft: null } }).initialCode()).toBe("local");
+});
+
+it("saves a signed-in user's draft on the server too, one save at a time", async () => {
+  const { save, saves } = remoteDrafts();
+  const space = new Workspace({
+    problem: "sync-fifo",
+    version: 2,
+    template: TEMPLATE,
+    account: { draft: null },
+    saveRemote: save,
+  });
+  const editor = new FakeEditor(TEMPLATE);
+  space.attach(editor.asEditor());
+  editor.type("a");
+  vi.advanceTimersByTime(1000);
+  expect(readDraft("sync-fifo")?.code).toBe(`${TEMPLATE}a`); // the backup
+  expect(saves.map((item) => item.code)).toEqual([`${TEMPLATE}a`]);
+
+  // While a save is in flight, only the newest code waits for it.
+  editor.type("b");
+  vi.advanceTimersByTime(1000);
+  editor.type("c");
+  vi.advanceTimersByTime(1000);
+  expect(saves).toHaveLength(1);
+  saves[0]?.answer();
+  await vi.waitFor(() => expect(saves).toHaveLength(2));
+  expect(saves[1]?.code).toBe(`${TEMPLATE}abc`);
+
+  // A closing tab does not wait: its code goes at once and outlives the page.
+  editor.type("d");
+  window.dispatchEvent(new Event("pagehide"));
+  expect(saves[2]).toMatchObject({ code: `${TEMPLATE}abcd`, keepalive: true });
+  saves[1]?.answer();
+  saves[2]?.answer();
+  await Promise.resolve();
+  expect(saves).toHaveLength(3); // nothing older after it
+});
+
+it("stops saving on the server once the session has ended", async () => {
+  const { save, saves } = remoteDrafts();
+  const space = new Workspace({
+    problem: "sync-fifo",
+    version: 2,
+    template: TEMPLATE,
+    account: { draft: null },
+    saveRemote: save,
+  });
+  const editor = new FakeEditor(TEMPLATE);
+  space.attach(editor.asEditor());
+  editor.type("a");
+  vi.advanceTimersByTime(1000);
+  saves[0]?.answer({ status: 401, code: "UNAUTHENTICATED" });
+  await vi.waitFor(() => expect(save).toHaveBeenCalledTimes(1));
+  await Promise.resolve();
+  editor.type("b");
+  vi.advanceTimersByTime(1000);
+  expect(save).toHaveBeenCalledTimes(1);
+  expect(readDraft("sync-fifo")?.code).toBe(`${TEMPLATE}ab`);
+});
+
+it("shows the save of the server when the storage is full", async () => {
+  const { save, saves } = remoteDrafts();
+  const space = new Workspace({
+    problem: "sync-fifo",
+    version: 2,
+    template: TEMPLATE,
+    account: { draft: null },
+    saveRemote: save,
+  });
+  const editor = new FakeEditor(TEMPLATE);
+  space.attach(editor.asEditor());
+  vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+    throw new DOMException("full", "QuotaExceededError");
+  });
+  editor.type("x");
+  vi.advanceTimersByTime(1000);
+  expect(space.getSnapshot().savedAt).toBeNull();
+  saves[0]?.answer();
+  await vi.waitFor(() => expect(space.getSnapshot().savedAt).toBe("2026-10-28T09:30:01.000Z"));
 });

@@ -5,6 +5,7 @@ import { createApiClient } from "@/lib/api/client";
 import { scenarios } from "./scenarios";
 import { server } from "./server";
 import { configureMocks, eventsHandler } from "./submissions";
+import { mockSession } from "./users";
 
 const BASE = "http://localhost";
 const client = createApiClient({ baseUrl: BASE });
@@ -166,4 +167,42 @@ it("does not know other submissions", async () => {
   });
   expect(response.status).toBe(404);
   expect(error?.code).toBe("NOT_FOUND");
+});
+
+it("keeps the checks of a signed-in user apart, with the quotas of users and no captcha", async () => {
+  const guest = await submit("module sync_fifo; endmodule");
+  const ada = { headers: { Cookie: `ap_session=${mockSession("ada")}` } };
+  const mine = await client.POST("/api/v1/submissions", {
+    body: { problem: "sync-fifo", version: 1, kind: "run", code: "// mock-captcha: always\n" },
+    ...ada,
+  });
+  expect(mine.response.status).toBe(202);
+  expect((await submit("// mock-captcha: always\n")).response.status).toBe(428); // a guest
+  expect(mine.data?.quota?.checks).toEqual({ limit: 60, remaining: 59, reset_at: null });
+  const own = await client.GET("/api/v1/submissions", ada);
+  expect(own.data?.items.map((item) => item.id)).toEqual([mine.data?.id]);
+  const theirs = await client.GET("/api/v1/submissions/{id}", {
+    params: { path: { id: guest.data?.id ?? "" } },
+    ...ada,
+  });
+  expect(theirs.response.status).toBe(404);
+  const listed = await client.GET("/api/v1/submissions");
+  expect(listed.data?.items.map((item) => item.id)).toEqual([guest.data?.id]);
+});
+
+it("solves and tries problems by the checks of a signed-in user", async () => {
+  configureMocks({ speed: Infinity });
+  const ada = { headers: { Cookie: `ap_session=${mockSession("ada")}` } };
+  await client.POST("/api/v1/submissions", {
+    body: { problem: "sync-fifo", version: 1, kind: "submit", code: "module sync_fifo; endmodule" },
+    ...ada,
+  });
+  await client.POST("/api/v1/submissions", {
+    body: { problem: "mux4", version: 1, kind: "run", code: "// mock: wrong-answer\n" },
+    ...ada,
+  });
+  const { data } = await client.GET("/api/v1/problems", ada);
+  const statuses = Object.fromEntries(data?.items.map((item) => [item.slug, item.status]) ?? []);
+  expect(statuses).toMatchObject({ "sync-fifo": "solved", mux4: "solved" }); // seeded solved
+  expect(data?.progress.find((level) => level.difficulty === "medium")?.solved).toBe(1);
 });

@@ -1,7 +1,8 @@
-import { screen } from "@testing-library/react";
+import { screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 
+import { afterLogout } from "@/features/account/api";
 import { SessionProvider } from "@/features/account/session";
 import { renderWithProviders } from "@/test/render";
 import { signIn, signOut } from "@/test/session";
@@ -9,10 +10,10 @@ import { signIn, signOut } from "@/test/session";
 import { ThemeProvider } from "./theme";
 import { AccountMenu } from "./user-menu";
 
-const router = vi.hoisted(() => ({ refresh: vi.fn() }));
-vi.mock("next/navigation", () => ({ useRouter: () => router, usePathname: () => "/settings" }));
+vi.mock("next/navigation", () => ({ usePathname: () => "/settings" }));
+const reload = vi.spyOn(afterLogout, "reload").mockImplementation(() => {});
 
-beforeEach(() => router.refresh.mockReset());
+beforeEach(() => reload.mockClear());
 afterEach(signOut);
 
 function renderMenu(signedIn: boolean) {
@@ -48,8 +49,7 @@ it("shows the user, leads to the settings and logs out", async () => {
   expect(screen.getByRole("menuitemradio", { name: "Системная" })).toBeChecked();
 
   await user.click(screen.getByRole("menuitem", { name: "Выйти" }));
-  expect(await screen.findByRole("button", { name: "Гость" })).toBeInTheDocument();
-  expect(router.refresh).toHaveBeenCalled();
+  await waitFor(() => expect(reload).toHaveBeenCalled()); // the page of a guest
   expect(document.cookie).not.toContain("ap_session=mock.");
 });
 

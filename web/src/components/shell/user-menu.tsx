@@ -1,9 +1,7 @@
 "use client";
 
-import { useQueryClient } from "@tanstack/react-query";
 import { LogOut, Settings } from "lucide-react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 
 import { Avatar } from "@/components/ui/avatar";
@@ -16,7 +14,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { notify } from "@/components/ui/toast";
-import { logout, type Me, meKey } from "@/features/account/api";
+import { afterLogout, logout, type Me } from "@/features/account/api";
 import { useAccount } from "@/features/account/session";
 
 import { DocumentsItem, GuestMenu, ThemeItems } from "./guest-menu";
@@ -33,8 +31,6 @@ export function AccountMenu() {
 
 export function UserMenu({ me }: { me: Me }) {
   const t = useTranslations("shell.account");
-  const queryClient = useQueryClient();
-  const router = useRouter();
   const signOut = async () => {
     try {
       await logout();
@@ -42,8 +38,7 @@ export function UserMenu({ me }: { me: Me }) {
       notify({ tone: "er", title: t("logoutFailed") });
       return;
     }
-    queryClient.setQueryData(meKey, null);
-    router.refresh(); // the server renders the page of a guest
+    afterLogout.reload();
   };
   return (
     <DropdownMenu>

@@ -35,6 +35,7 @@ const page: CatalogData = {
   problems,
   total: 5,
   complete: false,
+  own: false,
 };
 
 function show(params: SearchParams = {}, data: Partial<CatalogData> = {}) {
@@ -126,6 +127,45 @@ it("sums up the solved problems of every level", () => {
     "Hard: решено 0 из 0",
   ]);
   expect(bars[0]).toHaveAttribute("aria-valuenow", "1");
+});
+
+it("shows a signed-in user's statuses from the server, rendered by it too", () => {
+  // The history of the guest of this browser is not the user's.
+  recordCheck({ problem: "sync-fifo", difficulty: "medium", kind: "submit", status: "accepted" });
+  const own: Partial<CatalogData> = {
+    own: true,
+    problems: problems.map((problem) => ({
+      ...problem,
+      status: problem.slug === "mux4" ? "solved" : "not_started",
+    })),
+    progress: [
+      { difficulty: "easy", total: 3, solved: 2 },
+      { difficulty: "medium", total: 2, solved: 0 },
+      { difficulty: "hard", total: 0, solved: 0 },
+    ],
+  };
+  const html = renderToString(
+    <Providers>
+      <Catalog query={parseCatalogQuery({})} data={{ ...page, ...own }} />
+    </Providers>,
+  );
+  expect(html).toContain("Решено");
+  expect(html).toContain('aria-label="Easy: решено 2 из 3"');
+
+  show({}, own);
+  const body = cells();
+  expect(body[0]?.[0]).toBe("Решено");
+  expect(body.filter((row) => row[0] === "Решено")).toHaveLength(1);
+  // Solved problems of the level on other pages count too: the server sums them up.
+  expect(screen.getAllByRole("progressbar")[0]).toHaveAttribute("aria-valuenow", "2");
+  expect(screen.getAllByRole("progressbar")[1]).toHaveAttribute("aria-valuenow", "0");
+});
+
+it("shows the page of a signed-in user filtered by the server", () => {
+  const solved = problems.slice(0, 1).map((problem) => ({ ...problem, status: "solved" as const }));
+  show({ status: "solved" }, { own: true, problems: solved, total: 1 });
+  expect(cells().map((row) => row[1])).toEqual(["1Мультиплексор 4:1"]);
+  expect(screen.getByText(/Показано/)).toHaveTextContent("Показано 1–1 из 1");
 });
 
 it("puts a changed filter into the address, from the first page", async () => {

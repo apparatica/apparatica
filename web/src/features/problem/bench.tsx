@@ -37,6 +37,7 @@ import { editorDiagnostics } from "./pipeline-view";
 import { ResultsPanel } from "./results-panel";
 import { useCheckShortcuts } from "./shortcuts";
 import { SubmissionsTab } from "./submissions-tab";
+import type { AccountDrafts } from "./server-draft";
 import { Workspace } from "./workspace";
 
 export type BenchProblem = Pick<
@@ -62,6 +63,8 @@ export interface BenchProps {
   tab?: LeftTab | undefined;
   /** …and the submission to show instead of the last one (`?submission=`). */
   submission?: string | null | undefined;
+  /** The drafts of a signed-in user on the server, read with the page; null for a guest. */
+  account?: AccountDrafts | null | undefined;
   /** The statement panel, rendered by the server. */
   children: ReactNode;
 }
@@ -91,6 +94,7 @@ export function Bench({
   layout,
   tab = "statement",
   submission: wanted,
+  account = null,
   children,
 }: BenchProps) {
   const t = useTranslations("problem");
@@ -100,6 +104,7 @@ export function Bench({
         problem: problem.slug,
         version: problem.version,
         template: problem.template,
+        account,
       }),
   );
   const { draftVersion } = useSyncExternalStore(

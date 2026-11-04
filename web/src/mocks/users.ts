@@ -1,6 +1,7 @@
 // Login, the own account and profiles of the mock API (docs/frontend.md#моки-для-разработки). The
 // session is the cookie `ap_session=mock.<user id>`, readable by scripts unlike the real one. Users
-// live in memory: `ada` (ada@example.com) has solved and attempted problems; a login link to
+// live in memory: `ada` (ada@example.com) has solved and attempted problems, and the checks of a
+// user (submissions.ts) solve and try more, as the ingestor of the API does; a login link to
 // another address creates a user, as the first login does. The id of `ada` is fixed, so her
 // session outlives a reload of the page and is known to the mocks of the server too. A login link
 // of the mock is printed to the console; any token works, one with `expired` in it is
@@ -19,6 +20,7 @@ type ProblemStatus = NonNullable<Schemas["ProblemListItem"]["status"]>;
 
 const SESSION = "ap_session";
 const DAY_MS = 86_400_000;
+const ACCEPTED: ReadonlySet<string> = new Set(["accepted", "accepted_with_warnings"]);
 
 interface MockUser {
   me: Me;
@@ -108,15 +110,31 @@ function userOf(email: string): { user: MockUser; created: boolean } {
 
 const problems = () => fixtures.problems;
 
+/** The seeded statuses of the user and those of their finished checks: any check tries a
+ * problem, an accepted Submit solves it, a solved one stays solved. */
+function statusesOf(user: MockUser): MockUser["statuses"] {
+  const statuses = { ...user.statuses };
+  for (const submission of mockSubmissions(user.me.id).reverse()) {
+    const { problem, kind, status, finished_at } = submission;
+    if (finished_at === null || statuses[problem]?.status === "solved") continue;
+    statuses[problem] =
+      kind === "submit" && ACCEPTED.has(status)
+        ? { status: "solved", solvedAt: finished_at }
+        : { status: "attempted" };
+  }
+  return statuses;
+}
+
 function profileOf(user: MockUser): Schemas["Profile"] {
+  const statuses = statusesOf(user);
   const solved = problems()
-    .filter((item) => user.statuses[item.slug]?.status === "solved")
+    .filter((item) => statuses[item.slug]?.status === "solved")
     .map(({ slug, number, title, difficulty }) => ({
       slug,
       number,
       title,
       difficulty,
-      solved_at: user.statuses[slug]?.solvedAt ?? user.me.created_at,
+      solved_at: statuses[slug]?.solvedAt ?? user.me.created_at,
     }))
     .sort((a, b) => b.solved_at.localeCompare(a.solved_at));
   return {
@@ -135,7 +153,7 @@ function profileOf(user: MockUser): Schemas["Profile"] {
 
 /** The status of a problem for the user of the request, as the catalogue shows it. */
 export function statusOf(user: MockUser, slug: string): ProblemStatus {
-  return user.statuses[slug]?.status ?? "not_started";
+  return statusesOf(user)[slug]?.status ?? "not_started";
 }
 
 export const userHandlers = [
@@ -237,7 +255,7 @@ export const userHandlers = [
         { document: "terms", version: "2026-11-03", accepted_at: user.me.created_at },
         { document: "privacy", version: "2026-11-03", accepted_at: user.me.created_at },
       ],
-      submissions: mockSubmissions().map((submission) => ({
+      submissions: mockSubmissions(user.me.id).map((submission) => ({
         id: submission.id,
         problem: submission.problem,
         problem_title: submission.problem_title,

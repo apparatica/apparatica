@@ -1,4 +1,5 @@
-// What the catalogue shows: the problems of the page with the statuses of the local history.
+// What the catalogue shows: the problems of the page with the statuses of the local history of a
+// guest, or of a signed-in user from the server.
 import type { History } from "@/features/guest/history";
 import type { Schemas } from "@/lib/api/client";
 
@@ -37,6 +38,20 @@ export function catalogView(
     total: found.length,
     pages: pages(found.length),
   };
+}
+
+/** The statuses of a signed-in user on the problems of the page, as a history. */
+export function ownHistory(problems: readonly Schemas["ProblemListItem"][]): History {
+  return Object.fromEntries(
+    problems.flatMap(({ slug, status, difficulty }) =>
+      status === "solved" || status === "attempted" ? [[slug, { status, difficulty }]] : [],
+    ),
+  );
+}
+
+/** Solved problems per level of a signed-in user, counted by the server. */
+export function solvedOfProgress(progress: readonly Schemas["DifficultyTotal"][]) {
+  return Object.fromEntries(progress.map((level) => [level.difficulty, level.solved ?? 0]));
 }
 
 /** Solved problems per level. */

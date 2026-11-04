@@ -5,6 +5,7 @@ import type { Schemas } from "@/lib/api/client";
 import { config, tags } from "@/mocks/fixtures";
 import { api } from "@/mocks/http";
 import { server } from "@/mocks/server";
+import { mockSession } from "@/mocks/users";
 
 import { loadCatalog } from "./load";
 import { parseCatalogQuery } from "./query";
@@ -63,6 +64,33 @@ it("reads every problem of the other filters when the status filter is on", asyn
   expect(requests.map((params) => params.get("page"))).toEqual(["1", "2", "3"]);
   expect(requests.every((params) => params.get("per_page") === "100")).toBe(true);
   expect(requests.every((params) => params.get("q") === "x" && !params.has("status"))).toBe(true);
+});
+
+it("reads the page of a signed-in user, filtered by the server", async () => {
+  const requests: Request[] = [];
+  server.events.on("request:start", ({ request }) => {
+    if (new URL(request.url).pathname === "/api/v1/problems") requests.push(request.clone());
+  });
+  const data = await loadCatalog(
+    parseCatalogQuery({ status: "solved", page: "1" }),
+    mockSession("ada"),
+  );
+  server.events.removeAllListeners();
+  expect(data).toMatchObject({ own: true, complete: false });
+  expect(data.problems.map((problem) => [problem.slug, problem.status])).toEqual([
+    ["mux4", "solved"],
+    ["carry-adder", "solved"],
+  ]);
+  expect(data.progress.find((level) => level.difficulty === "easy")?.solved).toBe(2);
+  expect(requests).toHaveLength(1);
+  expect(requests[0]?.headers.get("cookie")).toBe(`ap_session=${mockSession("ada")}`);
+  expect(new URL(requests[0]?.url ?? "").searchParams.getAll("status")).toEqual(["solved"]);
+});
+
+it("reads the page of a guest when the session has ended", async () => {
+  const data = await loadCatalog(parseCatalogQuery({ status: "solved" }), "mock.ended");
+  expect(data).toMatchObject({ own: false, complete: true });
+  expect(data.problems.every((problem) => problem.status === null)).toBe(true);
 });
 
 it("fails when the API does", async () => {

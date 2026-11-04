@@ -693,6 +693,7 @@ describe("the limits of the guest", () => {
       expect(screen.getByRole("heading", { name: "Лимит проверок исчерпан" })).toBeInTheDocument();
       expect(screen.queryByRole("link", { name: /^Войти/ })).not.toBeInTheDocument();
       expect(screen.queryByText(/^Осталось/)).not.toBeInTheDocument();
+      expect(screen.getByText(/Черновик сохранён, ничего не потеряется/)).toBeInTheDocument();
     } finally {
       signOut();
     }

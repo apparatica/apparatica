@@ -67,6 +67,7 @@ export function ProblemView({
   layout,
   tab = "statement",
   submission,
+  account,
   children,
 }: BenchProps) {
   const phone = usePhone();
@@ -81,7 +82,7 @@ export function ProblemView({
     // The window without the header (40 px) and the status bar (24 px): the panels fill it and
     // scroll inside.
     <div className="h-[calc(100dvh-4rem)]">
-      <Bench problem={problem} layout={layout} tab={tab} submission={submission}>
+      <Bench problem={problem} layout={layout} tab={tab} submission={submission} account={account}>
         {children}
       </Bench>
     </div>

@@ -1,9 +1,12 @@
 "use client";
 
 // Who looks at the page, for what differs for a guest: the menu of the header, the hints to log in
-// on the problem page (sheet Guest). The session cookie is httpOnly: the server of the site sees it
-// and passes it down, GET /me confirms it; an ended session turns into a guest.
-import { createContext, type ReactNode, use } from "react";
+// on the problem page (sheet Guest), whose history the local stores hold. The session cookie is
+// httpOnly: the server of the site sees it and passes it down, GET /me confirms it; an ended
+// session turns into a guest. A login and a logout load the page anew.
+import { createContext, type ReactNode, use, useEffect, useState } from "react";
+
+import { setStoreOwner } from "@/features/guest/local-store";
 
 import type { Me } from "./api";
 import { useMe } from "./use-me";
@@ -18,6 +21,13 @@ export function SessionProvider({
   signedIn: boolean;
   children: ReactNode;
 }) {
+  const { data: me } = useMe(signedIn);
+  const owner = signedIn && me !== null ? "user" : "guest"; // null: the session has ended
+  // Once before the children first read the stores (they render after this), later on changes.
+  useState(() => {
+    if (typeof window !== "undefined") setStoreOwner(owner);
+  });
+  useEffect(() => setStoreOwner(owner), [owner]);
   return <SessionCookie value={signedIn}>{children}</SessionCookie>;
 }
 

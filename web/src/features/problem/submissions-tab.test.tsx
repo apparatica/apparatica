@@ -1,10 +1,13 @@
 import { screen } from "@testing-library/react";
 import { expect, it } from "vitest";
 
+import { SessionProvider } from "@/features/account/session";
+
 import { rememberSubmissions, useSubmissionHistory } from "@/features/guest/submissions";
 import { createApiClient, type Schemas } from "@/lib/api/client";
 import { configureMocks } from "@/mocks/submissions";
 import { renderWithProviders } from "@/test/render";
+import { signIn, signOut } from "@/test/session";
 
 import { SubmissionsTab } from "./submissions-tab";
 
@@ -41,4 +44,27 @@ it("on phones says where checks run and that the list is of this browser", () =>
   expect(screen.getByText("Отправок пока нет")).toBeInTheDocument();
   expect(screen.getByText(/Проверки запускаются на компьютере/)).toBeInTheDocument();
   expect(screen.queryByText(/для быстрого прогона/)).toBeNull();
+});
+
+it("says that a signed-in user's list is of the account", async () => {
+  configureMocks({ speed: Infinity });
+  signIn();
+  try {
+    // Their check: kept in memory for the page, as the list of the server gives it.
+    renderWithProviders(
+      <SessionProvider signedIn>
+        <Tab />
+      </SessionProvider>,
+    );
+    const client = createApiClient({ baseUrl: "http://localhost" });
+    const { data } = await client.POST("/api/v1/submissions", {
+      body: { problem: "sync-fifo", version: 1, kind: "run", code: "// mock: wrong-answer" },
+    });
+    rememberSubmissions([data as Schemas["SubmissionCreated"]]);
+    expect(await screen.findByText("Неверный ответ")).toBeInTheDocument();
+    expect(screen.getByText(/Отправки хранятся в вашем аккаунте/)).toBeInTheDocument();
+    expect(localStorage.getItem("ap_submissions")).toBeNull();
+  } finally {
+    signOut();
+  }
 });
