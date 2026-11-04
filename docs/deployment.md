@@ -6,9 +6,9 @@
 
 | Окружение | Хосты | Имена |
 |---|---|---|
-| `staging` | один VPS `apparatica.app` (AEZA, 4 vCPU, 8 ГБ, Debian 13): роли `app` и `worker` | `staging.apparatica.app` — сайт и API, `s3.staging.apparatica.app` — S3 для presigned URL, `waveview.staging.apparatica.app` — просмотрщик волн |
+| `staging` | один VPS `apparatica.app` (AEZA, 4 vCPU, 8 ГБ, Debian 13): роли `app` и `worker`; бэкапы — Cloudflare R2, бакет `apparatica-staging-backups` в юрисдикции EU | `staging.apparatica.app` — сайт и API, `s3.staging.apparatica.app` — S3 для presigned URL, `waveview.staging.apparatica.app` — просмотрщик волн |
 
-Инвентарь — `deploy/ansible/inventories/<окружение>/`: `hosts.yml` (хосты и группы) и `group_vars/all.yml` (имена, размер Garage, мониторинг). Корневой домен `apparatica.app` оставлен для production (T3.14).
+Инвентарь — `deploy/ansible/inventories/<окружение>/`: `hosts.yml` (хосты и группы) и `group_vars/all.yml` (имена, размер Garage, мониторинг, бэкапы). Корневой домен `apparatica.app` оставлен для production (T3.14).
 
 **Роли хостов.** Группа `app` — хосты платформы, `worker` — хосты песочниц. gVisor ставится только хостам `worker`, и только у них Docker получает рантайм `runsc`. Пока хост один, он входит в обе группы: роль `apparatica` поднимает все сервисы compose вместе и отказывается работать на хосте `app` без `worker`. Отдельному хосту воркера нужна частная сеть до `valkey-queue` и Garage хоста приложения, она появится вместе со вторым VPS.
 
@@ -39,7 +39,7 @@ just lint-ansible                     # ansible-lint и проверка син�
 | `base` | все | пакеты; SSH только по ключам (`PasswordAuthentication no`, `PermitRootLogin prohibit-password`); пользователь `deploy` с ключами `base_deploy_keys` из инвентаря и sudo без пароля ([деплой из CI](#деплой-из-ci)); файрвол; ежедневные обновления Debian (`unattended-upgrades` с источниками Debian по умолчанию, без перезагрузок); журнал не больше 1 ГБ |
 | `gvisor` | `worker` | `runsc` версии `gvisor_version` из apt-репозитория gVisor; платформа `systrap` по умолчанию (на VPS нет вложенной виртуализации) |
 | `docker` | все | Docker Engine версии `docker_version` с плагинами compose и buildx; `daemon.json`: драйвер cgroup `systemd`, логи контейнеров `json-file` до 5 файлов по 20 МБ, рантайм `runsc` у хостов `worker` |
-| `apparatica` | `app` | релиз, настройки, секреты, сервисы, проверки (ниже) |
+| `apparatica` | `app` | релиз, настройки, секреты, сервисы, проверки (ниже), таймеры бэкапов ([backups.md](backups.md#на-сервере)) |
 
 **Файрвол** — своя таблица nftables `inet apparatica`: входящие на хост только `22`, `80`, `443` и `443/udp` (HTTP/3), ICMP и ответы на свои соединения. Таблицы Docker не трогаются: в `/etc/nftables.conf` нет `flush ruleset`, а остановка сервиса `nftables` удаляет только нашу таблицу. Порты контейнеров проходят хук `forward`, а не `input`, поэтому снаружи доступно только то, что публикует compose. На сервере публикует порты только Caddy, Grafana слушает `127.0.0.1:3000`.
 
@@ -51,9 +51,10 @@ just lint-ansible                     # ansible-lint и проверка син�
 |---|---|
 | `/opt/apparatica/releases/<релиз>/` | файлы репозитория коммита релиза, кроме `brief/`; `release.env` — образы `api`, `web`, `worker` релиза (пуст, если они собраны на хосте) |
 | `/opt/apparatica/current` | ссылка на запущенный релиз |
-| `/etc/apparatica/settings.env` | настройки compose из инвентаря: имена, `APX_ENVIRONMENT=production`, `APX_COOKIE_SECURE=true`, `SANDBOX_RUNTIME=runsc`, `GARAGE_CAPACITY_GB` |
+| `/etc/apparatica/settings.env` | настройки compose из инвентаря: имена, `APX_ENVIRONMENT=production`, `APX_COOKIE_SECURE=true`, `SANDBOX_RUNTIME=runsc`, `GARAGE_CAPACITY_GB`, `POSTGRES_ARCHIVE_MODE` и хранилище бэкапов `BACKUP_S3_*` |
 | `/etc/apparatica/secrets.env` | секреты (ниже), права `0600` |
 | `/usr/local/sbin/apparatica-secrets` | генератор секретов |
+| `/etc/systemd/system/apparatica-backup*.{service,timer}` | полный бэкап и проверка восстановления ([backups.md](backups.md#на-сервере)), если бэкапы включены |
 
 Сервисы — проект compose `apparatica` из `deploy/compose.yaml` и `deploy/compose.server.yaml`:
 
@@ -68,6 +69,7 @@ docker compose -f deploy/compose.yaml -f deploy/compose.server.yaml \
 - Caddy слушает `80` и `443` с `deploy/Caddyfile.server`: публичные имена, сертификаты Let's Encrypt (Caddy получает и продлевает их сам, хранит в томе `caddy-data`), HSTS на год, HTTP отвечает редиректом. Остальные заголовки и CSP — как на стенде ([security.md](security.md#csp-сайта)). Garage находит бакет `waveview` по заголовку `Host`, поэтому Caddy передаёт ему `Host: waveview`.
 - Адреса браузера у API (`APX_S3_PUBLIC_URL`, `APX_WAVEVIEW_URL`), у `web` (CSP) и CORS бакета артефактов — `https://` публичных имён.
 - Grafana без анонимного доступа и только на `127.0.0.1:3000`.
+- `garage-setup` не получает ключа `backup`: бэкапы базы уходят в хранилище другого провайдера ([backups.md](backups.md)), а не в Garage того же хоста.
 - Проверки `storage-check` и `judge-check` идут через Caddy по HTTPS под публичными именами, но имена в их контейнерах ведут на сам хост (`host-gateway`). Так проверяется развёртывание, а не кэши публичных резолверов; к тому же у сети контейнеров нет IPv6, и запись AAAA без A давала бы `Network is unreachable`.
 
 Тест `scripts/test_server_deploy.py` следит, чтобы ни один адрес стенда (`localhost`) не остался без замены, а каждый секрет compose со значением по умолчанию генерировался.
@@ -76,9 +78,11 @@ docker compose -f deploy/compose.yaml -f deploy/compose.server.yaml \
 
 У каждого секрета `deploy/compose.yaml` есть публичное значение по умолчанию для стенда. На сервере все они берутся из `/etc/apparatica/secrets.env`. Файл создаёт `apparatica-secrets` при первом деплое: случайные hex-строки, ключи Garage вида `GK` + 24 hex. Повторный запуск дописывает только недостающие, поэтому секрет, появившийся в новом релизе, генерируется при его первом деплое. В репозиторий и на машину оператора секреты не попадают.
 
-Ключи OAuth-приложений (`APX_GITHUB_CLIENT_ID`, `APX_GITHUB_CLIENT_SECRET`) не генерируются: их выдаёт провайдер. Без них сервер работает без входа через провайдера; чтобы включить вход через GitHub, допишите их в `secrets.env` и повторите деплой. Callback URL приложения — `https://<SITE_HOST>/api/v1/auth/github/callback` ([configuration.md](configuration.md#переменные-окружения)).
+Ключ шифрования бэкапов `BACKUP_ENCRYPTION_KEY` генерируется так же, но менять его нельзя: старые бэкапы станут нечитаемыми.
 
-**Сохраните копию `secrets.env` вне сервера** (менеджер паролей): без неё восстановленные из бэкапа данные не прочитать ключами нового сервера, а гости потеряют свои отправки. Смена секрета — в [RUNBOOK](../deploy/RUNBOOK.md#смена-секрета).
+Ключи, которые выдаёт провайдер, не генерируются: ключ хранилища бэкапов (`BACKUP_S3_KEY_ID`, `BACKUP_S3_KEY_SECRET`, [backups.md](backups.md#на-сервере)) и ключи OAuth-приложений (`APX_GITHUB_CLIENT_ID`, `APX_GITHUB_CLIENT_SECRET`). Без них сервер работает без входа через провайдера; чтобы включить вход через GitHub, допишите их в `secrets.env` и повторите деплой. Callback URL приложения — `https://<SITE_HOST>/api/v1/auth/github/callback` ([configuration.md](configuration.md#переменные-окружения)).
+
+**Сохраните копию `secrets.env` вне сервера** (менеджер паролей): без `BACKUP_ENCRYPTION_KEY` из неё бэкапы не расшифровать, без остальных ключей восстановленные данные не прочитать ключами нового сервера, а гости потеряют свои отправки. Смена секрета — в [RUNBOOK](../deploy/RUNBOOK.md#смена-секрета).
 
 ## Деплой
 
@@ -86,11 +90,12 @@ docker compose -f deploy/compose.yaml -f deploy/compose.server.yaml \
 
 1. **Релиз.** На машине оператора `git archive` коммита `HEAD` упаковывает файлы репозитория без `brief/`. Если есть незакоммиченные изменения отслеживаемых или добавленных в индекс файлов, они входят в релиз (`git stash create`), а имя релиза получает суффикс: `<коммит>-dirty-<stash>`. Неотслеживаемые файлы не входят. Архив распаковывается в `/opt/apparatica/releases/<релиз>/`.
 2. **Настройки и секреты** — `/etc/apparatica` (выше).
-3. **Образы.** С `-e apparatica_image_tag=sha-<коммит>` (так деплоит CI) релиз берёт опубликованные образы `ghcr.io/apparatica/{api,web,worker}:sha-<коммит>`: они записываются в `release.env` релиза, скачиваются, если их ещё нет на хосте, и ничего не собирается (`up --no-build`: нет образа — нет деплоя). Тег должен быть тегом коммита релиза, а дерево — чистым, иначе деплой останавливается до изменений на хосте. Без тега (`just deploy` оператора) образы собираются на хосте из файлов релиза. Образы тулчейна и просмотрщика всегда скачиваются из GHCR.
+3. **Образы.** Образ Postgres с WAL-G (`deploy/postgres`) всегда собирается на хосте и называется по git-дереву этого каталога: `POSTGRES_IMAGE=apparatica-postgres:<хэш>` в `release.env`. Уже собранный не пересобирается, и пока `deploy/postgres` не меняется, контейнер Postgres не пересоздаётся. С `-e apparatica_image_tag=sha-<коммит>` (так деплоит CI) релиз берёт опубликованные образы `ghcr.io/apparatica/{api,web,worker}:sha-<коммит>`: они записываются в `release.env` релиза, скачиваются, если их ещё нет на хосте, и ничего не собирается (`up --no-build`: нет образа — нет деплоя). Тег должен быть тегом коммита релиза, а дерево — чистым, иначе деплой останавливается до изменений на хосте. Без тега (`just deploy` оператора) образы собираются на хосте из файлов релиза. Образы тулчейна и просмотрщика всегда скачиваются из GHCR.
 4. **Сервисы.** `up -d --wait` для `caddy valkey-queue valkey-cache ingest worker`, как `just up`. Миграции (`migrate`) и настройка Garage (`garage-setup`) выполняются до запуска API. Затем импортируются задачи релиза (`demo-problems`), а с `apparatica_monitoring` запускаются Prometheus и Grafana.
 5. **Ссылка `current`** переключается на релиз.
-6. **Проверки** (`apparatica_checks`): `storage-check` (ключи, presigned URL, CORS, сайт `waveview` и его заголовки) и `judge-check` (эталон и мутант `mux4` проверяются через `https://<сайт>` под gVisor) — то же, что `just stand-check`. Упавшая проверка роняет деплой, но новый релиз уже запущен; вернуть прежний — `just rollback`.
-7. **Уборка.** Остаются последние `apparatica_keep_releases` (5) релизов, текущий — всегда. Опубликованные образы, которых нет в `release.env` оставшихся релизов, и висячие образы сборок удаляются.
+6. **Проверки** (`apparatica_checks`): `storage-check` (ключи, presigned URL, CORS, сайт `waveview` и его заголовки) и `judge-check` (эталон и мутант `mux4` проверяются через `https://<сайт>` под gVisor) — то же, что `just stand-check`, кроме бэкапа: его проверяет еженедельный таймер. Упавшая проверка роняет деплой, но новый релиз уже запущен; вернуть прежний — `just rollback`.
+7. **Уборка.** Остаются последние `apparatica_keep_releases` (5) релизов, текущий — всегда. Опубликованные образы и образы Postgres, которых нет в `release.env` оставшихся релизов, и висячие образы сборок удаляются.
+8. **Бэкапы.** С `apparatica_backups: true` ставятся таймеры бэкапов, а если в хранилище ещё нет полного бэкапа, он делается сразу; с `false` таймеры удаляются ([backups.md](backups.md#на-сервере)).
 
 Первый деплой на чистом хосте длится около 15 минут: сборка образов и скачивание тулчейна. Следующие идут быстрее за счёт кэша сборки Docker.
 

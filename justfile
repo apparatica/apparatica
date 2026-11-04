@@ -172,11 +172,16 @@ down:
 logs *services:
     {{ compose }} logs -f {{ services }}
 
-# Check the running stand: the object storage (key permissions, presigned URLs, CORS, website) and
-# the judging of a guest's submissions through Caddy
-stand-check:
+# Check the running stand: the object storage (key permissions, presigned URLs, CORS, website), the
+# judging of a guest's submissions through Caddy, a full backup of the database and its restore
+stand-check: && backup-check
     {{ compose }} run --rm storage-check
     {{ compose }} run --rm judge-check
+
+# A full backup of the database of the stand and the restore check of it (docs/backups.md)
+backup-check:
+    {{ compose }} exec -T -u postgres postgres apx-backup push
+    {{ compose }} run --rm backup-check
 
 # End-to-end tests against the running stand with a real worker: Playwright and axe (docs/stand.md).
 # E2E_BASE_URL: the site (http://localhost:8080); E2E_BROWSER: the Playwright channel of an installed

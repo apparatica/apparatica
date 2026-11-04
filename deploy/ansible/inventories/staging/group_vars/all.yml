@@ -6,6 +6,13 @@ apparatica_waveview_host: waveview.staging.apparatica.app
 
 # Size of the Garage node, GB.
 apparatica_garage_capacity_gb: 50
+# Backups of Postgres (docs/backups.md): Cloudflare R2, a bucket under the EU jurisdiction. Its keys,
+# BACKUP_S3_KEY_ID and BACKUP_S3_KEY_SECRET, are in /etc/apparatica/secrets.env.
+apparatica_backups: true
+apparatica_backup_s3_url: https://06127661db7bdce1f8d118d524def246.eu.r2.cloudflarestorage.com
+apparatica_backup_s3_region: auto
+apparatica_backup_s3_bucket: apparatica-staging-backups
+
 # Prometheus and Grafana (Grafana on 127.0.0.1:3000 of the server, through an SSH tunnel).
 apparatica_monitoring: true
 

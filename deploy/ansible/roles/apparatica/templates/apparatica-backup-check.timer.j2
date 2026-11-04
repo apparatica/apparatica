@@ -1,0 +1,11 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Apparatica: weekly restore check of the Postgres backups
+
+[Timer]
+OnCalendar={{ apparatica_backup_check_time }}
+RandomizedDelaySec=10min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

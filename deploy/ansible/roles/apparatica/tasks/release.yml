@@ -1,5 +1,6 @@
 # The release: the files of the commit on the control node, with uncommitted changes of tracked and
-# staged files (`git stash create`, the id ends in -dirty-<stash>). The briefs stay out.
+# staged files (`git stash create`, the id ends in -dirty-<stash>). The briefs stay out. The Postgres
+# image is named by the git tree of deploy/postgres: the database restarts only when it changes.
 - name: Find the commit of the release
   delegate_to: localhost
   become: false
@@ -10,10 +11,11 @@
     head=$(git rev-parse --short=12 HEAD)
     stash=$(git stash create)
     if [ -n "$stash" ]; then
-      echo "$stash $head-dirty-$(git rev-parse --short=8 "$stash")"
+      tree=$stash release=$head-dirty-$(git rev-parse --short=8 "$stash")
     else
-      echo "HEAD $head"
+      tree=HEAD release=$head
     fi
+    echo "$tree $release $(git rev-parse --short=12 "$tree:deploy/postgres")"
   register: apparatica_commit
   changed_when: false
 
@@ -21,6 +23,7 @@
   ansible.builtin.set_fact:
     apparatica_tree: "{{ apparatica_commit.stdout.split()[0] }}"
     apparatica_release: "{{ apparatica_commit.stdout.split()[1] }}"
+    apparatica_postgres_image: apparatica-postgres:{{ apparatica_commit.stdout.split()[2] }}
 
 - name: Pack the files of the release
   delegate_to: localhost
@@ -65,9 +68,10 @@
     dest: "{{ apparatica_root }}/releases/{{ apparatica_release }}/release.env"
     mode: "0644"
     content: |
-      # Images of this release; none: built on the host from its files.
+      # Images of this release; without published ones, built on the host from its files.
       {% if apparatica_image_tag %}
       API_IMAGE={{ apparatica_registry }}/api:{{ apparatica_image_tag }}
       WORKER_IMAGE={{ apparatica_registry }}/worker:{{ apparatica_image_tag }}
       WEB_IMAGE={{ apparatica_registry }}/web:{{ apparatica_image_tag }}
       {% endif %}
+      POSTGRES_IMAGE={{ apparatica_postgres_image }}

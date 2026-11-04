@@ -8,6 +8,17 @@ apparatica_repo: "{{ playbook_dir }}/../.."
 # The checks of `just stand-check` against the public names after a deploy.
 apparatica_checks: true
 apparatica_monitoring: false
+# Backups of Postgres with WAL-G (docs/backups.md): the archive of WAL, a full backup daily at
+# apparatica_backup_time, the restore check weekly at apparatica_backup_check_time (systemd calendar
+# events, UTC). The bucket of another provider; its keys BACKUP_S3_KEY_ID and BACKUP_S3_KEY_SECRET
+# go to secrets.env by hand. Off: no archive of WAL either, but the storage stays configured for a
+# restore (deploy/RUNBOOK.md#восстановление-базы).
+apparatica_backups: false
+apparatica_backup_s3_url: ""
+apparatica_backup_s3_region: ""
+apparatica_backup_s3_bucket: ""
+apparatica_backup_time: "*-*-* 03:00:00 UTC"
+apparatica_backup_check_time: "Sun *-*-* 04:00:00 UTC"
 apparatica_garage_capacity_gb: 10
 # The published images of the release, ghcr.io/apparatica/<name>:<tag>: CI passes the tag of its
 # commit (sha-<12 digits>). Without it the images are built on the host from the files of the release.

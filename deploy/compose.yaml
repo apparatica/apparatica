@@ -37,14 +37,53 @@ x-worker-image: &worker-image
       PYTHON_IMAGE: ${PYTHON_IMAGE:-python:3.13-slim}
       DOCKER_CLI_IMAGE: ${DOCKER_CLI_IMAGE:-docker:29-cli}
 
+x-postgres-image: &postgres-image
+  image: ${POSTGRES_IMAGE:-apparatica-postgres:local}
+  build:
+    context: postgres
+    args:
+      POSTGRES_BASE_IMAGE: ${POSTGRES_BASE_IMAGE:-postgres:17-trixie}
+
+# The backup storage of WAL-G (docs/backups.md): on the stand the bucket `backups` of its own Garage,
+# on a server a bucket of another provider (compose.server.yaml). Backups are encrypted with
+# BACKUP_ENCRYPTION_KEY: without it they cannot be read.
+x-backup-env: &backup-env
+  WALG_S3_PREFIX: s3://${BACKUP_S3_BUCKET:-backups}/postgres
+  AWS_ENDPOINT: ${BACKUP_S3_URL:-http://garage:3900}
+  AWS_REGION: ${BACKUP_S3_REGION:-garage}
+  AWS_S3_FORCE_PATH_STYLE: "true"
+  AWS_ACCESS_KEY_ID: ${BACKUP_S3_KEY_ID:-GK5d0c1b7e3a9f2468ace13579}
+  AWS_SECRET_ACCESS_KEY: ${BACKUP_S3_KEY_SECRET:-4e1d9b6a3c8f2e7d0b5a9c4f1e6d3b8a2c7f0e5d9b4a1c6f3e8d2b7a0c5f9e4d}
+  WALG_LIBSODIUM_KEY: ${BACKUP_ENCRYPTION_KEY:-9c2e7a4f1d8b3e6c0a5f9d2b7e4c1a8f3d6b0e9c5a2f7d4b1e8c3a6f0d9b5e2c}
+  WALG_LIBSODIUM_KEY_TRANSFORM: hex
+  WALG_COMPRESSION_METHOD: zstd
+  # A segment of another cluster under the same name (a new database archiving to old backups) is
+  # refused, not written over the archive.
+  WALG_PREVENT_WAL_OVERWRITE: "true"
+  BACKUP_RETAIN_FULL: "30"
+  PGHOST: /var/run/postgresql
+  PGUSER: apparatica
+  PGDATABASE: apparatica
+
 # The sandbox runtime of the checks: runc on the stand, which runs on Docker Desktop too; runsc
 # (gVisor) where the Docker of the host has it, as in CI (ADR-0003).
 x-sandbox-runtime: &sandbox-runtime ${SANDBOX_RUNTIME:-runc}
 
 services:
+  # With WAL-G (deploy/postgres, docs/backups.md): WAL goes to the backup storage as it is written,
+  # a segment at least every 5 minutes (RPO, NFR-REL-04). Full backups: `apx-backup push`.
   postgres:
-    image: ${POSTGRES_IMAGE:-postgres:17-alpine}
+    <<: *postgres-image
+    command:
+      - postgres
+      - -c
+      - archive_mode=${POSTGRES_ARCHIVE_MODE:-on}
+      - -c
+      - archive_command=wal-g wal-push %p
+      - -c
+      - archive_timeout=300
     environment:
+      <<: *backup-env
       POSTGRES_DB: apparatica
       POSTGRES_USER: apparatica
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-apparatica}
@@ -128,6 +167,9 @@ services:
       KEY_WORKER_SECRET: ${S3_WORKER_KEY_SECRET:-931daceee6933f2579ef0dde804a626bf9922094d047aab7b467b186ecd5e497}
       KEY_INGEST_ID: ${S3_INGEST_KEY_ID:-GK4032d71ff405a5010bc4fade}
       KEY_INGEST_SECRET: ${S3_INGEST_KEY_SECRET:-83880593275b8ccdee7eabf3eea0e5a9e7ee64ee0da5f3fa5bc3d56f301a2a34}
+      # The backup storage of the stand: the key of x-backup-env.
+      KEY_BACKUP_ID: ${BACKUP_S3_KEY_ID:-GK5d0c1b7e3a9f2468ace13579}
+      KEY_BACKUP_SECRET: ${BACKUP_S3_KEY_SECRET:-4e1d9b6a3c8f2e7d0b5a9c4f1e6d3b8a2c7f0e5d9b4a1c6f3e8d2b7a0c5f9e4d}
     volumes:
       - ./garage:/opt/apparatica/deploy/garage:ro
       - waveview-site:/opt/waveview:ro
@@ -366,6 +408,20 @@ services:
     depends_on:
       caddy:
         condition: service_started
+    restart: "no"
+
+  # The restore check (docs/backups.md): the latest backup into the empty PGDATA of this container
+  # (an anonymous volume, removed with it), WAL replayed, the tables counted. `just stand-check`
+  # after a full backup; weekly on a server.
+  backup-check:
+    <<: *postgres-image
+    profiles: [check]
+    command: ["apx-backup", "check"]
+    user: postgres
+    environment: *backup-env
+    depends_on:
+      garage:
+        condition: service_healthy
     restart: "no"
 
   # Monitoring (NFR-OBS-02, docs/stand.md#мониторинг): `just monitoring`, not started by `up`

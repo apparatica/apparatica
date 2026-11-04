@@ -19,6 +19,9 @@ GENERATOR = DEPLOY / "ansible" / "roles" / "apparatica" / "files" / "apparatica-
 # A variable with a default, ${NAME:-value}.
 DEFAULTED = re.compile(r"\$\{([A-Z0-9_]+):-([^}]*)\}")
 SECRET_NAME = re.compile(r"PASSWORD|SECRET|_KEY$|_KEY_ID$|TOKEN|SALT")
+# Issued by the provider of the backup storage and written by hand; Ansible requires them when
+# backups are on (docs/backups.md).
+ISSUED = {"BACKUP_S3_KEY_ID", "BACKUP_S3_KEY_SECRET"}
 
 
 def load_generator() -> ModuleType:
@@ -65,7 +68,7 @@ def test_every_secret_of_the_stand_is_generated() -> None:
     secrets = {
         name for name, default in DEFAULTED.findall(text) if SECRET_NAME.search(name) and default
     }
-    assert secrets == set(generator.SECRETS)
+    assert secrets == set(generator.SECRETS) | ISSUED
 
 
 def test_generated_values_suit_the_services(tmp_path: Path) -> None:

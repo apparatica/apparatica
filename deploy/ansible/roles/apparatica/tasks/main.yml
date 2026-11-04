@@ -27,6 +27,26 @@
   register: apparatica_secrets
   changed_when: apparatica_secrets.stdout != ""
 
+- name: Read the secrets
+  ansible.builtin.slurp:
+    src: "{{ apparatica_config }}/secrets.env"
+  register: apparatica_secrets_env
+
+# Issued by the provider of the backup storage, not generated: without them WAL would pile up on the
+# host, archived nowhere.
+- name: Check the settings of the backups
+  when: apparatica_backups
+  ansible.builtin.assert:
+    that:
+      - apparatica_backup_s3_url != ""
+      - apparatica_backup_s3_region != ""
+      - apparatica_backup_s3_bucket != ""
+      - (apparatica_secrets_env.content | b64decode) is search('(?m)^BACKUP_S3_KEY_ID=.')
+      - (apparatica_secrets_env.content | b64decode) is search('(?m)^BACKUP_S3_KEY_SECRET=.')
+    fail_msg: >-
+      Backups need apparatica_backup_s3_url, _region, _bucket in the inventory and BACKUP_S3_KEY_ID,
+      BACKUP_S3_KEY_SECRET in {{ apparatica_config }}/secrets.env (docs/backups.md).
+
 - name: Write the settings
   ansible.builtin.template:
     src: settings.env.j2
@@ -38,3 +58,6 @@
 
 - name: Start the services
   ansible.builtin.import_tasks: services.yml
+
+- name: Schedule the backups
+  ansible.builtin.import_tasks: backups.yml

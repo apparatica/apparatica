@@ -15,11 +15,14 @@
     src: "{{ apparatica_root }}/releases/{{ apparatica_release }}/release.env"
   register: apparatica_release_env
 
-- name: List the published images of the release
+- name: List the images of the release
   ansible.builtin.set_fact:
     apparatica_images: >-
       {{ (apparatica_release_env.content | b64decode).splitlines()
-         | select('match', '^[A-Z_]+_IMAGE=') | map('regex_replace', '^[^=]+=', '') | list }}
+         | select('match', '^(API|WORKER|WEB)_IMAGE=') | map('regex_replace', '^[^=]+=', '') | list }}
+    apparatica_postgres_images: >-
+      {{ (apparatica_release_env.content | b64decode).splitlines()
+         | select('match', '^POSTGRES_IMAGE=') | map('regex_replace', '^[^=]+=', '') | list }}
 
 # A tag names one commit: an image already on the host is that one.
 - name: Pull the published images
@@ -27,6 +30,17 @@
   loop: "{{ apparatica_images }}"
   register: apparatica_pull
   changed_when: apparatica_pull.stdout != ""
+
+# Named by the files it is built from: an image already on the host is that one.
+- name: Build the Postgres image of the release
+  ansible.builtin.shell: >-
+    docker image inspect {{ item }} > /dev/null 2>&1 ||
+    { {{ apparatica_compose }} build --quiet postgres && echo built; }
+  args:
+    chdir: "{{ apparatica_root }}/releases/{{ apparatica_release }}"
+  loop: "{{ apparatica_postgres_images }}"
+  register: apparatica_postgres_build
+  changed_when: "'built' in apparatica_postgres_build.stdout"
 
 # Published images are never built here: a missing one fails the deploy instead.
 - name: Start the services of the release
@@ -89,12 +103,12 @@
   loop_control:
     label: "{{ item.path | basename }}"
 
-# Published images of the releases that are gone, and dangling ones of the builds on the host.
+# Images of the releases that are gone, and dangling ones of the builds on the host.
 - name: Remove the images no kept release uses
   ansible.builtin.shell: |
     set -euo pipefail
     kept=$(cat {{ apparatica_root }}/releases/*/release.env | sed -n 's/^[A-Z_]*_IMAGE=//p' | sort -u)
-    for image in $(docker images --format '{{ '{{.Repository}}:{{.Tag}}' }}' | grep -E '^{{ apparatica_registry }}/(api|worker|web):'); do
+    for image in $(docker images --format '{{ '{{.Repository}}:{{.Tag}}' }}' | grep -E '^({{ apparatica_registry }}/(api|worker|web)|apparatica-postgres):'); do
       echo "$kept" | grep -qxF "$image" || docker rmi "$image"
     done
     docker image prune -f

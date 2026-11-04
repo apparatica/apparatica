@@ -41,6 +41,8 @@ SECRETS: dict[str, Callable[[], str]] = {
     "S3_INGEST_KEY_ID": garage_key_id,
     "S3_INGEST_KEY_SECRET": hex_bytes(32),
     "GRAFANA_ADMIN_PASSWORD": hex_bytes(16),
+    # Encrypts the backups (libsodium): lost with the server, they cannot be read.
+    "BACKUP_ENCRYPTION_KEY": hex_bytes(32),
 }
 
 

@@ -1,10 +1,10 @@
 # RUNBOOK
 
-Операции на работающем сервере. Как устроено развёртывание — [docs/deployment.md](../docs/deployment.md). Команды `just` запускаются из корня репозитория на машине оператора, остальные — на сервере под `root`. Ниже `dc` — compose платформы:
+Операции на работающем сервере. Как устроено развёртывание — [docs/deployment.md](../docs/deployment.md). Команды `just` запускаются из корня репозитория на машине оператора, остальные — на сервере под `root`. Ниже `dc` — compose текущего релиза, с его образами:
 
 ```sh
 cd /opt/apparatica/current
-alias dc='docker compose -f deploy/compose.yaml -f deploy/compose.server.yaml --env-file /etc/apparatica/settings.env --env-file /etc/apparatica/secrets.env'
+alias dc='docker compose -f deploy/compose.yaml -f deploy/compose.server.yaml --env-file /etc/apparatica/settings.env --env-file /etc/apparatica/secrets.env --env-file release.env'
 ```
 
 ## Состояние
@@ -70,6 +70,54 @@ Caddy получает сертификаты Let's Encrypt при первом 
 | `POSTGRES_PASSWORD` | **не меняйте так**: Postgres берёт пароль только при создании тома. Сначала `dc exec postgres psql -U apparatica -c "ALTER USER apparatica PASSWORD '<новый>'"`, затем новое значение в файл и деплой |
 | `S3_<КОМПОНЕНТ>_KEY_ID` и `_SECRET` | только парой: `garage-setup` находит ключ по id и импортирует новый с правами компонента. Старый ключ остаётся в Garage с теми же правами: удалите его после деплоя (`dc exec garage /garage key delete --yes <старый id>`) |
 | `GARAGE_ADMIN_TOKEN`, `GARAGE_RPC_SECRET` | Garage читает их при старте: деплой перезапускает его с новыми |
+| `BACKUP_ENCRYPTION_KEY` | **не меняйте**: бэкапы, зашифрованные старым ключом, станут нечитаемыми. Если ключ скомпрометирован: новый ключ, деплой, сразу полный бэкап; старые бэкапы удалить в хранилище, когда 30 новых накопятся |
+| `BACKUP_S3_KEY_ID`, `BACKUP_S3_KEY_SECRET` | не генерируются: новый ключ — у провайдера хранилища, затем в файл и деплой (Postgres перезапускается с ним), старый ключ — отозвать у провайдера |
+
+## Бэкапы
+
+Как устроены — [docs/backups.md](../docs/backups.md).
+
+```sh
+systemctl list-timers 'apparatica-backup*'                  # когда были и будут запуски
+journalctl -u apparatica-backup -u apparatica-backup-check -n 100
+dc exec -T -u postgres postgres wal-g backup-list           # полные бэкапы в хранилище
+dc exec -T postgres psql -U apparatica -c 'select * from pg_stat_archiver'   # архив WAL
+systemctl start apparatica-backup          # полный бэкап сейчас
+systemctl start apparatica-backup-check    # проверка восстановления сейчас
+```
+
+**Архив WAL не уходит** (`failed_count` растёт, в `dc logs postgres` ошибки `wal-push`): Postgres не удаляет неархивированный WAL, и он копится в томе `postgres`. Причины — ключ или бакет (проверьте `BACKUP_S3_*`), недоступность хранилища, отказ `WALG_PREVENT_WAL_OVERWRITE` (в префиксе архив другого кластера: новая база пишет в старые бэкапы, см. «Восстановление базы»). После исправления Postgres дошлёт накопленное сам. Если до заполнения диска не успеть — `apparatica_backups: false` и деплой выключают архив; после включения обратно сразу сделайте полный бэкап.
+
+## Восстановление базы
+
+Цель — не дольше 2 часов (NFR-REL-04). Нужны ключи из `secrets.env`: `BACKUP_ENCRYPTION_KEY` и `BACKUP_S3_KEY_*`. Восстанавливается последний полный бэкап и WAL после него — до конца архива или до момента `TIME` (UTC, например `2026-11-04 17:31:44+00`: всё, что было до него).
+
+**На том же хосте** (испорченная база, ошибочное удаление):
+
+```sh
+dc stop caddy web api ingest worker postgres
+# старые данные — в сторону, если на диске есть место (иначе пропустите)
+docker volume create apparatica_postgres-before-restore
+docker run --rm -v apparatica_postgres:/from:ro -v apparatica_postgres-before-restore:/to \
+  "$(sed -n 's/^POSTGRES_IMAGE=//p' release.env)" cp -a /from/. /to/
+dc rm -f postgres && docker volume rm apparatica_postgres
+dc run --rm --no-deps -u postgres postgres apx-backup restore            # до конца архива
+# или: ... apx-backup restore LATEST '<TIME>'                            # до момента
+dc up -d --no-deps postgres
+dc logs -f postgres     # ждать «archive recovery complete» и «ready to accept connections»
+```
+
+Затем `just deploy staging` (или `dc up -d --wait caddy valkey-queue valkey-cache ingest worker`) и сразу `systemctl start apparatica-backup`: база начала новую линию времени. Когда всё проверено, `docker volume rm apparatica_postgres-before-restore`. Для восстановления до момента нужен бэкап, сделанный раньше него: если `LATEST` новее, найдите более ранний в `wal-g backup-list` и укажите его имя вместо `LATEST`.
+
+**На новом хосте** (хост потерян):
+
+1. Хост в инвентаре и DNS — как в [deployment.md](../docs/deployment.md#окружения-и-хосты); `just provision <окружение> --tags host`.
+2. Сохранённую копию `secrets.env` — в `/etc/apparatica/secrets.env` (`install -d -m 700 /etc/apparatica`, файл `0600`) **до первого деплоя**: генератор оставит её значения, иначе новые ключи не прочитают ни бэкапы, ни данные гостей.
+3. `just deploy <окружение> -e apparatica_backups=false`: платформа с пустой базой и без архива WAL, чтобы новая база ничего не записала в префикс старых бэкапов.
+4. Восстановление — как на том же хосте, начиная с `dc stop …` (копию старых данных делать не нужно).
+5. `just deploy <окружение>`: архив WAL и таймеры включаются, первый полный бэкап новой линии времени — сразу.
+
+Объекты Garage (артефакты проверок, FST) не восстанавливаются: пакеты задач деплой импортирует снова, ссылки старых отправок на артефакты ведут в пустоту.
 
 ## Место на диске
 

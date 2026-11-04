@@ -1,0 +1,13 @@
+# {{ ansible_managed }}
+# A full backup of Postgres, the old ones deleted, the archive of WAL checked (docs/backups.md).
+[Unit]
+Description=Apparatica: full backup of Postgres
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory={{ apparatica_root }}/current
+ExecStart=/usr/bin/docker compose -f deploy/compose.yaml -f deploy/compose.server.yaml \
+  --env-file {{ apparatica_config }}/settings.env --env-file {{ apparatica_config }}/secrets.env \
+  --env-file release.env exec -T -u postgres postgres apx-backup push

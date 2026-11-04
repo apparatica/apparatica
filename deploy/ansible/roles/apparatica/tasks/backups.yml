@@ -1,0 +1,59 @@
+# Backups of Postgres (docs/backups.md): systemd timers of the full backup and of the restore check,
+# both through compose of the current release. Off: the timers are gone, the archive of WAL is off
+# (settings.env), the backups already in the storage stay.
+- name: Write the units of the backups
+  when: apparatica_backups
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: /etc/systemd/system/{{ item }}
+    mode: "0644"
+  loop:
+    - apparatica-backup.service
+    - apparatica-backup.timer
+    - apparatica-backup-check.service
+    - apparatica-backup-check.timer
+
+- name: Start the timers of the backups
+  when: apparatica_backups
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+    daemon_reload: true
+  loop: [apparatica-backup.timer, apparatica-backup-check.timer]
+
+# Until the first full backup the archive of WAL restores nothing.
+- name: Look for a full backup
+  when: apparatica_backups
+  ansible.builtin.command: >-
+    {{ apparatica_compose }} exec -T -u postgres postgres wal-g backup-list
+  args:
+    chdir: "{{ apparatica_root }}/current"
+  register: apparatica_backup_list
+  changed_when: false
+
+- name: Make the first full backup
+  when: apparatica_backups and 'No backups found' in apparatica_backup_list.stderr ~ apparatica_backup_list.stdout
+  ansible.builtin.systemd_service:
+    name: apparatica-backup.service
+    state: started
+
+- name: Stop the timers of the backups
+  when: not apparatica_backups
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: false
+    state: stopped
+  loop: [apparatica-backup.timer, apparatica-backup-check.timer]
+  failed_when: false
+
+- name: Remove the units of the backups
+  when: not apparatica_backups
+  ansible.builtin.file:
+    path: /etc/systemd/system/{{ item }}
+    state: absent
+  loop:
+    - apparatica-backup.service
+    - apparatica-backup.timer
+    - apparatica-backup-check.service
+    - apparatica-backup-check.timer

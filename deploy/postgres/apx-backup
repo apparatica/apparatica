@@ -1,0 +1,99 @@
+#!/bin/sh
+# Backups of the Postgres of the platform with WAL-G (docs/backups.md). Runs as the user postgres in
+# the image of deploy/postgres; the storage, its keys and the encryption key come from the
+# environment (WALG_S3_PREFIX, AWS_*, WALG_LIBSODIUM_KEY), as for the archive_command of the server.
+#
+#   apx-backup push                     a full backup of the running server, the old ones deleted,
+#                                       the archive of WAL checked
+#   apx-backup restore [BACKUP [TIME]]  an empty PGDATA from the backup (LATEST by default); the next
+#                                       start replays WAL to TIME (the end of the archive by default)
+#   apx-backup check                    the restore check: the latest backup restored into this
+#                                       container's empty PGDATA, started, its tables counted
+#
+# BACKUP_RETAIN_FULL: full backups kept by `push` (30: daily ones for 30 days).
+set -eu
+
+: "${PGDATA:?}"
+# The tables a restored database must have; `problems` must not be empty (the demo problems of a
+# deploy are always imported).
+TABLES="problems problem_versions submissions users"
+
+log() {
+    printf '%s apx-backup: %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" >&2
+}
+
+push() {
+    log "full backup of $PGDATA"
+    wal-g backup-push "$PGDATA"
+    log "keeping the last ${BACKUP_RETAIN_FULL:-30} full backups"
+    wal-g delete retain FULL "${BACKUP_RETAIN_FULL:-30}" --confirm
+    # Every WAL segment from the oldest backup to the server's current position is in the storage.
+    verify=$(wal-g wal-verify integrity timeline --json)
+    printf '%s\n' "$verify"
+    case $verify in
+    *'"status":"FAILURE"'*)
+        log "the archive of WAL is not continuous"
+        exit 1
+        ;;
+    esac
+    log "done"
+}
+
+restore() {
+    backup=${1:-LATEST}
+    target=${2:-}
+    if [ -n "$(ls -A "$PGDATA" 2>/dev/null)" ]; then
+        log "$PGDATA is not empty: move the data away first (deploy/RUNBOOK.md#восстановление-базы)"
+        exit 1
+    fi
+    log "fetching the backup $backup into $PGDATA"
+    wal-g backup-fetch "$PGDATA" "$backup"
+    chmod 0700 "$PGDATA"
+    # Archive recovery on the next start: WAL from the storage up to the target, then a new timeline.
+    # A database restored before keeps the settings of that restore: its target must not stop this one.
+    sed -i -E '/^(# apx-backup restore|restore_command|recovery_target)/d' "$PGDATA/postgresql.auto.conf"
+    {
+        echo "# apx-backup restore $backup $target"
+        echo "restore_command = 'wal-g wal-fetch %f %p'"
+        echo "recovery_target_action = 'promote'"
+        if [ -n "$target" ]; then
+            echo "recovery_target_time = '$target'"
+        fi
+    } >>"$PGDATA/postgresql.auto.conf"
+    touch "$PGDATA/recovery.signal"
+    log "restored; the next start of postgres replays WAL${target:+ to $target}"
+}
+
+check() {
+    restore LATEST
+    log "replaying WAL"
+    # No archiving and no network clients: the check never writes to the storage.
+    pg_ctl -D "$PGDATA" -l /tmp/postgres.log -w -t 3600 \
+        -o "-c archive_mode=off -c listen_addresses=''" start >/dev/null
+    trap 'pg_ctl -D "$PGDATA" -m fast stop >/dev/null' EXIT
+    while [ "$(psql -Atc 'select pg_is_in_recovery()')" != f ]; do
+        sleep 1
+    done
+    grep -h 'last completed transaction' /tmp/postgres.log >&2 || true
+    for table in $TABLES; do
+        count=$(psql -v ON_ERROR_STOP=1 -Atc "select count(*) from $table")
+        log "$table: $count rows"
+        if [ "$table" = problems ] && [ "$count" -eq 0 ]; then
+            log "the restored database has no problems"
+            exit 1
+        fi
+    done
+    log "the latest backup restores"
+}
+
+command=${1:-}
+[ $# -gt 0 ] && shift
+case $command in
+push) push ;;
+restore) restore "$@" ;;
+check) check ;;
+*)
+    echo "usage: apx-backup push | restore [BACKUP [TIME]] | check" >&2
+    exit 2
+    ;;
+esac

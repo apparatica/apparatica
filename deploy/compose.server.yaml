@@ -7,13 +7,18 @@
 #     --env-file /etc/apparatica/settings.env --env-file /etc/apparatica/secrets.env up -d
 #
 # Settings: SITE_HOST, S3_HOST, WAVEVIEW_HOST (public names), SANDBOX_RUNTIME=runsc,
-# APX_ENVIRONMENT=production, APX_COOKIE_SECURE=true. Every secret of compose.yaml comes from
+# APX_ENVIRONMENT=production, APX_COOKIE_SECURE=true; POSTGRES_ARCHIVE_MODE and, with backups on,
+# BACKUP_S3_URL, BACKUP_S3_REGION, BACKUP_S3_BUCKET. Every secret of compose.yaml comes from
 # secrets.env: its public development defaults are never used (Ansible checks it).
 
 services:
+  # Backups go to the storage of another provider (BACKUP_S3_* of settings.env and secrets.env,
+  # docs/backups.md), not to the Garage of the same host: it holds no key for them.
   garage-setup:
     environment:
       CORS_ORIGINS: https://${SITE_HOST:?}
+      KEY_BACKUP_ID: ""
+      KEY_BACKUP_SECRET: ""
 
   api:
     environment:

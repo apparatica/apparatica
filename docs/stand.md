@@ -9,8 +9,9 @@
 ```sh
 just up            # собрать образы, мигрировать БД, настроить Garage, зарегистрировать профиль
                    # тулчейна, запустить воркер, импортировать задачи
-just stand-check   # проверить хранилище (права ключей, presigned URL, CORS, сайт waveview)
-                   # и проверку решений гостя через весь стенд
+just stand-check   # проверить хранилище (права ключей, presigned URL, CORS, сайт waveview),
+                   # проверку решений гостя через весь стенд, бэкап базы и восстановление из него
+just backup-check  # только бэкап базы и проверка восстановления (docs/backups.md)
 just monitoring    # Prometheus и Grafana рядом с запущенным стендом
 just logs api web  # логи сервисов
 just down          # остановить (и мониторинг); данные в томах остаются (удалить: docker compose … down -v)
@@ -43,7 +44,7 @@ just down          # остановить (и мониторинг); данны�
 | `api` | FastAPI (`backend/Dockerfile`) |
 | `ingest` | `apparatica ingest` из того же образа: результаты проверок в Postgres, `finalized`, watchdog, сроки хранения артефактов, процент принятых. С ключом хранилища `ingest` и пользователем Valkey `ingest` |
 | `web` | Next.js, standalone-сервер (`web/Dockerfile`); серверный рендер читает `api` напрямую (`API_URL=http://api:8000`) и стартует после него; `S3_PUBLIC_URL` и `WAVEVIEW_URL` — origin хранилища и просмотрщика для CSP страниц |
-| `postgres` | PostgreSQL 17, локаль `builtin C.UTF-8` (регистр символов — средствами PostgreSQL, поиск по кириллице не зависит от ОС образа) |
+| `postgres` | PostgreSQL 17 с WAL-G (`deploy/postgres`, образ собирается из `POSTGRES_BASE_IMAGE`, по умолчанию `postgres:17-trixie`), локаль `builtin C.UTF-8` (регистр символов — средствами PostgreSQL, поиск по кириллице не зависит от ОС образа). Архивирует WAL в бакет `backups` Garage ([backups.md](backups.md)) |
 | `valkey-queue` | очереди и стримы: AOF, без вытеснения. Пользователи и их ключи — `deploy/valkey/queue-users.acl.in` ([security.md](security.md#права-компонентов)); пароли — `VALKEY_QUEUE_API_PASSWORD`, `VALKEY_QUEUE_WORKER_PASSWORD`, `VALKEY_QUEUE_INGEST_PASSWORD`. API ставит в него проверки как `api`, воркер берёт их как `worker`, ингестор читает результаты как `ingest` |
 | `valkey-cache` | кэш и rate limit: без сохранения на диск, LRU. API хранит в нём счётчики rate limit и квоты волн ([api.md](api.md#авторы-и-лимиты)) |
 | `garage` | S3-хранилище (ADR-0013), один узел |
@@ -57,7 +58,7 @@ just down          # остановить (и мониторинг); данны�
 | `worker` | `apparatica-worker`: проверки из очередей в песочницах `sandboxd`. С ключом хранилища `worker` и пользователем Valkey `worker`, без Postgres и Docker |
 | `mailpit` | только с `compose.dev.yaml`: SMTP-сервер, который никуда не отправляет письма, а показывает их (`MAILPIT_IMAGE`, по умолчанию `axllent/mailpit:v1.33.0`); `api` шлёт в него письма (`APX_SMTP_URL=smtp://mailpit:1025`), ссылки в них ведут на `APX_PUBLIC_BASE_URL` — `http://localhost:8080` |
 | `prometheus`, `grafana` | мониторинг, запускаются только `just monitoring` (профиль `monitoring`), см. [«Мониторинг»](#мониторинг) |
-| `storage-check`, `judge-check` | проверки стенда, запускаются только `just stand-check` (профиль `check`): хранилище (`deploy/garage/check.py`) и проверка решений (`deploy/worker/check.py`) |
+| `storage-check`, `judge-check`, `backup-check` | проверки стенда, запускаются только `just stand-check` (профиль `check`): хранилище (`deploy/garage/check.py`), проверка решений (`deploy/worker/check.py`) и восстановление последнего бэкапа базы (`apx-backup check`, [backups.md](backups.md)) |
 
 Одноразовые сервисы идемпотентны и выполняются при каждом `up`: повторный импорт пропускает неизменённые версии, настройка Garage ничего не пересоздаёт.
 
@@ -98,7 +99,7 @@ Grafana открывается на http://grafana.localhost:8080: смотре�
 
 ## Хранилище
 
-`garage-setup` создаёт бакеты `packages`, `artifacts`, `build-cache`, `waveview` и импортирует ключи `api`, `worker`, `ingest` с правами по ADR-0013. CORS бакета `artifacts` разрешает GET и HEAD с сайта: страница задачи сама скачивает FST и передаёт байты просмотрщику, iframe `waveview` в хранилище не ходит. Правила жизненного цикла:
+`garage-setup` создаёт бакеты `packages`, `artifacts`, `build-cache`, `waveview` и импортирует ключи `api`, `worker`, `ingest` с правами по ADR-0013, а для бэкапов базы — бакет `backups` и ключ `backup` с правами только на него ([backups.md](backups.md#на-стенде)). CORS бакета `artifacts` разрешает GET и HEAD с сайта: страница задачи сама скачивает FST и передаёт байты просмотрщику, iframe `waveview` в хранилище не ходит. Правила жизненного цикла:
 - незавершённые multipart-загрузки удаляются через сутки во всех бакетах;
 - `build-cache` очищается через сутки.
 
@@ -108,7 +109,7 @@ Grafana открывается на http://grafana.localhost:8080: смотре�
 
 ## Настройки и секреты
 
-Значения по умолчанию заданы в `compose.yaml`, поэтому чистый checkout запускается без настройки. Секреты по умолчанию (пароль БД, ключ токенов заданий, ключ cookie гостя, соль адресов, секреты и ключи Garage) публичны. Стенд, к которому есть доступ у других, должен задать свои значения в `deploy/.env`. Список переменных — `deploy/.env.example`, файл `deploy/.env` в git не попадает.
+Значения по умолчанию заданы в `compose.yaml`, поэтому чистый checkout запускается без настройки. Секреты по умолчанию (пароль БД, ключ токенов заданий, ключ cookie гостя, соль адресов, секреты и ключи Garage, ключ шифрования бэкапов) публичны. Стенд, к которому есть доступ у других, должен задать свои значения в `deploy/.env`. Список переменных — `deploy/.env.example`, файл `deploy/.env` в git не попадает.
 
 Там же задаются:
 - порт сайта (`HTTP_PORT`);
@@ -116,7 +117,7 @@ Grafana открывается на http://grafana.localhost:8080: смотре�
 - порты `compose.dev.yaml` — если, например, 5432 уже занят Postgres на хосте;
 - рантайм песочниц (`SANDBOX_RUNTIME`) и образ тулчейна (`TOOLCHAIN_IMAGE`, `TOOLCHAIN_DIGEST`, `TOOLCHAIN_PROFILE_ID`), см. [«Воркер и песочница»](#воркер-и-песочница);
 - пароль администратора Grafana (`GRAFANA_ADMIN_PASSWORD`);
-- образы. Если Docker Hub недоступен, их можно брать через зеркало (`POSTGRES_IMAGE=mirror.gcr.io/library/postgres:17-alpine` …; базовые образы сборки — `PYTHON_IMAGE`, `NODE_IMAGE`, `DOCKER_CLI_IMAGE`; мониторинг — `PROMETHEUS_IMAGE`, `GRAFANA_IMAGE`).
+- образы. Если Docker Hub недоступен, их можно брать через зеркало (`VALKEY_IMAGE=mirror.gcr.io/valkey/valkey:8-alpine` …; базовые образы сборки — `POSTGRES_BASE_IMAGE`, `PYTHON_IMAGE`, `NODE_IMAGE`, `DOCKER_CLI_IMAGE`; мониторинг — `PROMETHEUS_IMAGE`, `GRAFANA_IMAGE`).
 
 ## e2e-тесты
 
@@ -141,4 +142,4 @@ E2E_BASE_URL=http://localhost:18080 just e2e -g guest   # другой порт,
 
 ## CI
 
-Job `Stand` в `ci.yml` ставит на `ubuntu-24.04` gVisor, поднимает стенд с нуля с `SANDBOX_RUNTIME=runsc` (`just up`), запускает `just stand-check` — с ним и эталон и мутант демо-задачи через весь стенд — проверяет через Caddy здоровье API, каталог и страницу и запускает `just e2e` с Chrome раннера; при падении отчёт Playwright и трассы — артефакт `e2e-report`. Лимит job'а — 20 минут: по NFR-MAINT-06 стенд должен подниматься на чистой машине за 15.
+Job `Stand` в `ci.yml` ставит на `ubuntu-24.04` gVisor, поднимает стенд с нуля с `SANDBOX_RUNTIME=runsc` (`just up`), запускает `just stand-check` — с ним и эталон и мутант демо-задачи через весь стенд, и бэкап базы с восстановлением — проверяет через Caddy здоровье API, каталог и страницу и запускает `just e2e` с Chrome раннера; при падении отчёт Playwright и трассы — артефакт `e2e-report`. Лимит job'а — 20 минут: по NFR-MAINT-06 стенд должен подниматься на чистой машине за 15.

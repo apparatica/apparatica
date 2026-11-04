@@ -1,0 +1,13 @@
+# {{ ansible_managed }}
+# The latest backup restored into a container of its own, its tables counted (docs/backups.md).
+[Unit]
+Description=Apparatica: restore check of the Postgres backups
+Requires=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+WorkingDirectory={{ apparatica_root }}/current
+ExecStart=/usr/bin/docker compose -f deploy/compose.yaml -f deploy/compose.server.yaml \
+  --env-file {{ apparatica_config }}/settings.env --env-file {{ apparatica_config }}/secrets.env \
+  --env-file release.env run --rm backup-check

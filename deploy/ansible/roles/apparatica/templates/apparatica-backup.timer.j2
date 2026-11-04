@@ -1,0 +1,12 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Apparatica: daily full backup of Postgres
+
+[Timer]
+OnCalendar={{ apparatica_backup_time }}
+RandomizedDelaySec=10min
+# A run missed while the host was down starts at boot.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

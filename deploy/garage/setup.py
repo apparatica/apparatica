@@ -8,7 +8,7 @@ the waveview builds of WAVEVIEW_DIR (the `waveview` service copies them out of t
 
 Environment: GARAGE_ADMIN_URL, GARAGE_ADMIN_TOKEN, GARAGE_S3_URL, GARAGE_CAPACITY_GB, CORS_ORIGINS
 (comma-separated), WAVEVIEW_DIR and the keys of the components, KEY_<COMPONENT>_ID /
-KEY_<COMPONENT>_SECRET.
+KEY_<COMPONENT>_SECRET. The key `backup` is optional: a server keeps its backups elsewhere.
 """
 
 import json
@@ -24,12 +24,14 @@ import boto3
 from botocore.config import Config
 from botocore.exceptions import ClientError
 
-BUCKETS = ("packages", "artifacts", "build-cache", "waveview")
+BUCKETS = ("packages", "artifacts", "build-cache", "waveview", "backups")
 # Who may do what (ADR-0013). The ingestor deletes expired artifacts: in Garage that is `write`.
 PERMISSIONS: dict[str, dict[str, set[str]]] = {
     "api": {"packages": {"read", "write"}, "artifacts": {"read"}},
     "worker": {"packages": {"read"}, "artifacts": {"write"}, "build-cache": {"read", "write"}},
     "ingest": {"artifacts": {"read", "write"}},
+    # WAL-G of the stand (docs/backups.md); it deletes old backups itself.
+    "backup": {"backups": {"read", "write"}},
 }
 # Retention (specs/07 §4.4): compiled simulations live a day. Incomplete uploads go everywhere.
 # Other retention of artifacts needs rules by kind, which key prefixes cannot express: the
@@ -250,7 +252,9 @@ def publish_waveview(s3: Any, root: Path) -> None:
 
 def main() -> None:
     ensure_layout(wait_for_garage())
-    buckets = {alias: ensure_bucket(alias) for alias in BUCKETS}
+    # Without the key `backup` the backups live elsewhere: no bucket for them.
+    aliases = [a for a in BUCKETS if a != "backups" or os.environ.get("KEY_BACKUP_ID")]
+    buckets = {alias: ensure_bucket(alias) for alias in aliases}
     admin(
         "POST",
         "UpdateBucket",
@@ -258,9 +262,11 @@ def main() -> None:
         id=buckets["waveview"],
     )
     for name, grants in PERMISSIONS.items():
-        key_id = os.environ[f"KEY_{name.upper()}_ID"]
+        key_id = os.environ.get(f"KEY_{name.upper()}_ID", "")
+        if not key_id and name == "backup":
+            continue
         ensure_key(name, key_id, os.environ[f"KEY_{name.upper()}_SECRET"])
-        for alias in BUCKETS:
+        for alias in aliases:
             allow(buckets[alias], key_id, grants.get(alias, set()))
     configure_buckets(buckets)
     print("garage: ready")
