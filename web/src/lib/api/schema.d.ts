@@ -442,7 +442,8 @@ export interface paths {
          * Delete Me
          * @description Request deletion of the account in 7 days (FR-USR-05): `delete_at` is set, the profile is
          *     hidden at once, sessions stay so that POST /me/restore can cancel it. Repeating keeps the
-         *     date.
+         *     date. At `delete_at` the sessions end, and the account is deleted with its submissions,
+         *     drafts, logins and consents.
          */
         delete: operations["delete_me"];
         options?: never;
@@ -484,7 +485,8 @@ export interface paths {
         };
         /**
          * Export Me
-         * @description Own data with the code of every kept submission (FR-USR-05).
+         * @description Own data with the code of every kept submission (FR-USR-05), as the file
+         *     `apparatica-<nick>.json`.
          */
         get: operations["export_me"];
         put?: never;
@@ -3432,15 +3434,6 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Error"];
                 };
             };
-            /** @description Not Implemented */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Error"];
-                };
-            };
         };
     };
     update_me: {
@@ -3575,15 +3568,6 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Error"];
                 };
             };
-            /** @description Not Implemented */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Error"];
-                };
-            };
         };
     };
     export_me: {
@@ -3625,15 +3609,6 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Not Implemented */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };

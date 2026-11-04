@@ -1,5 +1,5 @@
-"""The own account `/me` and public profiles `/users/{nick}` (specs/05 §3, phase 2): the contract,
-stubs until T2.9. Every `/me` route answers UNAUTHENTICATED without a session.
+"""The own account `/me` and public profiles `/users/{nick}` (specs/05 §3, phase 2). Every `/me`
+route answers UNAUTHENTICATED without a session.
 """
 
 from datetime import UTC, datetime
@@ -9,7 +9,7 @@ from fastapi import APIRouter, Depends, Path, Request, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from apparatica.auth.accounts import change_nick, me
+from apparatica.auth.accounts import ask_deletion, change_nick, me
 from apparatica.auth.models import User
 from apparatica.auth.schemas import Me, Nick
 from apparatica.auth.sessions import SignedIn
@@ -18,6 +18,7 @@ from apparatica.core.db import get_session
 from apparatica.core.errors import ApiError, ErrorCode, problem_responses
 from apparatica.core.http import PRIVATE, cached_json
 from apparatica.users import drafts, profiles
+from apparatica.users.export import export_account
 from apparatica.users.schemas import AccountExport, Draft, DraftSave, MeUpdate, Profile
 
 router = APIRouter(tags=["users"])
@@ -27,10 +28,11 @@ Slug = Annotated[str, Path(pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$", max_length=64)]
 Session = Annotated[AsyncSession, Depends(get_session)]
 
 
-def _stub(task: str) -> ApiError:
-    return ApiError(
-        ErrorCode.NOT_IMPLEMENTED, f"Declared by the phase 2 contract; arrives in {task}"
-    )
+async def _locked(session: AsyncSession, signed_in: SignedIn) -> User:
+    user = await session.scalar(select(User).where(User.id == signed_in.user_id).with_for_update())
+    if user is None:  # deleted after the lookup of the session
+        raise ApiError(ErrorCode.UNAUTHENTICATED, "Sign in to continue")
+    return user
 
 
 @router.get(
@@ -66,9 +68,7 @@ async def update_me(body: MeUpdate, signed_in: SignedIn, session: Session) -> Me
     is when it may change again."""
     now = datetime.now(UTC)
     # Locked: two concurrent changes of the nick would both pass the check of 30 days.
-    user = await session.scalar(select(User).where(User.id == signed_in.user_id).with_for_update())
-    if user is None:
-        raise ApiError(ErrorCode.UNAUTHENTICATED, "Sign in to continue")
+    user = await _locked(session, signed_in)
     if "display_name" in body.model_fields_set:
         user.display_name = body.display_name
     if body.nick is not None:
@@ -82,36 +82,38 @@ async def update_me(body: MeUpdate, signed_in: SignedIn, session: Session) -> Me
     status_code=status.HTTP_202_ACCEPTED,
     response_model=Me,
     responses=problem_responses(
-        ErrorCode.NOT_IMPLEMENTED,
-        ErrorCode.UNAUTHENTICATED,
-        ErrorCode.CSRF_FAILED,
-        ErrorCode.RATE_LIMITED,
+        ErrorCode.UNAUTHENTICATED, ErrorCode.CSRF_FAILED, ErrorCode.RATE_LIMITED
     ),
     dependencies=[Depends(throttle)],
     openapi_extra=PHASE_2,
 )
-async def delete_me() -> Me:
+async def delete_me(signed_in: SignedIn, session: Session) -> Me:
     """Request deletion of the account in 7 days (FR-USR-05): `delete_at` is set, the profile is
     hidden at once, sessions stay so that POST /me/restore can cancel it. Repeating keeps the
-    date."""
-    raise _stub("T2.9")
+    date. At `delete_at` the sessions end, and the account is deleted with its submissions,
+    drafts, logins and consents."""
+    now = datetime.now(UTC)
+    user = await _locked(session, signed_in)
+    ask_deletion(user, now)
+    await session.commit()
+    return me(user, now)
 
 
 @router.post(
     "/me/restore",
     response_model=Me,
     responses=problem_responses(
-        ErrorCode.NOT_IMPLEMENTED,
-        ErrorCode.UNAUTHENTICATED,
-        ErrorCode.CSRF_FAILED,
-        ErrorCode.RATE_LIMITED,
+        ErrorCode.UNAUTHENTICATED, ErrorCode.CSRF_FAILED, ErrorCode.RATE_LIMITED
     ),
     dependencies=[Depends(throttle)],
     openapi_extra=PHASE_2,
 )
-async def restore_me() -> Me:
+async def restore_me(signed_in: SignedIn, session: Session) -> Me:
     """Cancel a requested deletion; without one nothing changes."""
-    raise _stub("T2.9")
+    user = await _locked(session, signed_in)
+    user.delete_at = None
+    await session.commit()
+    return me(user)
 
 
 @router.get(
@@ -122,15 +124,26 @@ async def restore_me() -> Me:
             "description": "The data as an attachment",
             "headers": {"Content-Disposition": {"schema": {"type": "string"}}},
         },
-        **problem_responses(
-            ErrorCode.NOT_IMPLEMENTED, ErrorCode.UNAUTHENTICATED, ErrorCode.RATE_LIMITED
-        ),
+        **problem_responses(ErrorCode.UNAUTHENTICATED, ErrorCode.RATE_LIMITED),
     },
+    dependencies=[Depends(throttle)],
     openapi_extra=PHASE_2,
 )
-async def export_me() -> AccountExport:
-    """Own data with the code of every kept submission (FR-USR-05)."""
-    raise _stub("T2.9")
+async def export_me(signed_in: SignedIn, session: Session) -> Response:
+    """Own data with the code of every kept submission (FR-USR-05), as the file
+    `apparatica-<nick>.json`."""
+    user = await session.get(User, signed_in.user_id)
+    if user is None:
+        raise ApiError(ErrorCode.UNAUTHENTICATED, "Sign in to continue")
+    data = await export_account(session, user, datetime.now(UTC))
+    return Response(
+        data.model_dump_json(indent=2),
+        media_type="application/json",
+        headers={
+            "Content-Disposition": f'attachment; filename="apparatica-{user.nick}.json"',
+            "Cache-Control": PRIVATE,
+        },
+    )
 
 
 @router.get(

@@ -14,7 +14,8 @@ from apparatica.users.schemas import DifficultyProgress, Profile, SolvedProblem
 async def get_profile(
     session: AsyncSession, nick: str, difficulty_order: Sequence[str]
 ) -> Profile | None:
-    user = await session.scalar(select(User).where(User.nick == nick))
+    # An account being deleted is hidden at once (FR-USR-05).
+    user = await session.scalar(select(User).where(User.nick == nick, User.delete_at.is_(None)))
     if user is None:
         return None
     progress = await progress_of(session, user.id, difficulty_order)

@@ -1,6 +1,6 @@
 """Accounts: the user as the API shows it to themselves (`Me`), accounts that a first login
-creates with the legal documents it accepts (FR-AUTH-06), and the nick that the user changes once
-in 30 days (FR-AUTH-02)."""
+creates with the legal documents it accepts (FR-AUTH-06), the nick that the user changes once
+in 30 days (FR-AUTH-02), and the deletion the user asks for, 7 days ahead (FR-USR-05)."""
 
 import re
 import secrets
@@ -24,6 +24,7 @@ SUFFIX_LENGTH = 4
 DISPLAY_NAME_LENGTH = 60  # DisplayName
 ATTEMPTS = 5  # of a free nick, or of finding the account a concurrent login created
 NICK_CHANGE_EVERY = timedelta(days=30)  # FR-AUTH-02
+DELETE_AFTER = timedelta(days=7)  # FR-USR-05
 
 
 def me(user: User, now: datetime | None = None) -> Me:
@@ -36,7 +37,7 @@ def me(user: User, now: datetime | None = None) -> Me:
         role=cast(Role, user.role),  # ck_users_role
         created_at=user.created_at,
         nick_change_available_at=nick_change_available_at(user, now or datetime.now(UTC)),
-        delete_at=None,  # deletion arrives in T2.9
+        delete_at=user.delete_at,
     )
 
 
@@ -68,6 +69,12 @@ async def change_nick(session: AsyncSession, user: User, nick: str, now: datetim
             await session.flush()
     except IntegrityError:
         raise ApiError(ErrorCode.NICK_TAKEN, f"The nick '{nick}' is taken") from None
+
+
+def ask_deletion(user: User, now: datetime) -> None:
+    """Delete the account in 7 days; asking again keeps the time."""
+    if user.delete_at is None:
+        user.delete_at = now + DELETE_AFTER
 
 
 def random_nick() -> str:

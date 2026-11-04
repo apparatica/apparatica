@@ -1,5 +1,5 @@
 // Requests of the own account (docs/api.md#пользователи-и-вход-ф2-контракт): who is signed in, the
-// nick and the name, login by a link from a letter, logout.
+// nick and the name, deletion and export, login by a link from a letter, logout.
 import { browserApi as api } from "@/lib/api/browser";
 import type { Schemas } from "@/lib/api/client";
 
@@ -19,6 +19,29 @@ export async function updateMe(body: Schemas["MeUpdate"]): Promise<Me> {
   const { data, error } = await api.PATCH("/api/v1/me", { body });
   if (error !== undefined) throw error;
   return data;
+}
+
+/** Asks to delete the account in 7 days (FR-USR-05); asking again keeps the time. */
+export async function deleteMe(): Promise<Me> {
+  const { data, error } = await api.DELETE("/api/v1/me");
+  if (error !== undefined) throw error;
+  return data;
+}
+
+/** Cancels the deletion of the account. */
+export async function restoreMe(): Promise<Me> {
+  const { data, error } = await api.POST("/api/v1/me/restore");
+  if (error !== undefined) throw error;
+  return data;
+}
+
+/** The own data (FR-USR-05) and the name of its file, `apparatica-<nick>.json`. */
+export async function exportMe(): Promise<{ file: Blob; name: string }> {
+  const { data, error, response } = await api.GET("/api/v1/me/export", { parseAs: "blob" });
+  if (error !== undefined) throw error;
+  const disposition = response.headers.get("Content-Disposition") ?? "";
+  const name = /filename="([^"]+)"/.exec(disposition)?.[1] ?? "apparatica.json";
+  return { file: data, name };
 }
 
 /** Loads the page anew after a logout, as a guest: nothing of the user stays in the memory of the

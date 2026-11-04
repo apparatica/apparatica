@@ -1856,7 +1856,7 @@
           "users"
         ],
         "summary": "Delete Me",
-        "description": "Request deletion of the account in 7 days (FR-USR-05): `delete_at` is set, the profile is\nhidden at once, sessions stay so that POST /me/restore can cancel it. Repeating keeps the\ndate.",
+        "description": "Request deletion of the account in 7 days (FR-USR-05): `delete_at` is set, the profile is\nhidden at once, sessions stay so that POST /me/restore can cancel it. Repeating keeps the\ndate. At `delete_at` the sessions end, and the account is deleted with its submissions,\ndrafts, logins and consents.",
         "operationId": "delete_me",
         "responses": {
           "202": {
@@ -1871,16 +1871,6 @@
           },
           "500": {
             "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "501": {
-            "description": "Not Implemented",
             "content": {
               "application/problem+json": {
                 "schema": {
@@ -2043,16 +2033,6 @@
               }
             }
           },
-          "501": {
-            "description": "Not Implemented",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
           "401": {
             "description": "Unauthorized",
             "content": {
@@ -2093,7 +2073,7 @@
           "users"
         ],
         "summary": "Export Me",
-        "description": "Own data with the code of every kept submission (FR-USR-05).",
+        "description": "Own data with the code of every kept submission (FR-USR-05), as the file\n`apparatica-<nick>.json`.",
         "operationId": "export_me",
         "responses": {
           "200": {
@@ -2115,16 +2095,6 @@
           },
           "500": {
             "description": "Internal Server Error",
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Error"
-                }
-              }
-            }
-          },
-          "501": {
-            "description": "Not Implemented",
             "content": {
               "application/problem+json": {
                 "schema": {

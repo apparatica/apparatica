@@ -3,7 +3,8 @@
 A login gives the browser a random token in the cookie `ap_session` (httpOnly, SameSite=Lax); the
 table `sessions` keeps its sha256 only. A session lasts `session_ttl_s` (30 days) from its last
 use: a request renews it at most once in `RENEW_EVERY`, moving the expiry of the row and the cookie.
-Logout deletes the row, so an ended session is not accepted again.
+Logout deletes the row, so an ended session is not accepted again. Sessions of an account past
+its `delete_at` are not accepted either: the ingestor deletes the account soon after (FR-USR-05).
 
 Sessions found in the database are cached in valkey-cache for `CACHE_TTL_S`; ending a session
 deletes its entry. An unreachable cache sends every lookup to the database.
@@ -21,10 +22,10 @@ from typing import Annotated
 import redis.asyncio
 import structlog
 from fastapi import Depends, Request, Response
-from sqlalchemy import delete, update
+from sqlalchemy import delete, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from apparatica.auth.models import UserSession
+from apparatica.auth.models import User, UserSession
 from apparatica.core.db import Database
 from apparatica.core.errors import ApiError, ErrorCode
 
@@ -52,6 +53,7 @@ class SessionInfo:
     user_id: uuid.UUID
     expires_at: datetime
     last_seen_at: datetime
+    delete_at: datetime | None = None  # of the account
     renewed: bool = False  # by this lookup: the cookie is to be set again
 
 
@@ -95,13 +97,29 @@ class Sessions:
         found = await self._cached(id_hash)
         if found is None:
             async with self._database.sessions() as session:
-                row = await session.get(UserSession, id_hash)
+                row = (
+                    await session.execute(
+                        select(UserSession, User.delete_at)
+                        .join(User, User.id == UserSession.user_id)
+                        .where(UserSession.id_hash == id_hash)
+                    )
+                ).first()
             if row is None:
                 return None
-            found = SessionInfo(id_hash, row.user_id, row.expires_at, row.last_seen_at)
+            user_session, delete_at = row
+            found = SessionInfo(
+                id_hash,
+                user_session.user_id,
+                user_session.expires_at,
+                user_session.last_seen_at,
+                delete_at,
+            )
             await self._remember(found)
         now = self._clock()
         if found.expires_at <= now:
+            return None
+        # A deletion asked meanwhile is 7 days away: the cached time may lag behind it.
+        if found.delete_at is not None and found.delete_at <= now:
             return None
         if now - found.last_seen_at >= RENEW_EVERY:
             return await self._renew(found, now)
@@ -167,11 +185,13 @@ class Sessions:
         if raw is None:
             return None
         value = json.loads(raw)
+        delete_at = value.get("delete_at")
         return SessionInfo(
             id_hash,
             uuid.UUID(value["user_id"]),
             datetime.fromisoformat(value["expires_at"]),
             datetime.fromisoformat(value["last_seen_at"]),
+            datetime.fromisoformat(delete_at) if delete_at is not None else None,
         )
 
     async def _remember(self, found: SessionInfo) -> None:
@@ -181,6 +201,7 @@ class Sessions:
             "user_id": str(found.user_id),
             "expires_at": found.expires_at.isoformat(),
             "last_seen_at": found.last_seen_at.isoformat(),
+            "delete_at": found.delete_at.isoformat() if found.delete_at is not None else None,
         }
         try:
             await self._cache.set(_key(found.id_hash), json.dumps(value), ex=CACHE_TTL_S)

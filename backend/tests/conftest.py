@@ -159,6 +159,9 @@ class MemoryStorage(Storage):
     def find(self, bucket: str, key: str) -> bytes | None:
         return self.objects.get((bucket, key))
 
+    def delete(self, bucket: str, key: str) -> None:
+        self.objects.pop((bucket, key), None)
+
 
 def import_problems(
     url: str, paths: list[Path], *, publish: bool, storage: Storage | None = None

@@ -1,10 +1,11 @@
 "use client";
 
 // The settings of the account (specs/08 §1, no mock-up): the nick, changed once in 30 days, and the
-// display name (FR-AUTH-02); logout on every device (FR-AUTH-04). A guest is asked to sign in.
-// Logins of other providers, deletion and export join in Ф4 and T2.9.
+// display name (FR-AUTH-02); logout on every device (FR-AUTH-04); the export of own data and the
+// deletion of the account (FR-USR-05). A guest is asked to sign in. Logins of other providers join
+// in Ф4.
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { LogIn, LogOut } from "lucide-react";
+import { Download, LogIn, LogOut } from "lucide-react";
 import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
 import { type FormEvent, type ReactNode, useState } from "react";
@@ -16,8 +17,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { notify } from "@/components/ui/toast";
 import { ErrorState } from "@/features/errors/states";
 import type { ApiError, Schemas } from "@/lib/api/client";
+import { saveFile } from "@/lib/download";
 
-import { afterLogout, logout, type Me, meKey, updateMe } from "./api";
+import { afterLogout, exportMe, logout, type Me, meKey, updateMe } from "./api";
+import { DeleteAccount, useCancelDeletion, useDeletionDate } from "./deletion";
 import { useMe } from "./use-me";
 
 // Nick of the API (auth.schemas.Nick); the name is at most 60 characters.
@@ -62,6 +65,8 @@ export function SettingsPage() {
       <>
         <ProfileForm key={me.id} me={me} />
         <Sessions />
+        <DataExport />
+        <Deletion me={me} />
       </>
     );
   }
@@ -195,6 +200,54 @@ function Sessions() {
           {t("logoutAll")}
         </Button>
       </div>
+    </Section>
+  );
+}
+
+function DataExport() {
+  const t = useTranslations("settings.data");
+  const download = useMutation({
+    mutationFn: exportMe,
+    onSuccess: ({ file, name }) => saveFile(file, name),
+    onError: () => notify({ tone: "er", title: t("failed") }),
+  });
+  return (
+    <Section title={t("title")}>
+      <p className="text-mu">{t("description")}</p>
+      <div>
+        <Button onClick={() => download.mutate()} loading={download.isPending}>
+          <Download aria-hidden="true" />
+          {t("download")}
+        </Button>
+      </div>
+    </Section>
+  );
+}
+
+function Deletion({ me }: { me: Me }) {
+  const t = useTranslations("settings.deletion");
+  const date = useDeletionDate();
+  const cancel = useCancelDeletion();
+  return (
+    <Section title={t("title")}>
+      {me.delete_at === null ? (
+        <>
+          <p className="text-mu">{t("description")}</p>
+          <DeleteAccount me={me} />
+        </>
+      ) : (
+        <>
+          <p>
+            <span className="font-medium">{t("pending", { date: date(me.delete_at) })}</span>{" "}
+            <span className="text-mu">{t("pendingHint")}</span>
+          </p>
+          <div>
+            <Button onClick={() => cancel.mutate()} loading={cancel.isPending}>
+              {t("cancel")}
+            </Button>
+          </div>
+        </>
+      )}
     </Section>
   );
 }

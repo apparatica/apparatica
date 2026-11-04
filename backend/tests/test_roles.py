@@ -105,7 +105,7 @@ def test_requests_of_a_user_are_limited_per_user(database_url: str, limits: Path
         sign_in(client, database_url, "ada")
         logout_all = "/api/v1/auth/logout-all"
         assert client.patch("/api/v1/me", json={}).status_code == 200
-        assert client.post("/api/v1/me/restore").status_code == 501  # T2.9
+        assert client.post("/api/v1/me/restore").status_code == 200
         limited = client.post(logout_all)
         assert (limited.status_code, limited.json()["params"]["quota"]) == (429, "requests")
         sign_in(client, database_url, "bob")  # another user of the address

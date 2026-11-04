@@ -2,14 +2,15 @@
 accepted, sessions and the tokens of links in letters (specs/04 §4, Ф2).
 
 The first login creates the user; deletion of a user cascades to its identities, consents and
-sessions.
+sessions (and to its drafts and statuses of problems; its submissions go first, ingestor's
+AccountPurge).
 """
 
 import uuid
 from datetime import date, datetime
 from typing import get_args
 
-from sqlalchemy import CheckConstraint, ForeignKey, UniqueConstraint
+from sqlalchemy import CheckConstraint, ForeignKey, Index, UniqueConstraint, text
 from sqlalchemy.dialects.postgresql import CITEXT
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -25,6 +26,7 @@ class User(Base):
         # The pattern of Nick: profiles are /u/<nick>, and citext keeps them unique in any case.
         CheckConstraint("nick ~ '^[a-z0-9_.-]{3,24}$'", name="nick_format"),
         CheckConstraint(f"role IN ({', '.join(repr(role) for role in ROLES)})", name="role"),
+        Index("ix_users_delete_at", "delete_at", postgresql_where=text("delete_at IS NOT NULL")),
     )
 
     id: Mapped[uuid.UUID] = uuid_pk()
@@ -35,6 +37,9 @@ class User(Base):
     role: Mapped[str] = mapped_column(server_default="user")
     created_at: Mapped[datetime] = created_at()
     nick_changed_at: Mapped[datetime | None]  # by the user; the nick of the first login is not
+    # Asked deletion (FR-USR-05): the profile is hidden at once, the ingestor deletes the account
+    # at this time, and its sessions end then.
+    delete_at: Mapped[datetime | None]
 
 
 class Identity(Base):

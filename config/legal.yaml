@@ -16,8 +16,8 @@ operator:
 # of changes.
 documents:
   terms:
-    version: 2026-11-03
-    sha256: "674024d776bcfaf5c0b907e96953aab9e981afa8918c68a18d65c8578e12bdbf"
+    version: 2026-11-04
+    sha256: "687c0ea72c0b77481052a8b8c1de6ff29ec998d0aaa4d06be870fa34d9d0da53"
   privacy:
-    version: 2026-11-03
-    sha256: "9b7db611dc99cea27df2d596afaec9f37f33a3d716791e30056ecb033b12342c"
+    version: 2026-11-04
+    sha256: "b8129e33d25e889f80a2d929a38cfcbfdf946b63f1e81ae40f82164403120548"

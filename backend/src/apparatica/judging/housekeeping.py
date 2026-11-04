@@ -11,6 +11,9 @@
 - **Addresses** — the salted hashes of client addresses older than `client_ip_hash_days` are
   cleared (NFR-PRIV-01).
 - **Sessions** — expired sessions of users are deleted (FR-AUTH-04).
+- **Accounts** — accounts past their `delete_at` are deleted with their submissions and the files
+  of their artifacts, drafts, statuses of problems, logins, consents and sessions (FR-USR-05).
+  Public solutions, when they come, are to pass to «удалённый участник» instead (decision ОВ-12).
 - **Problem stats** — the authors of every problem with a judged and with an accepted Submit, for
   the acceptance rate of the catalogue (FR-CAT-04).
 """
@@ -30,14 +33,14 @@ from pydantic import ValidationError
 from sqlalchemy import CursorResult, and_, delete, distinct, func, literal, select, update
 from sqlalchemy.dialects.postgresql import insert
 
-from apparatica.auth.models import EmailToken, UserSession
+from apparatica.auth.models import EmailToken, User, UserSession
 from apparatica.core.db import Database
 from apparatica.core.storage import Storage
 from apparatica.judging.ingest import finalize, internal_error, transient
 from apparatica.judging.leader import Leadership
 from apparatica.judging.publish import publish_finalized
 from apparatica.problems.models import Problem as ProblemRow
-from apparatica.problems.models import ProblemStats, ProblemVersion
+from apparatica.problems.models import ProblemStats, ProblemVersion, UserProblemStatus
 from apparatica.problems.progress import ACCEPTED
 from apparatica.submissions.events import FinalizedEvent
 from apparatica.submissions.models import Artifact, Submission, Waveform
@@ -181,6 +184,23 @@ class ArtifactPurge:
         return len(purged)
 
 
+async def _delete_files(
+    storage: Storage, bucket: str, files: Sequence[tuple[uuid.UUID, str]], owner: str
+) -> set[uuid.UUID]:
+    """Deletes the files of artifacts (submission, key); returns the submissions with a file left:
+    they stay until the next run."""
+    kept: set[uuid.UUID] = set()
+    for submission_id, key in files:
+        if submission_id in kept:
+            continue
+        try:
+            await asyncio.to_thread(storage.delete, bucket, key)
+        except (BotoCoreError, ClientError) as error:
+            log.warning("artifact not deleted", owner=owner, key=key, error=str(error))
+            kept.add(submission_id)
+    return kept
+
+
 @dataclass
 class GuestPurge:
     database: Database
@@ -215,21 +235,84 @@ class GuestPurge:
                     )
                 )
             ).all()
-        kept: set[uuid.UUID] = set()
-        for submission_id, key in files:
-            if submission_id in kept:
-                continue
-            try:
-                await asyncio.to_thread(self.storage.delete, self.bucket, key)
-            except (BotoCoreError, ClientError) as error:  # the next run tries again
-                log.warning("guest artifact not deleted", key=key, error=str(error))
-                kept.add(submission_id)
+        kept = await _delete_files(self.storage, self.bucket, files, "guest")
         deleted = [submission_id for submission_id in ids if submission_id not in kept]
         if deleted:
             async with self.database.sessions.begin() as session:  # stages, artifacts: cascade
                 await session.execute(delete(Submission).where(Submission.id.in_(deleted)))
             log.info("guest submissions deleted", count=len(deleted))
         return len(deleted)
+
+
+@dataclass
+class AccountPurge:
+    database: Database
+    storage: Storage
+    bucket: str
+    batch: int = 20
+    clock: Clock = field(default=_now)
+
+    async def __call__(self) -> int:
+        """Deletes a batch of accounts past their `delete_at`; returns how many. Their sessions are
+        refused since then (`Sessions.find`). An account with a check or a waveform job still
+        going, or with a file that cannot be deleted, stays until the next run."""
+        async with self.database.sessions() as session:
+            ids = list(
+                await session.scalars(
+                    select(User.id)
+                    .where(User.delete_at <= self.clock())
+                    .order_by(User.delete_at)
+                    .limit(self.batch)
+                )
+            )
+        deleted = 0
+        for user_id in ids:
+            deleted += await self._delete(user_id)
+        if deleted:
+            log.info("accounts deleted", count=deleted)
+        return deleted
+
+    async def _delete(self, user_id: uuid.UUID) -> int:
+        async with self.database.sessions() as session:
+            going = await session.scalar(
+                select(func.count())
+                .select_from(Submission)
+                .outerjoin(
+                    Waveform,
+                    and_(Waveform.submission_id == Submission.id, Waveform.status == "pending"),
+                )
+                .where(
+                    Submission.user_id == user_id,
+                    Submission.status.in_(("queued", "running")) | Waveform.id.is_not(None),
+                )
+            )
+            files = (
+                await session.execute(
+                    select(Artifact.submission_id, Artifact.storage_key)
+                    .join(Submission, Submission.id == Artifact.submission_id)
+                    .where(Submission.user_id == user_id, Artifact.purged_at.is_(None))
+                )
+            ).all()
+        if going:  # the ingestor finishes it first; a late file would stay in the bucket
+            return 0
+        if await _delete_files(self.storage, self.bucket, files, "account"):
+            return 0
+        async with self.database.sessions.begin() as session:
+            # The row decides, under a lock.
+            user = await session.scalar(
+                select(User)
+                .where(User.id == user_id, User.delete_at <= self.clock())
+                .with_for_update()
+            )
+            if user is None:
+                return 0
+            # The statuses refer to submissions; drafts, logins, consents, sessions: cascade.
+            await session.execute(
+                delete(UserProblemStatus).where(UserProblemStatus.user_id == user_id)
+            )
+            await session.execute(delete(Submission).where(Submission.user_id == user_id))
+            await session.delete(user)
+        return 1
 
 
 @dataclass

@@ -2,6 +2,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
+import { DeletionBanner } from "@/features/account/deletion";
 import { SessionProvider } from "@/features/account/session";
 import type { Theme } from "@/lib/theme";
 
@@ -74,6 +75,7 @@ export function AppShell({
             <CommandPalette />
             <AccountMenu />
           </header>
+          <DeletionBanner />
           <NetworkBanner />
           <div className="flex min-h-0 flex-1 gap-px">
             <Rail />
