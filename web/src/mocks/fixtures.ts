@@ -42,7 +42,7 @@ export const config: Schemas["ConfigResponse"] = {
       address: "[адрес оператора — уточняется]",
       email: "[почта для запросов — уточняется]",
     },
-    versions: { terms: "2026-11-04", privacy: "2026-11-04" },
+    versions: { terms: "2026-11-04", privacy: "2026-11-05" },
   },
 };
 

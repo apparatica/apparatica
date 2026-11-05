@@ -80,7 +80,17 @@ docker compose -f deploy/compose.yaml -f deploy/compose.server.yaml \
 
 Ключ шифрования бэкапов `BACKUP_ENCRYPTION_KEY` генерируется так же, но менять его нельзя: старые бэкапы станут нечитаемыми.
 
-Ключи, которые выдаёт провайдер, не генерируются: ключ хранилища бэкапов (`BACKUP_S3_KEY_ID`, `BACKUP_S3_KEY_SECRET`, [backups.md](backups.md#на-сервере)), токен бота алертов (`TELEGRAM_BOT_TOKEN`, [alerts.md](alerts.md#бот-и-чат)) и ключи OAuth-приложений (`APX_GITHUB_CLIENT_ID`, `APX_GITHUB_CLIENT_SECRET`). Без них сервер работает без входа через провайдера; чтобы включить вход через GitHub, допишите их в `secrets.env` и повторите деплой. Callback URL приложения — `https://<SITE_HOST>/api/v1/auth/github/callback` ([configuration.md](configuration.md#переменные-окружения)).
+Ключи, которые выдаёт провайдер, не генерируются: ключ хранилища бэкапов (`BACKUP_S3_KEY_ID`, `BACKUP_S3_KEY_SECRET`, [backups.md](backups.md#на-сервере)), токен бота алертов (`TELEGRAM_BOT_TOKEN`, [alerts.md](alerts.md#бот-и-чат)), ключи OAuth-приложений (`APX_GITHUB_CLIENT_ID`, `APX_GITHUB_CLIENT_SECRET`) и адрес почтового relay с ключом (`APX_SMTP_URL`, [ниже](#почта)). Без них сервер работает без входа через провайдера и без входа по почте; чтобы включить вход, допишите их в `secrets.env` и повторите деплой. Callback URL приложения GitHub — `https://<SITE_HOST>/api/v1/auth/github/callback` ([configuration.md](configuration.md#переменные-окружения)).
+
+### Почта
+
+Письма со ссылкой входа уходят через SMTP-relay Brevo (Франция, данные в ЕС; обработчик в [legal.md](legal.md#обработчики-ст-28)). Хостинг закрывает исходящие порты 25, 465 и 587, поэтому relay — на порту 2525 со STARTTLS:
+
+```
+APX_SMTP_URL=smtp+starttls://<логин SMTP>:<ключ SMTP>@smtp-relay.brevo.com:2525
+```
+
+Логин и ключ — в Brevo: SMTP & API → SMTP; `@` логина записывается как `%40`. Отправитель — `apparatica_mail_from` инвентаря (`MAIL_FROM` в `settings.env`, у staging `Apparatica <noreply@apparatica.app>`): его домен подтверждается в Brevo (Senders, Domains & Dedicated IPs → Domains) записями DNS, которые Brevo выдаёт, — код Brevo, DKIM, SPF (`include:spf.brevo.com`) и DMARC. Без них письма уходят в спам или отклоняются. Доставку видно по метрике `apparatica_mail_letters_total` ([configuration.md](configuration.md#метрики)).
 
 **Сохраните копию `secrets.env` вне сервера** (менеджер паролей): без `BACKUP_ENCRYPTION_KEY` из неё бэкапы не расшифровать, без остальных ключей восстановленные данные не прочитать ключами нового сервера, а гости потеряют свои отправки. Смена секрета — в [RUNBOOK](../deploy/RUNBOOK.md#смена-секрета).
 

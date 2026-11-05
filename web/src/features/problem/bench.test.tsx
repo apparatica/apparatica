@@ -384,7 +384,7 @@ describe("the whole failed test", () => {
     // Recorded once: opened again without a request.
     await userEvent.click(waves.getByRole("button", { name: "Открыть трассу целиком" }));
     expect(title()).toHaveTextContent(/весь тест/);
-  });
+  }, 15_000); // a whole flow with a poll of 2 s, as above
 
   it("above the FST limit says so and keeps the window", async () => {
     const waves = await wavesOf("// mock: wrong-answer\n// mock-fst: full-too-large");
@@ -395,7 +395,7 @@ describe("the whole failed test", () => {
     expect(waves.queryByRole("button", { name: "Повторить" })).not.toBeInTheDocument();
     await userEvent.click(waves.getByRole("button", { name: "К окну расхождения" }));
     expect(waves.getByText("Просмотрщик волн недоступен")).toBeInTheDocument();
-  });
+  }, 15_000);
 });
 
 describe("the limits of the guest", () => {

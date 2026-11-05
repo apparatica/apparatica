@@ -13,6 +13,9 @@ apparatica_monitoring: false
 # TELEGRAM_BOT_TOKEN, goes to secrets.env by hand (BotFather issues it). Empty: no messages, the
 # alerts are seen in Grafana only.
 apparatica_alert_telegram_chat_id: ""
+# The From header of the login letters: its domain needs SPF, DKIM and DMARC for the mail provider,
+# whose SMTP URL, APX_SMTP_URL, goes to secrets.env by hand (docs/deployment.md#почта).
+apparatica_mail_from: "Apparatica <noreply@{{ apparatica_site_host }}>"
 # The metrics the backup units write for the alerts; node-exporter reads them from there
 # (compose.server.yaml).
 apparatica_metrics_dir: /var/lib/apparatica/metrics

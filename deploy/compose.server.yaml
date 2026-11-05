@@ -7,8 +7,9 @@
 #     --env-file /etc/apparatica/settings.env --env-file /etc/apparatica/secrets.env up -d
 #
 # Settings: SITE_HOST, S3_HOST, WAVEVIEW_HOST (public names), SANDBOX_RUNTIME=runsc,
-# APX_ENVIRONMENT=production, APX_COOKIE_SECURE=true; POSTGRES_ARCHIVE_MODE and, with backups on,
-# BACKUP_S3_URL, BACKUP_S3_REGION, BACKUP_S3_BUCKET; TELEGRAM_CHAT_ID of the alerts. Every secret of
+# APX_ENVIRONMENT=production, APX_COOKIE_SECURE=true; MAIL_FROM of the login letters;
+# POSTGRES_ARCHIVE_MODE and, with backups on, BACKUP_S3_URL, BACKUP_S3_REGION, BACKUP_S3_BUCKET;
+# TELEGRAM_CHAT_ID of the alerts. Every secret of
 # compose.yaml comes from secrets.env: its public development defaults are never used (Ansible
 # checks it).
 
@@ -26,6 +27,7 @@ services:
       APX_S3_PUBLIC_URL: https://${S3_HOST:?}
       APX_WAVEVIEW_URL: https://${WAVEVIEW_HOST:?}
       APX_PUBLIC_BASE_URL: https://${SITE_HOST:?}
+      APX_MAIL_FROM: ${MAIL_FROM:?}
 
   web:
     environment:

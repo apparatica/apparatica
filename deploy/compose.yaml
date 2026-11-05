@@ -217,6 +217,9 @@ services:
       APX_WAVEVIEW_URL: http://waveview.web.localhost:${HTTP_PORT:-8080}
       # Links in letters; letters need APX_SMTP_URL (Mailpit of compose.dev.yaml).
       APX_PUBLIC_BASE_URL: http://localhost:${HTTP_PORT:-8080}
+      # Login letters through the SMTP relay of a mail provider, with its key in the URL
+      # (docs/deployment.md#почта); unset, no email login.
+      APX_SMTP_URL: ${APX_SMTP_URL:-}
       # Login with GitHub: the keys of an OAuth app, issued by GitHub (docs/development.md#пользователи);
       # unset, no GitHub login.
       APX_GITHUB_CLIENT_ID: ${APX_GITHUB_CLIENT_ID:-}

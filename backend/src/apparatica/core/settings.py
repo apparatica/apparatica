@@ -124,10 +124,11 @@ class Settings(BaseSettings):
         description="How often the ingestor recounts acceptance rates; 10 min at most (FR-CAT-04)",
     )
 
-    @field_validator("github_client_id", "github_client_secret", mode="before")
+    @field_validator("smtp_url", "github_client_id", "github_client_secret", mode="before")
     @classmethod
     def _empty_is_unset(cls, value: object) -> object:
-        """deploy/compose.yaml passes the keys of an OAuth app through, empty when unset."""
+        """deploy/compose.yaml passes the SMTP URL and the keys of an OAuth app through, empty
+        when unset."""
         return None if value == "" else value
 
 

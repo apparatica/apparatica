@@ -293,9 +293,16 @@ def test_smtp_urls() -> None:
     assert SmtpServer.parse("smtp://mailpit:1025") == SmtpServer(
         "smtp", "mailpit", 1025, None, None
     )
+    # The relay of Brevo on its port for hosts that block 587 (docs/deployment.md#почта).
+    relay = SmtpServer.parse("smtp+starttls://abc%40smtp-brevo.com:key@smtp-relay.brevo.com:2525")
+    assert relay == SmtpServer(
+        "smtp+starttls", "smtp-relay.brevo.com", 2525, "abc@smtp-brevo.com", "key"
+    )
     for url in ("http://smtp.example.com", "smtp://", "mailpit:1025"):
         with pytest.raises(ValueError, match="APX_SMTP_URL"):
             SmtpServer.parse(url)
+    # deploy/compose.yaml passes an unset URL through as an empty one.
+    assert Settings(database_url="postgresql+psycopg://x", smtp_url="").smtp_url is None  # type: ignore[arg-type]
 
 
 @pytest.fixture(scope="module")

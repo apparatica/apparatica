@@ -13,6 +13,10 @@ apparatica_backup_s3_url: https://06127661db7bdce1f8d118d524def246.eu.r2.cloudfl
 apparatica_backup_s3_region: auto
 apparatica_backup_s3_bucket: apparatica-staging-backups
 
+# Login letters go through Brevo (docs/deployment.md#почта) from the root domain, which Brevo
+# authenticates (SPF, DKIM, DMARC); the SMTP URL, APX_SMTP_URL, is in /etc/apparatica/secrets.env.
+apparatica_mail_from: "Apparatica <noreply@apparatica.app>"
+
 # Prometheus, Alertmanager and Grafana (Grafana on 127.0.0.1:3000 of the server, through an SSH
 # tunnel).
 apparatica_monitoring: true
