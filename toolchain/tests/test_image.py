@@ -81,8 +81,10 @@ class TestVersions:
                 ["python3", "-c", "import importlib.metadata as m; print(m.version('pyslang'))"],
                 r"^{PYSLANG_VERSION}$",
             ),
+            (["yosys", "-V"], r"^Yosys {YOSYS_VERSION}\b"),
+            (["sta", "-version"], r"^{OPENSTA_VERSION}$"),
         ],
-        ids=["verilator", "verible", "z3", "gcc", "python", "pyslang"],
+        ids=["verilator", "verible", "z3", "gcc", "python", "pyslang", "yosys", "opensta"],
     )
     def test_tool_matches_lock(
         self, sandbox: Sandbox, lock: dict[str, str], argv: list[str], pattern: str
@@ -133,7 +135,20 @@ class TestSandbox:
 def test_sources_of_the_programs(sandbox: Sandbox, lock: dict[str, str]) -> None:
     """ADR-0012: where the sources of the programs in the image are."""
     text = sandbox.read("/opt/licenses/SOURCES.md")
-    for key in ("TOOLCHAIN_PROFILE", "VERILATOR_VERSION", "VERILATOR_SHA256", "PYSLANG_VERSION"):
+    keys = (
+        "TOOLCHAIN_PROFILE",
+        "VERILATOR_VERSION",
+        "VERILATOR_SHA256",
+        "PYSLANG_VERSION",
+        "YOSYS_VERSION",
+        "YOSYS_SHA256",
+        "SLANG_COMMIT",
+        "OPENSTA_VERSION",
+        "OPENSTA_COMMIT",
+        "CUDD_VERSION",
+        "NANGATE45_ORFS_COMMIT",
+    )
+    for key in keys:
         assert lock[key] in text, key
     assert lock["VERIBLE_VERSION"] in text
     assert not re.search(r"@[A-Z_0-9]+@", text)

@@ -100,6 +100,24 @@ def test_canonical_text_builds_with_verilator(executor: LocalDockerExecutor) -> 
     assert result.ok, result.output
 
 
+def test_canonical_text_reads_with_yosys_slang(executor: LocalDockerExecutor) -> None:
+    """S7: the canonical text is the input of synth too (sv-elab with the flags of ADR-0007)."""
+    commented = ADDER.replace("\n", " // synthesis translate_off\n", 3)
+    canonical = precheck(executor, commented).outputs["solution.sv"]
+    script = (
+        "read_slang --no-synthesis-define --no-default-translate-off-format solution.sv --top top; "
+        "hierarchy -check -top top"
+    )
+    plan = StagePlan(
+        commands=(Command(("yosys", "-q", "-p", script)),),
+        timeout_s=60,
+        output_limit=1 << 16,
+        inputs={"solution.sv": canonical},
+    )
+    result = executor.run("synth", plan, lambda *_: None, threading.Event())
+    assert result.ok, result.output
+
+
 def test_forbidden_solution_is_rejected(executor: LocalDockerExecutor) -> None:
     solution = '`include "/etc/passwd"\n' + ADDER
     outcome = precheck(executor, solution)

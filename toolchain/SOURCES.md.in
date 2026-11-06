@@ -7,9 +7,17 @@
 | Verilator | @VERILATOR_VERSION@ | LGPL-3.0-only или Artistic-2.0 | https://github.com/verilator/verilator/archive/refs/tags/v@VERILATOR_VERSION@.tar.gz (sha256 @VERILATOR_SHA256@) |
 | Verible | @VERIBLE_VERSION@ | Apache-2.0 | https://github.com/chipsalliance/verible/tree/@VERIBLE_VERSION@ |
 | pyslang | @PYSLANG_VERSION@ | MIT | https://pypi.org/project/pyslang/@PYSLANG_VERSION@/#files |
+| Yosys с ABC и sv-elab (slang @SLANG_COMMIT@) | @YOSYS_VERSION@ | ISC; ABC, slang и другие встроенные библиотеки — под своими лицензиями, тексты в `/opt/licenses/yosys/` | https://github.com/YosysHQ/yosys/releases/download/v@YOSYS_VERSION@/yosys.tar.gz (sha256 @YOSYS_SHA256@) |
+| OpenSTA | @OPENSTA_VERSION@ | GPL-3.0-or-later | https://github.com/parallaxsw/OpenSTA/tree/@OPENSTA_COMMIT@ |
+| CUDD (статически в OpenSTA) | @CUDD_VERSION@ | BSD-3-Clause | https://github.com/cuddorg/cudd/tree/cudd-@CUDD_VERSION@ |
+| Eigen (заголовки, встроены в OpenSTA) | @EIGEN_VERSION@ (пакет Debian `libeigen3-dev`) | MPL-2.0 | https://sources.debian.org/src/eigen3/@EIGEN_VERSION@/ |
 | apx-run, apx-verilate, apx-init, apx_tb_pkg | профиль @TOOLCHAIN_PROFILE@ | AGPL-3.0-or-later | https://github.com/apparatica/apparatica/tree/master/toolchain |
 
 Рантайм Verilator в `/opt/apx/verilator-runtime` собран из исходников Verilator той же версии.
+
+## Библиотека ячеек
+
+`/opt/pdk/nangate45/NangateOpenCellLibrary_typical.lib` — liberty Nangate45 (FreePDK45 Open Cell Library) из OpenROAD-flow-scripts: https://github.com/The-OpenROAD-Project/OpenROAD-flow-scripts/tree/@NANGATE45_ORFS_COMMIT@/flow/platforms/nangate45. Файл не изменён; рядом лежат `LICENSE` и `README.md` оттуда же (версия и источник библиотеки). Лицензия не входит в список открытых лицензий проекта: это единственное исключение (ADR-0007). Коммерческие форки и инстансы оценивают её сами.
 
 ## Пакеты Debian
 

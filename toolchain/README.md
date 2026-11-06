@@ -2,7 +2,7 @@
 
 Образ, в котором песочница выполняет все этапы проверки (ADR-0003, specs/07 §5). Один опубликованный образ — один профиль тулчейна (`ToolchainProfile`): результаты сравнимы только в пределах профиля.
 
-Сейчас собран профиль 1: Verilator, Z3, pyslang, Verible, `apx-run`, `apx-verilate`, `apx-init`, библиотека тестбенча `apx_tb_pkg`. Yosys, OpenSTA и liberty Nangate45 добавятся в T3.1a, SymbiYosys — в T5.1.
+Сейчас собран профиль 2: Verilator, Z3, pyslang, Verible, `apx-run`, `apx-verilate`, `apx-init`, библиотека тестбенча `apx_tb_pkg`, а для синтеза — Yosys со встроенным sv-elab, OpenSTA и liberty Nangate45 (с T3.1a). SymbiYosys добавится в T5.1.
 
 ## Состав
 
@@ -13,9 +13,12 @@
 | Verible | `/opt/verible` | статическая сборка с GitHub, sha256 в `versions.lock` |
 | pyslang | `/opt/apx/venv` (первый в `PATH` Python) | колесо PyPI по хэшу |
 | Z3, g++, make, Python 3.13 | пакеты Debian trixie | версии проверяют тесты образа |
+| Yosys с ABC и sv-elab (бывший yosys-slang) | `/opt/yosys` | релизный `yosys.tar.gz` с подмодулями, sha256 в `versions.lock`; сборка CMake |
+| OpenSTA (только `sta`) с CUDD | `/opt/opensta/bin/sta` | исходники `parallaxsw/OpenSTA` по коммиту и CUDD по тегу, sha256 в `versions.lock`; CUDD и Eigen (заголовки Debian) встроены статически |
+| liberty Nangate45 с `LICENSE` и `README.md` | `/opt/pdk/nangate45` | OpenROAD-flow-scripts по коммиту, sha256 каждого файла в `versions.lock` |
 | `apx-run`, `apx-verilate`, `apx-init` | `/opt/apx/bin` | этот каталог |
 | `apx_tb_pkg.sv` | `/opt/apx/sv` | `sv/` |
-| Лицензии Verilator и Verible | `/opt/licenses` | из исходников; лицензии пакетов Debian — в `/usr/share/doc/*/copyright` |
+| Лицензии Verilator, Verible, Yosys (со встроенными библиотеками), OpenSTA, CUDD, Eigen | `/opt/licenses` | из исходников; лицензии пакетов Debian — в `/usr/share/doc/*/copyright` |
 | Где взять исходные тексты программ образа | `/opt/licenses/SOURCES.md` | `SOURCES.md.in` с версиями из `versions.lock` и списком установленных пакетов Debian (ADR-0012) |
 
 Команды выполняются от непривилегированного пользователя `sandbox` (UID 10001), рабочий каталог и `HOME` — `/work`. В песочнице корневая ФС только для чтения, `/work` — tmpfs.
@@ -48,6 +51,17 @@
 
 Правка библиотеки — изменение образа: новый `TOOLCHAIN_PROFILE`. Задачи, собранные со старым профилем, продолжают работать со старой версией библиотеки.
 
+## Синтез
+
+Этап `synth` (T3.1b, specs/07 §2.4) вызывает `yosys` и `sta` из `PATH`; liberty — `/opt/pdk/nangate45/NangateOpenCellLibrary_typical.lib`.
+
+- **sv-elab** (бывший yosys-slang) встроен в Yosys с 0.67: `read_slang` доступен без `plugin -i`. Его slang — тот же коммит, что у pyslang этапа `precheck` (`SLANG_COMMIT` в `versions.lock`, ADR-0007): оба этапа разбирают код одной версией. В релизном архиве Yosys нет `.git`, поэтому ревизию для `slang_version` сборка берёт из `libs/slang/.git_archival.txt` и падает, если она не совпадает с `SLANG_COMMIT`. Обновлять Yosys и pyslang нужно вместе: новая версия Yosys с другим slang требует pyslang на том же коммите.
+- **OpenSTA** собирается из коммита `parallaxsw/OpenSTA`; в образ попадает только программа `sta`.
+
+### Nangate45
+
+Liberty, `LICENSE` и `README.md` (версия `PDKv1.3_v2010_12.Apache.CCL` и источник) взяты из OpenROAD-flow-scripts без изменений; уведомление Nangate в заголовке liberty сохранено. Лицензия библиотеки — единственное исключение из списка открытых лицензий проекта (ADR-0007, NFR-MAINT-07, `scripts/license-policy.toml`): уведомление Nangate запрещает сравнивать библиотеку с другими и помечает её «not intended for commercial use», а `LICENSE` из OpenROAD-flow-scripts — Apache-2.0; что действует — открытый вопрос ОВ-21. Коммерческий форк или инстанс должен оценить лицензию сам. Тесты образа проверяют, что файлы лежат вместе, совпадают по sha256 и что исключение записано в политике лицензий.
+
 ## Версии и профиль
 
 `versions.lock` — строки `KEY=value`: версии и sha256 загружаемых инструментов, ожидаемые версии пакетов Debian и `TOOLCHAIN_PROFILE`. Dockerfile читает его при сборке, тесты образа сверяют с ним установленные версии.
@@ -76,7 +90,7 @@ TOOLCHAIN_BASE_IMAGE=mirror.gcr.io/library/debian@sha256:<digest из Dockerfile
 TOOLCHAIN_DEBIAN_MIRROR=http://mirror.yandex.ru/debian
 ```
 
-Тесты образа (`tests/`) запускаются pytest на хосте из окружения `judge` (нужен Docker). Фикстура поднимает один контейнер с ограничениями песочницы specs/07 §5.1 (`tests/sandbox.py`) и выполняет каждую команду через `docker exec` — так же, как оркестратор выполняет этапы; инструменты тестирования в образ не попадают. Тесты проверяют версии, ограничения песочницы, сборку и симуляцию с FST-трассой, использование предсобранного рантайма, рандомизацию через Z3, pyslang, Verible и `apx-run`, в том числе под `docker exec -t`, протокол `apx_tb_pkg` `apx-init` как PID 1, `SOURCES.md`, исполнитель судьи `LocalDockerExecutor` (`tests/test_executor.py`) этап `precheck` на pyslang образа (`tests/test_precheck.py`) пайплайны `precheck → lint` (`tests/test_lint.py`) и `precheck → lint → sim` с окном трассы (`tests/test_sim.py`), CLI судьи `new → validate → run` (`tests/test_cli.py`). Другой тег образа — через `TOOLCHAIN_IMAGE`.
+Тесты образа (`tests/`) запускаются pytest на хосте из окружения `judge` (нужен Docker). Фикстура поднимает один контейнер с ограничениями песочницы specs/07 §5.1 (`tests/sandbox.py`) и выполняет каждую команду через `docker exec` — так же, как оркестратор выполняет этапы; инструменты тестирования в образ не попадают. Тесты проверяют версии, ограничения песочницы, сборку и симуляцию с FST-трассой, синтез на Nangate45 с OpenSTA, совпадение slang в Yosys и pyslang, лицензии библиотеки (`tests/test_synthesis.py`), использование предсобранного рантайма, рандомизацию через Z3, pyslang, Verible и `apx-run`, в том числе под `docker exec -t`, протокол `apx_tb_pkg` `apx-init` как PID 1, `SOURCES.md`, исполнитель судьи `LocalDockerExecutor` (`tests/test_executor.py`) этап `precheck` на pyslang образа (`tests/test_precheck.py`) пайплайны `precheck → lint` (`tests/test_lint.py`) и `precheck → lint → sim` с окном трассы (`tests/test_sim.py`), CLI судьи `new → validate → run` (`tests/test_cli.py`). Другой тег образа — через `TOOLCHAIN_IMAGE`.
 
 ## Публикация
 
