@@ -58,6 +58,7 @@ def test_the_stream_starts_in_the_queue_and_ends_finalized() -> None:
                 "warnings": [],
                 "error_codes": [],
             },
+            "leaderboard": None,
         },
     )
 

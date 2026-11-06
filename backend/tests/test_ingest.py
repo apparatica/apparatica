@@ -425,6 +425,7 @@ def test_the_consumer_applies_acknowledges_and_publishes(
             "type": "finalized",
             "status": "accepted",
             "verdict_detail": VerdictDetail().model_dump(mode="json"),
+            "leaderboard": None,
         }
         assert 0 < await valkey.ttl(key) <= 600
         assert [a - b for a, b in zip(counted(), before, strict=True)] == [1, 1, 1]

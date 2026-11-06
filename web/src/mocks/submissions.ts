@@ -6,7 +6,8 @@
 // the window FST again, from cycle 0. The viewer of the waves is NEXT_PUBLIC_MOCK_WAVEVIEW_URL,
 // none without it (docs/frontend.md). A check belongs to
 // the signed-in user of users.ts or to the one guest of the mock, with the quotas of either; only
-// the guest is asked for a captcha.
+// the guest is asked for a captcha. An accepted Submit of a user becomes a public solution and
+// gets its place in the leaderboard (leaderboards.ts).
 import { http, HttpResponse } from "msw";
 
 import type { Schemas } from "@/lib/api/client";
@@ -14,6 +15,7 @@ import type { Schemas } from "@/lib/api/client";
 import { captchaError, resetCaptcha } from "./captcha";
 import * as fixtures from "./fixtures";
 import { api, problem } from "./http";
+import { mockPlacement } from "./leaderboards";
 import { mockUser } from "./users";
 import {
   isScenarioName,
@@ -102,6 +104,34 @@ function happened(check: Check, now: number): StreamEvent[] {
   return check.scenario.events.filter((event) => due(check, event) <= until);
 }
 
+/** An accepted Submit of a signed-in user once it is final: a public solution (leaderboards.ts). */
+function isPublic(check: Check, now: number): boolean {
+  const { status } = check.scenario.submission;
+  return (
+    check.author !== GUEST &&
+    check.request.kind === "submit" &&
+    check.cancelled === undefined &&
+    (status === "accepted" || status === "accepted_with_warnings") &&
+    happened(check, now).some(({ event }) => event.type === "finalized")
+  );
+}
+
+/** The public solutions among the checks, with their author ids. */
+export function publicChecks(now = Date.now()) {
+  return [...checks.values()]
+    .filter((check) => isPublic(check, now))
+    .map((check) => ({
+      id: check.id,
+      author: check.author,
+      problem: check.request.problem,
+      code: check.request.code,
+      created: new Date(check.created).toISOString(),
+    }));
+}
+
+const placementOf = (check: Check, now: number) =>
+  isPublic(check, now) ? mockPlacement(check.request.problem, check.id) : null;
+
 /** The submission now: queued, running, finished or cancelled. */
 function submissionOf(check: Check, now = Date.now()): Submission {
   const { scenario } = check;
@@ -143,6 +173,8 @@ function submissionOf(check: Check, now = Date.now()): Submission {
   if (seen.some(({ event }) => event.type === "finalized")) {
     return {
       ...common,
+      public: isPublic(check, now),
+      leaderboard: placementOf(check, now),
       finished_at: at(final.finished_at),
       stages: final.stages.map((stage) => ({
         ...stage,
@@ -296,6 +328,7 @@ function eventStream(
             type: "finalized",
             status: "cancelled",
             verdict_detail: NO_VERDICT,
+            leaderboard: null,
           };
           send({ id: `${msOf(last) + 1}-0`, event: finalized });
           controller.close();
@@ -312,7 +345,14 @@ function eventStream(
               return;
             }
             pending.shift();
-            send(event);
+            send(
+              event.event.type === "finalized"
+                ? {
+                    ...event,
+                    event: { ...event.event, leaderboard: placementOf(check, Date.now()) },
+                  }
+                : event,
+            );
             if (dropAfter !== undefined && sent >= dropAfter) {
               controller.close(); // the stream ends without `finalized`: the client reconnects
             } else if (event.event.type === "finalized") {

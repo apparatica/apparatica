@@ -267,6 +267,8 @@ async def get_submission(
         kind=submission.kind,  # type: ignore[arg-type]  # checked by the table constraint
         status=submission.status,  # type: ignore[arg-type]  # a submission_status value
         code=submission.code,
+        public=False,  # publication and places arrive with T3.4
+        leaderboard=None,
         seed=str(submission.seed),
         toolchain_profile=submission.toolchain_profile_id,
         waveview_url=(

@@ -542,6 +542,133 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/users/{nick}/solutions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List User Solutions
+         * @description Public solutions of a user, newest first (FR-USR-04). NOT_FOUND as for the profile.
+         */
+        get: operations["list_user_solutions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/problems/{slug}/leaderboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Problem Leaderboard
+         * @description The leaderboard of a problem (FR-LB-01..04): one entry per author, the best accepted
+         *     Submit in the current epoch on the default toolchain profile. NOT_FOUND: no such published
+         *     problem or it has no leaderboard; VALIDATION_ERROR: `sort` names no column.
+         */
+        get: operations["get_problem_leaderboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/problems/{slug}/solutions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List Problem Solutions
+         * @description Public solutions of a problem, every version, several per author (FR-SOL-03); `rank`
+         *     orders them by the formula of the leaderboard. Code is not listed: GET /solutions/{id}.
+         */
+        get: operations["list_problem_solutions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/problems/{slug}/reference": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Reference
+         * @description Reference solutions of the current version (FR-REF-01). REFERENCE_LOCKED: visibility
+         *     after_accepted and the visitor (user or guest) has no accepted Submit of the problem;
+         *     NOT_FOUND: no references or they are hidden.
+         */
+        get: operations["get_reference"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/solutions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Solution
+         * @description A public solution (FR-SOL-01, FR-SOL-02): metrics, author and place for everyone, the code
+         *     after the visitor's own accepted Submit of the problem (`code_locked`). NOT_FOUND: no such
+         *     submission, not public, hidden by a moderator or its author is hidden.
+         */
+        get: operations["get_solution"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/leaderboard": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Global Leaderboard
+         * @description Users by points for all time (FR-LB-05); `me` and `around_me` for a signed-in user.
+         */
+        get: operations["get_global_leaderboard"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -599,6 +726,25 @@ export interface components {
              * @enum {string}
              */
             kind: "oauth" | "email";
+        };
+        /**
+         * BestPlace
+         * @description A place in the leaderboard of a problem, from the best (FR-USR-04).
+         */
+        BestPlace: {
+            problem: components["schemas"]["ProblemRef"];
+            /** Rank */
+            rank: number;
+            /**
+             * Entries
+             * @description Authors in that leaderboard
+             */
+            entries: number;
+            /**
+             * Solution Id
+             * Format: uuid
+             */
+            solution_id: string;
         };
         /**
          * CaptchaChallenge
@@ -762,6 +908,19 @@ export interface components {
             problem_version: number;
         };
         /**
+         * DuplicateOf
+         * @description The earlier solution with the same normalized syntax tree, which holds the place
+         *     (FR-LB-04); a match is no violation and costs nothing.
+         */
+        DuplicateOf: {
+            /**
+             * Solution Id
+             * Format: uuid
+             */
+            solution_id: string;
+            author: components["schemas"]["UserRef"];
+        };
+        /**
          * EmailLogin
          * @description A signed-in user after a login link: the session cookie is set.
          */
@@ -919,6 +1078,8 @@ export interface components {
              */
             status: "accepted" | "accepted_with_warnings" | "wrong_answer" | "compile_error" | "limit_exceeded" | "forbidden_construct" | "cancelled" | "internal_error";
             verdict_detail: components["schemas"]["VerdictDetail"];
+            /** @description As in the submission: the place is counted before the event, so the banner and the leaderboard agree (phase 3) */
+            leaderboard: components["schemas"]["LeaderboardPlacement"] | null;
         };
         /**
          * FirstFailure
@@ -940,6 +1101,50 @@ export interface components {
             hidden?: components["schemas"]["HiddenTests"] | null;
             /** @description First error of the stage */
             diagnostic?: components["schemas"]["Diagnostic"] | null;
+        };
+        /**
+         * GlobalLeaderboard
+         * @description Users by points for all time (FR-LB-05): Easy 1, Medium 3, Hard 6 per solved problem and
+         *     3/2/1 for places 1-3 of a problem leaderboard (ADR-0006).
+         */
+        GlobalLeaderboard: {
+            /** Items */
+            items: components["schemas"]["RatingRow"][];
+            /** Page */
+            page: number;
+            /** Per Page */
+            per_page: number;
+            /**
+             * Total
+             * @description Users with points
+             */
+            total: number;
+            /** Formula Version */
+            formula_version: number;
+            /** @description Null: a guest or no points yet */
+            me: components["schemas"]["RatingRow"] | null;
+            /**
+             * Around Me
+             * @description Up to two rows above and below mine when mine is not on this page, for the gap «· · ·» (FR-LB-05)
+             */
+            around_me: components["schemas"]["RatingRow"][];
+        };
+        /**
+         * GroupMember
+         * @description A later solution with the same normalized syntax tree as the row: no place of its own.
+         */
+        GroupMember: {
+            /**
+             * Solution Id
+             * Format: uuid
+             */
+            solution_id: string;
+            author: components["schemas"]["UserRef"];
+            /**
+             * Submitted At
+             * Format: date-time
+             */
+            submitted_at: string;
         };
         /** HealthResponse */
         HealthResponse: {
@@ -995,6 +1200,117 @@ export interface components {
             parameters: components["schemas"]["Parameter"][];
             /** Ports */
             ports: components["schemas"]["Port"][];
+        };
+        /**
+         * LeaderboardFormula
+         * @description How the leaderboard of the problem ranks solutions (ADR-0006).
+         */
+        LeaderboardFormula: {
+            /** Formula Version */
+            formula_version: number;
+            /**
+             * Order
+             * @description Lexicographic order of metrics `<stage key>.<metric>`; then the time of sending, which does not split a place
+             */
+            order: components["schemas"]["LeaderboardKey"][];
+        };
+        /** LeaderboardKey */
+        LeaderboardKey: {
+            /**
+             * Metric
+             * @description <stage_key>.<metric>
+             */
+            metric: string;
+            /**
+             * Dir
+             * @enum {string}
+             */
+            dir: "asc" | "desc";
+        };
+        /**
+         * LeaderboardPlacement
+         * @description The place of the author in the leaderboard of the problem after an accepted Submit
+         *     (FR-RUN-05, phase 3): the entry of the author is their best solution, this one or an earlier
+         *     one.
+         */
+        LeaderboardPlacement: {
+            /**
+             * Rank
+             * @description Equal metrics share a place (1, 2, 2, 4); a duplicate has its leader's
+             */
+            rank: number;
+            /**
+             * Total
+             * @description Entries of the leaderboard, one per author
+             */
+            total: number;
+            /**
+             * Better Than
+             * @description Share of the other entries ranked lower
+             * @example 0.96
+             */
+            better_than: number;
+            /**
+             * Is Best
+             * @description This submission is the entry of the author; false: an earlier solution of the author ranks higher and keeps the place
+             */
+            is_best: boolean;
+            /**
+             * Duplicate Of
+             * @description Solution whose normalized syntax tree is the same and which was sent earlier: it holds the place (FR-LB-04)
+             */
+            duplicate_of: string | null;
+        };
+        /**
+         * LeaderboardRow
+         * @description An entry: the best solution of an author (FR-LB-01, FR-LB-02).
+         */
+        LeaderboardRow: {
+            /**
+             * Rank
+             * @description Equal metrics share a place (1, 2, 2, 4)
+             */
+            rank: number;
+            /**
+             * Solution Id
+             * Format: uuid
+             */
+            solution_id: string;
+            author: components["schemas"]["UserRef"];
+            /**
+             * Metrics
+             * @description Metrics by `<stage key>.<metric>`, rounded to the precision of the tool
+             * @example {
+             *       "synth.area_um2": 836.4,
+             *       "synth.cells": 187,
+             *       "synth.critical_path_ns": 0.84
+             *     }
+             */
+            metrics: {
+                [key: string]: number;
+            };
+            /**
+             * Submitted At
+             * Format: date-time
+             */
+            submitted_at: string;
+            /**
+             * Is Me
+             * @description The entry of the signed-in user
+             */
+            is_me: boolean;
+            /** @description The row is a later duplicate and shows its leader's rank; with group=true only `me` can be one */
+            duplicate_of: components["schemas"]["DuplicateOf"] | null;
+            /**
+             * Duplicates
+             * @description With group=true: later solutions with the same syntax tree
+             */
+            duplicates: number;
+            /**
+             * Group
+             * @description With group=true: the earliest 50 of them, oldest first; empty otherwise
+             */
+            group: components["schemas"]["GroupMember"][];
         };
         /**
          * LegalInfo
@@ -1254,6 +1570,10 @@ export interface components {
             tests: {
                 [key: string]: number;
             };
+            /** @description Null: the problem has no leaderboard (phase 3) */
+            leaderboard: components["schemas"]["LeaderboardFormula"] | null;
+            /** @description Null: no reference solutions, or the author hid them (phase 3) */
+            reference: components["schemas"]["ReferenceInfo"] | null;
             /**
              * Changelog
              * @description What changed since the previous version
@@ -1270,6 +1590,56 @@ export interface components {
              * @example 0.41
              */
             acceptance: number | null;
+        };
+        /**
+         * ProblemLeaderboard
+         * @description The leaderboard of a problem in its current epoch on the default toolchain profile.
+         */
+        ProblemLeaderboard: {
+            /** Items */
+            items: components["schemas"]["LeaderboardRow"][];
+            /** Page */
+            page: number;
+            /** Per Page */
+            per_page: number;
+            /**
+             * Total
+             * @description Rows to page through: with group=true, without duplicates
+             */
+            total: number;
+            /**
+             * Entries
+             * @description Authors in the leaderboard: M of «place N of M»
+             */
+            entries: number;
+            /**
+             * Epoch
+             * @description leaderboard_epoch of the current version
+             */
+            epoch: number;
+            /**
+             * Toolchain Profile
+             * @example sv-2026.10.2
+             */
+            toolchain_profile: string;
+            /** Formula Version */
+            formula_version: number;
+            /**
+             * Order
+             * @description The formula: the order of the places
+             */
+            order: components["schemas"]["LeaderboardKey"][];
+            /**
+             * Columns
+             * @description Metrics of the rows to show: the formula first, then the other metrics of its stages
+             */
+            columns: string[];
+            /** @description First place; null: no entries yet */
+            best: components["schemas"]["LeaderboardRow"] | null;
+            /** @description The best reference solution by the formula; null: none or not measured yet (FR-SYN-04). Its metrics are public whatever reference.visibility says */
+            reference: components["schemas"]["ReferenceMetrics"] | null;
+            /** @description The entry of the signed-in user, wherever it is; null: a guest or no entry */
+            me: components["schemas"]["LeaderboardRow"] | null;
         };
         /** ProblemListItem */
         ProblemListItem: {
@@ -1323,6 +1693,23 @@ export interface components {
              */
             progress: components["schemas"]["DifficultyTotal"][];
         };
+        /** ProblemRef */
+        ProblemRef: {
+            /**
+             * Slug
+             * @example sync-fifo
+             */
+            slug: string;
+            /** Number */
+            number: number;
+            /** Title */
+            title: string;
+            /**
+             * Difficulty
+             * @description Key of the difficulty levels of GET /config
+             */
+            difficulty: string;
+        };
         /**
          * ProblemVersionDetail
          * @description A version of a problem: its data never changes once published, so nothing here depends on
@@ -1373,6 +1760,10 @@ export interface components {
             tests: {
                 [key: string]: number;
             };
+            /** @description Null: the problem has no leaderboard (phase 3) */
+            leaderboard: components["schemas"]["LeaderboardFormula"] | null;
+            /** @description Null: no reference solutions, or the author hid them (phase 3) */
+            reference: components["schemas"]["ReferenceInfo"] | null;
             /**
              * Changelog
              * @description What changed since the previous version
@@ -1386,7 +1777,8 @@ export interface components {
         };
         /**
          * Profile
-         * @description A public profile (FR-USR-04); places, solutions and activity arrive in phases 3-4.
+         * @description A public profile (FR-USR-04); public solutions are GET /users/{nick}/solutions, activity
+         *     arrives in phase 4.
          */
         Profile: {
             /**
@@ -1414,6 +1806,68 @@ export interface components {
              * @description Newest first
              */
             solved: components["schemas"]["SolvedProblem"][];
+            /** @description Null: no points yet (phase 3) */
+            rating: components["schemas"]["ProfileRating"] | null;
+            /**
+             * Best Places
+             * @description Best places in problem leaderboards, up to 10 (phase 3)
+             */
+            best_places: components["schemas"]["BestPlace"][];
+            /**
+             * Solutions
+             * @description Public solutions (phase 3)
+             */
+            solutions: number;
+        };
+        /**
+         * ProfileRating
+         * @description The place in the global leaderboard (FR-LB-05).
+         */
+        ProfileRating: {
+            /** Rank */
+            rank: number;
+            /**
+             * Total
+             * @description Users with points
+             */
+            total: number;
+            /** Points */
+            points: number;
+        };
+        /**
+         * PublicStage
+         * @description A stage of a public solution: what anyone may see (specs/05 §5).
+         */
+        PublicStage: {
+            /**
+             * Key
+             * @example synth
+             */
+            key: string;
+            /**
+             * Type
+             * @example synth
+             */
+            type: string;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "pending" | "running" | "passed" | "warning" | "failed" | "skipped" | "cancelled" | "error";
+            /**
+             * Metrics Schema
+             * @example synth/v1
+             */
+            metrics_schema: string | null;
+            /**
+             * Metrics
+             * @description Only of synthesis and formal stages; empty for the others
+             */
+            metrics: {
+                [key: string]: unknown;
+            };
+            /** @description Of simulation stages: counts, no test data */
+            tests: components["schemas"]["TestCount"] | null;
         };
         /**
          * QueueEvent
@@ -1473,6 +1927,99 @@ export interface components {
             guest: components["schemas"]["Quota"];
             user: components["schemas"]["Quota"];
         };
+        /**
+         * RatingRow
+         * @description A user in the global leaderboard (FR-LB-05).
+         */
+        RatingRow: {
+            /**
+             * Rank
+             * @description Equal points: whoever reached them first ranks higher (ADR-0006)
+             */
+            rank: number;
+            user: components["schemas"]["UserRef"];
+            /** Points */
+            points: number;
+            /**
+             * Solved
+             * @description Solved problems by the difficulty keys of GET /config
+             */
+            solved: {
+                [key: string]: number;
+            };
+            /**
+             * Week Delta
+             * @description Places gained in 7 days (negative: lost); null: not ranked a week ago
+             */
+            week_delta: number | null;
+            /** Is Me */
+            is_me: boolean;
+        };
+        /**
+         * ReferenceInfo
+         * @description Reference solutions of the author (FR-REF-01): GET /problems/{slug}/reference.
+         */
+        ReferenceInfo: {
+            /**
+             * Visibility
+             * @description after_accepted: open after the visitor's own accepted Submit
+             * @enum {string}
+             */
+            visibility: "after_accepted" | "public";
+            /** Solutions */
+            solutions: number;
+        };
+        /** ReferenceMetrics */
+        ReferenceMetrics: {
+            /** Title */
+            title: string;
+            /**
+             * Metrics
+             * @description Metrics by `<stage key>.<metric>`, rounded to the precision of the tool
+             * @example {
+             *       "synth.area_um2": 836.4,
+             *       "synth.cells": 187,
+             *       "synth.critical_path_ns": 0.84
+             *     }
+             */
+            metrics: {
+                [key: string]: number;
+            };
+        };
+        /**
+         * ReferencePage
+         * @description Reference solutions of the current version (FR-REF-01).
+         */
+        ReferencePage: {
+            /** Version */
+            version: number;
+            /**
+             * Visibility
+             * @enum {string}
+             */
+            visibility: "after_accepted" | "public";
+            /** Solutions */
+            solutions: components["schemas"]["ReferenceSolution"][];
+        };
+        /** ReferenceSolution */
+        ReferenceSolution: {
+            /** Title */
+            title: string;
+            /** Code */
+            code: string;
+            /**
+             * Explanation Md
+             * @description The microarchitecture, in Markdown
+             */
+            explanation_md: string | null;
+            /**
+             * Metrics
+             * @description On the default toolchain profile; null until measured (FR-SYN-04)
+             */
+            metrics: {
+                [key: string]: number;
+            } | null;
+        };
         /** ResetSpec */
         ResetSpec: {
             /** Active */
@@ -1480,12 +2027,188 @@ export interface components {
             /** Sync */
             sync?: boolean | null;
         };
+        /**
+         * Solution
+         * @description A public solution page (FR-SOL-01).
+         */
+        Solution: {
+            /**
+             * Id
+             * Format: uuid
+             * @description Id of the submission
+             */
+            id: string;
+            problem: components["schemas"]["ProblemRef"];
+            /**
+             * Version
+             * @description Version of the problem the solution was checked on
+             */
+            version: number;
+            author: components["schemas"]["SolutionAuthor"];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "accepted" | "accepted_with_warnings";
+            /**
+             * Metrics
+             * @description Empty without a synthesis stage
+             * @example {
+             *       "synth.area_um2": 836.4,
+             *       "synth.cells": 187,
+             *       "synth.critical_path_ns": 0.84
+             *     }
+             */
+            metrics: {
+                [key: string]: number;
+            };
+            /**
+             * Rank
+             * @description Place in the current leaderboard if this solution is its author's entry
+             */
+            rank: number | null;
+            duplicate_of: components["schemas"]["DuplicateOf"] | null;
+            /**
+             * Submitted At
+             * Format: date-time
+             */
+            submitted_at: string;
+            /**
+             * Language
+             * @example systemverilog
+             */
+            language: string;
+            /** Toolchain Profile */
+            toolchain_profile: string;
+            /**
+             * Code
+             * @description Null while code_locked
+             */
+            code: string | null;
+            /**
+             * Code Locked
+             * @description The visitor has no accepted Submit of the problem (FR-SOL-02); the author sees their own code
+             */
+            code_locked: boolean;
+            /**
+             * Stages
+             * @description In pipeline order
+             */
+            stages: components["schemas"]["PublicStage"][];
+            /** @description Place of the author's entry if this solution holds it or duplicates it */
+            placement: components["schemas"]["LeaderboardPlacement"] | null;
+            /**
+             * Order
+             * @description The formula of the leaderboard; empty without one
+             */
+            order: components["schemas"]["LeaderboardKey"][];
+            /**
+             * Best
+             * @description Of the first place, to compare with
+             */
+            best: {
+                [key: string]: number;
+            } | null;
+            /**
+             * Reference
+             * @description Of the best reference solution
+             */
+            reference: {
+                [key: string]: number;
+            } | null;
+        };
+        /** SolutionAuthor */
+        SolutionAuthor: {
+            /**
+             * Nick
+             * @description Unique, lowercase; the profile is /u/<nick>
+             * @example ada
+             */
+            nick: string;
+            /** Display Name */
+            display_name: string | null;
+            /** Avatar Url */
+            avatar_url: string | null;
+            /**
+             * Created At
+             * Format: date-time
+             */
+            created_at: string;
+            /**
+             * Solved
+             * @description Problems the author solved
+             */
+            solved: number;
+        };
         /** SolutionLimits */
         SolutionLimits: {
             /** Max Bytes */
             max_bytes: number;
             /** Max Lines */
             max_lines: number;
+        };
+        /** SolutionPage */
+        SolutionPage: {
+            /** Items */
+            items: components["schemas"]["SolutionSummary"][];
+            /** Page */
+            page: number;
+            /** Per Page */
+            per_page: number;
+            /** Total */
+            total: number;
+            /**
+             * Code Locked
+             * @description The visitor has no accepted Submit of the problem, so the code of others is closed (FR-SOL-02): GET /solutions/{id} gives no code
+             */
+            code_locked: boolean;
+        };
+        /**
+         * SolutionSummary
+         * @description A public solution: an accepted Submit of a signed-in user (specs/04 §6).
+         */
+        SolutionSummary: {
+            /**
+             * Id
+             * Format: uuid
+             * @description Id of the submission
+             */
+            id: string;
+            problem: components["schemas"]["ProblemRef"];
+            /**
+             * Version
+             * @description Version of the problem the solution was checked on
+             */
+            version: number;
+            author: components["schemas"]["UserRef"];
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "accepted" | "accepted_with_warnings";
+            /**
+             * Metrics
+             * @description Empty without a synthesis stage
+             * @example {
+             *       "synth.area_um2": 836.4,
+             *       "synth.cells": 187,
+             *       "synth.critical_path_ns": 0.84
+             *     }
+             */
+            metrics: {
+                [key: string]: number;
+            };
+            /**
+             * Rank
+             * @description Place in the current leaderboard if this solution is its author's entry
+             */
+            rank: number | null;
+            duplicate_of: components["schemas"]["DuplicateOf"] | null;
+            /**
+             * Submitted At
+             * Format: date-time
+             */
+            submitted_at: string;
         };
         /** SolvedProblem */
         SolvedProblem: {
@@ -1647,6 +2370,13 @@ export interface components {
             /** Code */
             code: string;
             /**
+             * Public
+             * @description An accepted Submit of a signed-in user: others see it at /solutions/{id} (phase 3)
+             */
+            public: boolean;
+            /** @description With a final status: the place of the author if the submission entered the leaderboard (a ranked problem, signed-in author, current epoch, default toolchain profile, netlist simulation passed); null otherwise */
+            leaderboard: components["schemas"]["LeaderboardPlacement"] | null;
+            /**
              * Seed
              * @description 64-bit seed as a decimal string
              * @example 41917
@@ -1776,6 +2506,13 @@ export interface components {
             finished_at: string | null;
             /** Code */
             code: string;
+            /**
+             * Public
+             * @description An accepted Submit of a signed-in user: others see it at /solutions/{id} (phase 3)
+             */
+            public: boolean;
+            /** @description With a final status: the place of the author if the submission entered the leaderboard (a ranked problem, signed-in author, current epoch, default toolchain profile, netlist simulation passed); null otherwise */
+            leaderboard: components["schemas"]["LeaderboardPlacement"] | null;
             /**
              * Seed
              * @description 64-bit seed as a decimal string
@@ -1953,6 +2690,16 @@ export interface components {
              */
             mismatches: components["schemas"]["Mismatch"][];
         };
+        /** TestCount */
+        TestCount: {
+            /** Passed */
+            passed: number;
+            /**
+             * Total
+             * @description Open and hidden tests together
+             */
+            total: number;
+        };
         /**
          * TestEvent
          * @description A test started or finished: the client replaces the test with this id.
@@ -1991,6 +2738,36 @@ export interface components {
              * @description Attempt of the check; a new attempt resets the results
              */
             attempt: number;
+        };
+        /**
+         * UserRef
+         * @description A user as others see them: an author in leaderboards and solutions.
+         */
+        UserRef: {
+            /**
+             * Nick
+             * @description Unique, lowercase; the profile is /u/<nick>
+             * @example ada
+             */
+            nick: string;
+            /** Display Name */
+            display_name: string | null;
+            /** Avatar Url */
+            avatar_url: string | null;
+        };
+        /**
+         * UserSolutionPage
+         * @description Public solutions of a user, newest first (FR-USR-04).
+         */
+        UserSolutionPage: {
+            /** Items */
+            items: components["schemas"]["SolutionSummary"][];
+            /** Page */
+            page: number;
+            /** Per Page */
+            per_page: number;
+            /** Total */
+            total: number;
         };
         /** VerdictDetail */
         VerdictDetail: {
@@ -3797,6 +4574,373 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    list_user_solutions: {
+        parameters: {
+            query?: {
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path: {
+                /** @description Unique, lowercase; the profile is /u/<nick> */
+                nick: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["UserSolutionPage"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    get_problem_leaderboard: {
+        parameters: {
+            query?: {
+                /** @description Fold later solutions with the same syntax tree (FR-LB-04) */
+                group?: boolean;
+                /** @description me: the page with the entry of the signed-in user; `page` is ignored */
+                around?: "me" | null;
+                /** @description rank, submitted_at or a metric of `columns`; a leading `-` reverses */
+                sort?: string;
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProblemLeaderboard"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    list_problem_solutions: {
+        parameters: {
+            query?: {
+                /** @description rank, submitted_at or a metric of `columns`; a leading `-` reverses */
+                sort?: string;
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SolutionPage"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    get_reference: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ReferencePage"];
+                };
+            };
+            /** @description Forbidden */
+            403: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    get_solution: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Solution"];
+                };
+            };
+            /** @description Not Found */
+            404: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+        };
+    };
+    get_global_leaderboard: {
+        parameters: {
+            query?: {
+                page?: number;
+                per_page?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GlobalLeaderboard"];
+                };
+            };
+            /** @description Unprocessable Content */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Internal Server Error */
+            500: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["Error"];
+                };
+            };
+            /** @description Not Implemented */
+            501: {
                 headers: {
                     [name: string]: unknown;
                 };

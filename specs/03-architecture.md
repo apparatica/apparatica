@@ -92,14 +92,14 @@ backend/src/apparatica/
   problems/      задачи, версии, теги, импорт пакетов, условия, эталоны
   submissions/   создание, постановка в очередь, статус, SSE, отмена, артефакты
   judging/       ингестор результатов, агрегирование вердикта, watchdog, rejudge
-  leaderboards/  рейтинг решений задачи, общий рейтинг пользователей
+  leaderboards/  рейтинг решений задачи, общий рейтинг пользователей, публичные решения и эталоны
   users/         профили, дашборд, черновики, история, экспорт, гостевой импорт
   auth/          аккаунты, OAuth/OIDC, Telegram, magic link, сессии, CSRF
   moderation/    жалобы, скрытие, журнал действий
   admin/         SQLAdmin-представления и действия
 ```
 
-Зависимости модулей: `submissions → problems, auth`, `problems → auth`, `users → submissions, auth, problems`, `judging → submissions, problems, leaderboards, users`, `leaderboards → problems, users`, `moderation → problems, submissions, users`. Модуль `core` ни от кого не зависит. Аккаунт (пользователь, входы, сессии) принадлежит `auth`: его создаёт первый вход, а отправкам нужен автор запроса; `users` стоит выше `submissions`, потому что история, профиль и экспорт читают отправки. Статусы задач пользователя (`user_problem_status`) принадлежат `problems`, как и процент принятых: каталог фильтрует и сортирует по ним в одном запросе, поэтому `problems` читает сессию из `auth`, а пишет статусы ингестор (`judging`).
+Зависимости модулей: `submissions → problems, auth`, `problems → auth`, `leaderboards → submissions, problems, auth`, `users → leaderboards, submissions, auth, problems`, `judging → submissions, problems, leaderboards, users`, `moderation → problems, submissions, users`. Модуль `core` ни от кого не зависит. Аккаунт (пользователь, входы, сессии) принадлежит `auth`: его создаёт первый вход, а отправкам нужен автор запроса; `users` стоит выше `submissions`, потому что история, профиль и экспорт читают отправки. Публичное решение — принятая отправка, поэтому `leaderboards` стоит над `submissions`; доступ к коду решений и эталонов зависит от собственного принятого Submit посетителя, и эту политику держит тот же модуль. Профиль показывает места и решения пользователя, поэтому `users` стоит над `leaderboards`. Статусы задач пользователя (`user_problem_status`) принадлежат `problems`, как и процент принятых: каталог фильтрует и сортирует по ним в одном запросе, поэтому `problems` читает сессию из `auth`, а пишет статусы ингестор (`judging`).
 
 ## 4. C4 — компоненты судьи
 

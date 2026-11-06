@@ -5,6 +5,7 @@ import { http, HttpResponse } from "msw";
 import { captchaHandlers } from "./captcha";
 import * as fixtures from "./fixtures";
 import { api } from "./http";
+import { leaderboardHandlers } from "./leaderboards";
 import { problemHandlers } from "./problems";
 import { submissionHandlers } from "./submissions";
 import { userHandlers } from "./users";
@@ -18,4 +19,5 @@ export const handlers = [
   ...problemHandlers,
   ...submissionHandlers,
   ...userHandlers,
+  ...leaderboardHandlers,
 ];

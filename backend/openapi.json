@@ -2384,6 +2384,617 @@
         },
         "x-phase": 2
       }
+    },
+    "/api/v1/users/{nick}/solutions": {
+      "get": {
+        "tags": [
+          "users"
+        ],
+        "summary": "List User Solutions",
+        "description": "Public solutions of a user, newest first (FR-USR-04). NOT_FOUND as for the profile.",
+        "operationId": "list_user_solutions",
+        "parameters": [
+          {
+            "name": "nick",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "minLength": 3,
+              "maxLength": 24,
+              "pattern": "^[a-z0-9_.-]+$",
+              "description": "Unique, lowercase; the profile is /u/<nick>",
+              "examples": [
+                "ada"
+              ],
+              "title": "Nick"
+            },
+            "description": "Unique, lowercase; the profile is /u/<nick>"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Per Page"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/UserSolutionPage"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-phase": 3
+      }
+    },
+    "/api/v1/problems/{slug}/leaderboard": {
+      "get": {
+        "tags": [
+          "leaderboards"
+        ],
+        "summary": "Get Problem Leaderboard",
+        "description": "The leaderboard of a problem (FR-LB-01..04): one entry per author, the best accepted\nSubmit in the current epoch on the default toolchain profile. NOT_FOUND: no such published\nproblem or it has no leaderboard; VALIDATION_ERROR: `sort` names no column.",
+        "operationId": "get_problem_leaderboard",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+              "title": "Slug"
+            }
+          },
+          {
+            "name": "group",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "description": "Fold later solutions with the same syntax tree (FR-LB-04)",
+              "default": true,
+              "title": "Group"
+            },
+            "description": "Fold later solutions with the same syntax tree (FR-LB-04)"
+          },
+          {
+            "name": "around",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "const": "me",
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "description": "me: the page with the entry of the signed-in user; `page` is ignored",
+              "title": "Around"
+            },
+            "description": "me: the page with the entry of the signed-in user; `page` is ignored"
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 64,
+              "pattern": "^(rank|-?submitted_at|-?[a-z_]+\\.[a-z0-9_]+)$",
+              "description": "rank, submitted_at or a metric of `columns`; a leading `-` reverses",
+              "examples": [
+                "rank",
+                "-submitted_at",
+                "synth.area_um2"
+              ],
+              "default": "rank",
+              "title": "Sort"
+            },
+            "description": "rank, submitted_at or a metric of `columns`; a leading `-` reverses"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Per Page"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ProblemLeaderboard"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-phase": 3
+      }
+    },
+    "/api/v1/problems/{slug}/solutions": {
+      "get": {
+        "tags": [
+          "solutions"
+        ],
+        "summary": "List Problem Solutions",
+        "description": "Public solutions of a problem, every version, several per author (FR-SOL-03); `rank`\norders them by the formula of the leaderboard. Code is not listed: GET /solutions/{id}.",
+        "operationId": "list_problem_solutions",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+              "title": "Slug"
+            }
+          },
+          {
+            "name": "sort",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "maxLength": 64,
+              "pattern": "^(rank|-?submitted_at|-?[a-z_]+\\.[a-z0-9_]+)$",
+              "description": "rank, submitted_at or a metric of `columns`; a leading `-` reverses",
+              "examples": [
+                "rank",
+                "-submitted_at",
+                "synth.area_um2"
+              ],
+              "default": "rank",
+              "title": "Sort"
+            },
+            "description": "rank, submitted_at or a metric of `columns`; a leading `-` reverses"
+          },
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Per Page"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SolutionPage"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-phase": 3
+      }
+    },
+    "/api/v1/problems/{slug}/reference": {
+      "get": {
+        "tags": [
+          "solutions"
+        ],
+        "summary": "Get Reference",
+        "description": "Reference solutions of the current version (FR-REF-01). REFERENCE_LOCKED: visibility\nafter_accepted and the visitor (user or guest) has no accepted Submit of the problem;\nNOT_FOUND: no references or they are hidden.",
+        "operationId": "get_reference",
+        "parameters": [
+          {
+            "name": "slug",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "maxLength": 64,
+              "pattern": "^[a-z0-9]+(-[a-z0-9]+)*$",
+              "title": "Slug"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ReferencePage"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-phase": 3
+      }
+    },
+    "/api/v1/solutions/{id}": {
+      "get": {
+        "tags": [
+          "solutions"
+        ],
+        "summary": "Get Solution",
+        "description": "A public solution (FR-SOL-01, FR-SOL-02): metrics, author and place for everyone, the code\nafter the visitor's own accepted Submit of the problem (`code_locked`). NOT_FOUND: no such\nsubmission, not public, hidden by a moderator or its author is hidden.",
+        "operationId": "get_solution",
+        "parameters": [
+          {
+            "name": "id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "format": "uuid",
+              "title": "Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Solution"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-phase": 3
+      }
+    },
+    "/api/v1/leaderboard": {
+      "get": {
+        "tags": [
+          "leaderboards"
+        ],
+        "summary": "Get Global Leaderboard",
+        "description": "Users by points for all time (FR-LB-05); `me` and `around_me` for a signed-in user.",
+        "operationId": "get_global_leaderboard",
+        "parameters": [
+          {
+            "name": "page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "minimum": 1,
+              "default": 1,
+              "title": "Page"
+            }
+          },
+          {
+            "name": "per_page",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 100,
+              "minimum": 1,
+              "default": 20,
+              "title": "Per Page"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/GlobalLeaderboard"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal Server Error",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "501": {
+            "description": "Not Implemented",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Unprocessable Content",
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Error"
+                }
+              }
+            }
+          }
+        },
+        "x-phase": 3
+      }
     }
   },
   "components": {
@@ -2482,6 +3093,36 @@
         ],
         "title": "AuthProvider",
         "description": "An enabled way to sign in; the login page shows them in this order (FR-AUTH-01)."
+      },
+      "BestPlace": {
+        "properties": {
+          "problem": {
+            "$ref": "#/components/schemas/ProblemRef"
+          },
+          "rank": {
+            "type": "integer",
+            "title": "Rank"
+          },
+          "entries": {
+            "type": "integer",
+            "title": "Entries",
+            "description": "Authors in that leaderboard"
+          },
+          "solution_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Solution Id"
+          }
+        },
+        "type": "object",
+        "required": [
+          "problem",
+          "rank",
+          "entries",
+          "solution_id"
+        ],
+        "title": "BestPlace",
+        "description": "A place in the leaderboard of a problem, from the best (FR-USR-04)."
       },
       "CaptchaChallenge": {
         "properties": {
@@ -2831,6 +3472,25 @@
         ],
         "title": "DraftSave"
       },
+      "DuplicateOf": {
+        "properties": {
+          "solution_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Solution Id"
+          },
+          "author": {
+            "$ref": "#/components/schemas/UserRef"
+          }
+        },
+        "type": "object",
+        "required": [
+          "solution_id",
+          "author"
+        ],
+        "title": "DuplicateOf",
+        "description": "The earlier solution with the same normalized syntax tree, which holds the place\n(FR-LB-04); a match is no violation and costs nothing."
+      },
       "EmailLogin": {
         "properties": {
           "user": {
@@ -3158,6 +3818,17 @@
           },
           "verdict_detail": {
             "$ref": "#/components/schemas/VerdictDetail"
+          },
+          "leaderboard": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LeaderboardPlacement"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "As in the submission: the place is counted before the event, so the banner and the leaderboard agree (phase 3)"
           }
         },
         "additionalProperties": false,
@@ -3165,7 +3836,8 @@
         "required": [
           "type",
           "status",
-          "verdict_detail"
+          "verdict_detail",
+          "leaderboard"
         ],
         "title": "FinalizedEvent",
         "description": "The final status, from the ingestor after it is stored: the last event of the stream."
@@ -3240,6 +3912,90 @@
         ],
         "title": "FirstFailure",
         "description": "Where the check failed first: enough for a short reason in a list of submissions."
+      },
+      "GlobalLeaderboard": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/RatingRow"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "per_page": {
+            "type": "integer",
+            "title": "Per Page"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "Users with points"
+          },
+          "formula_version": {
+            "type": "integer",
+            "title": "Formula Version"
+          },
+          "me": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/RatingRow"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null: a guest or no points yet"
+          },
+          "around_me": {
+            "items": {
+              "$ref": "#/components/schemas/RatingRow"
+            },
+            "type": "array",
+            "title": "Around Me",
+            "description": "Up to two rows above and below mine when mine is not on this page, for the gap «· · ·» (FR-LB-05)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "page",
+          "per_page",
+          "total",
+          "formula_version",
+          "me",
+          "around_me"
+        ],
+        "title": "GlobalLeaderboard",
+        "description": "Users by points for all time (FR-LB-05): Easy 1, Medium 3, Hard 6 per solved problem and\n3/2/1 for places 1-3 of a problem leaderboard (ADR-0006)."
+      },
+      "GroupMember": {
+        "properties": {
+          "solution_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Solution Id"
+          },
+          "author": {
+            "$ref": "#/components/schemas/UserRef"
+          },
+          "submitted_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Submitted At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "solution_id",
+          "author",
+          "submitted_at"
+        ],
+        "title": "GroupMember",
+        "description": "A later solution with the same normalized syntax tree as the row: no place of its own."
       },
       "HealthResponse": {
         "properties": {
@@ -3376,6 +4132,197 @@
           "ports"
         ],
         "title": "Interface"
+      },
+      "LeaderboardFormula": {
+        "properties": {
+          "formula_version": {
+            "type": "integer",
+            "title": "Formula Version"
+          },
+          "order": {
+            "items": {
+              "$ref": "#/components/schemas/LeaderboardKey"
+            },
+            "type": "array",
+            "title": "Order",
+            "description": "Lexicographic order of metrics `<stage key>.<metric>`; then the time of sending, which does not split a place"
+          }
+        },
+        "type": "object",
+        "required": [
+          "formula_version",
+          "order"
+        ],
+        "title": "LeaderboardFormula",
+        "description": "How the leaderboard of the problem ranks solutions (ADR-0006)."
+      },
+      "LeaderboardKey": {
+        "properties": {
+          "metric": {
+            "type": "string",
+            "pattern": "^[a-z_]+\\.[a-z0-9_]+$",
+            "title": "Metric",
+            "description": "<stage_key>.<metric>"
+          },
+          "dir": {
+            "type": "string",
+            "enum": [
+              "asc",
+              "desc"
+            ],
+            "title": "Dir"
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "metric",
+          "dir"
+        ],
+        "title": "LeaderboardKey"
+      },
+      "LeaderboardPlacement": {
+        "properties": {
+          "rank": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Rank",
+            "description": "Equal metrics share a place (1, 2, 2, 4); a duplicate has its leader's"
+          },
+          "total": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Total",
+            "description": "Entries of the leaderboard, one per author"
+          },
+          "better_than": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Better Than",
+            "description": "Share of the other entries ranked lower",
+            "examples": [
+              0.96
+            ]
+          },
+          "is_best": {
+            "type": "boolean",
+            "title": "Is Best",
+            "description": "This submission is the entry of the author; false: an earlier solution of the author ranks higher and keeps the place"
+          },
+          "duplicate_of": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "uuid"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duplicate Of",
+            "description": "Solution whose normalized syntax tree is the same and which was sent earlier: it holds the place (FR-LB-04)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rank",
+          "total",
+          "better_than",
+          "is_best",
+          "duplicate_of"
+        ],
+        "title": "LeaderboardPlacement",
+        "description": "The place of the author in the leaderboard of the problem after an accepted Submit\n(FR-RUN-05, phase 3): the entry of the author is their best solution, this one or an earlier\none."
+      },
+      "LeaderboardRow": {
+        "properties": {
+          "rank": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Rank",
+            "description": "Equal metrics share a place (1, 2, 2, 4)"
+          },
+          "solution_id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Solution Id"
+          },
+          "author": {
+            "$ref": "#/components/schemas/UserRef"
+          },
+          "metrics": {
+            "patternProperties": {
+              "^[a-z_]+\\.[a-z0-9_]+$": {
+                "type": "number"
+              }
+            },
+            "propertyNames": {
+              "examples": [
+                "synth.critical_path_ns"
+              ]
+            },
+            "type": "object",
+            "title": "Metrics",
+            "description": "Metrics by `<stage key>.<metric>`, rounded to the precision of the tool",
+            "examples": [
+              {
+                "synth.area_um2": 836.4,
+                "synth.cells": 187,
+                "synth.critical_path_ns": 0.84
+              }
+            ]
+          },
+          "submitted_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Submitted At"
+          },
+          "is_me": {
+            "type": "boolean",
+            "title": "Is Me",
+            "description": "The entry of the signed-in user"
+          },
+          "duplicate_of": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DuplicateOf"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The row is a later duplicate and shows its leader's rank; with group=true only `me` can be one"
+          },
+          "duplicates": {
+            "type": "integer",
+            "minimum": 0.0,
+            "title": "Duplicates",
+            "description": "With group=true: later solutions with the same syntax tree"
+          },
+          "group": {
+            "items": {
+              "$ref": "#/components/schemas/GroupMember"
+            },
+            "type": "array",
+            "title": "Group",
+            "description": "With group=true: the earliest 50 of them, oldest first; empty otherwise"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rank",
+          "solution_id",
+          "author",
+          "metrics",
+          "submitted_at",
+          "is_me",
+          "duplicate_of",
+          "duplicates",
+          "group"
+        ],
+        "title": "LeaderboardRow",
+        "description": "An entry: the best solution of an author (FR-LB-01, FR-LB-02)."
       },
       "LegalInfo": {
         "properties": {
@@ -3940,6 +4887,28 @@
               }
             ]
           },
+          "leaderboard": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LeaderboardFormula"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null: the problem has no leaderboard (phase 3)"
+          },
+          "reference": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReferenceInfo"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null: no reference solutions, or the author hid them (phase 3)"
+          },
           "changelog": {
             "anyOf": [
               {
@@ -3991,12 +4960,130 @@
           "interface",
           "pipeline",
           "tests",
+          "leaderboard",
+          "reference",
           "changelog",
           "published_at",
           "acceptance"
         ],
         "title": "ProblemDetail",
         "description": "The current version of a problem, the one new submissions are checked on, and its\nstatistics, which change between versions."
+      },
+      "ProblemLeaderboard": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/LeaderboardRow"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "per_page": {
+            "type": "integer",
+            "title": "Per Page"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "Rows to page through: with group=true, without duplicates"
+          },
+          "entries": {
+            "type": "integer",
+            "title": "Entries",
+            "description": "Authors in the leaderboard: M of «place N of M»"
+          },
+          "epoch": {
+            "type": "integer",
+            "title": "Epoch",
+            "description": "leaderboard_epoch of the current version"
+          },
+          "toolchain_profile": {
+            "type": "string",
+            "title": "Toolchain Profile",
+            "examples": [
+              "sv-2026.10.2"
+            ]
+          },
+          "formula_version": {
+            "type": "integer",
+            "title": "Formula Version"
+          },
+          "order": {
+            "items": {
+              "$ref": "#/components/schemas/LeaderboardKey"
+            },
+            "type": "array",
+            "title": "Order",
+            "description": "The formula: the order of the places"
+          },
+          "columns": {
+            "items": {
+              "type": "string",
+              "pattern": "^[a-z_]+\\.[a-z0-9_]+$",
+              "examples": [
+                "synth.critical_path_ns"
+              ]
+            },
+            "type": "array",
+            "title": "Columns",
+            "description": "Metrics of the rows to show: the formula first, then the other metrics of its stages"
+          },
+          "best": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LeaderboardRow"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "First place; null: no entries yet"
+          },
+          "reference": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReferenceMetrics"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The best reference solution by the formula; null: none or not measured yet (FR-SYN-04). Its metrics are public whatever reference.visibility says"
+          },
+          "me": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LeaderboardRow"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "The entry of the signed-in user, wherever it is; null: a guest or no entry"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "page",
+          "per_page",
+          "total",
+          "entries",
+          "epoch",
+          "toolchain_profile",
+          "formula_version",
+          "order",
+          "columns",
+          "best",
+          "reference",
+          "me"
+        ],
+        "title": "ProblemLeaderboard",
+        "description": "The leaderboard of a problem in its current epoch on the default toolchain profile."
       },
       "ProblemListItem": {
         "properties": {
@@ -4116,6 +5203,38 @@
         ],
         "title": "ProblemPage"
       },
+      "ProblemRef": {
+        "properties": {
+          "slug": {
+            "type": "string",
+            "title": "Slug",
+            "examples": [
+              "sync-fifo"
+            ]
+          },
+          "number": {
+            "type": "integer",
+            "title": "Number"
+          },
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "difficulty": {
+            "type": "string",
+            "title": "Difficulty",
+            "description": "Key of the difficulty levels of GET /config"
+          }
+        },
+        "type": "object",
+        "required": [
+          "slug",
+          "number",
+          "title",
+          "difficulty"
+        ],
+        "title": "ProblemRef"
+      },
       "ProblemVersionDetail": {
         "properties": {
           "slug": {
@@ -4192,6 +5311,28 @@
               }
             ]
           },
+          "leaderboard": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LeaderboardFormula"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null: the problem has no leaderboard (phase 3)"
+          },
+          "reference": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ReferenceInfo"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null: no reference solutions, or the author hid them (phase 3)"
+          },
           "changelog": {
             "anyOf": [
               {
@@ -4226,6 +5367,8 @@
           "interface",
           "pipeline",
           "tests",
+          "leaderboard",
+          "reference",
           "changelog",
           "published_at"
         ],
@@ -4287,6 +5430,30 @@
             "type": "array",
             "title": "Solved",
             "description": "Newest first"
+          },
+          "rating": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ProfileRating"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Null: no points yet (phase 3)"
+          },
+          "best_places": {
+            "items": {
+              "$ref": "#/components/schemas/BestPlace"
+            },
+            "type": "array",
+            "title": "Best Places",
+            "description": "Best places in problem leaderboards, up to 10 (phase 3)"
+          },
+          "solutions": {
+            "type": "integer",
+            "title": "Solutions",
+            "description": "Public solutions (phase 3)"
           }
         },
         "type": "object",
@@ -4296,10 +5463,112 @@
           "avatar_url",
           "created_at",
           "progress",
-          "solved"
+          "solved",
+          "rating",
+          "best_places",
+          "solutions"
         ],
         "title": "Profile",
-        "description": "A public profile (FR-USR-04); places, solutions and activity arrive in phases 3-4."
+        "description": "A public profile (FR-USR-04); public solutions are GET /users/{nick}/solutions, activity\narrives in phase 4."
+      },
+      "ProfileRating": {
+        "properties": {
+          "rank": {
+            "type": "integer",
+            "title": "Rank"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "Users with points"
+          },
+          "points": {
+            "type": "integer",
+            "title": "Points"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rank",
+          "total",
+          "points"
+        ],
+        "title": "ProfileRating",
+        "description": "The place in the global leaderboard (FR-LB-05)."
+      },
+      "PublicStage": {
+        "properties": {
+          "key": {
+            "type": "string",
+            "title": "Key",
+            "examples": [
+              "synth"
+            ]
+          },
+          "type": {
+            "type": "string",
+            "title": "Type",
+            "examples": [
+              "synth"
+            ]
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "pending",
+              "running",
+              "passed",
+              "warning",
+              "failed",
+              "skipped",
+              "cancelled",
+              "error"
+            ],
+            "title": "Status"
+          },
+          "metrics_schema": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metrics Schema",
+            "examples": [
+              "synth/v1"
+            ]
+          },
+          "metrics": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metrics",
+            "description": "Only of synthesis and formal stages; empty for the others"
+          },
+          "tests": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/TestCount"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Of simulation stages: counts, no test data"
+          }
+        },
+        "type": "object",
+        "required": [
+          "key",
+          "type",
+          "status",
+          "metrics_schema",
+          "metrics",
+          "tests"
+        ],
+        "title": "PublicStage",
+        "description": "A stage of a public solution: what anyone may see (specs/05 §5)."
       },
       "QueueEvent": {
         "properties": {
@@ -4438,6 +5707,212 @@
         ],
         "title": "Quotas"
       },
+      "RatingRow": {
+        "properties": {
+          "rank": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Rank",
+            "description": "Equal points: whoever reached them first ranks higher (ADR-0006)"
+          },
+          "user": {
+            "$ref": "#/components/schemas/UserRef"
+          },
+          "points": {
+            "type": "integer",
+            "title": "Points"
+          },
+          "solved": {
+            "additionalProperties": {
+              "type": "integer"
+            },
+            "type": "object",
+            "title": "Solved",
+            "description": "Solved problems by the difficulty keys of GET /config"
+          },
+          "week_delta": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Week Delta",
+            "description": "Places gained in 7 days (negative: lost); null: not ranked a week ago"
+          },
+          "is_me": {
+            "type": "boolean",
+            "title": "Is Me"
+          }
+        },
+        "type": "object",
+        "required": [
+          "rank",
+          "user",
+          "points",
+          "solved",
+          "week_delta",
+          "is_me"
+        ],
+        "title": "RatingRow",
+        "description": "A user in the global leaderboard (FR-LB-05)."
+      },
+      "ReferenceInfo": {
+        "properties": {
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "after_accepted",
+              "public"
+            ],
+            "title": "Visibility",
+            "description": "after_accepted: open after the visitor's own accepted Submit"
+          },
+          "solutions": {
+            "type": "integer",
+            "minimum": 1.0,
+            "title": "Solutions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "visibility",
+          "solutions"
+        ],
+        "title": "ReferenceInfo",
+        "description": "Reference solutions of the author (FR-REF-01): GET /problems/{slug}/reference."
+      },
+      "ReferenceMetrics": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "metrics": {
+            "patternProperties": {
+              "^[a-z_]+\\.[a-z0-9_]+$": {
+                "type": "number"
+              }
+            },
+            "propertyNames": {
+              "examples": [
+                "synth.critical_path_ns"
+              ]
+            },
+            "type": "object",
+            "title": "Metrics",
+            "description": "Metrics by `<stage key>.<metric>`, rounded to the precision of the tool",
+            "examples": [
+              {
+                "synth.area_um2": 836.4,
+                "synth.cells": 187,
+                "synth.critical_path_ns": 0.84
+              }
+            ]
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "metrics"
+        ],
+        "title": "ReferenceMetrics"
+      },
+      "ReferencePage": {
+        "properties": {
+          "version": {
+            "type": "integer",
+            "title": "Version"
+          },
+          "visibility": {
+            "type": "string",
+            "enum": [
+              "after_accepted",
+              "public"
+            ],
+            "title": "Visibility"
+          },
+          "solutions": {
+            "items": {
+              "$ref": "#/components/schemas/ReferenceSolution"
+            },
+            "type": "array",
+            "title": "Solutions"
+          }
+        },
+        "type": "object",
+        "required": [
+          "version",
+          "visibility",
+          "solutions"
+        ],
+        "title": "ReferencePage",
+        "description": "Reference solutions of the current version (FR-REF-01)."
+      },
+      "ReferenceSolution": {
+        "properties": {
+          "title": {
+            "type": "string",
+            "title": "Title"
+          },
+          "code": {
+            "type": "string",
+            "title": "Code"
+          },
+          "explanation_md": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Explanation Md",
+            "description": "The microarchitecture, in Markdown"
+          },
+          "metrics": {
+            "anyOf": [
+              {
+                "patternProperties": {
+                  "^[a-z_]+\\.[a-z0-9_]+$": {
+                    "type": "number"
+                  }
+                },
+                "propertyNames": {
+                  "examples": [
+                    "synth.critical_path_ns"
+                  ]
+                },
+                "type": "object",
+                "description": "Metrics by `<stage key>.<metric>`, rounded to the precision of the tool",
+                "examples": [
+                  {
+                    "synth.area_um2": 836.4,
+                    "synth.cells": 187,
+                    "synth.critical_path_ns": 0.84
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Metrics",
+            "description": "On the default toolchain profile; null until measured (FR-SYN-04)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "title",
+          "code",
+          "explanation_md",
+          "metrics"
+        ],
+        "title": "ReferenceSolution"
+      },
       "ResetSpec": {
         "properties": {
           "active": {
@@ -4471,6 +5946,278 @@
         "type": "object",
         "title": "ResetSpec"
       },
+      "Solution": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id",
+            "description": "Id of the submission"
+          },
+          "problem": {
+            "$ref": "#/components/schemas/ProblemRef"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version",
+            "description": "Version of the problem the solution was checked on"
+          },
+          "author": {
+            "$ref": "#/components/schemas/SolutionAuthor"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "accepted",
+              "accepted_with_warnings"
+            ],
+            "title": "Status"
+          },
+          "metrics": {
+            "patternProperties": {
+              "^[a-z_]+\\.[a-z0-9_]+$": {
+                "type": "number"
+              }
+            },
+            "propertyNames": {
+              "examples": [
+                "synth.critical_path_ns"
+              ]
+            },
+            "type": "object",
+            "title": "Metrics",
+            "description": "Empty without a synthesis stage",
+            "examples": [
+              {
+                "synth.area_um2": 836.4,
+                "synth.cells": 187,
+                "synth.critical_path_ns": 0.84
+              }
+            ]
+          },
+          "rank": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rank",
+            "description": "Place in the current leaderboard if this solution is its author's entry"
+          },
+          "duplicate_of": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DuplicateOf"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "submitted_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Submitted At"
+          },
+          "language": {
+            "type": "string",
+            "title": "Language",
+            "examples": [
+              "systemverilog"
+            ]
+          },
+          "toolchain_profile": {
+            "type": "string",
+            "title": "Toolchain Profile"
+          },
+          "code": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Code",
+            "description": "Null while code_locked"
+          },
+          "code_locked": {
+            "type": "boolean",
+            "title": "Code Locked",
+            "description": "The visitor has no accepted Submit of the problem (FR-SOL-02); the author sees their own code"
+          },
+          "stages": {
+            "items": {
+              "$ref": "#/components/schemas/PublicStage"
+            },
+            "type": "array",
+            "title": "Stages",
+            "description": "In pipeline order"
+          },
+          "placement": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LeaderboardPlacement"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Place of the author's entry if this solution holds it or duplicates it"
+          },
+          "order": {
+            "items": {
+              "$ref": "#/components/schemas/LeaderboardKey"
+            },
+            "type": "array",
+            "title": "Order",
+            "description": "The formula of the leaderboard; empty without one"
+          },
+          "best": {
+            "anyOf": [
+              {
+                "patternProperties": {
+                  "^[a-z_]+\\.[a-z0-9_]+$": {
+                    "type": "number"
+                  }
+                },
+                "propertyNames": {
+                  "examples": [
+                    "synth.critical_path_ns"
+                  ]
+                },
+                "type": "object",
+                "description": "Metrics by `<stage key>.<metric>`, rounded to the precision of the tool",
+                "examples": [
+                  {
+                    "synth.area_um2": 836.4,
+                    "synth.cells": 187,
+                    "synth.critical_path_ns": 0.84
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Best",
+            "description": "Of the first place, to compare with"
+          },
+          "reference": {
+            "anyOf": [
+              {
+                "patternProperties": {
+                  "^[a-z_]+\\.[a-z0-9_]+$": {
+                    "type": "number"
+                  }
+                },
+                "propertyNames": {
+                  "examples": [
+                    "synth.critical_path_ns"
+                  ]
+                },
+                "type": "object",
+                "description": "Metrics by `<stage key>.<metric>`, rounded to the precision of the tool",
+                "examples": [
+                  {
+                    "synth.area_um2": 836.4,
+                    "synth.cells": 187,
+                    "synth.critical_path_ns": 0.84
+                  }
+                ]
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Reference",
+            "description": "Of the best reference solution"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "problem",
+          "version",
+          "author",
+          "status",
+          "metrics",
+          "rank",
+          "duplicate_of",
+          "submitted_at",
+          "language",
+          "toolchain_profile",
+          "code",
+          "code_locked",
+          "stages",
+          "placement",
+          "order",
+          "best",
+          "reference"
+        ],
+        "title": "Solution",
+        "description": "A public solution page (FR-SOL-01)."
+      },
+      "SolutionAuthor": {
+        "properties": {
+          "nick": {
+            "type": "string",
+            "maxLength": 24,
+            "minLength": 3,
+            "pattern": "^[a-z0-9_.-]+$",
+            "title": "Nick",
+            "description": "Unique, lowercase; the profile is /u/<nick>",
+            "examples": [
+              "ada"
+            ]
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "avatar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Url"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "solved": {
+            "type": "integer",
+            "title": "Solved",
+            "description": "Problems the author solved"
+          }
+        },
+        "type": "object",
+        "required": [
+          "nick",
+          "display_name",
+          "avatar_url",
+          "created_at",
+          "solved"
+        ],
+        "title": "SolutionAuthor"
+      },
       "SolutionLimits": {
         "properties": {
           "max_bytes": {
@@ -4491,6 +6238,135 @@
           "max_lines"
         ],
         "title": "SolutionLimits"
+      },
+      "SolutionPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SolutionSummary"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "per_page": {
+            "type": "integer",
+            "title": "Per Page"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          },
+          "code_locked": {
+            "type": "boolean",
+            "title": "Code Locked",
+            "description": "The visitor has no accepted Submit of the problem, so the code of others is closed (FR-SOL-02): GET /solutions/{id} gives no code"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "page",
+          "per_page",
+          "total",
+          "code_locked"
+        ],
+        "title": "SolutionPage"
+      },
+      "SolutionSummary": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id",
+            "description": "Id of the submission"
+          },
+          "problem": {
+            "$ref": "#/components/schemas/ProblemRef"
+          },
+          "version": {
+            "type": "integer",
+            "title": "Version",
+            "description": "Version of the problem the solution was checked on"
+          },
+          "author": {
+            "$ref": "#/components/schemas/UserRef"
+          },
+          "status": {
+            "type": "string",
+            "enum": [
+              "accepted",
+              "accepted_with_warnings"
+            ],
+            "title": "Status"
+          },
+          "metrics": {
+            "patternProperties": {
+              "^[a-z_]+\\.[a-z0-9_]+$": {
+                "type": "number"
+              }
+            },
+            "propertyNames": {
+              "examples": [
+                "synth.critical_path_ns"
+              ]
+            },
+            "type": "object",
+            "title": "Metrics",
+            "description": "Empty without a synthesis stage",
+            "examples": [
+              {
+                "synth.area_um2": 836.4,
+                "synth.cells": 187,
+                "synth.critical_path_ns": 0.84
+              }
+            ]
+          },
+          "rank": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Rank",
+            "description": "Place in the current leaderboard if this solution is its author's entry"
+          },
+          "duplicate_of": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/DuplicateOf"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "submitted_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Submitted At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "problem",
+          "version",
+          "author",
+          "status",
+          "metrics",
+          "rank",
+          "duplicate_of",
+          "submitted_at"
+        ],
+        "title": "SolutionSummary",
+        "description": "A public solution: an accepted Submit of a signed-in user (specs/04 §6)."
       },
       "SolvedProblem": {
         "properties": {
@@ -4869,6 +6745,22 @@
             "type": "string",
             "title": "Code"
           },
+          "public": {
+            "type": "boolean",
+            "title": "Public",
+            "description": "An accepted Submit of a signed-in user: others see it at /solutions/{id} (phase 3)"
+          },
+          "leaderboard": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LeaderboardPlacement"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "With a final status: the place of the author if the submission entered the leaderboard (a ranked problem, signed-in author, current epoch, default toolchain profile, netlist simulation passed); null otherwise"
+          },
           "seed": {
             "type": "string",
             "title": "Seed",
@@ -4963,6 +6855,8 @@
           "created_at",
           "finished_at",
           "code",
+          "public",
+          "leaderboard",
           "seed",
           "toolchain_profile",
           "waveview_url",
@@ -5182,6 +7076,22 @@
             "type": "string",
             "title": "Code"
           },
+          "public": {
+            "type": "boolean",
+            "title": "Public",
+            "description": "An accepted Submit of a signed-in user: others see it at /solutions/{id} (phase 3)"
+          },
+          "leaderboard": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/LeaderboardPlacement"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "With a final status: the place of the author if the submission entered the leaderboard (a ranked problem, signed-in author, current epoch, default toolchain profile, netlist simulation passed); null otherwise"
+          },
           "seed": {
             "type": "string",
             "title": "Seed",
@@ -5287,6 +7197,8 @@
           "created_at",
           "finished_at",
           "code",
+          "public",
+          "leaderboard",
           "seed",
           "toolchain_profile",
           "waveview_url",
@@ -5703,6 +7615,25 @@
         ],
         "title": "TestCase"
       },
+      "TestCount": {
+        "properties": {
+          "passed": {
+            "type": "integer",
+            "title": "Passed"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total",
+            "description": "Open and hidden tests together"
+          }
+        },
+        "type": "object",
+        "required": [
+          "passed",
+          "total"
+        ],
+        "title": "TestCount"
+      },
       "TestEvent": {
         "properties": {
           "type": {
@@ -5769,6 +7700,83 @@
         ],
         "title": "TruncatedEvent",
         "description": "The stage output hit the limit: the stage was stopped."
+      },
+      "UserRef": {
+        "properties": {
+          "nick": {
+            "type": "string",
+            "maxLength": 24,
+            "minLength": 3,
+            "pattern": "^[a-z0-9_.-]+$",
+            "title": "Nick",
+            "description": "Unique, lowercase; the profile is /u/<nick>",
+            "examples": [
+              "ada"
+            ]
+          },
+          "display_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Display Name"
+          },
+          "avatar_url": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Avatar Url"
+          }
+        },
+        "type": "object",
+        "required": [
+          "nick",
+          "display_name",
+          "avatar_url"
+        ],
+        "title": "UserRef",
+        "description": "A user as others see them: an author in leaderboards and solutions."
+      },
+      "UserSolutionPage": {
+        "properties": {
+          "items": {
+            "items": {
+              "$ref": "#/components/schemas/SolutionSummary"
+            },
+            "type": "array",
+            "title": "Items"
+          },
+          "page": {
+            "type": "integer",
+            "title": "Page"
+          },
+          "per_page": {
+            "type": "integer",
+            "title": "Per Page"
+          },
+          "total": {
+            "type": "integer",
+            "title": "Total"
+          }
+        },
+        "type": "object",
+        "required": [
+          "items",
+          "page",
+          "per_page",
+          "total"
+        ],
+        "title": "UserSolutionPage",
+        "description": "Public solutions of a user, newest first (FR-USR-04)."
       },
       "VerdictDetail": {
         "properties": {

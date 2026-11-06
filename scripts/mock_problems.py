@@ -3,6 +3,8 @@
 The mock API answers `GET /problems/{slug}` and `GET /problems/{slug}/versions/{version}` with
 web/src/mocks/problem-versions.json: the current version of every package in problems/, as the
 API shows it (`ProblemVersionDetail`). The acceptance rates come from the catalogue fixtures.
+`GET /problems/{slug}/reference` shows the reference solutions of the packages,
+web/src/mocks/reference-solutions.json (phase 3).
 
     poetry -C judge run python ../scripts/mock_problems.py [--check]
 
@@ -21,6 +23,7 @@ from judge.core.package import Problem, load_manifest
 ROOT = Path(__file__).resolve().parents[1]
 PROBLEMS = ROOT / "problems"
 OUTPUT = ROOT / "web" / "src" / "mocks" / "problem-versions.json"
+REFERENCES = ROOT / "web" / "src" / "mocks" / "reference-solutions.json"
 PUBLISHED_AT = "2026-10-01T00:00:00Z"
 
 
@@ -34,6 +37,16 @@ def _tests(manifest: Problem) -> dict[str, int]:
         for group, count in testbench.groups.items():
             tests[group] = tests.get(group, 0) + count
     return tests
+
+
+def _reference(manifest: Problem) -> dict[str, Any] | None:
+    reference = manifest.reference
+    if reference is None or reference.visibility == "hidden" or not reference.solutions:
+        return None
+    return {
+        "visibility": reference.visibility or "after_accepted",
+        "solutions": len(reference.solutions),
+    }
 
 
 def detail(path: Path) -> dict[str, Any]:
@@ -58,28 +71,55 @@ def detail(path: Path) -> dict[str, Any]:
             "submit": _stages(manifest, practice.submit),
         },
         "tests": _tests(manifest),
+        "leaderboard": (
+            manifest.leaderboard.model_dump(mode="json") if manifest.leaderboard else None
+        ),
+        "reference": _reference(manifest),
         "changelog": manifest.changelog,
         "published_at": PUBLISHED_AT,
     }
 
 
-def build() -> str:
+def references(path: Path) -> list[dict[str, Any]]:
+    """Reference solutions of a package as the importer stores them; the mocks add metrics."""
+    manifest = load_manifest(path)
+    solutions = manifest.reference.solutions if manifest.reference else []
+    return [
+        {
+            "title": solution.title,
+            "code": (path / solution.file).read_text(encoding="utf-8"),
+            "explanation_md": (
+                (path / solution.explanation).read_text(encoding="utf-8")
+                if solution.explanation
+                else None
+            ),
+        }
+        for solution in solutions
+    ]
+
+
+def build() -> dict[Path, str]:
     packages = sorted(path.parent for path in PROBLEMS.glob("*/problem.yaml"))
     problems = sorted((detail(path) for path in packages), key=lambda problem: problem["number"])
-    return json.dumps(problems, ensure_ascii=False, indent=2) + "\n"
+    solutions = {path.name: references(path) for path in packages}
+    return {
+        OUTPUT: json.dumps(problems, ensure_ascii=False, indent=2) + "\n",
+        REFERENCES: json.dumps(solutions, ensure_ascii=False, indent=2) + "\n",
+    }
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    parser.add_argument("--check", action="store_true", help="fail if the file is not current")
+    parser.add_argument("--check", action="store_true", help="fail if the files are not current")
     args = parser.parse_args()
-    text = build()
+    files = build()
     if args.check:
-        if OUTPUT.read_text(encoding="utf-8") != text:
-            print(f"{OUTPUT.relative_to(ROOT)} is stale: run `just mock-problems`", file=sys.stderr)
-            return 1
-        return 0
-    OUTPUT.write_text(text, encoding="utf-8", newline="\n")
+        stale = [path for path, text in files.items() if path.read_text(encoding="utf-8") != text]
+        for path in stale:
+            print(f"{path.relative_to(ROOT)} is stale: run `just mock-problems`", file=sys.stderr)
+        return 1 if stale else 0
+    for path, text in files.items():
+        path.write_text(text, encoding="utf-8", newline="\n")
     return 0
 
 

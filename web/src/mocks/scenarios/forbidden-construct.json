@@ -32,6 +32,8 @@
   "created_at": "2026-10-29T11:34:40+00:00",
   "finished_at": "2026-10-29T11:34:43.951000+00:00",
   "code": "module counter_mod_n #(\n  parameter int N = 10\n) (\n  input  logic                 clk,\n  input  logic                 rst,\n  input  logic                 en,\n  output logic [$clog2(N)-1:0] count,\n  output logic                 wrap\n);\n  localparam int W = $clog2(N);\n  localparam logic [W-1:0] LAST = W'(N - 1);\n\n  assign wrap = en && count == LAST;\n\n  always_ff @(posedge clk)\n    if (rst) count <= #1 '0;\n    else if (wrap) count <= #1 '0;\n    else if (en) count <= #1 count + 1'b1;\nendmodule\n",
+  "public": false,
+  "leaderboard": null,
   "seed": "20261026",
   "toolchain_profile": "sv-dev",
   "waveview_url": null,
@@ -315,7 +317,8 @@
      "limit": null,
      "warnings": [],
      "error_codes": []
-    }
+    },
+    "leaderboard": null
    }
   }
  ]

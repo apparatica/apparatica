@@ -145,6 +145,7 @@ describe("a finished check", () => {
       type: "finalized",
       status: "cancelled",
       verdict_detail: { first_failure: null, limit: null, warnings: [], error_codes: [] },
+      leaderboard: null,
     });
     expect(shape(pipelineView(FIFO.pipeline, check, null))).toEqual([
       ["lint", "pending", { kind: "notRun" }],

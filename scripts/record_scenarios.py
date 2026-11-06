@@ -180,6 +180,7 @@ def timeline(attempts: Sequence[list[Timed]], verdict: Verdict) -> list[Timed]:
                 "type": "finalized",
                 "status": verdict.status,
                 "verdict_detail": verdict.detail.model_dump(mode="json"),
+                "leaderboard": None,  # the mocks place a signed-in author (leaderboards.ts)
             },
         )
     )
@@ -350,6 +351,8 @@ def scenario_document(name: str, scenario: Scenario, image: str) -> dict[str, An
         "created_at": created.isoformat(),
         "finished_at": (created + timedelta(milliseconds=events[-1][0])).isoformat(),
         "code": code,
+        "public": False,
+        "leaderboard": None,
         "seed": str(SEED),
         "toolchain_profile": PROFILE,
         "waveview_url": None,  # recordings name no viewer

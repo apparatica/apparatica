@@ -68,6 +68,7 @@ type = "layers"
 layers = [
     "apparatica.admin | apparatica.judging",
     "apparatica.users",
+    "apparatica.leaderboards",
     "apparatica.submissions",
     "apparatica.problems",
     "apparatica.captcha | apparatica.auth",

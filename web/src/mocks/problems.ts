@@ -8,11 +8,16 @@ import type { Schemas } from "@/lib/api/client";
 
 import * as fixtures from "./fixtures";
 import { api, problem as apiProblem } from "./http";
+import { MOCK_FORMULA } from "./leaderboards";
 import versions from "./problem-versions.json";
 import { mockUser, statusOf } from "./users";
 
-/** A backend test validates the file against the API schema, which makes the cast safe. */
-const details = versions as Schemas["ProblemVersionDetail"][];
+/** A backend test validates the file against the API schema, which makes the cast safe. The
+ * packages have no synthesis yet: the mocks give every problem a leaderboard (leaderboards.ts). */
+const details = (versions as Schemas["ProblemVersionDetail"][]).map((detail) => ({
+  ...detail,
+  leaderboard: detail.leaderboard ?? MOCK_FORMULA,
+}));
 
 function findVersion(slug: string): Schemas["ProblemVersionDetail"] | undefined {
   return details.find((detail) => detail.slug === slug);

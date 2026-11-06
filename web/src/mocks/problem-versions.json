@@ -114,6 +114,11 @@
       "public": 2,
       "hidden": 2
     },
+    "leaderboard": null,
+    "reference": {
+      "visibility": "after_accepted",
+      "solutions": 1
+    },
     "changelog": "Таблица портов перенесена из условия в интерфейс задачи; текст и тесты не изменились.",
     "published_at": "2026-10-01T00:00:00Z"
   },
@@ -226,6 +231,11 @@
       "public": 2,
       "hidden": 2
     },
+    "leaderboard": null,
+    "reference": {
+      "visibility": "after_accepted",
+      "solutions": 1
+    },
     "changelog": "Таблица портов перенесена из условия в интерфейс задачи; текст и тесты не изменились.",
     "published_at": "2026-10-01T00:00:00Z"
   },
@@ -335,6 +345,11 @@
       "public": 2,
       "hidden": 2
     },
+    "leaderboard": null,
+    "reference": {
+      "visibility": "after_accepted",
+      "solutions": 1
+    },
     "changelog": "Таблица портов перенесена из условия в интерфейс задачи; текст и тесты не изменились.",
     "published_at": "2026-10-01T00:00:00Z"
   },
@@ -430,6 +445,11 @@
     "tests": {
       "public": 2,
       "hidden": 2
+    },
+    "leaderboard": null,
+    "reference": {
+      "visibility": "after_accepted",
+      "solutions": 1
     },
     "changelog": "Таблица портов перенесена из условия в интерфейс задачи; текст и тесты не изменились.",
     "published_at": "2026-10-01T00:00:00Z"
@@ -576,6 +596,11 @@
     "tests": {
       "public": 2,
       "hidden": 2
+    },
+    "leaderboard": null,
+    "reference": {
+      "visibility": "after_accepted",
+      "solutions": 1
     },
     "changelog": "Таблица портов перенесена из условия в интерфейс задачи; текст и тесты не изменились.",
     "published_at": "2026-10-01T00:00:00Z"

@@ -38,4 +38,7 @@ async def get_profile(
             )
             for item in progress.solved
         ],
+        rating=None,  # places and public solutions arrive with T3.10
+        best_places=[],
+        solutions=0,
     )

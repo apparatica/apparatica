@@ -33,6 +33,9 @@ function profileOf(solved: number, fields: Partial<Schemas["Profile"]> = {}): Sc
       total: 40,
     })),
     solved: items,
+    rating: null,
+    best_places: [],
+    solutions: 0,
     ...fields,
   };
 }

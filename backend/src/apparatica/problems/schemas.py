@@ -10,7 +10,7 @@ from typing import Literal
 
 from pydantic import BaseModel, Field, RootModel
 
-from judge.core.package import Interface
+from judge.core.package import Interface, LeaderboardKey
 
 Sort = Literal["number", "-number", "difficulty", "-difficulty", "acceptance", "-acceptance"]
 ProblemStatus = Literal["solved", "attempted", "not_started"]
@@ -68,6 +68,25 @@ class PipelineInfo(BaseModel):
     submit: list[PipelineStage]
 
 
+class LeaderboardFormula(BaseModel):
+    """How the leaderboard of the problem ranks solutions (ADR-0006)."""
+
+    formula_version: int
+    order: list[LeaderboardKey] = Field(
+        description="Lexicographic order of metrics `<stage key>.<metric>`; then the time of"
+        " sending, which does not split a place"
+    )
+
+
+class ReferenceInfo(BaseModel):
+    """Reference solutions of the author (FR-REF-01): GET /problems/{slug}/reference."""
+
+    visibility: Literal["after_accepted", "public"] = Field(
+        description="after_accepted: open after the visitor's own accepted Submit"
+    )
+    solutions: int = Field(ge=1)
+
+
 class ProblemVersionDetail(BaseModel):
     """A version of a problem: its data never changes once published, so nothing here depends on
     later versions (which one is current is the `version` of GET /problems/{slug})."""
@@ -87,6 +106,12 @@ class ProblemVersionDetail(BaseModel):
     pipeline: PipelineInfo
     tests: dict[str, int] = Field(
         description="Number of tests per group, e.g. public and hidden", examples=[{"public": 4}]
+    )
+    leaderboard: LeaderboardFormula | None = Field(
+        description="Null: the problem has no leaderboard (phase 3)"
+    )
+    reference: ReferenceInfo | None = Field(
+        description="Null: no reference solutions, or the author hid them (phase 3)"
     )
     changelog: str | None = Field(description="What changed since the previous version")
     published_at: datetime

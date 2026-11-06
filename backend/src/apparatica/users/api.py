@@ -5,7 +5,7 @@ route answers UNAUTHENTICATED without a session.
 from datetime import UTC, datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Path, Request, Response, status
+from fastapi import APIRouter, Depends, Path, Query, Request, Response, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,6 +17,7 @@ from apparatica.auth.throttle import draft_throttle, throttle
 from apparatica.core.db import get_session
 from apparatica.core.errors import ApiError, ErrorCode, problem_responses
 from apparatica.core.http import PRIVATE, cached_json
+from apparatica.leaderboards.schemas import UserSolutionPage
 from apparatica.users import drafts, profiles
 from apparatica.users.export import export_account
 from apparatica.users.schemas import AccountExport, Draft, DraftSave, MeUpdate, Profile
@@ -24,6 +25,7 @@ from apparatica.users.schemas import AccountExport, Draft, DraftSave, MeUpdate, 
 router = APIRouter(tags=["users"])
 
 PHASE_2 = {"x-phase": 2}
+PHASE_3 = {"x-phase": 3}
 Slug = Annotated[str, Path(pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$", max_length=64)]
 Session = Annotated[AsyncSession, Depends(get_session)]
 
@@ -216,3 +218,20 @@ async def get_profile(
     if profile is None:
         raise ApiError(ErrorCode.NOT_FOUND, f"No user {nick!r}")
     return cached_json(request, profile)
+
+
+@router.get(
+    "/users/{nick}/solutions",
+    response_model=UserSolutionPage,
+    responses=problem_responses(
+        ErrorCode.NOT_IMPLEMENTED, ErrorCode.NOT_FOUND, ErrorCode.VALIDATION_ERROR
+    ),
+    openapi_extra=PHASE_3,
+)
+async def list_user_solutions(
+    nick: Annotated[Nick, Path()],
+    page: Annotated[int, Query(ge=1)] = 1,
+    per_page: Annotated[int, Query(ge=1, le=100)] = 20,
+) -> UserSolutionPage:
+    """Public solutions of a user, newest first (FR-USR-04). NOT_FOUND as for the profile."""
+    raise ApiError(ErrorCode.NOT_IMPLEMENTED, "Declared by the phase 3 contract; arrives in T3.10")

@@ -112,6 +112,7 @@ it("ends a stage that was running when the check was cancelled", () => {
     type: "finalized",
     status: "cancelled",
     verdict_detail: { first_failure: null, limit: null, warnings: [], error_codes: [] },
+    leaderboard: null,
   });
   expect(check.status).toBe("cancelled");
   expect(check.stages.at(-1)).toMatchObject({ key: running, status: "cancelled" });

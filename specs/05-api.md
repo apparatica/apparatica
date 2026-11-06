@@ -97,11 +97,11 @@ RFC 9457 `application/problem+json`:
 | `POST /me/guest-import` | Ф4 | перенос гостевых отправок и черновиков |
 | `GET /users/{nick}`, `GET /users/{nick}/activity`, `GET /users/{nick}/solutions` | Ф2 / Ф4 / Ф3 | профиль, heatmap, решения |
 | `GET /home` | Ф4 | данные гостевого дашборда: задача дня, популярные, топ |
-| `GET /problems/{slug}/leaderboard` | Ф3 | рейтинг решений; `group`, `around=me` |
-| `GET /problems/{slug}/solutions` | Ф3 | список решений; `sort=delay\|area\|new` |
+| `GET /problems/{slug}/leaderboard` | Ф3 | рейтинг решений; `group`, `around=me`, `sort` (место, время или метрика) |
+| `GET /problems/{slug}/solutions` | Ф3 | список решений; `sort`: по формуле рейтинга, по метрике (задержка, площадь…) или новые (`-submitted_at`) |
 | `GET /problems/{slug}/reference` | Ф3 | эталоны или `REFERENCE_LOCKED` |
 | `GET /solutions/{id}` | Ф3 | публичное решение |
-| `GET /leaderboard` | Ф3 | общий рейтинг; `around=me` |
+| `GET /leaderboard` | Ф3 | общий рейтинг; своя строка и её окрестность приходят вошедшему всегда |
 | `POST /problems/{slug}/reports` | Ф5 | жалоба |
 | `/admin/*` | Ф5 | SQLAdmin (HTML), не часть OpenAPI |
 

@@ -1,5 +1,6 @@
 """The data of the frontend mocks match the API: the recorded scenarios
-(scripts/record_scenarios.py) and the demo problems (scripts/mock_problems.py)."""
+(scripts/record_scenarios.py), the demo problems and their reference solutions
+(scripts/mock_problems.py)."""
 
 import importlib.util
 import json
@@ -8,8 +9,9 @@ from typing import Any
 
 import pytest
 
+from apparatica.leaderboards.schemas import ReferenceSolution
 from apparatica.problems.schemas import ProblemVersionDetail
-from apparatica.problems.service import _pipeline, _tests
+from apparatica.problems.service import _leaderboard, _pipeline, _reference, _tests
 from apparatica.submissions.events import FinalizedEvent, QueueEvent, SubmissionEvent
 from apparatica.submissions.schemas import Submission
 from judge.core.package import load_manifest
@@ -52,10 +54,14 @@ def test_the_demo_problems_are_current() -> None:
     assert spec.loader is not None
     script = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(script)
-    path: Path = script.OUTPUT
-    assert path.read_text(encoding="utf-8") == script.build(), "run `just mock-problems`"
+    files: dict[Path, str] = script.build()
+    assert sorted(files) == sorted([script.OUTPUT, script.REFERENCES])
+    for path, text in files.items():
+        assert path.read_text(encoding="utf-8") == text, "run `just mock-problems`"
 
-    problems: list[dict[str, Any]] = json.loads(path.read_text(encoding="utf-8"))
+    problems: list[dict[str, Any]] = json.loads(files[script.OUTPUT])
+    references: dict[str, list[dict[str, Any]]] = json.loads(files[script.REFERENCES])
+    assert sorted(references) == sorted(problem["slug"] for problem in problems)
     assert [problem["slug"] for problem in problems] == [
         "mux4",
         "counter-mod-n",
@@ -70,3 +76,8 @@ def test_the_demo_problems_are_current() -> None:
         dumped = manifest.model_dump(mode="json", by_alias=True)
         assert problem["pipeline"] == _pipeline(dumped).model_dump()
         assert problem["tests"] == _tests(dumped)
+        formula, reference = _leaderboard(dumped), _reference(dumped)
+        assert problem["leaderboard"] == (formula and formula.model_dump(mode="json"))
+        assert problem["reference"] == (reference and reference.model_dump())
+        for solution in references[problem["slug"]]:
+            ReferenceSolution.model_validate(solution | {"metrics": None})

@@ -44,6 +44,14 @@ Nick = Annotated[
 DisplayName = Annotated[str, StringConstraints(strip_whitespace=True, min_length=1, max_length=60)]
 
 
+class UserRef(BaseModel):
+    """A user as others see them: an author in leaderboards and solutions."""
+
+    nick: Nick
+    display_name: str | None
+    avatar_url: str | None
+
+
 class Me(BaseModel):
     """The signed-in user."""
 

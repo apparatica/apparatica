@@ -160,8 +160,39 @@ class SubmissionSummary(BaseModel):
     finished_at: datetime | None
 
 
+class LeaderboardPlacement(BaseModel):
+    """The place of the author in the leaderboard of the problem after an accepted Submit
+    (FR-RUN-05, phase 3): the entry of the author is their best solution, this one or an earlier
+    one."""
+
+    rank: int = Field(
+        ge=1, description="Equal metrics share a place (1, 2, 2, 4); a duplicate has its leader's"
+    )
+    total: int = Field(ge=1, description="Entries of the leaderboard, one per author")
+    better_than: float = Field(
+        ge=0, le=1, examples=[0.96], description="Share of the other entries ranked lower"
+    )
+    is_best: bool = Field(
+        description="This submission is the entry of the author; false: an earlier solution of"
+        " the author ranks higher and keeps the place"
+    )
+    duplicate_of: uuid.UUID | None = Field(
+        description="Solution whose normalized syntax tree is the same and which was sent"
+        " earlier: it holds the place (FR-LB-04)"
+    )
+
+
 class Submission(SubmissionSummary):
     code: str
+    public: bool = Field(
+        description="An accepted Submit of a signed-in user: others see it at /solutions/{id}"
+        " (phase 3)"
+    )
+    leaderboard: LeaderboardPlacement | None = Field(
+        description="With a final status: the place of the author if the submission entered the"
+        " leaderboard (a ranked problem, signed-in author, current epoch, default toolchain"
+        " profile, netlist simulation passed); null otherwise"
+    )
     seed: str = Field(description="64-bit seed as a decimal string", examples=["41917"])
     toolchain_profile: str = Field(examples=["sv-2026.10.2"])
     waveview_url: str | None = Field(

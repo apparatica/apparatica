@@ -18,6 +18,8 @@
   "created_at": "2026-10-29T11:33:35+00:00",
   "finished_at": "2026-10-29T11:33:53.968000+00:00",
   "code": "module mux4 #(\n  parameter int WIDTH = 8\n) (\n  input  logic [1:0]       sel,\n  input  logic [WIDTH-1:0] d0,\n  input  logic [WIDTH-1:0] d1,\n  input  logic [WIDTH-1:0] d2,\n  input  logic [WIDTH-1:0] d3,\n  output logic [WIDTH-1:0] y\n);\n  always_comb begin\n    unique case (sel)\n      2'd0: y = {1'b0, d0};\n      2'd1: y = d1;\n      2'd2: y = d2;\n      2'd3: y = d3;\n    endcase\n  end\nendmodule\n",
+  "public": false,
+  "leaderboard": null,
   "seed": "20261026",
   "toolchain_profile": "sv-dev",
   "waveview_url": null,
@@ -681,7 +683,8 @@
       "lint"
      ],
      "error_codes": []
-    }
+    },
+    "leaderboard": null
    }
   }
  ]

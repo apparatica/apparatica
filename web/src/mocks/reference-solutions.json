@@ -1,0 +1,37 @@
+{
+  "carry-adder": [
+    {
+      "title": "Сложение с расширением на бит",
+      "code": "module carry_adder #(\n  parameter int WIDTH = 8\n) (\n  input  logic [WIDTH-1:0] a,\n  input  logic [WIDTH-1:0] b,\n  input  logic             cin,\n  output logic [WIDTH-1:0] sum,\n  output logic             cout\n);\n  assign {cout, sum} = {1'b0, a} + {1'b0, b} + {{WIDTH{1'b0}}, cin};\nendmodule\n",
+      "explanation_md": "Слагаемые расширяются нулём на один бит, и сумма `WIDTH + 1` бит раскладывается конкатенацией на `cout` и `sum`. Расширение обязательно: в выражении `a + b` разрядности `WIDTH` перенос из старшего бита отбрасывается раньше, чем попадает в результат.\n\nСинтез сам выберет устройство сумматора — цепочку переноса или более быструю схему. Явная цепочка однобитных сумматоров (`generate` с `sum[i] = a[i] ^ b[i] ^ c[i]`, `c[i+1] = a[i] & b[i] | c[i] & (a[i] ^ b[i])`) тоже верна и наглядна, но обычно не лучше по задержке.\n"
+    }
+  ],
+  "counter-mod-n": [
+    {
+      "title": "Счётчик со сравнением",
+      "code": "module counter_mod_n #(\n  parameter int N = 10\n) (\n  input  logic                 clk,\n  input  logic                 rst,\n  input  logic                 en,\n  output logic [$clog2(N)-1:0] count,\n  output logic                 wrap\n);\n  localparam int W = $clog2(N);\n  localparam logic [W-1:0] LAST = W'(N - 1);\n\n  assign wrap = en && count == LAST;\n\n  always_ff @(posedge clk)\n    if (rst) count <= '0;\n    else if (wrap) count <= '0;\n    else if (en) count <= count + 1'b1;\nendmodule\n",
+      "explanation_md": "Регистр `count` и комбинационный `wrap`, который сам служит условием перехода в 0: одно сравнение `count == N − 1` используется дважды, и выход не расходится со счётом.\n\nПорядок веток задаёт приоритеты: сброс важнее счёта, переход в 0 — частный случай счёта при `en = 1`. Константа `LAST` приведена к ширине счётчика (`W'(N - 1)`), чтобы сравнение шло без расширения до 32 бит и без предупреждения линта о ширине.\n"
+    }
+  ],
+  "mux4": [
+    {
+      "title": "case по sel",
+      "code": "module mux4 #(\n  parameter int WIDTH = 8\n) (\n  input  logic [1:0]       sel,\n  input  logic [WIDTH-1:0] d0,\n  input  logic [WIDTH-1:0] d1,\n  input  logic [WIDTH-1:0] d2,\n  input  logic [WIDTH-1:0] d3,\n  output logic [WIDTH-1:0] y\n);\n  always_comb begin\n    unique case (sel)\n      2'd0: y = d0;\n      2'd1: y = d1;\n      2'd2: y = d2;\n      2'd3: y = d3;\n    endcase\n  end\nendmodule\n",
+      "explanation_md": "`always_comb` с `case` по `sel`, в котором перечислены все четыре значения. Полный `case` важен: если пропустить ветку, при этом `sel` выход должен сохранять прошлое значение, и синтез построит защёлку. `unique` сообщает инструментам, что ветки не пересекаются и других значений нет.\n\nТот же мультиплексор можно записать одним `assign` с вложенными `?:` или как `assign y = sel[1] ? (sel[0] ? d3 : d2) : (sel[0] ? d1 : d0);` — дерево из трёх мультиплексоров 2:1.\n"
+    }
+  ],
+  "seq-detector": [
+    {
+      "title": "Автомат на четыре состояния",
+      "code": "module seq_detector (\n  input  logic clk,\n  input  logic rst,\n  input  logic din,\n  output logic found\n);\n  // State: the longest suffix of the received bits that is a prefix of 1011.\n  typedef enum logic [1:0] {S_NONE, S_1, S_10, S_101} state_t;\n  state_t state, next;\n\n  always_comb begin\n    unique case (state)\n      S_NONE: next = din ? S_1 : S_NONE;\n      S_1:    next = din ? S_1 : S_10;\n      S_10:   next = din ? S_101 : S_NONE;\n      S_101:  next = din ? S_1 : S_10;  // 1011 ends in \"1\"; 1010 ends in \"10\"\n    endcase\n  end\n\n  always_ff @(posedge clk)\n    if (rst) begin\n      state <= S_NONE;\n      found <= 1'b0;\n    end else begin\n      state <= next;\n      found <= state == S_101 && din;\n    end\nendmodule\n",
+      "explanation_md": "Автомат помнит самый длинный конец принятого потока, который совпадает с началом `1011`: ничего, `1`, `10` или `101`. Самое тонкое — переходы после неудачи: из `101` по нулю автомат переходит не в начало, а в `10`, потому что поток `1010` оканчивается на `10`; после срабатывания (`1011`) остаётся `1`, и так учитываются перекрытия.\n\n`found` — регистр: он выставляется по тому же фронту, что принимает последний бит, и держится один такт. Комбинационный вариант `found = state == S_101 && din` (автомат Мили) срабатывает на такт раньше и зависит от `din` напрямую — это другое поведение.\n\nКороче, но с той же логикой — сдвиговый регистр последних трёх бит и сравнение `{history, din} == 4'b1011`: он не требует продумывать переходы, но для длинных последовательностей хранит больше бит, чем автомат.\n"
+    }
+  ],
+  "sync-fifo": [
+    {
+      "title": "Счётчик заполнения",
+      "code": "module sync_fifo #(\n  parameter int WIDTH = 8,\n  parameter int DEPTH = 16\n) (\n  input  logic             clk,\n  input  logic             rst_n,\n  input  logic             push,\n  input  logic [WIDTH-1:0] wdata,\n  input  logic             pop,\n  output logic [WIDTH-1:0] rdata,\n  output logic             full,\n  output logic             empty\n);\n  localparam int AW = $clog2(DEPTH);\n\n  logic [WIDTH-1:0] mem [DEPTH];\n  logic [AW-1:0] wptr, rptr;\n  logic [AW:0] count;\n\n  wire do_push = push && !full;\n  wire do_pop = pop && !empty;\n\n  assign full = count == (AW + 1)'(DEPTH);\n  assign empty = count == '0;\n  assign rdata = mem[rptr];\n\n  always_ff @(posedge clk) begin\n    if (do_push) mem[wptr] <= wdata;\n    if (!rst_n) begin\n      wptr <= '0;\n      rptr <= '0;\n      count <= '0;\n    end else begin\n      if (do_push) wptr <= wptr + 1'b1;\n      if (do_pop) rptr <= rptr + 1'b1;\n      count <= count + (AW + 1)'(do_push) - (AW + 1)'(do_pop);\n    end\n  end\nendmodule\n",
+      "explanation_md": "Кольцевой буфер: память `mem`, указатели записи и чтения и счётчик заполнения `count` на бит шире указателей — он различает пустую очередь (0) и полную (`DEPTH`), у которых указатели совпадают.\n\nКлючевое — условия `do_push = push && !full` и `do_pop = pop && !empty`: из них следуют все правила (игнорирование записи в полную и чтения из пустой, оба действия в одном такте). Счётчик меняется на `do_push − do_pop`, поэтому одновременные запись и чтение оставляют его прежним. Указатели переполняются сами, потому что `DEPTH` — степень двойки.\n\n`rdata = mem[rptr]` читается асинхронно — так слово на вершине видно сразу. Память не сбрасывается: после сброса она не читается, пока не будет записана, а память без сброса синтез отображает в блоки RAM.\n\nВместо счётчика можно хранить указатели на бит шире: очередь пуста, когда они равны, и полна, когда равны младшие биты, а старшие различаются.\n"
+    }
+  ]
+}

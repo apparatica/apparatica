@@ -112,10 +112,11 @@ def later(seconds: float, action: Any) -> None:
     threading.Timer(seconds, action).start()
 
 
-FINALIZED = {
+FINALIZED: dict[str, Any] = {
     "type": "finalized",
     "status": "accepted",
     "verdict_detail": {"first_failure": None, "limit": None, "warnings": [], "error_codes": []},
+    "leaderboard": None,
 }
 START = {"type": "stage_start", "attempt": 1, "stage": "lint", "stage_type": "lint", "ordinal": 1}
 LOG = {"type": "log", "attempt": 1, "stage": "lint", "ch": "out", "text": "ok\n"}
@@ -225,7 +226,12 @@ def test_a_check_without_a_journal_ends_with_finalized(
         {
             "id": f"{int(NOW.timestamp() * 1000)}-0",
             "event": "finalized",
-            "data": {"type": "finalized", "status": "internal_error", "verdict_detail": detail},
+            "data": {
+                "type": "finalized",
+                "status": "internal_error",
+                "verdict_detail": detail,
+                "leaderboard": None,
+            },
         }
     ]
 

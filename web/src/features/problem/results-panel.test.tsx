@@ -259,6 +259,7 @@ describe("a cancelled check", () => {
       type: "finalized",
       status: "cancelled",
       verdict_detail: { first_failure: null, limit: null, warnings: [], error_codes: [] },
+      leaderboard: null,
     });
     renderPanel(stateOf(check, { cancelRequested: true }));
     expect(stageOf("Линт")).toHaveTextContent("не запускался");

@@ -12,6 +12,7 @@ import type { Schemas } from "@/lib/api/client";
 
 import * as fixtures from "./fixtures";
 import { api, problem } from "./http";
+import { mockStanding, rivalProfile } from "./leaderboards";
 import versions from "./problem-versions.json";
 import { mockSubmissions } from "./submissions";
 
@@ -19,10 +20,12 @@ type Me = Schemas["Me"];
 type ProblemStatus = NonNullable<Schemas["ProblemListItem"]["status"]>;
 
 const SESSION = "ap_session";
+/** The fixed id of `ada`: her session outlives a reload. */
+export const ADA_ID = "00000000-0000-4000-8000-00000000ada0";
 const DAY_MS = 86_400_000;
 const ACCEPTED: ReadonlySet<string> = new Set(["accepted", "accepted_with_warnings"]);
 
-interface MockUser {
+export interface MockUser {
   me: Me;
   statuses: Record<string, { status: ProblemStatus; solvedAt?: string }>;
   drafts: Map<string, Schemas["Draft"]>;
@@ -48,7 +51,7 @@ function newUser(nick: string, email: string | null, created = new Date()): Mock
 
 function seed(): Map<string, MockUser> {
   const ada = newUser("ada", "ada@example.com", new Date("2026-09-14T10:00:00Z"));
-  ada.me.id = "00000000-0000-4000-8000-00000000ada0";
+  ada.me.id = ADA_ID;
   ada.me.display_name = "Ada";
   ada.statuses = {
     mux4: { status: "solved", solvedAt: "2026-09-14T10:20:00Z" },
@@ -59,6 +62,11 @@ function seed(): Map<string, MockUser> {
 }
 
 let users = seed();
+
+/** Every account, also the ones being deleted. */
+export function mockAccounts(): MockUser[] {
+  return [...users.values()];
+}
 const links = new Map<string, { email: string; next: string | null }>();
 
 export function resetUsers(): void {
@@ -148,6 +156,7 @@ function profileOf(user: MockUser): Schemas["Profile"] {
       total: problems().filter((item) => item.difficulty === key).length,
     })),
     solved,
+    ...mockStanding(user.me.nick),
   };
 }
 
@@ -301,9 +310,12 @@ export const userHandlers = [
     return HttpResponse.json(draft);
   }),
   http.get(api("/api/v1/users/:nick"), ({ params }) => {
-    const user = byNick(String(params.nick));
-    return user === undefined || user.me.delete_at !== null
-      ? problem(404, "NOT_FOUND", `No user '${String(params.nick)}'`)
-      : HttpResponse.json(profileOf(user));
+    const nick = String(params.nick);
+    const user = byNick(nick);
+    const profile =
+      user === undefined ? rivalProfile(nick) : user.me.delete_at === null ? profileOf(user) : null;
+    return profile === null
+      ? problem(404, "NOT_FOUND", `No user '${nick}'`)
+      : HttpResponse.json(profile);
   }),
 ];

@@ -9,6 +9,7 @@ from typing import Annotated, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, RootModel
 
+from apparatica.submissions.schemas import LeaderboardPlacement
 from judge.core import events as pipeline
 from judge.core.verdict import SubmissionStatus as FinalStatus
 from judge.core.verdict import VerdictDetail
@@ -80,6 +81,11 @@ class FinalizedEvent(_StreamEvent):
     type: Literal["finalized"] = "finalized"
     status: FinalStatus
     verdict_detail: VerdictDetail
+    leaderboard: LeaderboardPlacement | None = Field(
+        default=None,
+        description="As in the submission: the place is counted before the event, so the banner"
+        " and the leaderboard agree (phase 3)",
+    )
 
 
 class SubmissionEvent(

@@ -37,12 +37,14 @@ from apparatica.problems.models import (
 )
 from apparatica.problems.schemas import (
     DifficultyTotal,
+    LeaderboardFormula,
     PipelineInfo,
     PipelineStage,
     ProblemDetail,
     ProblemListItem,
     ProblemPage,
     ProblemVersionDetail,
+    ReferenceInfo,
     Sort,
     TagList,
 )
@@ -242,6 +244,8 @@ def _detail(problem: Problem, found: ProblemVersion) -> ProblemVersionDetail:
         interface=Interface.model_validate(found.interface),
         pipeline=_pipeline(manifest),
         tests=_tests(manifest),
+        leaderboard=_leaderboard(manifest),
+        reference=_reference(manifest),
         changelog=found.changelog,
         published_at=found.published_at,
     )
@@ -254,6 +258,20 @@ def _pipeline(manifest: dict[str, Any]) -> PipelineInfo:
         return [PipelineStage(key=key, type=stages[key]["type"]) for key in keys]
 
     return PipelineInfo(run=describe(practice["run"]), submit=describe(practice["submit"]))
+
+
+def _leaderboard(manifest: dict[str, Any]) -> LeaderboardFormula | None:
+    leaderboard = manifest.get("leaderboard")
+    return None if leaderboard is None else LeaderboardFormula.model_validate(leaderboard)
+
+
+def _reference(manifest: dict[str, Any]) -> ReferenceInfo | None:
+    reference = manifest.get("reference") or {}
+    visibility = reference.get("visibility") or "after_accepted"
+    solutions = len(reference.get("solutions", []))
+    if visibility == "hidden" or not solutions:
+        return None
+    return ReferenceInfo.model_validate({"visibility": visibility, "solutions": solutions})
 
 
 def _tests(manifest: dict[str, Any]) -> dict[str, int]:

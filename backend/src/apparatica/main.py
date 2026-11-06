@@ -41,6 +41,7 @@ from apparatica.core.ratelimit import CACHE_TIMEOUT_S, ClientAddresses, RateLimi
 from apparatica.core.requests import RequestContextMiddleware
 from apparatica.core.settings import Settings, get_settings
 from apparatica.core.storage import Storage
+from apparatica.leaderboards import api as leaderboards_api
 from apparatica.problems import api as problems_api
 from apparatica.submissions import api as submissions_api
 from apparatica.submissions.queue import DramatiqQueue, JobQueue, NoQueue
@@ -157,7 +158,15 @@ def create_app(
     app.add_middleware(RequestContextMiddleware)  # the outer one: CSRF_FAILED has a request id
     # Every operation may fail with INTERNAL; the routes declare their other errors.
     common = problem_responses(ErrorCode.INTERNAL)
-    modules = (core_api, problems_api, submissions_api, captcha_api, auth_api, users_api)
+    modules = (
+        core_api,
+        problems_api,
+        submissions_api,
+        captcha_api,
+        auth_api,
+        users_api,
+        leaderboards_api,
+    )
     for module in modules:
         app.include_router(module.router, prefix=API_PREFIX, responses=common)
     # For Prometheus in the internal network, not part of the API (docs/configuration.md#метрики).
