@@ -92,24 +92,30 @@ class Stage(Protocol):
 
 ### 2.4 `synth` — синтез (Ф3)
 
-Скрипт Yosys (детали — ADR-0007, уточняются спайком S4):
+Скрипт Yosys (ADR-0007, подтверждён спайком S4 — [docs/spikes/s4.md](../docs/spikes/s4.md)). `read_slang` встроен в Yosys ≥ 0.67 (sv-elab, бывший yosys-slang), плагин не загружается:
 
 ```
-plugin -i slang
+read_liberty -lib <lib>
 read_slang --no-synthesis-define --no-default-translate-off-format \
            solution.sv --top <top> -G WIDTH=8 -G DEPTH=16
 synth -top <top> -flatten
-write_verilog -noattr netlist_generic.v      → вход этапа netlist_sim (§2.5)
+select -count t:$_DLATCH* t:$_DLATCHSR* t:$_SR_* t:$dlatch* t:$sr   → latches
+check                                        → комбинационные петли (со строкой решения)
+rename <top> <top>__netlist ; write_verilog -noattr netlist_generic.v ; rename <top>__netlist <top>
+                                             → вход этапа netlist_sim (§2.5)
 dfflibmap -liberty <lib>
 abc -liberty <lib>
-hilomap -hicell … -locell … ; splitnets -ports ; opt_clean
-stat -liberty <lib> -json                    → area_um2, cells
-select -assert-none t:$*latch*               → latches (при forbid_latches — failed, failure_kind=compile)
-ltp -noff                                    → logic_depth
+hilomap -singleton -hicell LOGIC1_X1 Z -locell LOGIC0_X1 Z ; splitnets -ports ; opt_clean -purge
+stat -liberty <lib> -json                    → area_um2 (нет ключа area — 0), cells, ячейки по типам
+ltp -noff * t:DFF* t:SDFF* %u %d             → logic_depth (триггеры liberty исключены)
 write_verilog -noexpr -noattr netlist.v ; write_json netlist.json
 ```
 
-Затем OpenSTA по смапленному нетлисту с **фиксированными** ограничениями из образа (не из решения): `create_clock` на порт с ролью `clock` с периодом `clock_period_ns`, `set_driving_cell` и `set_load` на все порты, `set_input_delay`/`set_output_delay` 0; для комбинационных задач — `set_max_delay` вход → выход. Худший путь → `critical_path_ns`, `fmax_mhz = 1000 / critical_path_ns`. Ошибка `read_slang` или несинтезируемая конструкция → `failed`, `failure_kind=compile`, сообщение «решение проходит симуляцию, но не синтезируется: …».
+Латчи **и комбинационные петли** при `forbid_latches` → `failed`, `failure_kind=compile`: неполное присваивание в `always @*` sv-elab превращает в латчи, а в `always_comb` — в петлю, которую видит только `check` (S4). Триггеры (`flops`) — ячейки liberty с группой `ff`.
+
+Затем OpenSTA по смапленному нетлисту с **фиксированными** ограничениями из образа (не из решения): `create_clock` с периодом `clock_period_ns` на порт с ролью `clock` (без такого порта — виртуальный клок), `set_input_delay`/`set_output_delay` 0, `set_driving_cell -lib_cell BUF_X1` на входы, `set_load` ёмкостью `DFF_X1/D` на выходы. `critical_path_ns = clock_period_ns − WNS` — одна формула для путей reg→reg, in→reg, reg→out и in→out; `fmax_mhz = 1000 / critical_path_ns` — только для задач с клоком (для комбинационных это не частота). Ошибка `read_slang` или несинтезируемая конструкция → `failed`, `failure_kind=compile`, сообщение «решение проходит симуляцию, но не синтезируется: …».
+
+Метрики детерминированы побайтно (S4: 300 запусков, две машины, `runc` и `runsc`); синтез с STA демо-задачи — 1–3,5 с.
 
 Кэш результата — по ключу `(code_hash, problem_version, toolchain_profile)`.
 
@@ -118,7 +124,8 @@ write_verilog -noexpr -noattr netlist.v ; write_json netlist.json
 Проверяет, что синтезированная схема — та же, что прошла тесты. Без этого этапа рейтинг PPA можно подделать решением, которое в симуляции ведёт себя иначе, чем после синтеза.
 
 - Тип этапа — тот же плагин `sim` с параметром `design: synth.netlist_generic`: нетлист из Yosys до привязки к библиотеке (внутренние вентили Yosys, выведенные `write_verilog` выражениями) не требует моделей ячеек Nangate45.
-- Тот же тестбенч, тот же сид, группы `public` и `hidden`, те же плюс-аргументы случайной инициализации.
+- Модуль нетлиста называется `<top>__netlist` и не имеет параметров, а тестбенч инстанцирует `top` с параметрами. Этап добавляет в `design.v` обёртку `top` с параметрами и портами из `problem.yaml`; для каждого параметра — `if (P != <значение синтеза>) $fatal(…)`. Сборка идёт с `-Werror-USERFATAL`: иначе `-Wno-fatal` превращает этот `$fatal` в предупреждение (S4). Несовпадение — ошибка задачи (`error`), её ловит `judge validate` на эталонах.
+- Тот же тестбенч, тот же сид, группы `public` и `hidden`, те же плюс-аргументы случайной инициализации. Стоимость — одна сборка и прогон, как у `sim_full` (S4).
 - Расхождение → `failed`, `failure_kind=wrong`, сообщение «синтезированная схема ведёт себя иначе, чем исходный код: тест N, такт T». Трасса не пишется (нетлист нечитаем для пользователя); показывается подсказка о типичных причинах (зависимость от начального состояния, неполный сброс).
 - Входит в `pipelines.practice.submit` после `synth`; принятое решение без пройденного `netlist_sim` в рейтинг не попадает (проверяется ингестором). В конвейере UI отображается внутри блока «Синтез» (08 §6).
 - Кэш — как у `synth`.

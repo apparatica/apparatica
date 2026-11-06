@@ -10,7 +10,7 @@
 | [0004](0004-waveforms-fst-surfer.md) | Временные диаграммы: FST, окно ошибки повторным прогоном, Surfer в изолированном iframe | Принято (S3, S5) |
 | [0005](0005-sva-subset.md) | Допустимое подмножество SVA | Предложено (S1) |
 | [0006](0006-leaderboard-ranking.md) | Формула и хранение рейтингов | Принято |
-| [0007](0007-synthesis-metrics.md) | Синтез и метрики: yosys-slang, Nangate45, OpenSTA, симуляция нетлиста | Принято (детали — S4) |
+| [0007](0007-synthesis-metrics.md) | Синтез и метрики: yosys-slang, Nangate45, OpenSTA, симуляция нетлиста | Принято (S4) |
 | [0008](0008-log-streaming.md) | Стриминг логов: PTY → Redis Streams → SSE | Принято |
 | [0009](0009-results-ingestion.md) | Возврат результатов: стрим результатов и ингестор | Принято |
 | [0010](0010-auth-and-sessions.md) | Аутентификация, сессии, капча | Принято |
