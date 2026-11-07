@@ -11,6 +11,7 @@ import { useEffect, useState, useSyncExternalStore } from "react";
 
 import { recordCheck } from "@/features/guest/history";
 import { rememberSubmissions } from "@/features/guest/submissions";
+import { leaderboardKeys } from "@/features/leaderboard/api";
 import type { ApiError, Schemas } from "@/lib/api/client";
 
 import { api, eventsUrl, getQuota, getRecent, getSubmission, submissionKeys } from "./api";
@@ -87,10 +88,14 @@ export function useSubmission({
       new SubmissionStore({
         eventsUrl,
         delays: reconnectDelaysMs,
-        onFinalized: ({ id, kind, status }) => {
+        onFinalized: ({ id, kind, status, placement }) => {
           void queryClient.invalidateQueries({ queryKey: submissionKeys.detail(id) });
+          // An accepted Submit may have moved the places of the problem.
+          if (placement !== null) {
+            void queryClient.invalidateQueries({ queryKey: leaderboardKeys.problem(problem) });
+          }
           if (document.visibilityState === "hidden") {
-            announceFinished({ id, problem, title, kind, status }, false);
+            announceFinished({ id, problem, title, kind, status, placement }, false);
           }
         },
       }),

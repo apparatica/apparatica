@@ -28,6 +28,8 @@ import { ResultsConsole } from "./results-console";
 import { ResultsTests, TestsCounter } from "./results-tests";
 import { ResultsWaves } from "./results-waves";
 import { ResultsSkeleton } from "./skeletons";
+import { ResultsSynth } from "./results-synth";
+import { hasSynth } from "./synth-view";
 import { RUN_KEYS, SUBMIT_KEYS } from "./shortcuts";
 import { testsCount, testsView } from "./tests-view";
 import { tracedTest, wavesView } from "./waves-view";
@@ -38,11 +40,11 @@ const strong = (chunks: ReactNode) => <strong className="font-medium text-tx">{c
 const RUNNING_TICK_MS = 100;
 const WAITING_TICK_MS = 250;
 
-type ResultsTab = "console" | "tests" | "waves";
+type ResultsTab = "console" | "tests" | "waves" | "synth";
 
 export type ResultsProblem = Pick<
   Schemas["ProblemDetail"],
-  "pipeline" | "tests" | "language" | "interface"
+  "slug" | "pipeline" | "tests" | "language" | "interface" | "leaderboard" | "reference"
 >;
 
 export interface ResultsPanelProps {
@@ -73,6 +75,8 @@ function useDetail(): (detail: BlockDetail | null) => string | undefined {
         return t(`limit.${detail.limit}`);
       case "notRun":
         return t("notRun");
+      case "netlist":
+        return t("netlist");
     }
   };
 }
@@ -116,6 +120,16 @@ export function ResultsPanel({ submission, problem, busy, onCheck, onReveal }: R
     stage.summary.tests.some((test) => test.status === "failed"),
   );
   if (!viewerWanted && (tab === "waves" || failed === true)) setViewerWanted(true);
+  // An accepted Submit opens on its metrics (specs/08 §3), once: then the tab is the user's.
+  const synth = check !== null && hasSynth(problem.pipeline, check);
+  const accepted =
+    check?.kind === "submit" &&
+    (check.status === "accepted" || check.status === "accepted_with_warnings");
+  const [synthOpenedFor, setSynthOpenedFor] = useState<string | null>(null);
+  if (synth && accepted && synthOpenedFor !== check.id) {
+    setSynthOpenedFor(check.id);
+    setTab("synth");
+  }
 
   if (check === null && submission.restoring) {
     return (
@@ -132,11 +146,18 @@ export function ResultsPanel({ submission, problem, busy, onCheck, onReveal }: R
     status,
     detail: detailOf(detail),
     durationMs,
-    title: detail?.kind === "caption" ? detail.text : undefined,
+    title:
+      detail?.kind === "caption"
+        ? detail.text
+        : detail?.kind === "netlist"
+          ? (detail.caption ?? undefined)
+          : undefined,
   }));
   const tests = check === null ? [] : testsView(check, problem);
   const count = testsCount(tests);
-  const open = tests.length === 0 ? "console" : tab;
+  let open = tab;
+  if ((tab === "tests" || tab === "waves") && tests.length === 0) open = "console";
+  if (tab === "synth" && !synth) open = "console";
   // Only whether a trace exists: the size limit of the viewer does not matter here.
   const traced =
     check === null ? null : tracedTest(wavesView(check, submission.submission, Infinity));
@@ -188,6 +209,7 @@ export function ResultsPanel({ submission, problem, busy, onCheck, onReveal }: R
               </TabsTrigger>
             )}
             {tests.length > 0 && <TabsTrigger value="waves">{t("tabs.waves")}</TabsTrigger>}
+            {synth && <TabsTrigger value="synth">{t("tabs.synth")}</TabsTrigger>}
           </TabsList>
           {/* The tabs over each other: a covered viewer keeps running (results-waves.tsx). */}
           <div className="relative isolate min-h-0 flex-1">
@@ -208,6 +230,11 @@ export function ResultsPanel({ submission, problem, busy, onCheck, onReveal }: R
                 onShowWaves={showWaves}
               />
             </TabsContent>
+            {synth && (
+              <TabsContent value="synth" className="absolute inset-0 z-10 bg-sf">
+                <ResultsSynth check={check} problem={problem} />
+              </TabsContent>
+            )}
             {/* Always mounted, under the open tab: the viewer keeps its frame and its file. */}
             <TabsContent
               value="waves"

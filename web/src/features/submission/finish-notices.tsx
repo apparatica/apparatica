@@ -36,9 +36,13 @@ export function FinishNotices() {
     () =>
       onFinished((check, away) => {
         const label = verdict(check.status);
+        const { placement } = check;
         notify({
           tone: TONES[check.status],
-          title: label,
+          title:
+            placement === null
+              ? label
+              : t("placed", { verdict: label, rank: placement.rank, total: placement.total }),
           description: t("caption", { kind: kind(check.kind), title: check.title }),
           action: away
             ? {

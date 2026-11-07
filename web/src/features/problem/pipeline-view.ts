@@ -37,7 +37,10 @@ export type BlockDetail =
   | { kind: "warnings"; count: number }
   | { kind: "limit"; limit: Limit }
   /** A stage the check never reached. */
-  | { kind: "notRun" };
+  | { kind: "notRun" }
+  /** The check of the netlist runs or failed in the synth block (specs/08 §6); `caption`: the
+   * stage's own, for the hover. */
+  | { kind: "netlist"; caption: string | null };
 
 export interface BlockView {
   block: PipelineBlock;
@@ -125,11 +128,15 @@ function foldBlock(
           );
     return { block, status, detail, durationMs };
   }
+  const netlist: BlockDetail | null =
+    decisive.key in BLOCKS_BY_KEY
+      ? { kind: "netlist", caption: decisive.summary.caption ?? null }
+      : null;
   switch (decisive.status) {
     case "pending": {
       // Between two stages of the block, the block is still running.
       const started = decisive !== stages[0];
-      if (started && !finished) return { block, status: "running", detail: null, durationMs };
+      if (started && !finished) return { block, status: "running", detail: netlist, durationMs };
       return { block, status: "pending", detail: finished ? { kind: "notRun" } : null, durationMs };
     }
     case "skipped": {
@@ -141,10 +148,12 @@ function foldBlock(
       const limit = limitOf(decisive, check?.verdict ?? null);
       if (limit !== null)
         return { block, status: "warning", detail: { kind: "limit", limit }, durationMs };
-      return { block, status: "failed", detail: caption(decisive), durationMs };
+      return { block, status: "failed", detail: netlist ?? caption(decisive), durationMs };
     }
     case "error":
       return { block, status: "error", detail: null, durationMs: null };
+    case "running":
+      return { block, status: "running", detail: netlist ?? caption(decisive), durationMs };
     default:
       return { block, status: decisive.status, detail: caption(decisive), durationMs };
   }

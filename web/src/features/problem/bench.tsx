@@ -53,6 +53,8 @@ export type BenchProblem = Pick<
   | "changelog"
   | "pipeline"
   | "tests"
+  | "leaderboard"
+  | "reference"
 >;
 
 export interface BenchProps {

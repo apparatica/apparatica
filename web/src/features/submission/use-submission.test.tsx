@@ -363,7 +363,14 @@ it("goes on in the background after the page closes and tells how it ended", asy
   unmount();
   await waitFor(() => expect(finished).toHaveBeenCalledOnce(), { timeout: 5000 });
   expect(finished).toHaveBeenCalledWith(
-    { id, problem: "sync-fifo", title: "Синхронный FIFO", kind: "submit", status: "accepted" },
+    {
+      id,
+      problem: "sync-fifo",
+      title: "Синхронный FIFO",
+      kind: "submit",
+      status: "accepted",
+      placement: null,
+    },
     true,
   );
   expect(readHistory()["sync-fifo"]).toEqual({ status: "solved", difficulty: "medium" });

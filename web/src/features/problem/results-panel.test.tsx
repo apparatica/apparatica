@@ -4,7 +4,13 @@ import { http, HttpResponse } from "msw";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { SessionProvider, useAccount } from "@/features/account/session";
-import { applyEvent, type Check, checkOf, markLost } from "@/features/submission/machine";
+import {
+  applyEvent,
+  type Check,
+  checkOf,
+  markLost,
+  type Stage,
+} from "@/features/submission/machine";
 import type { SubmissionState } from "@/features/submission/use-submission";
 import type { ApiError, Schemas } from "@/lib/api/client";
 import { api } from "@/mocks/http";
@@ -161,7 +167,11 @@ describe("the verdict", () => {
   it("of an accepted Submit", () => {
     renderPanel(stateOf(finished("accepted")));
     expect(screen.getByText("Принято")).toBeInTheDocument();
-    expect(screen.getByText("Все этапы пройдены, задача решена.")).toBeInTheDocument();
+    expect(
+      screen.getByText(
+        "Все этапы пройдены, задача решена. Войдите, чтобы решения попадали в рейтинг задачи.",
+      ),
+    ).toBeInTheDocument();
     expect(actions()).toEqual([]);
   });
 
@@ -597,6 +607,170 @@ describe("the waves", () => {
     ).toBeInTheDocument();
     // Nothing failed and the tab was opened only now: the viewer is made for later checks.
     expect(frame()).toBeInTheDocument();
+  });
+});
+
+describe("the synthesis", () => {
+  const PLACED = { rank: 12, total: 304, better_than: 0.96, is_best: true, duplicate_of: null };
+  const placed = (placement: Check["placement"] = PLACED): Check => ({
+    ...finished("accepted"),
+    placement,
+  });
+  const withStage = (check: Check, key: string, change: Partial<Stage>): Check => ({
+    ...check,
+    stages: check.stages.map((stage) => (stage.key === key ? { ...stage, ...change } : stage)),
+  });
+  const synthTab = () => screen.getByRole("region", { name: "Метрики синтеза" });
+  const until = (stage: string) =>
+    eventsUntil(
+      scenarios.accepted,
+      (event) => event.type === "stage_start" && event.stage === stage,
+    );
+
+  it("of an accepted Submit opens with the metrics against the reference", async () => {
+    renderPanel(stateOf(placed()));
+    expect(screen.getByRole("tab", { name: "Синтез" })).toHaveAttribute("aria-selected", "true");
+    const tab = within(synthTab());
+    expect(tab.getByText("0,592")).toBeInTheDocument();
+    expect(tab.getByText("нс · ≈ 1,69 ГГц")).toBeInTheDocument();
+    // The reference of the mock: 0,91 ns, 902 µm², 201 cells, 140 flops.
+    expect(await tab.findByText("↓ 35% лучше эталона")).toHaveClass("text-ok");
+    expect(tab.getByText("↑ 32% хуже эталона")).toHaveClass("text-wn");
+    expect(tab.getByText("↑ 4% хуже эталона")).toBeInTheDocument();
+    expect(tab.getByText(/^эталон 0,91 · лучшее \d/)).toBeInTheDocument();
+  });
+
+  it("tells the place of the Submit in the banner and on the bar", () => {
+    renderPanel(stateOf(placed()));
+    expect(screen.getByText("Принято · место 12 из 304")).toBeInTheDocument();
+    expect(
+      screen.getByText("Все этапы пройдены. Решение стало публичным и попало в рейтинг задачи."),
+    ).toBeInTheDocument();
+    const meter = within(synthTab()).getByRole("meter", {
+      name: "Место в рейтинге задачи · задержка → площадь → время",
+    });
+    expect(meter).toHaveAttribute("aria-valuenow", "12");
+    expect(meter).toHaveAttribute("aria-valuemax", "304");
+    expect(within(synthTab()).getByText("лучше, чем у 96% решений")).toBeInTheDocument();
+  });
+
+  it("tells a place kept by an earlier solution", () => {
+    renderPanel(stateOf(placed({ ...PLACED, rank: 5, is_best: false })));
+    expect(screen.getByText("Принято · место 5 из 304")).toBeInTheDocument();
+    expect(screen.getByText(/В рейтинге остаётся ваше более раннее решение/)).toBeInTheDocument();
+    expect(
+      within(synthTab()).getByText("Место держит ваше более раннее решение: это его не обошло."),
+    ).toBeInTheDocument();
+  });
+
+  it("tells the lint notes after the place", () => {
+    const check = playCheck(scenarios["accepted-with-warnings"]);
+    renderPanel(stateOf({ ...check, placement: PLACED }));
+    expect(screen.getByText("Принято · место 12 из 304")).toBeInTheDocument();
+    expect(screen.getByText(/1 замечание линта не влияет на вердикт и место\./)).toBeVisible();
+  });
+
+  it("invites a guest to log in for a place", () => {
+    renderPanel(stateOf(finished("accepted")));
+    expect(
+      within(synthTab()).getByText("Войдите, чтобы решения попадали в рейтинг задачи."),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("meter")).not.toBeInTheDocument();
+  });
+
+  it("checks the netlist under the metrics", () => {
+    renderPanel(stateOf(placed()));
+    expect(
+      within(synthTab()).getByText("синтезированная схема прошла те же тесты · пройдено 4 из 4"),
+    ).toBeInTheDocument();
+  });
+
+  it("says why there is no comparison", async () => {
+    server.use(
+      http.get(api("/api/v1/problems/:slug/leaderboard"), () =>
+        HttpResponse.json({
+          items: [],
+          page: 1,
+          per_page: 1,
+          total: 0,
+          entries: 0,
+          epoch: 1,
+          toolchain_profile: "sv-2026.10.2",
+          formula_version: 1,
+          order: FIFO.leaderboard?.order ?? [],
+          columns: [],
+          best: null,
+          reference: null,
+          me: null,
+        } satisfies Schemas["ProblemLeaderboard"]),
+      ),
+    );
+    renderPanel(stateOf(placed()));
+    expect(await within(synthTab()).findAllByText("эталон ещё не измерен")).toHaveLength(4);
+  });
+
+  it("shows skeletons while the synthesis runs", async () => {
+    const check = playCheck(scenarios.accepted, until("synth"));
+    renderPanel(stateOf(check, { connection: { state: "open" } }));
+    await userEvent.click(screen.getByRole("tab", { name: "Синтез" }));
+    expect(screen.getAllByRole("status", { name: /: загрузка$/ })).toHaveLength(4);
+  });
+
+  it("names the check of the netlist in the synth block while it runs", () => {
+    const check = playCheck(scenarios.accepted, until("netlist_sim"));
+    renderPanel(stateOf(check, { connection: { state: "open" } }));
+    expect(stageOf("Синтез")).toHaveTextContent("проверка нетлиста");
+  });
+
+  it("of a netlist that behaves otherwise tells it in the banner and on the tab", async () => {
+    const caption = "синтезированная схема ведёт себя иначе, чем исходный код: тест 2, такт 41";
+    const hint = "Проверьте сброс: схема не должна зависеть от начального состояния.";
+    const failed = withStage(placed(null), "netlist_sim", {
+      status: "failed",
+      failure_kind: "wrong",
+      summary: {
+        caption,
+        diagnostics: [{ severity: "info", code: "NETLIST_MISMATCH", message: hint }],
+        tests: [],
+      },
+    });
+    renderPanel(
+      stateOf({
+        ...failed,
+        status: "wrong_answer",
+        verdict: {
+          first_failure: { stage: "netlist_sim", test: null },
+          limit: null,
+          warnings: [],
+          error_codes: [],
+        },
+      }),
+    );
+    expect(stageOf("Синтез")).toHaveTextContent("проверка нетлиста");
+    expect(screen.getByText("Неверный ответ · Submit")).toBeInTheDocument();
+    expect(screen.getByText(`${caption}. ${hint}`)).toBeInTheDocument();
+    // Not accepted: the console stays open.
+    expect(screen.getByRole("tab", { name: "Консоль" })).toHaveAttribute("aria-selected", "true");
+    await userEvent.click(screen.getByRole("tab", { name: "Синтез" }));
+    const tab = within(synthTab());
+    expect(tab.getByText(caption)).toHaveClass("text-er");
+    expect(tab.getByText(hint)).toBeInTheDocument();
+  });
+
+  it("of a solution that does not synthesize", async () => {
+    const check = withStage(finished("accepted"), "synth", {
+      status: "failed",
+      failure_kind: "compile",
+      summary: { caption: "решение не синтезируется", diagnostics: [], tests: [] },
+    });
+    renderPanel(stateOf({ ...check, status: "compile_error" }));
+    await userEvent.click(screen.getByRole("tab", { name: "Синтез" }));
+    expect(within(synthTab()).getByText("Решение не синтезируется")).toBeInTheDocument();
+  });
+
+  it("has no tab for a Run: it does not synthesize", () => {
+    renderPanel(stateOf(finished("run-passed")));
+    expect(screen.queryByRole("tab", { name: "Синтез" })).not.toBeInTheDocument();
   });
 });
 

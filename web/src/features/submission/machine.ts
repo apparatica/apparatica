@@ -10,6 +10,7 @@ export type Stage = Schemas["StageResult"];
 export type Heartbeat = Schemas["HeartbeatEvent"];
 
 export type TestCase = Schemas["TestCase"];
+export type Placement = Schemas["LeaderboardPlacement"];
 
 /** A row of the console in the order of the stream: the start of a stage, a line of its output, a
  * finished test, the output limit, the end of a stage, or a lost connection. */
@@ -43,6 +44,9 @@ export interface Check {
   /** The worker finished the pipeline; the verdict waits for `finalized`. */
   done: boolean;
   verdict: Schemas["VerdictDetail"] | null;
+  /** The place of the author in the leaderboard of the problem, with the verdict of an accepted
+   * Submit that entered it (phase 3). */
+  placement: Placement | null;
   /** The id of the last event applied: the stream resumes after it. */
   lastEventId: string | null;
 }
@@ -94,6 +98,7 @@ export function checkOf(submission: Submission): Check {
     console: [],
     done: finished,
     verdict: submission.verdict_detail,
+    placement: submission.leaderboard,
     lastEventId: null,
   };
 }
@@ -226,6 +231,7 @@ export function applyEvent(
         ...next,
         status: event.status,
         verdict: event.verdict_detail,
+        placement: event.leaderboard,
         queue: null,
         heartbeat: null,
         runningSince: null,

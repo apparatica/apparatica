@@ -35,7 +35,10 @@ export function followInBackground({ check: started, title, difficulty }: Unfini
         (submission) => rememberSubmissions([submission]),
         () => {}, // the list of the problem page brings it up to date later
       );
-      announceFinished({ id, problem, title, kind, status: check.status }, true);
+      announceFinished(
+        { id, problem, title, kind, status: check.status, placement: check.placement },
+        true,
+      );
     },
     onConnection: (connection) => {
       // Over or given up: nothing more to tell.

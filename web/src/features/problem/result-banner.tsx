@@ -21,6 +21,7 @@ import type { ReactNode } from "react";
 import { useKilobytes, useSeconds } from "@/components/domain/duration";
 import { Button } from "@/components/ui/button";
 import { notify } from "@/components/ui/toast";
+import { useGuest } from "@/features/account/session";
 import { isSolutionFile } from "@/features/editor/languages";
 import { type Check, isFinished, type Submission } from "@/features/submission/machine";
 import type { SubmissionState } from "@/features/submission/use-submission";
@@ -29,6 +30,7 @@ import type { Schemas } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 
 import {
+  blockOf,
   type BlockView,
   failedStage,
   failureOf,
@@ -86,7 +88,7 @@ const code = (chunks: ReactNode) => (
 export interface ResultBannerProps {
   check: Check;
   submission: SubmissionState;
-  problem: Pick<Schemas["ProblemDetail"], "tests" | "language">;
+  problem: Pick<Schemas["ProblemDetail"], "tests" | "language" | "leaderboard">;
   /** The pipeline as drawn: the running block and its time. */
   blocks: readonly BlockView[];
   /** `Date.now()` of the last tick: the countdown to the next reconnect. */
@@ -188,9 +190,10 @@ function RunningBanner({ check, submission, problem, blocks }: ResultBannerProps
   );
 }
 
-function AcceptedBanner({ check, busy, onCheck }: ResultBannerProps) {
+function AcceptedBanner({ check, problem, busy, onCheck }: ResultBannerProps) {
   const t = useTranslations("problem.results.banner");
   const format = useFormatter();
+  const guest = useGuest();
   const lint = lintWarnings(check);
   const warned = check.status === "accepted_with_warnings";
   if (check.kind === "run") {
@@ -209,24 +212,50 @@ function AcceptedBanner({ check, busy, onCheck }: ResultBannerProps) {
       </Banner>
     );
   }
-  if (!warned) {
+  const sources = warned
+    ? (check.verdict?.warnings ?? []).filter(
+        (source): source is "lint" | "formal" => source === "lint" || source === "formal",
+      )
+    : [];
+  const lintOnly = lint > 0 && sources.every((source) => source === "lint");
+  const named = sources.map((source) => t(`sources.${source}`));
+  const { placement } = check;
+  if (placement !== null) {
+    // The place leads; the notes follow the sentence about the leaderboard (mock-up BenchAccepted).
+    let body = t("placedBody");
+    if (!placement.is_best) body = t("placedEarlierBody");
+    else if (placement.duplicate_of !== null) body = t("placedDuplicateBody");
+    let notes: string | null = null;
+    if (warned && lintOnly) notes = t("placedLint", { count: lint });
+    else if (warned && named.length > 0) notes = t("placedNotes", { sources: format.list(named) });
     return (
-      <Banner tone="ok" icon={CircleCheck} title={t("accepted")}>
-        {t("acceptedBody")}
+      <Banner
+        tone="ok"
+        icon={CircleCheck}
+        title={t("acceptedPlace", { rank: placement.rank, total: placement.total })}
+      >
+        {body}
+        {notes !== null && <> {notes}</>}
       </Banner>
     );
   }
-  const sources = (check.verdict?.warnings ?? []).filter(
-    (source): source is "lint" | "formal" => source === "lint" || source === "formal",
-  );
-  if (lint > 0 && sources.every((source) => source === "lint")) {
+  if (!warned) {
+    let body = t("acceptedBody");
+    if (guest && problem.leaderboard != null) body = t("guestBody");
+    else if (!guest) body = t("publicBody");
+    return (
+      <Banner tone="ok" icon={CircleCheck} title={t("accepted")}>
+        {body}
+      </Banner>
+    );
+  }
+  if (lintOnly) {
     return (
       <Banner tone="ok" icon={CircleCheck} title={t("acceptedLint", { count: lint })}>
         {t("acceptedLintBody")}
       </Banner>
     );
   }
-  const named = sources.map((source) => t(`sources.${source}`));
   return (
     <Banner tone="ok" icon={CircleCheck} title={t("acceptedNotes")}>
       {named.length > 0 && t("acceptedNotesBody", { sources: format.list(named) })}
@@ -237,8 +266,19 @@ function AcceptedBanner({ check, busy, onCheck }: ResultBannerProps) {
 function WrongBanner({ check, onShowWaves }: ResultBannerProps) {
   const t = useTranslations("problem.results.banner");
   const failure = failureOf(check);
+  const stage = failedStage(check);
   let body: ReactNode;
-  if (failure.kind === "test") {
+  if (stage !== null && blockOf(stage) === "synth") {
+    // The netlist failed a test the solution passed: the test itself says little (FR-JDG-13).
+    const { caption, diagnostics } = stage.summary;
+    const hint = diagnostics.find((item) => item.severity === "info")?.message;
+    body = (
+      <>
+        {caption ? t("wrongNetlist", { caption }) : t("wrongNetlistOther")}
+        {hint && <> {hint}</>}
+      </>
+    );
+  } else if (failure.kind === "test") {
     const { name, cycle, mismatch } = failure;
     if (mismatch !== null) {
       const { signal, expected, actual, hint } = mismatch;

@@ -13,6 +13,7 @@ const CHECK: FinishedCheck = {
   title: "Синхронный FIFO",
   kind: "submit",
   status: "accepted",
+  placement: null,
 };
 
 function hidden(value: boolean) {
@@ -46,6 +47,13 @@ it("tells the verdict of a check that ended on another page and links to it", as
   );
   // The tab is visible: its title stays.
   expect(document.title).toBe("");
+});
+
+it("tells the place that an accepted Submit took in the leaderboard", async () => {
+  show();
+  const placement = { rank: 12, total: 304, better_than: 0.96, is_best: true, duplicate_of: null };
+  act(() => announceFinished({ ...CHECK, placement }, true));
+  expect(await screen.findByText("Принято · место 12 из 304")).toBeVisible();
 });
 
 it("puts the verdict before the title of a hidden tab until it is shown", async () => {

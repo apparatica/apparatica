@@ -1,6 +1,6 @@
 // A check ended where the guest does not see its results (FR-RUN-08): on another page of the site
 // or in a hidden tab. The notices of the layout (finish-notices.tsx) tell about it.
-import type { Status, Submission } from "./machine";
+import type { Placement, Status, Submission } from "./machine";
 
 export interface FinishedCheck {
   id: string;
@@ -9,6 +9,8 @@ export interface FinishedCheck {
   title: string;
   kind: Submission["kind"];
   status: Status;
+  /** The place in the leaderboard of the problem that an accepted Submit took. */
+  placement: Placement | null;
 }
 
 /** `away`: the page of the problem is closed, the notice links to it. */
