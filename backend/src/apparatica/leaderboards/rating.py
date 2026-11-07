@@ -5,7 +5,8 @@
   of any version; the level of the current version) and the bonus of a place 1, 2, 3 in the
   leaderboard of a problem that pages show now (current epoch and formula, default profile). A
   shared place gives the bonus to each of its holders; a follower of a group (the same syntax tree
-  as an earlier solution) holds no place and gets none.
+  as an earlier solution) holds no place and gets none. A user hidden by a moderator has no points
+  (FR-ADM-03).
 - Equal points: whoever reached them first ranks higher (ADR-0006). The moment is read from the
   data: the latest first solution of a counted problem or Submit that holds a counted place, so a
   count depends on nothing but the tables and gives the same places when repeated. The id of the
@@ -57,7 +58,8 @@ WITH current AS (
     SELECT status.user_id, current.difficulty, count(*) AS solved, max(status.first_solved_at) AS at
     FROM user_problem_status AS status
     JOIN current USING (problem_id)
-    WHERE status.status = 'solved'
+    JOIN users AS member ON member.id = status.user_id
+    WHERE status.status = 'solved' AND NOT member.is_hidden
     GROUP BY status.user_id, current.difficulty
 ), solved AS (
     SELECT user_id,

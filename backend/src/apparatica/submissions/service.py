@@ -22,6 +22,7 @@ from fastapi.exceptions import RequestValidationError
 from sqlalchemy import select, tuple_
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from apparatica.auth.models import User
 from apparatica.captcha.service import Captcha
 from apparatica.core.errors import ApiError, ErrorCode
 from apparatica.core.ids import uuid7
@@ -254,16 +255,19 @@ async def get_submission(
     """The submission of this author; `waveview` is the origin of the viewer site. A final one
     has the place of its author from `placement_of` (a new one has none yet)."""
     row = await session.execute(
-        select(SubmissionRow, ProblemVersion, Problem.slug, ToolchainProfile.waveview)
+        select(
+            SubmissionRow, ProblemVersion, Problem.slug, ToolchainProfile.waveview, User.is_hidden
+        )
         .join(ProblemVersion, ProblemVersion.id == SubmissionRow.problem_version_id)
         .join(Problem, Problem.id == ProblemVersion.problem_id)
         .join(ToolchainProfile, ToolchainProfile.id == SubmissionRow.toolchain_profile_id)
+        .outerjoin(User, User.id == SubmissionRow.user_id)
         .where(SubmissionRow.id == submission_id, author.owns())
     )
     found = row.one_or_none()
     if found is None:
         return None
-    submission, version, slug, viewer = found
+    submission, version, slug, viewer, author_hidden = found
     stages = (
         await session.scalars(
             select(StageResult)
@@ -297,7 +301,8 @@ async def get_submission(
         kind=submission.kind,  # type: ignore[arg-type]  # checked by the table constraint
         status=submission.status,  # type: ignore[arg-type]  # a submission_status value
         code=submission.code,
-        public=submission.is_public,
+        # Hidden by a moderator: no longer public (FR-ADM-03).
+        public=submission.is_public and not submission.is_hidden and not author_hidden,
         leaderboard=(
             await placement_of(session, submission)
             if placement_of is not None and submission.status in FINAL_STATUSES

@@ -8,6 +8,10 @@ A mutating request (not GET, HEAD, OPTIONS) passes when
 - its header `X-CSRF-Token` equals the cookie `ap_csrf` (double submit): a page of another site
   can neither read the cookie nor set the header without a CORS preflight, which the API refuses.
 
+Pages of the server itself (the admin panel, `form_paths`) send plain HTML forms, which carry no
+header: their mutating requests pass on the origin alone, and must have one (`Origin`, else
+`Referer`). A browser sends it with every form; a page of another site cannot fake it.
+
 Otherwise the answer is CSRF_FAILED. The cookie is readable by scripts and holds a random token; a
 response to a request without a valid one sets a new one, the CSRF_FAILED answer included: the
 frontend repeats a refused request once with it. The token belongs to the browser, not to the
@@ -38,9 +42,11 @@ def new_token() -> str:
 
 
 class CsrfMiddleware:
-    def __init__(self, app: ASGIApp, *, secure: bool) -> None:
+    def __init__(self, app: ASGIApp, *, secure: bool, form_paths: tuple[str, ...] = ()) -> None:
+        """`form_paths`: prefixes of paths whose forms pass on the origin alone."""
         self.app = app
         self._secure = secure
+        self._form_paths = form_paths
 
     async def __call__(self, scope: Scope, receive: Receive, send: Send) -> None:
         if scope["type"] != "http":
@@ -50,7 +56,8 @@ class CsrfMiddleware:
         token = request.cookies.get(COOKIE)
         issued = None if token is not None and _TOKEN.match(token) else new_token()
         if scope["method"] not in SAFE_METHODS:
-            failure = _failure(request, None if issued else token)
+            form = scope["path"].startswith(self._form_paths) if self._form_paths else False
+            failure = _failure(request, None if issued else token, form=form)
             if failure is not None:
                 response = problem_response(request, ErrorCode.CSRF_FAILED, detail=failure)
                 if issued is not None:
@@ -81,14 +88,16 @@ class CsrfMiddleware:
         return cookie.output(header="").strip()
 
 
-def _failure(request: Request, token: str | None) -> str | None:
-    """Why a mutating request is refused; None: it passes."""
+def _failure(request: Request, token: str | None, *, form: bool = False) -> str | None:
+    """Why a mutating request is refused; None: it passes. `form`: a form of a server page."""
     origin = request.headers.get("origin")
     if origin is None and (referer := request.headers.get("referer")) is not None:
         parts = urlsplit(referer)
         origin = f"{parts.scheme}://{parts.netloc}"
     if origin is not None and origin.lower() != _own_origin(request):
         return "Cross-origin request"
+    if form:
+        return None if origin is not None else "A form must come with Origin or Referer"
     header = request.headers.get(HEADER)
     if token is None or header is None or not hmac.compare_digest(header.encode(), token.encode()):
         return f"The {HEADER} header must equal the {COOKIE} cookie"

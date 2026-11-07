@@ -13,6 +13,11 @@ http://localhost {
 			flush_interval -1
 		}
 	}
+	# The admin panel of moderators and administrators (FR-ADM-02): pages of the API.
+	@admin path /admin /admin/*
+	handle @admin {
+		reverse_proxy api:8000
+	}
 	handle {
 		encode zstd gzip
 		reverse_proxy web:3000

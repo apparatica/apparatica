@@ -145,7 +145,7 @@ PostgreSQL 17+. Первичные ключи — UUIDv7 (сортируемы �
 
 Миграция `submissions`: `is_public bool` (true для принятых Submit вошедших пользователей), `is_hidden bool` (модерация), `reference_solution_id uuid null fk` — прогон эталона (FR-SYN-04): Submit без автора (`user_id` и `guest_id` пусты), его ставит ингестор на профиле по умолчанию; метрики эталона — метрики его последнего принятого прогона на этом профиле. Индекс `(reference_solution_id, toolchain_profile_id, created_at desc)` по прогонам.
 
-**`moderation_log`**: `id`, `actor_id`, `action text`, `target_type text`, `target_id text`, `reason text`, `created_at`. Нужна к публичной бете вместе со скрытием решений и пользователей.
+**`moderation_log`**: `id`, `actor_id null` (команда `apparatica-admin` или удалённый аккаунт), `action text` (`hide`, `unhide`, `set_role`), `target_type text` (`user`, `submission`), `target_id text`, `reason text`, `details jsonb null` (у смены роли — прежняя и новая), `created_at`. Нужна к публичной бете вместе со скрытием решений и пользователей (T3.12).
 
 ### Ф5 — модерация
 

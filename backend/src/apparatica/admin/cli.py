@@ -10,7 +10,10 @@ from collections.abc import Sequence
 from pathlib import Path
 from typing import get_args
 
-from apparatica.auth.roles import set_role
+from sqlalchemy import select
+
+from apparatica.admin.moderation import ModerationRefusedError, change_role
+from apparatica.auth.models import User
 from apparatica.auth.schemas import Role
 from apparatica.core.db import Database
 from apparatica.core.platform import load_platform_config
@@ -153,11 +156,21 @@ def _set_role(args: argparse.Namespace) -> int:
         database = Database(settings.database_url)
         try:
             async with database.sessions.begin() as session:
-                return await set_role(session, args.nick, args.role) is not None
+                user_id = await session.scalar(select(User.id).where(User.nick == args.nick))
+                if user_id is None:
+                    return False
+                # Logged without an actor: the command line is not an account.
+                await change_role(session, None, user_id, args.role, args.reason)
+                return True
         finally:
             await database.dispose()
 
-    if not asyncio.run(run()):
+    try:
+        found = asyncio.run(run())
+    except ModerationRefusedError:  # hidden_staff
+        print(f"FAIL {args.nick} скрыт модератором: сначала снимите скрытие")
+        return 1
+    if not found:
         print(f"FAIL нет пользователя {args.nick}")
         return 1
     print(f"{args.nick}: {args.role}")
@@ -219,6 +232,11 @@ def main(argv: Sequence[str] | None = None) -> int:
     )
     set_role_.add_argument("nick")
     set_role_.add_argument("role", choices=get_args(Role))
+    set_role_.add_argument(
+        "--reason",
+        default="apparatica-admin users set-role",
+        help="the reason for the journal of moderation",
+    )
     set_role_.set_defaults(handler=_set_role)
 
     args = parser.parse_args(argv)

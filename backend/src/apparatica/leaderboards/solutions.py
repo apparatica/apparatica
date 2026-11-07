@@ -1,8 +1,9 @@
 """Public solutions and reference solutions (FR-SOL-01..03, FR-REF-01, T3.5).
 
 A public solution is an accepted Submit of a signed-in user (`submissions.is_public`); its id is
-the id of the submission. Metrics, author and place are for everyone, the code of others opens
-after the visitor's own accepted Submit of the problem (ОВ-2, FR-SOL-02):
+the id of the submission. A solution or a user hidden by a moderator is public no more: for
+nobody, the author included (FR-ADM-03). Metrics, author and place are for everyone, the code of
+others opens after the visitor's own accepted Submit of the problem (ОВ-2, FR-SOL-02):
 
 - the author always sees their code, moderators and administrators see every code;
 - a signed-in visitor counts their own Submits, a guest those of the guest cookie, like the list
@@ -68,6 +69,11 @@ from judge.core.stage import StageSummary
 STAFF = ("moderator", "admin")  # see every code (specs/04 §6)
 
 
+def shown() -> ColumnElement[bool]:
+    """A public solution nobody hid, of an author nobody hid; `User` is the author."""
+    return and_(Submission.is_public, Submission.is_hidden.is_(False), User.is_hidden.is_(False))
+
+
 @dataclass(frozen=True)
 class Visitor:
     """Who asks: the signed-in user, else the guest of the cookie, else nobody."""
@@ -115,7 +121,7 @@ def _summaries(board: Board) -> AnySelect:
         .outerjoin(Entry, in_board)
         .outerjoin(Leader, Leader.id == Entry.group_leader_entry_id)
         .outerjoin(LeaderAuthor, LeaderAuthor.id == Leader.user_id)
-        .where(ProblemVersion.problem_id == board.problem.id, Submission.is_public)
+        .where(ProblemVersion.problem_id == board.problem.id, shown())
     )
 
 
@@ -212,7 +218,8 @@ async def list_solutions(
         select(func.count())
         .select_from(Submission)
         .join(ProblemVersion, ProblemVersion.id == Submission.problem_version_id)
-        .where(ProblemVersion.problem_id == board.problem.id, Submission.is_public)
+        .join(User, User.id == Submission.user_id)
+        .where(ProblemVersion.problem_id == board.problem.id, shown())
     )
     return SolutionPage(
         items=[summary for summary, _, _ in await _summarize(session, board, rows)],
@@ -224,7 +231,7 @@ async def list_solutions(
 
 
 def _of_user(user_id: uuid.UUID) -> ColumnElement[bool]:
-    return and_(Submission.user_id == user_id, Submission.is_public, Problem.is_published)
+    return and_(Submission.user_id == user_id, shown(), Problem.is_published)
 
 
 async def user_solutions(
@@ -293,6 +300,7 @@ async def count_user_solutions(session: AsyncSession, user_id: uuid.UUID) -> int
         .select_from(Submission)
         .join(ProblemVersion, ProblemVersion.id == Submission.problem_version_id)
         .join(Problem, Problem.id == ProblemVersion.problem_id)
+        .join(User, User.id == Submission.user_id)
         .where(_of_user(user_id))
     )
     return total or 0
@@ -306,7 +314,8 @@ async def get_solution(
         select(Problem)
         .join(ProblemVersion, ProblemVersion.problem_id == Problem.id)
         .join(Submission, Submission.problem_version_id == ProblemVersion.id)
-        .where(Submission.id == solution_id, Submission.is_public, Problem.is_published)
+        .join(User, User.id == Submission.user_id)
+        .where(Submission.id == solution_id, shown(), Problem.is_published)
     )
     if problem is None or problem.current_version_id is None:
         return None

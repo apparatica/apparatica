@@ -23,8 +23,11 @@ VERDICTS = (*ACCEPTED, "wrong_answer", "compile_error", "limit_exceeded", "forbi
 
 
 async def find_user(session: AsyncSession, nick: str) -> User | None:
-    """The account of a public profile; an account being deleted is hidden at once (FR-USR-05)."""
-    return await session.scalar(select(User).where(User.nick == nick, User.delete_at.is_(None)))
+    """The account of a public profile; an account being deleted is hidden at once (FR-USR-05),
+    as one hidden by a moderator (FR-ADM-03)."""
+    return await session.scalar(
+        select(User).where(User.nick == nick, User.delete_at.is_(None), User.is_hidden.is_(False))
+    )
 
 
 async def get_profile(

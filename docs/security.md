@@ -100,6 +100,8 @@ FST пишет код пользователя, а разбирает его Sur
 | `object-src`, `base-uri`, `frame-ancestors` | `'none'` | |
 | `form-action`, `default-src` | `'self'` | |
 
+Админка `/admin` (SQLAdmin, страницы API) этой политики не получает: её видят только модераторы и администраторы, а заголовки Caddy у неё те же ([api.md](api.md#модерация-ф3)).
+
 `S3_PUBLIC_URL` и `WAVEVIEW_URL` — переменные окружения `web`, те же адреса, что `APX_S3_PUBLIC_URL` и `APX_WAVEVIEW_URL` у API. Остальные заголовки страниц ставит Caddy: `X-Content-Type-Options: nosniff`, `X-Frame-Options: DENY`, `Referrer-Policy: strict-origin-when-cross-origin`, `Cross-Origin-Opener-Policy: same-origin`, `Permissions-Policy` без камеры, микрофона, геолокации, платежей и USB. e2e-тесты падают на любом нарушении политики в консоли страницы и её фреймов (`e2e/tests/fixtures.ts`).
 
 ## Проверки

@@ -35,6 +35,9 @@ class User(Base):
     avatar_url: Mapped[str | None]
     email: Mapped[str | None] = mapped_column(CITEXT)  # never public
     role: Mapped[str] = mapped_column(server_default="user")
+    # Hidden by a moderator (FR-ADM-03): no profile, public solutions or places for anyone; the
+    # user still signs in and solves (`apparatica.admin.moderation`).
+    is_hidden: Mapped[bool] = mapped_column(server_default="false")
     created_at: Mapped[datetime] = created_at()
     nick_changed_at: Mapped[datetime | None]  # by the user; the nick of the first login is not
     # Asked deletion (FR-USR-05): the profile is hidden at once, the ingestor deletes the account

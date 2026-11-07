@@ -12,6 +12,7 @@ from sqlalchemy import select
 from test_sessions import run, sign_in
 
 from apparatica.admin.cli import main
+from apparatica.admin.models import ModerationLog
 from apparatica.auth.models import User
 from apparatica.auth.roles import require_role
 from apparatica.core.db import Database
@@ -98,6 +99,23 @@ def test_the_role_is_read_at_each_request(
             return dict((await session.execute(select(User.nick, User.role))).tuples().all())
 
     assert run(database_url, roles) == {"ada": "moderator"}
+
+    async def journal(database: Database) -> list[tuple[Any, ...]]:
+        async with database.sessions() as session:
+            rows = await session.execute(
+                select(
+                    ModerationLog.actor_id,
+                    ModerationLog.action,
+                    ModerationLog.reason,
+                    ModerationLog.details,
+                )
+            )
+            return [tuple(row) for row in rows]
+
+    # Logged without an actor (FR-ADM-03).
+    assert run(database_url, journal) == [
+        (None, "set_role", "apparatica-admin users set-role", {"from": "user", "to": "moderator"})
+    ]
 
 
 def test_requests_of_a_user_are_limited_per_user(database_url: str, limits: Path) -> None:

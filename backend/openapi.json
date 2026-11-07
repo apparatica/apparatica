@@ -6761,7 +6761,7 @@
           "public": {
             "type": "boolean",
             "title": "Public",
-            "description": "An accepted Submit of a signed-in user: others see it at /solutions/{id} (phase 3)"
+            "description": "An accepted Submit of a signed-in user: others see it at /solutions/{id} (phase 3), unless a moderator hid it or its author"
           },
           "leaderboard": {
             "anyOf": [
@@ -7092,7 +7092,7 @@
           "public": {
             "type": "boolean",
             "title": "Public",
-            "description": "An accepted Submit of a signed-in user: others see it at /solutions/{id} (phase 3)"
+            "description": "An accepted Submit of a signed-in user: others see it at /solutions/{id} (phase 3), unless a moderator hid it or its author"
           },
           "leaderboard": {
             "anyOf": [

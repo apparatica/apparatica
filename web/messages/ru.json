@@ -32,6 +32,7 @@
     "account": {
       "profile": "Профиль",
       "settings": "Настройки",
+      "moderation": "Модерация",
       "logout": "Выйти",
       "logoutFailed": "Не удалось выйти. Попробуйте ещё раз."
     },

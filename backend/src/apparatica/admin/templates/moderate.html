@@ -1,0 +1,50 @@
+{% extends "sqladmin/layout.html" %}
+{# The form of a moderation action (apparatica.admin.panel): the rows, the reason, for a role the
+   new role. Sent by POST to the same address. #}
+{% block content %}
+<div class="col-12 col-lg-8">
+  <form class="card" method="post" action="{{ request.url.path }}">
+    <div class="card-header">
+      <h3 class="card-title">{{ action_title }}: {{ view.name_plural | lower }}</h3>
+    </div>
+    <div class="card-body">
+      {% if error %}
+      <div class="alert alert-danger" role="alert">{{ error }}</div>
+      {% endif %}
+      <input type="hidden" name="action" value="{{ kind }}">
+      <input type="hidden" name="pks" value="{{ pks }}">
+      <div class="mb-3">
+        <div class="form-label">Строки ({{ targets | length }})</div>
+        <ul class="list-unstyled mb-0">
+          {% for target_id, title, state in targets %}
+          <li>
+            <a href="{{ url_for('admin:details', identity=view.identity, pk=target_id | string) }}">{{ title }}</a>
+            <span class="text-secondary">— {{ state }}</span>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% if kind == "role" %}
+      <div class="mb-3">
+        <label class="form-label required" for="role">Новая роль</label>
+        <select class="form-select" id="role" name="role" required>
+          <option value="">— выберите —</option>
+          {% for value, label in roles.items() %}
+          <option value="{{ value }}">{{ label }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
+      <div class="mb-3">
+        <label class="form-label required" for="reason">Причина</label>
+        <textarea class="form-control" id="reason" name="reason" rows="3" maxlength="1000" required
+          placeholder="Попадёт в журнал модерации">{{ reason }}</textarea>
+      </div>
+    </div>
+    <div class="card-footer text-end">
+      <a class="btn btn-link" href="{{ back }}">Отмена</a>
+      <button class="btn btn-primary" type="submit">{{ action_title }}</button>
+    </div>
+  </form>
+</div>
+{% endblock %}

@@ -103,7 +103,7 @@ RFC 9457 `application/problem+json`:
 | `GET /solutions/{id}` | Ф3 | публичное решение |
 | `GET /leaderboard` | Ф3 | общий рейтинг; своя строка и её окрестность приходят вошедшему всегда |
 | `POST /problems/{slug}/reports` | Ф5 | жалоба |
-| `/admin/*` | Ф5 | SQLAdmin (HTML), не часть OpenAPI |
+| `/admin/*` | Ф3 (модерация), Ф5 (полностью) | SQLAdmin (HTML), не часть OpenAPI |
 
 OG-картинки рендерит web: `/problems/[slug]/opengraph-image`, `/solutions/[id]/opengraph-image`.
 

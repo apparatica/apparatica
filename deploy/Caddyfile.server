@@ -14,11 +14,16 @@
 
 {$SITE_HOST} {
 	import common
-	# The API, unbuffered: server-sent events of submissions arrive as they are written (Р¤1).
+	# The API, unbuffered: server-sent events of submissions arrive as they are written (Ф1).
 	handle /api/* {
 		reverse_proxy api:8000 {
 			flush_interval -1
 		}
+	}
+	# The admin panel of moderators and administrators (FR-ADM-02): pages of the API.
+	@admin path /admin /admin/*
+	handle @admin {
+		reverse_proxy api:8000
 	}
 	handle {
 		encode zstd gzip

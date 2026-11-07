@@ -1,6 +1,6 @@
 "use client";
 
-import { LogOut, Settings, User } from "lucide-react";
+import { LogOut, Settings, ShieldCheck, User } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 
@@ -29,6 +29,9 @@ export function AccountMenu() {
   if (me === undefined) return <Skeleton className="h-5 w-20" />;
   return <UserMenu me={me} />;
 }
+
+/** Roles that open the admin panel (FR-ADM-02). */
+const STAFF: readonly Me["role"][] = ["moderator", "admin"];
 
 export function UserMenu({ me }: { me: Me }) {
   const t = useTranslations("shell.account");
@@ -68,6 +71,15 @@ export function UserMenu({ me }: { me: Me }) {
             {t("settings")}
           </Link>
         </DropdownMenuItem>
+        {STAFF.includes(me.role) && (
+          <DropdownMenuItem asChild>
+            {/* The admin panel is served by the API, not by the site: a full page load. */}
+            <a href="/admin">
+              <ShieldCheck aria-hidden="true" />
+              {t("moderation")}
+            </a>
+          </DropdownMenuItem>
+        )}
         <DropdownMenuSeparator />
         <ThemeItems />
         <DropdownMenuSeparator />

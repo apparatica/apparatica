@@ -17,9 +17,11 @@ from sqlalchemy import (
     UniqueConstraint,
     text,
 )
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+from apparatica.auth.models import User
 from apparatica.core.db import Base, created_at, uuid_pk
+from apparatica.problems.models import ProblemVersion
 from judge.core.stage import FailureKind, StageStatus, SubmissionKind
 from judge.core.verdict import SubmissionStatus
 
@@ -106,9 +108,16 @@ class Submission(Base):
     client_ip_hash: Mapped[str | None]
     # An accepted Submit of a signed-in user (specs/04 §6): set by the ingestor with the verdict.
     is_public: Mapped[bool] = mapped_column(server_default="false")
+    # Hidden by a moderator (FR-ADM-03): out of public solutions and leaderboards.
+    is_hidden: Mapped[bool] = mapped_column(server_default="false")
     reference_solution_id: Mapped[uuid.UUID | None] = mapped_column(
         ForeignKey("reference_solutions.id")
     )
+
+    # For the admin panel, which shows the author and the problem of a solution: loaded only
+    # when asked for (`selectinload`), never by accident.
+    author: Mapped[User | None] = relationship(viewonly=True, lazy="raise")
+    version: Mapped[ProblemVersion] = relationship(viewonly=True, lazy="raise")
 
 
 class StageResult(Base):

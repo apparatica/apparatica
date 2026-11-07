@@ -13,6 +13,8 @@ from fastapi import FastAPI
 from fastapi.openapi.utils import get_openapi
 from pydantic import SecretStr
 
+from apparatica.admin.panel import BASE_URL as ADMIN_URL
+from apparatica.admin.panel import mount_admin
 from apparatica.auth import api as auth_api
 from apparatica.auth.csrf import CsrfMiddleware
 from apparatica.auth.email_login import EmailLogins
@@ -157,7 +159,8 @@ def create_app(
     app.state.quotas = Quotas(quotas.guest, quotas.user, limiter, platform.rate_limits)
     app.state.captcha = Captcha(altcha, limiter, captcha_rules, app.state.flags)
     install_error_handlers(app)
-    app.add_middleware(CsrfMiddleware, secure=settings.cookie_secure)
+    # The forms of the admin panel carry no CSRF header: they pass on their origin.
+    app.add_middleware(CsrfMiddleware, secure=settings.cookie_secure, form_paths=(f"{ADMIN_URL}/",))
     app.add_middleware(RequestContextMiddleware)  # the outer one: CSRF_FAILED has a request id
     # Every operation may fail with INTERNAL; the routes declare their other errors.
     common = problem_responses(ErrorCode.INTERNAL)
@@ -172,6 +175,8 @@ def create_app(
     )
     for module in modules:
         app.include_router(module.router, prefix=API_PREFIX, responses=common)
+    # Moderators and administrators (FR-ADM-02), not part of the API.
+    mount_admin(app, database, sessions, platform.rating)
     # For Prometheus in the internal network, not part of the API (docs/configuration.md#метрики).
     app.add_api_route(METRICS_PATH, metrics_endpoint, include_in_schema=False)
 

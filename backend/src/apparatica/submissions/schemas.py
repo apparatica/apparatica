@@ -186,7 +186,7 @@ class Submission(SubmissionSummary):
     code: str
     public: bool = Field(
         description="An accepted Submit of a signed-in user: others see it at /solutions/{id}"
-        " (phase 3)"
+        " (phase 3), unless a moderator hid it or its author"
     )
     leaderboard: LeaderboardPlacement | None = Field(
         description="With a final status: the place of the author if the submission entered the"

@@ -2416,7 +2416,7 @@ export interface components {
             code: string;
             /**
              * Public
-             * @description An accepted Submit of a signed-in user: others see it at /solutions/{id} (phase 3)
+             * @description An accepted Submit of a signed-in user: others see it at /solutions/{id} (phase 3), unless a moderator hid it or its author
              */
             public: boolean;
             /** @description With a final status: the place of the author if the submission entered the leaderboard (a ranked problem, signed-in author, current epoch, default toolchain profile, netlist simulation passed); null otherwise */
@@ -2553,7 +2553,7 @@ export interface components {
             code: string;
             /**
              * Public
-             * @description An accepted Submit of a signed-in user: others see it at /solutions/{id} (phase 3)
+             * @description An accepted Submit of a signed-in user: others see it at /solutions/{id} (phase 3), unless a moderator hid it or its author
              */
             public: boolean;
             /** @description With a final status: the place of the author if the submission entered the leaderboard (a ranked problem, signed-in author, current epoch, default toolchain profile, netlist simulation passed); null otherwise */

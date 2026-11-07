@@ -1,14 +1,13 @@
 """Roles of users (FR-AUTH-07): `user`, `author` (of problems), `moderator`, `admin`; a guest has
 none. A role is read from `users` at each request that needs it, so a changed role applies at once.
-An administrator changes roles: `apparatica-admin users set-role` now, the admin panel in T3.12.
+An administrator changes roles in the admin panel or with `apparatica-admin users set-role`
+(`apparatica.admin.moderation.change_role`, logged in `moderation_log`).
 """
 
-import uuid
 from collections.abc import Awaitable, Callable
 from typing import Annotated
 
 from fastapi import Depends
-from sqlalchemy import update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from apparatica.auth.models import User
@@ -36,11 +35,3 @@ def require_role(*roles: Role) -> Callable[..., Awaitable[User]]:
         return user
 
     return dependency
-
-
-async def set_role(session: AsyncSession, nick: str, role: Role) -> uuid.UUID | None:
-    """Give the user `nick` the role; None: no such user."""
-    user_id: uuid.UUID | None = await session.scalar(
-        update(User).where(User.nick == nick).values(role=role).returning(User.id)
-    )
-    return user_id

@@ -12,10 +12,14 @@ in the transaction that stores its verdict, so the place is known before `finali
 - Changes of one leaderboard are serialized by a transaction advisory lock: each count sees the
   entries the previous one committed. A transaction takes the locks of several leaderboards in
   the order of their keys.
+- A Submit hidden by a moderator, and every Submit of a hidden user, ranks nowhere (FR-ADM-03):
+  hiding and showing again rebuild the entries of the user from the Submits left (`rebuild`).
+  The row of the user is the lock between them and the ingestor: a moderator holds it for
+  update, `rank_submit` for share, and both take it before the leaderboards.
 """
 
 import uuid
-from collections.abc import Iterable, Sequence
+from collections.abc import Collection, Iterable, Sequence
 from dataclasses import astuple, dataclass
 from datetime import datetime
 from decimal import Decimal
@@ -27,19 +31,22 @@ from sqlalchemy import (
     Subquery,
     and_,
     cast,
+    delete,
     func,
     literal,
     select,
     text,
     tuple_,
 )
-from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.dialects.postgresql import Insert, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
+from apparatica.auth.models import User
 from apparatica.core.ids import uuid7
 from apparatica.leaderboards.models import LeaderboardEntry
 from apparatica.problems.models import Problem, ProblemVersion
+from apparatica.submissions.models import StageResult as StageRow
 from apparatica.submissions.models import Submission, ToolchainProfile
 from apparatica.submissions.schemas import LeaderboardPlacement
 from judge.core.leaderboard import ast_hash, leaderboard_metrics, sort_values
@@ -68,35 +75,21 @@ async def rank_submit(
     session: AsyncSession, submission: Submission, results: Sequence[StageResult], now: datetime
 ) -> bool:
     """Enter an accepted Submit of a signed-in user into the leaderboard of its problem: whether
-    it ranks (FR-LB-02, FR-JDG-13)."""
+    it ranks (FR-LB-02, FR-JDG-13). A hidden user ranks nowhere (FR-ADM-03)."""
     assert submission.user_id is not None
+    hidden = await session.scalar(
+        select(User.is_hidden).where(User.id == submission.user_id).with_for_update(read=True)
+    )
+    if hidden or submission.is_hidden:
+        return False
     version = await session.get(ProblemVersion, submission.problem_version_id)
     assert version is not None  # a foreign key
-    package = Package.model_validate(version.manifest)
-    metrics = leaderboard_metrics(package, results)
-    if metrics is None or package.leaderboard is None:
+    entry = _entry(submission, version, results)
+    if entry is None:
         return False
-    key = BoardKey(
-        version.problem_id,
-        version.leaderboard_epoch,
-        submission.toolchain_profile_id,
-        package.leaderboard.formula_version,
-    )
+    key, values = entry
     await lock(session, [key])
-    statement = insert(LeaderboardEntry).values(
-        id=uuid7(),
-        problem_id=key.problem_id,
-        leaderboard_epoch=key.leaderboard_epoch,
-        toolchain_profile_id=key.toolchain_profile_id,
-        formula_version=key.formula_version,
-        user_id=submission.user_id,
-        submission_id=submission.id,
-        # Through the shortest decimal of the float: 0.172, not 0.17199999999999998.
-        sort_values=[Decimal(repr(value)) for value in sort_values(package.leaderboard, metrics)],
-        ast_hash=ast_hash(results),
-        submitted_at=submission.created_at,
-        updated_at=now,
-    )
+    statement = _insert(submission, key, values, ast_hash(results), now)
     new = statement.excluded
     await session.execute(
         statement.on_conflict_do_update(
@@ -114,6 +107,103 @@ async def rank_submit(
     )
     await _recount(session, key, now)
     return True
+
+
+def _entry(
+    submission: Submission, version: ProblemVersion, results: Sequence[StageResult]
+) -> tuple[BoardKey, list[Decimal]] | None:
+    """The leaderboard a Submit enters and its `sort_values`; None: it does not rank."""
+    package = Package.model_validate(version.manifest)
+    metrics = leaderboard_metrics(package, results)
+    if metrics is None or package.leaderboard is None:
+        return None
+    key = BoardKey(
+        version.problem_id,
+        version.leaderboard_epoch,
+        submission.toolchain_profile_id,
+        package.leaderboard.formula_version,
+    )
+    # Through the shortest decimal of the float: 0.172, not 0.17199999999999998.
+    return key, [Decimal(repr(value)) for value in sort_values(package.leaderboard, metrics)]
+
+
+def _insert(
+    submission: Submission, key: BoardKey, values: list[Decimal], ast: str | None, now: datetime
+) -> Insert:
+    """The statement that enters the Submit into the leaderboard as a new entry."""
+    return insert(LeaderboardEntry).values(
+        id=uuid7(),
+        problem_id=key.problem_id,
+        leaderboard_epoch=key.leaderboard_epoch,
+        toolchain_profile_id=key.toolchain_profile_id,
+        formula_version=key.formula_version,
+        user_id=submission.user_id,
+        submission_id=submission.id,
+        sort_values=values,
+        ast_hash=ast,
+        submitted_at=submission.created_at,
+        updated_at=now,
+    )
+
+
+async def rebuild(session: AsyncSession, user_ids: Collection[uuid.UUID], now: datetime) -> None:
+    """Enter the users into the leaderboards again from their Submits, after a moderator hid or
+    showed a solution or a user (FR-ADM-03): in each leaderboard the best accepted Submit that is
+    not hidden, of a user who is not hidden; none, if there is no such Submit. The leaderboards
+    that had or get an entry of the users are counted again.
+
+    The caller holds the rows of the users for update, so that no Submit of theirs enters
+    meanwhile. The rule is the ingestor's (`rank_submit`), applied to the stored stage results."""
+    if not user_ids:
+        return
+    submissions = (
+        await session.execute(
+            select(Submission, ProblemVersion)
+            .join(ProblemVersion, ProblemVersion.id == Submission.problem_version_id)
+            .join(User, User.id == Submission.user_id)
+            .where(
+                Submission.user_id.in_(user_ids),
+                Submission.is_public,
+                Submission.is_hidden.is_(False),
+                User.is_hidden.is_(False),
+            )
+        )
+    ).all()
+    results: dict[uuid.UUID, list[StageResult]] = {}
+    stored = await session.scalars(
+        select(StageRow).where(StageRow.submission_id.in_([found.id for found, _ in submissions]))
+    )
+    for row in stored:
+        results.setdefault(row.submission_id, []).append(
+            StageResult(
+                key=row.stage_key,
+                type=row.stage_type,
+                ordinal=row.ordinal,
+                status=row.status,  # type: ignore[arg-type]  # a stage_status value
+                metrics=row.metrics or {},
+            )
+        )
+    # The entry of a user in a leaderboard: lower sort_values, then the earlier Submit.
+    best: dict[tuple[uuid.UUID, BoardKey], tuple[list[Decimal], datetime, Submission]] = {}
+    for submission, version in submissions:
+        assert submission.user_id is not None
+        entry = _entry(submission, version, results.get(submission.id, []))
+        if entry is None:
+            continue
+        key, values = entry
+        known = best.get((submission.user_id, key))
+        if known is None or (values, submission.created_at) < (known[0], known[1]):
+            best[submission.user_id, key] = (values, submission.created_at, submission)
+    keys = {key for _, key in best}
+    for user_id in user_ids:
+        keys.update(await boards_of(session, user_id))
+    ordered = sorted(keys)
+    await lock(session, ordered)
+    await session.execute(delete(LeaderboardEntry).where(LeaderboardEntry.user_id.in_(user_ids)))
+    for (_, key), (values, _, submission) in best.items():
+        await session.execute(_insert(submission, key, values, submission.ast_hash, now))
+    for key in ordered:
+        await _recount(session, key, now)
 
 
 async def boards_of(session: AsyncSession, user_id: uuid.UUID) -> list[BoardKey]:
@@ -193,10 +283,10 @@ async def placement_of(
     session: AsyncSession, submission: Submission
 ) -> LeaderboardPlacement | None:
     """The place of the author of a public Submit in the leaderboard it entered (FR-RUN-05): the
-    entry of the author is this Submit or a better one. None if the Submit is not public, its
-    problem has no leaderboard, or the leaderboard is no longer the current one (another epoch,
-    formula or default profile)."""
-    if not submission.is_public or submission.user_id is None:
+    entry of the author is this Submit or a better one. None if the Submit is not public or is
+    hidden, its problem has no leaderboard, or the leaderboard is no longer the current one
+    (another epoch, formula or default profile)."""
+    if not submission.is_public or submission.is_hidden or submission.user_id is None:
         return None
     key = await _current_key(session, submission)
     if key is None:
