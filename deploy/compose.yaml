@@ -265,7 +265,7 @@ services:
   # check. One-shot: copies its versions.lock out for toolchain-profile. A local build of the image:
   # TOOLCHAIN_IMAGE=apparatica-toolchain and TOOLCHAIN_DIGEST of it (docs/stand.md).
   toolchain:
-    image: ${TOOLCHAIN_IMAGE:-ghcr.io/apparatica/toolchain}@${TOOLCHAIN_DIGEST:-sha256:1757d1fb996e78a5191ec857c10e31914fae612cf8aa2d100c889b4805a8a79f}
+    image: ${TOOLCHAIN_IMAGE:-ghcr.io/apparatica/toolchain}@${TOOLCHAIN_DIGEST:-sha256:a27001717c02bf8c9bf4f91b98067007ecf8cc5a110d26fa045282e3e39cbe33}
     user: root
     command: ["cp", "/opt/apx/versions.lock", "/toolchain/versions.lock"]
     network_mode: none
@@ -280,7 +280,7 @@ services:
     environment:
       <<: *api-env
       TOOLCHAIN_IMAGE: ${TOOLCHAIN_IMAGE:-ghcr.io/apparatica/toolchain}
-      TOOLCHAIN_DIGEST: ${TOOLCHAIN_DIGEST:-sha256:1757d1fb996e78a5191ec857c10e31914fae612cf8aa2d100c889b4805a8a79f}  # the digest of the toolchain service
+      TOOLCHAIN_DIGEST: ${TOOLCHAIN_DIGEST:-sha256:a27001717c02bf8c9bf4f91b98067007ecf8cc5a110d26fa045282e3e39cbe33}  # the digest of the toolchain service
       TOOLCHAIN_PROFILE_ID: ${TOOLCHAIN_PROFILE_ID:-}
       NORMALIZATION_VERSION: 1  # NORMALIZATION_VERSION of the judge's precheck_runner.py
       WAVEVIEW_VERSION: 2026.10.1
