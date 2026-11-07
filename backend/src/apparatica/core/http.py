@@ -8,6 +8,8 @@ from starlette.responses import StreamingResponse
 
 PUBLIC = "public, max-age=60, stale-while-revalidate=300"
 PRIVATE = "private, no-store"
+# Kept, but checked by the ETag on every use: data that changes within seconds (leaderboards).
+REVALIDATE = "public, no-cache"
 IMMUTABLE = "public, max-age=31536000, immutable"  # data of a problem version never changes
 
 

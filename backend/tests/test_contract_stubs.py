@@ -38,10 +38,6 @@ def test_stubs_validate_parameters(client: TestClient, method: str, path: str, b
 @pytest.mark.parametrize(
     "path",
     [
-        "/api/v1/problems/mux4/leaderboard?group=false&around=me&sort=-synth.area_um2",
-        "/api/v1/problems/mux4/solutions?sort=-submitted_at",
-        "/api/v1/problems/mux4/reference",
-        "/api/v1/solutions/0193a1b2-0000-7000-8000-000000000001",
         "/api/v1/leaderboard?page=2&per_page=10",
         "/api/v1/users/ada/solutions",
     ],

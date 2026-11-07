@@ -594,7 +594,8 @@ export interface paths {
         /**
          * List Problem Solutions
          * @description Public solutions of a problem, every version, several per author (FR-SOL-03); `rank`
-         *     orders them by the formula of the leaderboard. Code is not listed: GET /solutions/{id}.
+         *     orders them by the formula of the leaderboard, solutions without its metrics last. Code is
+         *     not listed: GET /solutions/{id}. VALIDATION_ERROR: `sort` names no column.
          */
         get: operations["list_problem_solutions"];
         put?: never;
@@ -637,8 +638,9 @@ export interface paths {
         /**
          * Get Solution
          * @description A public solution (FR-SOL-01, FR-SOL-02): metrics, author and place for everyone, the code
-         *     after the visitor's own accepted Submit of the problem (`code_locked`). NOT_FOUND: no such
-         *     submission, not public, hidden by a moderator or its author is hidden.
+         *     after the visitor's own accepted Submit of the problem (`code_locked`); the author sees
+         *     their own code. NOT_FOUND: no such submission, not public, or its problem is not published
+         *     (hidden solutions and authors arrive with moderation, T3.12).
          */
         get: operations["get_solution"];
         put?: never;
@@ -4701,15 +4703,6 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Error"];
                 };
             };
-            /** @description Not Implemented */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Error"];
-                };
-            };
         };
     };
     list_problem_solutions: {
@@ -4757,15 +4750,6 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Not Implemented */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };
@@ -4831,15 +4815,6 @@ export interface operations {
                     "application/problem+json": components["schemas"]["Error"];
                 };
             };
-            /** @description Not Implemented */
-            501: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Error"];
-                };
-            };
         };
     };
     get_solution: {
@@ -4882,15 +4857,6 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Not Implemented */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };

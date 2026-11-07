@@ -232,22 +232,31 @@ async def _current_key(session: AsyncSession, submission: Submission) -> BoardKe
         else await session.get(ProblemVersion, problem.current_version_id)
     )
     assert current is not None
+    key = await current_key(session, current)
     formula = _formula_version(version.manifest)
-    default = await session.scalar(
-        select(ToolchainProfile.id).where(
-            ToolchainProfile.language == version.language, ToolchainProfile.is_default
-        )
-    )
-    if (
-        formula is None
-        or formula != _formula_version(current.manifest)
-        or version.leaderboard_epoch != current.leaderboard_epoch
-        or submission.toolchain_profile_id != default
-    ):
+    if key is None or formula is None:
         return None
-    return BoardKey(
+    entered = BoardKey(
         version.problem_id, version.leaderboard_epoch, submission.toolchain_profile_id, formula
     )
+    return key if entered == key else None
+
+
+async def current_key(session: AsyncSession, current: ProblemVersion) -> BoardKey | None:
+    """The leaderboard that pages show for the current version of a problem: its epoch and
+    formula on the default toolchain profile of its language. None: the version has no
+    leaderboard, or the language has no default profile."""
+    formula = _formula_version(current.manifest)
+    if formula is None:
+        return None
+    default = await session.scalar(
+        select(ToolchainProfile.id).where(
+            ToolchainProfile.language == current.language, ToolchainProfile.is_default
+        )
+    )
+    if default is None:
+        return None
+    return BoardKey(current.problem_id, current.leaderboard_epoch, default, formula)
 
 
 def _formula_version(manifest: dict[str, object]) -> int | None:
