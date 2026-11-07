@@ -55,7 +55,7 @@ def app_client(database_url: str, config_dir: Path = CONFIG_DIR, **fields: Any) 
 
 @pytest.fixture
 def limits(tmp_path: Path) -> Path:
-    for name in ("difficulties.yaml", "catalog.yaml", "limits.yaml", "legal.yaml"):
+    for name in ("difficulties.yaml", "catalog.yaml", "limits.yaml", "legal.yaml", "rating.yaml"):
         shutil.copy(CONFIG_DIR / name, tmp_path / name)
     (tmp_path / "rate-limits.yaml").write_text(LIMITS, encoding="utf-8")
     return tmp_path

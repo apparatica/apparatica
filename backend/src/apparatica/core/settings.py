@@ -131,6 +131,11 @@ class Settings(BaseSettings):
         default=3600,
         description="A run of a reference solution without a verdict is repeated after this long",
     )
+    rating_every_s: PositiveFloat = Field(
+        default=300,
+        description="How often the ingestor counts the global leaderboard again (FR-LB-05); an"
+        " accepted Submit counts it at once",
+    )
 
     @field_validator("smtp_url", "github_client_id", "github_client_secret", mode="before")
     @classmethod

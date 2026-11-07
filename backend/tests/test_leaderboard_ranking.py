@@ -28,7 +28,7 @@ from apparatica.leaderboards.models import LeaderboardEntry
 from apparatica.main import create_app
 from apparatica.submissions.events import FinalizedEvent
 from apparatica.submissions.profiles import add_profile
-from conftest import CONFIG_DIR, ApiClient, Postgres
+from conftest import CONFIG_DIR, RATING, ApiClient, Postgres
 from judge.core.jobs import DoneRecord
 from judge.core.stage import StageResult
 
@@ -97,7 +97,7 @@ def check(
     )
 
     async def scenario(database: Database) -> FinalizedEvent | None:
-        return await Ingestor(database, tokens, load_retention(CONFIG_DIR)).ingest(record)
+        return await Ingestor(database, tokens, load_retention(CONFIG_DIR), RATING).ingest(record)
 
     return str(submission_id), run(database_url, scenario)
 
@@ -272,7 +272,7 @@ def test_a_deleted_account_leaves_its_leaderboards(api: TestClient, database_url
     set_delete_at(database_url, ada.id, now - timedelta(seconds=1))
 
     async def purge(database: Database) -> int:
-        return await AccountPurge(database, Files(), "artifacts", clock=lambda: now)()
+        return await AccountPurge(database, Files(), "artifacts", RATING, clock=lambda: now)()
 
     assert run(database_url, purge) == 1
     assert board(database_url) == [("bob", 1, None), ("eve", 2, None)]

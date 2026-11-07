@@ -1106,8 +1106,8 @@ export interface components {
         };
         /**
          * GlobalLeaderboard
-         * @description Users by points for all time (FR-LB-05): Easy 1, Medium 3, Hard 6 per solved problem and
-         *     3/2/1 for places 1-3 of a problem leaderboard (ADR-0006).
+         * @description Users by points for all time (FR-LB-05): points per solved published problem by its level
+         *     and a bonus for places of problem leaderboards (`formula`, ADR-0006).
          */
         GlobalLeaderboard: {
             /** Items */
@@ -1121,8 +1121,7 @@ export interface components {
              * @description Users with points
              */
             total: number;
-            /** Formula Version */
-            formula_version: number;
+            formula: components["schemas"]["PointsFormula"];
             /** @description Null: a guest or no points yet */
             me: components["schemas"]["RatingRow"] | null;
             /**
@@ -1492,6 +1491,36 @@ export interface components {
              * @example sim
              */
             type: string;
+        };
+        /**
+         * PointsFormula
+         * @description How points are counted (`config/rating.yaml`, decision ОВ-4).
+         */
+        PointsFormula: {
+            /** Version */
+            version: number;
+            /**
+             * Solved
+             * @description Points for a solved problem by the difficulty keys of GET /config
+             * @example {
+             *       "easy": 1,
+             *       "hard": 6,
+             *       "medium": 3
+             *     }
+             */
+            solved: {
+                [key: string]: number;
+            };
+            /**
+             * Places
+             * @description Bonus for place 1, 2, ... of a problem leaderboard; a shared place gives it to each holder, a solution matching an earlier one holds no place
+             * @example [
+             *       3,
+             *       2,
+             *       1
+             *     ]
+             */
+            places: number[];
         };
         /** Port */
         Port: {
@@ -4898,15 +4927,6 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Not Implemented */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };

@@ -218,15 +218,30 @@ class RatingRow(BaseModel):
     is_me: bool
 
 
+class PointsFormula(BaseModel):
+    """How points are counted (`config/rating.yaml`, decision ОВ-4)."""
+
+    version: int
+    solved: dict[str, int] = Field(
+        description="Points for a solved problem by the difficulty keys of GET /config",
+        examples=[{"easy": 1, "medium": 3, "hard": 6}],
+    )
+    places: list[int] = Field(
+        description="Bonus for place 1, 2, ... of a problem leaderboard; a shared place gives it"
+        " to each holder, a solution matching an earlier one holds no place",
+        examples=[[3, 2, 1]],
+    )
+
+
 class GlobalLeaderboard(BaseModel):
-    """Users by points for all time (FR-LB-05): Easy 1, Medium 3, Hard 6 per solved problem and
-    3/2/1 for places 1-3 of a problem leaderboard (ADR-0006)."""
+    """Users by points for all time (FR-LB-05): points per solved published problem by its level
+    and a bonus for places of problem leaderboards (`formula`, ADR-0006)."""
 
     items: list[RatingRow]
     page: int
     per_page: int
     total: int = Field(description="Users with points")
-    formula_version: int
+    formula: PointsFormula
     me: RatingRow | None = Field(description="Null: a guest or no points yet")
     around_me: list[RatingRow] = Field(
         description="Up to two rows above and below mine when mine is not on this page,"

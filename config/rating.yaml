@@ -1,0 +1,10 @@
+# The global leaderboard of users (FR-LB-05, ADR-0006, decision ОВ-4). Points for all time: for
+# every solved published problem by its level, plus a bonus for a place of the problem
+# leaderboard; a shared place gives the bonus to each of its holders, a solution that only
+# matches an earlier one (the same syntax tree) holds no place and gets none.
+# Change the numbers together with formula_version: the ingestor counts the points again.
+formula_version: 1
+# Points for a solved problem by the difficulty keys of difficulties.yaml (every key once).
+solved: {easy: 1, medium: 3, hard: 6}
+# Bonus for places 1, 2, 3, ... of the leaderboard of a problem.
+places: [3, 2, 1]

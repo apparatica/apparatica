@@ -1,11 +1,11 @@
-"""Tables of the leaderboards of problems (specs/04 §4, ADR-0006)."""
+"""Tables of the leaderboards of problems and of the global leaderboard (specs/04 §4, ADR-0006)."""
 
 import uuid
-from datetime import datetime
+from datetime import date, datetime
 from decimal import Decimal
 
 from sqlalchemy import CheckConstraint, ForeignKey, Index, Numeric, UniqueConstraint
-from sqlalchemy.dialects.postgresql import ARRAY
+from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
 from apparatica.core.db import Base, uuid_pk
@@ -52,3 +52,39 @@ class LeaderboardEntry(Base):
     rank: Mapped[int | None]  # of a leader of a group: RANK() by sort_values
     submitted_at: Mapped[datetime]  # of the submission: earlier leads a group and a place
     updated_at: Mapped[datetime]
+
+
+class UserRating(Base):
+    """A user with points in the global leaderboard (FR-LB-05, ADR-0006): counted again from the
+    solved problems and the places of problem leaderboards (`apparatica.leaderboards.rating`)."""
+
+    __tablename__ = "user_ratings"
+    __table_args__ = (
+        CheckConstraint("rank > 0", name="rank_positive"),
+        CheckConstraint("points > 0", name="points_positive"),
+        Index("ix_user_ratings_rank", "rank"),
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    points: Mapped[int]
+    solved_by_difficulty: Mapped[dict[str, int]] = mapped_column(JSONB)
+    # When the user had everything that gives the points now: the latest first solution of a
+    # counted problem or Submit that holds a counted place. Equal points: earlier ranks higher.
+    reached_at: Mapped[datetime]
+    rank: Mapped[int]  # unique: by points, then reached_at, then user_id
+    formula_version: Mapped[int]
+    updated_at: Mapped[datetime]
+
+
+class UserRatingSnapshot(Base):
+    """The place of a user at the start of a day (UTC), for «за неделю» (FR-LB-05)."""
+
+    __tablename__ = "user_rating_snapshots"
+
+    day: Mapped[date] = mapped_column(primary_key=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+    rank: Mapped[int]

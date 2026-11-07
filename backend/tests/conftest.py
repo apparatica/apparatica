@@ -19,6 +19,7 @@ from apparatica.auth.guests import COOKIE
 from apparatica.cli import alembic_config
 from apparatica.core.db import Database
 from apparatica.core.flags import no_overrides
+from apparatica.core.platform import load_platform_config
 from apparatica.core.settings import Settings
 from apparatica.core.storage import Storage
 from apparatica.main import create_app
@@ -27,6 +28,7 @@ from judge.core.package import load_manifest
 
 CONFIG_DIR = Path(__file__).parents[2] / "config"
 PROBLEMS = Path(__file__).parents[2] / "problems"
+RATING = load_platform_config(CONFIG_DIR).rating  # the formula of the global leaderboard
 # Locally the image can come from a mirror (docs/development.md).
 POSTGRES_IMAGE = os.environ.get("APX_TEST_POSTGRES_IMAGE", "postgres:17-alpine")
 VALKEY_IMAGE = os.environ.get("APX_TEST_VALKEY_IMAGE", "valkey/valkey:8-alpine")

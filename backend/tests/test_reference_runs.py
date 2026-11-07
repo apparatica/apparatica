@@ -20,7 +20,7 @@ from apparatica.leaderboards.models import LeaderboardEntry
 from apparatica.problems.models import Problem, ProblemStats, ProblemVersion, ReferenceSolution
 from apparatica.submissions.models import Submission
 from apparatica.submissions.profiles import add_profile
-from conftest import CONFIG_DIR, Postgres
+from conftest import CONFIG_DIR, RATING, Postgres
 from judge.core.jobs import REJUDGE_QUEUE, DoneRecord
 from judge.core.stage import StageResult
 
@@ -77,7 +77,7 @@ def end_run(database_url: str, submission_id: uuid.UUID, results: list[StageResu
     )
 
     async def scenario(database: Database) -> None:
-        await Ingestor(database, TOKENS, load_retention(CONFIG_DIR)).ingest(record)
+        await Ingestor(database, TOKENS, load_retention(CONFIG_DIR), RATING).ingest(record)
 
     run(database_url, scenario)
 

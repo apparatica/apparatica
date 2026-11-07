@@ -70,7 +70,7 @@ async def rank_submit(
         submission.toolchain_profile_id,
         package.leaderboard.formula_version,
     )
-    await _lock(session, [key])
+    await lock(session, [key])
     statement = insert(LeaderboardEntry).values(
         id=uuid7(),
         problem_id=key.problem_id,
@@ -122,13 +122,14 @@ async def boards_of(session: AsyncSession, user_id: uuid.UUID) -> list[BoardKey]
 async def recount(session: AsyncSession, keys: Iterable[BoardKey], now: datetime) -> None:
     """Count the groups and places of the leaderboards again, e.g. after entries were deleted."""
     ordered = sorted(set(keys))
-    await _lock(session, ordered)
+    await lock(session, ordered)
     for key in ordered:
         await _recount(session, key, now)
 
 
-async def _lock(session: AsyncSession, keys: Sequence[BoardKey]) -> None:
-    for key in keys:
+async def lock(session: AsyncSession, keys: Sequence[BoardKey]) -> None:
+    """Take the locks of the leaderboards, in the order of their keys."""
+    for key in sorted(keys):
         name = "leaderboard:" + ":".join(str(part) for part in astuple(key))
         await session.execute(
             select(func.pg_advisory_xact_lock(func.hashtextextended(literal(name), 0)))

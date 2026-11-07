@@ -25,7 +25,7 @@ from apparatica.submissions.events import FinalizedEvent
 from apparatica.submissions.models import Artifact, StageResult, Submission, Waveform
 from apparatica.submissions.profiles import add_profile
 from apparatica.submissions.tokens import JobTokens
-from conftest import CONFIG_DIR, GUEST, Postgres
+from conftest import CONFIG_DIR, GUEST, RATING, Postgres
 from judge.core.jobs import (
     RESULTS_STREAM,
     AttemptFailedRecord,
@@ -99,7 +99,7 @@ async def new_submission(
 
 
 def ingestor(database: Database) -> Ingestor:
-    return Ingestor(database, TOKENS, load_retention(CONFIG_DIR), clock=lambda: NOW)
+    return Ingestor(database, TOKENS, load_retention(CONFIG_DIR), RATING, clock=lambda: NOW)
 
 
 def common(submission_id: uuid.UUID, attempt: int = 1) -> dict[str, Any]:

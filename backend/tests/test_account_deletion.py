@@ -26,7 +26,7 @@ from apparatica.problems.models import UserProblemStatus
 from apparatica.submissions.models import Artifact, Submission, Waveform
 from apparatica.submissions.profiles import add_profile
 from apparatica.users.models import Draft
-from conftest import CONFIG_DIR, ApiClient, MemoryStorage, Postgres
+from conftest import CONFIG_DIR, RATING, ApiClient, MemoryStorage, Postgres
 
 
 @pytest.fixture
@@ -195,7 +195,7 @@ def test_the_purge_deletes_accounts_past_their_time(api: TestClient, database_ur
             session.add(
                 Identity(id=uuid7(), user_id=ada.id, provider="github", subject="1", email=None)
             )
-        purge = AccountPurge(database, storage, "artifacts", clock=lambda: now)
+        purge = AccountPurge(database, storage, "artifacts", RATING, clock=lambda: now)
         assert await purge() == 1
         assert await purge() == 0
         async with database.sessions() as session:
@@ -221,7 +221,7 @@ def test_the_purge_waits_for_checks_waveforms_and_files(api: TestClient, databas
     storage = Files()
 
     async def scenario(database: Database) -> None:
-        purge = AccountPurge(database, storage, "artifacts", clock=lambda: now)
+        purge = AccountPurge(database, storage, "artifacts", RATING, clock=lambda: now)
         assert await purge() == 0  # the check goes on
         async with database.sessions.begin() as session:
             await session.execute(

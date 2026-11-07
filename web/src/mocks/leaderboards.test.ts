@@ -72,6 +72,12 @@ it("finds the entry of the signed-in user and its page", async () => {
   expect(global.data?.me?.user.nick).toBe("ada");
   expect(global.data?.around_me.some((row) => row.is_me)).toBe(true);
   expect(global.data?.items.map((row) => row.rank)).toEqual([1, 2, 3, 4, 5]);
+  expect(global.data?.around_me.every((row) => row.rank > 5)).toBe(true);
+  expect(global.data?.formula).toEqual({
+    version: 1,
+    solved: { easy: 1, medium: 3, hard: 6 },
+    places: [3, 2, 1],
+  });
 });
 
 it("closes the code of others and the reference until an accepted Submit", async () => {

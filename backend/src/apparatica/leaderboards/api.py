@@ -1,11 +1,12 @@
-"""Leaderboards, public solutions and reference solutions (specs/05 §3, phase 3); the global
-leaderboard is a stub until T3.9.
+"""Leaderboards of problems and of users, public solutions and reference solutions (specs/05 §3,
+phase 3).
 
 An answer that depends on the visitor (their row, their access to code) is private for a
 signed-in user or a guest with a cookie. The others are public but revalidated by their ETag on
 every use: a leaderboard changes within seconds of an accepted Submit (FR-LB-06)."""
 
 import uuid
+from datetime import UTC, datetime
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, Depends, Path, Query, Request, Response
@@ -19,7 +20,7 @@ from apparatica.auth.sessions import CurrentSession
 from apparatica.core.db import get_session
 from apparatica.core.errors import ApiError, ErrorCode, problem_responses
 from apparatica.core.http import PRIVATE, REVALIDATE, cached_json
-from apparatica.leaderboards import boards, solutions
+from apparatica.leaderboards import boards, rating, solutions
 from apparatica.leaderboards.boards import Board
 from apparatica.leaderboards.schemas import (
     GlobalLeaderboard,
@@ -74,12 +75,6 @@ def _answer(request: Request, body: BaseModel, visitor: Visitor) -> Response:
     response = cached_json(request, body, REVALIDATE if nobody else PRIVATE)
     response.headers["Vary"] = "Cookie"  # an answer for nobody must not be reused after a login
     return response
-
-
-def _stub(task: str) -> ApiError:
-    return ApiError(
-        ErrorCode.NOT_IMPLEMENTED, f"Declared by the phase 3 contract; arrives in {task}"
-    )
 
 
 @router.get(
@@ -192,9 +187,23 @@ async def get_solution(
     "/leaderboard",
     tags=["leaderboards"],
     response_model=GlobalLeaderboard,
-    responses=problem_responses(ErrorCode.NOT_IMPLEMENTED, ErrorCode.VALIDATION_ERROR),
+    responses=problem_responses(ErrorCode.VALIDATION_ERROR),
     openapi_extra=PHASE_3,
 )
-async def get_global_leaderboard(page: Page = 1, per_page: PerPage = 20) -> GlobalLeaderboard:
+async def get_global_leaderboard(
+    request: Request,
+    session: Session,
+    visitor: CurrentVisitor,
+    page: Page = 1,
+    per_page: PerPage = 20,
+) -> Response:
     """Users by points for all time (FR-LB-05); `me` and `around_me` for a signed-in user."""
-    raise _stub("T3.9")
+    body = await rating.global_leaderboard(
+        session,
+        request.app.state.platform.rating,
+        viewer=visitor.user_id,
+        page=page,
+        per_page=per_page,
+        today=datetime.now(UTC).date(),
+    )
+    return _answer(request, body, visitor)

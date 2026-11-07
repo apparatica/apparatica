@@ -21,7 +21,7 @@ from apparatica.main import create_app
 from apparatica.submissions.models import Artifact, StageResult, Submission, Waveform
 from apparatica.submissions.profiles import add_profile
 from apparatica.submissions.tokens import JobTokens
-from conftest import CONFIG_DIR, ApiClient, Postgres, forget_guest
+from conftest import CONFIG_DIR, RATING, ApiClient, Postgres, forget_guest
 from judge.core.jobs import StoredArtifact, TraceKey, WaveformRecord
 
 KEY = "k" * 32
@@ -151,7 +151,7 @@ def request(api: TestClient, submission_id: uuid.UUID, **body: Any) -> Any:
 
 def record(database_url: str, record: WaveformRecord) -> None:
     async def ingest(database: Database) -> None:
-        await Ingestor(database, TOKENS, load_retention(CONFIG_DIR)).ingest(record)
+        await Ingestor(database, TOKENS, load_retention(CONFIG_DIR), RATING).ingest(record)
 
     run(database_url, ingest)
 

@@ -38,7 +38,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from apparatica.core.db import Database
 from apparatica.core.ids import uuid7
+from apparatica.core.platform import RatingFormula
 from apparatica.judging.retention import Retention
+from apparatica.leaderboards import rating
 from apparatica.leaderboards.ranking import placement_of, rank_submit
 from apparatica.problems.progress import ACCEPTED, record_check
 from apparatica.submissions.events import FinalizedEvent
@@ -96,6 +98,7 @@ class Ingestor:
     database: Database
     tokens: JobTokens
     retention: Retention
+    rating: RatingFormula
     clock: Callable[[], datetime] = field(default=lambda: datetime.now(UTC))
 
     async def ingest(self, record: ResultRecord) -> FinalizedEvent | None:
@@ -213,7 +216,10 @@ class Ingestor:
             attempt=record.attempt,
             status=verdict.status,
         )
-        return await finalize(session, submission, verdict, now, results)
+        event = await finalize(session, submission, verdict, now, results)
+        if submission.is_public:  # an accepted Submit of a user: a solved problem, maybe a place
+            await rating.recount(session, self.rating, now)
+        return event
 
     async def _store_artifacts(
         self, session: AsyncSession, submission: Submission, record: DoneRecord

@@ -1,5 +1,6 @@
-"""Platform data from `config/*.yaml`: difficulty levels, the catalogue, limits and the legal
-documents, which the frontend shows, and the rate limits against abuse, which it does not.
+"""Platform data from `config/*.yaml`: difficulty levels, the catalogue, limits, the legal
+documents and the formula of the global leaderboard, which the frontend shows, and the rate
+limits against abuse, which it does not.
 
 Loaded once at startup and validated strictly: a broken file stops the process instead of serving
 a half-configured site.
@@ -17,6 +18,7 @@ CATALOG_FILE = "catalog.yaml"
 LIMITS_FILE = "limits.yaml"
 RATE_LIMITS_FILE = "rate-limits.yaml"
 LEGAL_FILE = "legal.yaml"
+RATING_FILE = "rating.yaml"
 
 
 class _Model(BaseModel):
@@ -127,12 +129,22 @@ class Legal(_Model):
     documents: LegalDocuments
 
 
+class RatingFormula(_Model):
+    """Points of the global leaderboard (FR-LB-05, ADR-0006): for every solved published problem
+    by its level, plus a bonus for places 1, 2, 3, ... of the leaderboard of a problem."""
+
+    formula_version: PositiveInt
+    solved: dict[str, NonNegativeInt] = Field(description="By the keys of the difficulty levels")
+    places: list[NonNegativeInt] = Field(description="Bonus for place 1, 2, ... of a problem")
+
+
 class PlatformConfig(_Model):
     difficulties: Annotated[list[Difficulty], Field(min_length=1)]
     catalog: Catalog
     limits: Limits
     rate_limits: RateLimits
     legal: Legal
+    rating: RatingFormula
 
 
 class ConfigFileError(Exception):
@@ -153,6 +165,7 @@ def load_platform_config(config_dir: Path) -> PlatformConfig:
         "limits": _read(config_dir / LIMITS_FILE),
         "rate_limits": _read(config_dir / RATE_LIMITS_FILE),
         "legal": _read(config_dir / LEGAL_FILE),
+        "rating": _read(config_dir / RATING_FILE),
     }
     try:
         config = PlatformConfig.model_validate(data)
@@ -161,4 +174,9 @@ def load_platform_config(config_dir: Path) -> PlatformConfig:
     keys = [d.key for d in config.difficulties]
     if len(set(keys)) != len(keys):
         raise ConfigFileError(f"{config_dir / DIFFICULTIES_FILE}: duplicate keys")
+    if sorted(config.rating.solved) != sorted(keys):
+        raise ConfigFileError(
+            f"{config_dir / RATING_FILE}: `solved` must name every difficulty level once"
+            f" ({', '.join(keys)})"
+        )
     return config

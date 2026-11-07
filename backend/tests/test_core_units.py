@@ -1,5 +1,6 @@
 import asyncio
 import hashlib
+import shutil
 import time
 import uuid
 from collections.abc import Mapping
@@ -105,10 +106,17 @@ def test_platform_config_errors(tmp_path: Path) -> None:
         "- {key: easy, title: Easy, token: e}\n- {key: easy, title: Easy, token: e}\n",
         encoding="utf-8",
     )
-    for name in ("catalog.yaml", "limits.yaml", "rate-limits.yaml", "legal.yaml"):
+    for name in ("catalog.yaml", "limits.yaml", "rate-limits.yaml", "legal.yaml", "rating.yaml"):
         (tmp_path / name).write_text((CONFIG_DIR / name).read_text("utf-8"), "utf-8")
     with pytest.raises(ConfigFileError, match="duplicate keys"):
         load_platform_config(tmp_path)
     (tmp_path / "difficulties.yaml").write_text("- {key: Easy, title: E, token: e}\n", "utf-8")
     with pytest.raises(ConfigFileError, match="key"):
+        load_platform_config(tmp_path)
+    # The points of the global leaderboard name every level once (FR-LB-05).
+    shutil.copy(CONFIG_DIR / "difficulties.yaml", tmp_path / "difficulties.yaml")
+    (tmp_path / "rating.yaml").write_text(
+        "formula_version: 1\nsolved: {easy: 1, medium: 3}\nplaces: [3, 2, 1]\n", "utf-8"
+    )
+    with pytest.raises(ConfigFileError, match="every difficulty level"):
         load_platform_config(tmp_path)

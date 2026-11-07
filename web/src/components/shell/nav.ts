@@ -1,8 +1,8 @@
-import { List, type LucideIcon, User } from "lucide-react";
+import { ChartColumn, List, type LucideIcon, User } from "lucide-react";
 
 import { profileHref } from "@/features/profile/href";
 
-export type NavKey = "problems" | "profile";
+export type NavKey = "problems" | "leaderboard" | "profile";
 
 export interface NavItem {
   key: NavKey;
@@ -10,9 +10,12 @@ export interface NavItem {
   icon: LucideIcon;
 }
 
-// Sections of the left rail and of the bottom bar on phones (specs/08 §2). Rating (Ф3) and
-// dashboard (Ф4) join with their pages.
-export const NAV: readonly NavItem[] = [{ key: "problems", href: "/problems", icon: List }];
+// Sections of the left rail and of the bottom bar on phones (specs/08 §2). The dashboard (Ф4)
+// joins with its page.
+export const NAV: readonly NavItem[] = [
+  { key: "problems", href: "/problems", icon: List },
+  { key: "leaderboard", href: "/leaderboard", icon: ChartColumn },
+];
 
 /** The own profile of a signed-in user: at the bottom of the rail, the last of the bottom bar. */
 export const profileItem = (nick: string): NavItem => ({

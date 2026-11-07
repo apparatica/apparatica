@@ -735,9 +735,15 @@ export const leaderboardHandlers = [
       page,
       per_page: perPage,
       total: rows.length,
-      formula_version: 1,
+      formula: { version: 1, solved: POINTS, places: BONUS },
       me: rows[index] ?? null,
-      around_me: index < 0 || onPage ? [] : rows.slice(Math.max(0, index - 2), index + 3),
+      // Up to two rows above and below mine, without the rows of the page.
+      around_me:
+        index < 0 || onPage
+          ? []
+          : rows
+              .slice(Math.max(0, index - 2), index + 3)
+              .filter((row) => row.rank <= from || row.rank > from + perPage),
     };
     return HttpResponse.json(body);
   }),

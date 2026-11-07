@@ -19,6 +19,9 @@
   the acceptance rate of the catalogue (FR-CAT-04).
 - **References** — reference solutions of current versions without a run on the default toolchain
   profile get one (`apparatica.leaderboards.references`, FR-SYN-04).
+- **Rating** — the global leaderboard is counted again (new versions, a new default profile or
+  formula change it without a Submit), and the places at the start of a day are kept for
+  «за неделю» (`apparatica.leaderboards.rating`, FR-LB-05).
 """
 
 import asyncio
@@ -38,11 +41,14 @@ from sqlalchemy.dialects.postgresql import insert
 
 from apparatica.auth.models import EmailToken, User, UserSession
 from apparatica.core.db import Database
+from apparatica.core.platform import RatingFormula
 from apparatica.core.storage import Storage
 from apparatica.judging.ingest import finalize, internal_error, transient
 from apparatica.judging.leader import Leadership
 from apparatica.judging.publish import publish_finalized
+from apparatica.leaderboards import rating
 from apparatica.leaderboards.ranking import boards_of, recount
+from apparatica.leaderboards.ranking import lock as lock_boards
 from apparatica.leaderboards.references import queue_runs
 from apparatica.problems.models import Problem as ProblemRow
 from apparatica.problems.models import ProblemStats, ProblemVersion, UserProblemStatus
@@ -256,6 +262,7 @@ class AccountPurge:
     database: Database
     storage: Storage
     bucket: str
+    rating: RatingFormula
     batch: int = 20
     clock: Clock = field(default=_now)
 
@@ -313,11 +320,14 @@ class AccountPurge:
             )
             if user is None:
                 return 0
-            # The statuses refer to submissions; drafts, logins, consents, sessions and entries
-            # of leaderboards: cascade. The places in those leaderboards are counted again.
-            # Public solutions go with the account until they pass to «удалённый участник»
-            # (ОВ-12, T3.4a).
+            # The statuses refer to submissions; drafts, logins, consents, sessions, entries of
+            # leaderboards and the rating: cascade. The places in those leaderboards and in the
+            # global one are counted again; their locks are taken before the rows go, in the
+            # order of the ingestor. Public solutions go with the account until they pass to
+            # «удалённый участник» (ОВ-12, T3.4a).
             boards = await boards_of(session, user_id)
+            await lock_boards(session, boards)
+            await rating.lock(session)
             await session.execute(
                 delete(UserProblemStatus).where(UserProblemStatus.user_id == user_id)
             )
@@ -325,6 +335,7 @@ class AccountPurge:
             await session.delete(user)
             await session.flush()
             await recount(session, boards, self.clock())
+            await rating.recount(session, self.rating, self.clock())
         return 1
 
 
@@ -436,6 +447,21 @@ class ReferenceRuns:
             return await queue_runs(
                 session, self.queue, self.tokens, self.clock(), timedelta(seconds=self.retry_s)
             )
+
+
+@dataclass(frozen=True)
+class RatingRecount:
+    database: Database
+    formula: RatingFormula
+    clock: Clock = field(default=_now)
+
+    async def __call__(self) -> int:
+        """Counts the global leaderboard again and keeps today's places once; returns how many
+        places it kept."""
+        now = self.clock()
+        async with self.database.sessions.begin() as session:
+            await rating.recount(session, self.formula, now)
+            return await rating.snapshot(session, now.date())
 
 
 @dataclass

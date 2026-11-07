@@ -25,6 +25,7 @@ from pydantic import ValidationError
 from redis.exceptions import ResponseError
 
 from apparatica.core.db import Database
+from apparatica.core.platform import load_platform_config
 from apparatica.core.settings import Settings
 from apparatica.core.storage import Storage
 from apparatica.judging.cancels import CancelWatcher
@@ -37,6 +38,7 @@ from apparatica.judging.housekeeping import (
     Housekeeping,
     Periodic,
     ProblemStatsRefresh,
+    RatingRecount,
     ReferenceRuns,
     SessionPurge,
     Watchdog,
@@ -176,6 +178,7 @@ async def run_ingest(settings: Settings, stop: asyncio.Event) -> None:
         raise RuntimeError("APX_QUEUE_URL is required by the ingestor")
     tokens = job_tokens(settings)
     retention = load_retention(settings.config_dir)
+    formula = load_platform_config(settings.config_dir).rating
     classes = load_resource_classes(settings.config_dir / RESOURCE_CLASSES_FILE)
     database = Database(settings.database_url)
     valkey = redis.asyncio.Redis.from_url(
@@ -190,8 +193,9 @@ async def run_ingest(settings: Settings, stop: asyncio.Event) -> None:
         Periodic("addresses", PURGE_EVERY_S, AddressPurge(database, retention.client_ip_hash_days)),
         Periodic("sessions", PURGE_EVERY_S, SessionPurge(database)),
         Periodic("email-tokens", PURGE_EVERY_S, EmailTokenPurge(database)),
-        Periodic("accounts", PURGE_EVERY_S, AccountPurge(database, storage, bucket)),
+        Periodic("accounts", PURGE_EVERY_S, AccountPurge(database, storage, bucket, formula)),
         Periodic("problem-stats", settings.problem_stats_every_s, ProblemStatsRefresh(database)),
+        Periodic("rating", settings.rating_every_s, RatingRecount(database, formula)),
     ]
     queue = DramatiqQueue(settings.queue_url)  # runs of reference solutions
     references = ReferenceRuns(database, queue, tokens, settings.reference_retry_s)
@@ -199,7 +203,7 @@ async def run_ingest(settings: Settings, stop: asyncio.Event) -> None:
     if retention.guest_submissions_days is not None:
         guests = GuestPurge(database, storage, bucket, retention.guest_submissions_days)
         tasks.append(Periodic("guests", PURGE_EVERY_S, guests))
-    ingestor = Ingestor(database, tokens, retention)
+    ingestor = Ingestor(database, tokens, retention, formula)
     consumer = ResultsConsumer(valkey, ingestor, name)
     housekeeping = Housekeeping(Leadership(valkey, name), tasks)
     # Scrapes come in the thread of the metrics server: a client of its own, not of the loop.

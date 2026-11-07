@@ -25,7 +25,7 @@ from apparatica.main import create_app
 from apparatica.problems.models import Problem, ProblemStats, ProblemVersion, UserProblemStatus
 from apparatica.submissions.models import Submission
 from apparatica.submissions.profiles import add_profile
-from conftest import CONFIG_DIR, ApiClient, NoStorage, Postgres, repo_version
+from conftest import CONFIG_DIR, RATING, ApiClient, NoStorage, Postgres, repo_version
 from judge.core.jobs import AttemptFailedRecord, DoneRecord, ResultRecord
 
 
@@ -65,7 +65,7 @@ def finish(api: TestClient, database_url: str, submission_id: str, *results: Any
     )
 
     async def scenario(database: Database) -> None:
-        await Ingestor(database, tokens, load_retention(CONFIG_DIR)).ingest(record)
+        await Ingestor(database, tokens, load_retention(CONFIG_DIR), RATING).ingest(record)
 
     run(database_url, scenario)
 

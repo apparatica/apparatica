@@ -38,7 +38,6 @@ def test_stubs_validate_parameters(client: TestClient, method: str, path: str, b
 @pytest.mark.parametrize(
     "path",
     [
-        "/api/v1/leaderboard?page=2&per_page=10",
         "/api/v1/users/ada/solutions",
     ],
 )
