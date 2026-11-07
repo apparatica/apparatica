@@ -47,6 +47,7 @@ async function renderPage(
         level={easy === undefined ? null : { difficulty: easy, rank: 0 }}
         board={data}
         query={query}
+        card={{ kind: "problem", title: "", level: null, tags: [], acceptance: null, order: [] }}
       />
     </SessionProvider>,
   );

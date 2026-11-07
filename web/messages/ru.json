@@ -1181,5 +1181,45 @@
         "none": "Метрик синтеза пока нет."
       }
     }
+  },
+  "share": {
+    "button": "Поделиться",
+    "title": {
+      "problem": "Поделиться задачей",
+      "solution": "Поделиться решением"
+    },
+    "preview": "Так ссылка будет выглядеть в сообщениях",
+    "link": {
+      "problem": "Ссылка на задачу",
+      "solution": "Ссылка на решение"
+    },
+    "copy": "Копировать",
+    "copied": "Ссылка скопирована",
+    "copyFailed": "Не удалось скопировать ссылку",
+    "vk": "ВКонтакте",
+    "telegram": "Telegram",
+    "x": "Пост в X",
+    "text": {
+      "problem": "Задача «{title}» на Apparatica",
+      "solution": "Решение {nick} задачи «{title}» на Apparatica",
+      "solutionPlace": "Решение {nick} задачи «{title}» на Apparatica: {rank} место из {total}"
+    },
+    "card": {
+      "place": "{rank} из {total}",
+      "acceptance": "принято {percent}",
+      "noun": {
+        "cells": "{count, plural, one {ячейка} few {ячейки} many {ячеек} other {ячейки}}",
+        "flops": "{count, plural, one {триггер} few {триггера} many {триггеров} other {триггера}}"
+      }
+    },
+    "og": {
+      "solution": "Решение",
+      "place": "{rank} место из {total}",
+      "placeBy": "{rank} место из {total} {by}",
+      "rank": "место в рейтинге",
+      "of": "из {total}",
+      "acceptance": "принято",
+      "order": "рейтинг"
+    }
   }
 }

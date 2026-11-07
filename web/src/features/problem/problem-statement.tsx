@@ -9,8 +9,11 @@ import type { ReactNode } from "react";
 import { DifficultyBadge, findDifficulty } from "@/components/domain/difficulty-badge";
 import { PortTable } from "@/components/domain/port-table";
 import { TagChip } from "@/components/domain/tag-chip";
+import { problemCard } from "@/features/share/card";
+import { ShareButton } from "@/features/share/share-dialog";
 import { Statement } from "@/lib/statement/statement";
 
+import { problemHref } from "./href";
 import type { ProblemData } from "./load";
 
 /** Pictures of the statement, `assets/…`, from the API by version: they never change. */
@@ -22,14 +25,24 @@ export function assetUrl(slug: string, version: number): (path: string) => strin
 export function ProblemStatement({ problem, levels, tags }: ProblemData) {
   const t = useTranslations("problem");
   const level = findDifficulty(levels, problem.difficulty);
+  const card = problemCard(problem, level ?? null, tags);
   const titleOf = (slug: string) => tags.find((tag) => tag.slug === slug)?.title ?? slug;
   const value = (chunks: ReactNode) => <span className="font-mono text-tx">{chunks}</span>;
   return (
     <article>
       <header className="flex flex-col gap-2.5 border-b border-bd px-4 pt-3.5 pb-3.5 sm:px-[22px] sm:pt-[18px]">
-        <h1 className="text-[22px] leading-[30px] font-semibold tracking-[-0.01em] max-sm:sr-only">
-          {problem.title}
-        </h1>
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="text-[22px] leading-[30px] font-semibold tracking-[-0.01em] max-sm:sr-only">
+            {problem.title}
+          </h1>
+          {/* Phones share the problem from the offer to solve it on a computer. */}
+          <ShareButton
+            card={card}
+            href={problemHref(problem.slug)}
+            iconOnly
+            className="max-sm:hidden"
+          />
+        </div>
         <div className="flex flex-wrap items-center gap-1.5 pointer-coarse:gap-y-6">
           {level && <DifficultyBadge difficulty={level.difficulty} rank={level.rank} />}
           {problem.tags.map((tag) => (

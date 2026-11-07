@@ -10,26 +10,9 @@ import { CommandPalette } from "./command-palette";
 import { GuestBanner } from "./guest-banner";
 import { NetworkBanner } from "./network-banner";
 import { BottomNav, Rail } from "./navigation";
+import { Logo } from "./logo";
 import { ThemeProvider } from "./theme";
 import { AccountMenu } from "./user-menu";
-
-function Logo() {
-  return (
-    <svg
-      width="22"
-      height="22"
-      viewBox="0 0 24 24"
-      fill="none"
-      strokeWidth="2"
-      strokeLinejoin="round"
-      aria-hidden="true"
-      className="stroke-ac"
-    >
-      <rect x="4" y="3" width="17" height="18" rx="2" />
-      <path d="M4 9.5l5 2.5-5 2.5" />
-    </svg>
-  );
-}
 
 export interface AppShellProps {
   theme: Theme;

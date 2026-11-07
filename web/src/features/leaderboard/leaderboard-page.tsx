@@ -25,6 +25,9 @@ import { Pagination } from "@/components/ui/pagination";
 import { useGuest } from "@/features/account/session";
 import { profileHref } from "@/features/profile/href";
 import { solutionHref } from "@/features/solution/href";
+import { problemHref as problemHrefOf } from "@/features/problem/href";
+import type { ProblemCard } from "@/features/share/card";
+import { ShareButton } from "@/features/share/share-dialog";
 import type { Schemas } from "@/lib/api/client";
 import { loginHref } from "@/lib/session";
 import { cn } from "@/lib/utils";
@@ -41,6 +44,8 @@ export interface LeaderboardPageProps {
   level: { difficulty: Schemas["Difficulty"]; rank: number } | null;
   board: Schemas["ProblemLeaderboard"];
   query: BoardQuery;
+  /** «Поделиться» shares the problem (FR-SHR-01). */
+  card: ProblemCard;
 }
 
 /** Metrics of a summary card: the first columns, as in the mock-up. */
@@ -130,7 +135,7 @@ function Cards({ problem, board }: Pick<LeaderboardPageProps, "problem" | "board
   const date = useShortDate();
   const guest = useGuest();
   const { best, reference, me, columns } = board;
-  const problemHref = `/problems/${encodeURIComponent(problem.slug)}`;
+  const problemHref = problemHrefOf(problem.slug);
   return (
     <div className="grid gap-2 lg:grid-cols-3">
       <SummaryCard
@@ -339,13 +344,13 @@ function BoardTable({
   );
 }
 
-export function LeaderboardPage({ problem, level, board, query }: LeaderboardPageProps) {
+export function LeaderboardPage({ problem, level, board, query, card }: LeaderboardPageProps) {
   const t = useTranslations("leaderboard.page");
   const router = useRouter();
   const [busy, startTransition] = useTransition();
   const [shown, show] = useOptimistic(query);
   const { explain } = useOrderWords(board.order);
-  const problemHref = `/problems/${encodeURIComponent(problem.slug)}`;
+  const problemHref = problemHrefOf(problem.slug);
 
   const setGroup = (group: boolean) =>
     startTransition(() => {
@@ -369,12 +374,15 @@ export function LeaderboardPage({ problem, level, board, query }: LeaderboardPag
             {level !== null && <DifficultyBadge difficulty={level.difficulty} rank={level.rank} />}
           </p>
         </div>
-        <Button asChild>
-          <Link href={problemHref}>
-            {t("openProblem")}
-            <ArrowRight aria-hidden="true" />
-          </Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <ShareButton card={card} href={problemHref} />
+          <Button asChild>
+            <Link href={problemHref}>
+              {t("openProblem")}
+              <ArrowRight aria-hidden="true" />
+            </Link>
+          </Button>
+        </div>
       </header>
       <Cards problem={problem} board={board} />
       <div className="flex flex-wrap items-start justify-between gap-3">

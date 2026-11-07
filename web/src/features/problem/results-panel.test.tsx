@@ -3,7 +3,10 @@ import userEvent from "@testing-library/user-event";
 import { http, HttpResponse } from "msw";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+import { findDifficulty } from "@/components/domain/difficulty-badge";
 import { SessionProvider, useAccount } from "@/features/account/session";
+import { problemCard } from "@/features/share/card";
+import { ProblemCardProvider } from "@/features/share/problem-card";
 import {
   applyEvent,
   type Check,
@@ -13,11 +16,13 @@ import {
 } from "@/features/submission/machine";
 import type { SubmissionState } from "@/features/submission/use-submission";
 import type { ApiError, Schemas } from "@/lib/api/client";
+import { config, tags } from "@/mocks/fixtures";
 import { api } from "@/mocks/http";
 import versions from "@/mocks/problem-versions.json";
 import { type ScenarioName, scenarios } from "@/mocks/scenarios";
 import { server } from "@/mocks/server";
 import { eventsUntil, playCheck, queuedCheck } from "@/test/checks";
+import { fromShortId } from "@/lib/short-id";
 import { renderWithProviders } from "@/test/render";
 import { signIn, signOut } from "@/test/session";
 import { fakeAdapter } from "@/test/waveview";
@@ -668,6 +673,65 @@ describe("the synthesis", () => {
     renderPanel(stateOf({ ...check, placement: PLACED }));
     expect(screen.getByText("Принято · место 12 из 304")).toBeInTheDocument();
     expect(screen.getByText(/1 замечание линта не влияет на вердикт и место\./)).toBeVisible();
+  });
+
+  describe("«Поделиться»", () => {
+    const card = problemCard(
+      { ...FIFO, acceptance: null },
+      findDifficulty(config.difficulties, "medium") ?? null,
+      tags,
+    );
+    const renderShared = (check: Check) =>
+      renderWithProviders(
+        <SessionProvider signedIn={document.cookie !== ""}>
+          <ProblemCardProvider card={card}>
+            <ResultsPanel
+              submission={stateOf(check)}
+              problem={FIFO}
+              busy={false}
+              onCheck={vi.fn()}
+              onReveal={vi.fn()}
+            />
+          </ProblemCardProvider>
+        </SessionProvider>,
+      );
+
+    it("of a guest shares the problem: the guest has no public solution", async () => {
+      renderShared(finished("accepted"));
+      await userEvent.click(screen.getByRole("button", { name: "Поделиться" }));
+      const dialog = screen.getByRole("dialog", { name: "Поделиться задачей" });
+      expect(within(dialog).getByRole("textbox")).toHaveValue(
+        "http://localhost:3000/problems/sync-fifo",
+      );
+    });
+
+    it("of a user shares the solution with its place and metrics", async () => {
+      signIn();
+      try {
+        const check = placed();
+        renderShared(check);
+        const share = await screen.findByRole("button", { name: "Поделиться" });
+        // The first action of the mock-up BenchAccepted.
+        expect(share.nextElementSibling).toHaveTextContent("Смотреть рейтинг");
+        await waitFor(async () => {
+          await userEvent.click(share);
+          expect(screen.getByRole("dialog", { name: "Поделиться решением" })).toBeInTheDocument();
+        });
+        const dialog = within(screen.getByRole("dialog"));
+        const link = dialog.getByRole("textbox", { name: "Ссылка на решение" });
+        const short = String((link as HTMLInputElement).value).split("/s/")[1] ?? "";
+        expect(fromShortId(short)).toBe(check.id);
+        expect(dialog.getByText("12 из 304 · ada")).toBeInTheDocument();
+        expect(dialog.getByText("0,592")).toBeInTheDocument();
+      } finally {
+        signOut();
+      }
+    });
+
+    it("is not offered by a Run", () => {
+      renderShared(finished("run-passed"));
+      expect(screen.queryByRole("button", { name: "Поделиться" })).not.toBeInTheDocument();
+    });
   });
 
   it("invites a guest to log in for a place", () => {

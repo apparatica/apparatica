@@ -361,6 +361,8 @@ services:
       # APX_WAVEVIEW_URL of the API.
       S3_PUBLIC_URL: http://s3.localhost:${HTTP_PORT:-8080}
       WAVEVIEW_URL: http://waveview.web.localhost:${HTTP_PORT:-8080}
+      # The origin of the site, the same as APX_PUBLIC_BASE_URL: absolute addresses of og:image.
+      PUBLIC_BASE_URL: http://localhost:${HTTP_PORT:-8080}
     depends_on:
       api:
         condition: service_healthy

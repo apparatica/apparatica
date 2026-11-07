@@ -33,6 +33,7 @@ services:
     environment:
       S3_PUBLIC_URL: https://${S3_HOST:?}
       WAVEVIEW_URL: https://${WAVEVIEW_HOST:?}
+      PUBLIC_BASE_URL: https://${SITE_HOST:?}
 
   caddy:
     environment: !override

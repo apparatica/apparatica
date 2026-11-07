@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 
+import { findDifficulty } from "@/components/domain/difficulty-badge";
 import { LAYOUT_COOKIE, parseBenchLayout } from "@/features/problem/layout";
 import { loadProblem, loadReference, loadServerDraft } from "@/features/problem/load";
 import { parseLeftTab } from "@/features/problem/page-query";
@@ -9,6 +10,8 @@ import { ProblemStatement } from "@/features/problem/problem-statement";
 import { ProblemView } from "@/features/problem/problem-view";
 import type { BenchReference } from "@/features/reference/reference-tab";
 import { ReferenceView } from "@/features/reference/reference-view";
+import { problemCard } from "@/features/share/card";
+import { ProblemCardProvider } from "@/features/share/problem-card";
 import { visitorOf } from "@/lib/api/server";
 import { statementSummary } from "@/lib/statement/summary";
 
@@ -47,18 +50,24 @@ export default async function ProblemPage({ params, searchParams }: PageProps<"/
   }
   const layout = parseBenchLayout(jar.get(LAYOUT_COOKIE)?.value);
   const { tab, submission } = await searchParams;
+  const card = problemCard(
+    data.problem,
+    findDifficulty(data.levels, data.problem.difficulty) ?? null,
+    data.tags,
+  );
   return (
     // Another problem gets a new workspace: its draft, its editor.
-    <ProblemView
-      key={data.problem.slug}
-      problem={data.problem}
-      layout={layout}
-      tab={parseLeftTab(tab)}
-      submission={typeof submission === "string" && UUID.test(submission) ? submission : null}
-      account={account}
-      reference={reference}
-    >
-      <ProblemStatement {...data} />
-    </ProblemView>
+    <ProblemCardProvider key={data.problem.slug} card={card}>
+      <ProblemView
+        problem={data.problem}
+        layout={layout}
+        tab={parseLeftTab(tab)}
+        submission={typeof submission === "string" && UUID.test(submission) ? submission : null}
+        account={account}
+        reference={reference}
+      >
+        <ProblemStatement {...data} />
+      </ProblemView>
+    </ProblemCardProvider>
   );
 }

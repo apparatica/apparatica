@@ -8,6 +8,7 @@ import { LeaderboardPage } from "@/features/leaderboard/leaderboard-page";
 import { loadBoard } from "@/features/leaderboard/load";
 import { parseBoardQuery } from "@/features/leaderboard/query";
 import { loadProblem } from "@/features/problem/load";
+import { problemCard } from "@/features/share/card";
 import { SESSION_COOKIE } from "@/lib/session";
 
 export async function generateMetadata({
@@ -31,13 +32,15 @@ export default async function ProblemLeaderboardPage({
   const session = (await cookies()).get(SESSION_COOKIE)?.value ?? null;
   const loaded = await loadBoard(slug, parseBoardQuery(await searchParams), session);
   if (loaded === null) notFound();
-  const { problem, levels } = data;
+  const { problem, levels, tags } = data;
+  const level = findDifficulty(levels, problem.difficulty) ?? null;
   return (
     <LeaderboardPage
       problem={problem}
-      level={findDifficulty(levels, problem.difficulty) ?? null}
+      level={level}
       board={loaded.board}
       query={loaded.query}
+      card={problemCard(problem, level, tags)}
     />
   );
 }

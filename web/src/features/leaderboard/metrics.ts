@@ -80,9 +80,12 @@ export interface MetricWords {
   inline: (key: string, value: number) => string;
 }
 
-export function useMetricWords(): MetricWords {
-  const t = useTranslations("leaderboard");
-  const format = useFormatter();
+type LeaderboardWords = ReturnType<typeof useTranslations<"leaderboard">>;
+type Formatter = ReturnType<typeof useFormatter>;
+
+/** The words of metrics from the translations of `leaderboard` and a formatter: of a hook or of the
+ * server (`getTranslations`, `getFormatter`). */
+export function metricWords(t: LeaderboardWords, format: Formatter): MetricWords {
   const name = (key: string) => {
     const metric = metricOf(key);
     return isMetricName(metric) ? t(`metric.${metric}`) : key;
@@ -104,6 +107,10 @@ export function useMetricWords(): MetricWords {
     return t(`count.${metric}`, { count: number });
   };
   return { name, unit, value, withUnit, inline };
+}
+
+export function useMetricWords(): MetricWords {
+  return metricWords(useTranslations("leaderboard"), useFormatter());
 }
 
 /** «Задержка — …. Места: задержка → площадь → время отправки; …». */

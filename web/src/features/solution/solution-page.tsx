@@ -3,7 +3,7 @@
 // own accepted Submit of the problem; on the right the author, the verdict with the stages passed,
 // «Совпадает с решением ‹ник›» of a duplicate, the place in the leaderboard and the metrics of the
 // synthesis against the first place and the reference. Rendered by the server: the code is
-// highlighted there. «Поделиться» comes with T3.11, «Пожаловаться» with the complaints (phase 5).
+// highlighted there. «Пожаловаться» comes with the complaints (phase 5).
 import { ArrowRight, CircleCheck, Link2, Lock } from "lucide-react";
 import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
@@ -21,7 +21,10 @@ import { leaderboardHref } from "@/features/leaderboard/query";
 import { SynthCards } from "@/features/leaderboard/synth-cards";
 import { blockOf } from "@/features/problem/pipeline-view";
 import { profileHref } from "@/features/profile/href";
+import { solutionCard } from "@/features/share/card";
+import { ShareButton } from "@/features/share/share-dialog";
 import type { Schemas } from "@/lib/api/client";
+import { shortHref } from "@/lib/short-id";
 import { cn } from "@/lib/utils";
 
 import { solutionHref } from "./href";
@@ -263,12 +266,15 @@ export function SolutionPage({ solution, problem, level }: SolutionPageProps) {
             )}
           </p>
         </div>
-        <Button variant="primary" asChild>
-          <Link href={problemHref}>
-            {t("openProblem")}
-            <ArrowRight aria-hidden="true" />
-          </Link>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <ShareButton card={solutionCard(solution, level)} href={shortHref(solution.id)} />
+          <Button variant="primary" asChild>
+            <Link href={problemHref}>
+              {t("openProblem")}
+              <ArrowRight aria-hidden="true" />
+            </Link>
+          </Button>
+        </div>
       </header>
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(0,1fr)_340px]">
         {solution.code === null ? (

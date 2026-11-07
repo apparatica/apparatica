@@ -21,14 +21,19 @@ import { ApiMocking } from "@/mocks/api-mocking";
 import { QueryProvider } from "@/lib/query";
 import { GUEST_BANNER_COOKIE, isGuestBannerClosed } from "@/lib/guest-banner";
 import { SESSION_COOKIE } from "@/lib/session";
+import { siteUrl } from "@/lib/site";
 import { parseTheme, THEME_COOKIE, THEME_SCRIPT } from "@/lib/theme";
 import { ViewportProvider } from "@/lib/viewport";
 
 export async function generateMetadata(): Promise<Metadata> {
   const t = await getTranslations("meta");
   return {
+    // Cards of links (og:image) need absolute addresses.
+    metadataBase: siteUrl(),
     title: { default: t("title"), template: `%s · ${t("title")}` },
     description: t("description"),
+    // The OG pictures of problems and solutions are wide cards (FR-SHR-02).
+    twitter: { card: "summary_large_image" },
   };
 }
 

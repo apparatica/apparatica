@@ -67,7 +67,7 @@ docker compose -f deploy/compose.yaml -f deploy/compose.server.yaml \
 `compose.server.yaml` меняет у стенда только то, что зависит от сервера:
 
 - Caddy слушает `80` и `443` с `deploy/Caddyfile.server`: публичные имена, сертификаты Let's Encrypt (Caddy получает и продлевает их сам, хранит в томе `caddy-data`), HSTS на год, HTTP отвечает редиректом. Остальные заголовки и CSP — как на стенде ([security.md](security.md#csp-сайта)). Garage находит бакет `waveview` по заголовку `Host`, поэтому Caddy передаёт ему `Host: waveview`.
-- Адреса браузера у API (`APX_S3_PUBLIC_URL`, `APX_WAVEVIEW_URL`), у `web` (CSP) и CORS бакета артефактов — `https://` публичных имён.
+- Адреса браузера у API (`APX_S3_PUBLIC_URL`, `APX_WAVEVIEW_URL`), у `web` (CSP и `PUBLIC_BASE_URL` для OG-картинок) и CORS бакета артефактов — `https://` публичных имён.
 - Grafana без анонимного доступа и только на `127.0.0.1:3000`.
 - `garage-setup` не получает ключа `backup`: бэкапы базы уходят в хранилище другого провайдера ([backups.md](backups.md)), а не в Garage того же хоста.
 - Проверки `storage-check` и `judge-check` идут через Caddy по HTTPS под публичными именами, но имена в их контейнерах ведут на сам хост (`host-gateway`). Так проверяется развёртывание, а не кэши публичных резолверов; к тому же у сети контейнеров нет IPv6, и запись AAAA без A давала бы `Network is unreachable`.

@@ -22,16 +22,21 @@ import type { ReactNode } from "react";
 import { useKilobytes, useSeconds } from "@/components/domain/duration";
 import { Button } from "@/components/ui/button";
 import { notify } from "@/components/ui/toast";
-import { useGuest } from "@/features/account/session";
+import { useAccount, useGuest } from "@/features/account/session";
 import { isSolutionFile } from "@/features/editor/languages";
 import { leaderboardHref } from "@/features/leaderboard/query";
 import { CompareButton, useCompare } from "@/features/reference/compare";
+import { type SolutionCard, synthMetrics } from "@/features/share/card";
+import { useProblemCard } from "@/features/share/problem-card";
+import { ShareButton } from "@/features/share/share-dialog";
 import { type Check, isFinished, type Submission } from "@/features/submission/machine";
 import type { SubmissionState } from "@/features/submission/use-submission";
 import { apiUrl } from "@/lib/api/browser";
 import type { Schemas } from "@/lib/api/client";
+import { shortHref } from "@/lib/short-id";
 import { cn } from "@/lib/utils";
 
+import { problemHref } from "./href";
 import {
   blockOf,
   type BlockView,
@@ -193,6 +198,30 @@ function RunningBanner({ check, submission, problem, blocks }: ResultBannerProps
   );
 }
 
+/** «Поделиться» of an accepted Submit: a user shares the solution, public now (FR-SOL-01) by its
+ * short link; a guest has no public solution and shares the problem. */
+function ShareCheck({ check, problem }: Pick<ResultBannerProps, "check" | "problem">) {
+  const card = useProblemCard();
+  const account = useAccount();
+  const guest = useGuest();
+  if (card === null) return null;
+  if (guest || account == null) {
+    return <ShareButton card={card} href={problemHref(problem.slug)} />;
+  }
+  const { placement } = check;
+  const solution: SolutionCard = {
+    kind: "solution",
+    title: card.title,
+    level: card.level,
+    nick: account.nick,
+    status: check.status === "accepted_with_warnings" ? check.status : "accepted",
+    metrics: synthMetrics(check.stages),
+    placement: placement === null ? null : { rank: placement.rank, total: placement.total },
+    main: problem.leaderboard?.order[0]?.metric ?? null,
+  };
+  return <ShareButton card={solution} href={shortHref(check.id)} />;
+}
+
 function AcceptedBanner({ check, problem, busy, onCheck }: ResultBannerProps) {
   const t = useTranslations("problem.results.banner");
   const hasCompare = useCompare() !== null;
@@ -224,8 +253,15 @@ function AcceptedBanner({ check, problem, busy, onCheck }: ResultBannerProps) {
   const lintOnly = lint > 0 && sources.every((source) => source === "lint");
   const named = sources.map((source) => t(`sources.${source}`));
   const { placement } = check;
-  // «Смотреть рейтинг» and «Сравнить с эталоном» of the mock-up; «Поделиться» comes with T3.11.
+  // «Поделиться», «Смотреть рейтинг» and «Сравнить с эталоном» of the mock-up.
+  const share = <ShareCheck check={check} problem={problem} />;
   const compare = <CompareButton variant={placement === null ? "default" : "primary"} />;
+  const actions = (
+    <>
+      {share}
+      {hasCompare && compare}
+    </>
+  );
   if (placement !== null) {
     // The place leads; the notes follow the sentence about the leaderboard (mock-up BenchAccepted).
     let body = t("placedBody");
@@ -241,6 +277,7 @@ function AcceptedBanner({ check, problem, busy, onCheck }: ResultBannerProps) {
         title={t("acceptedPlace", { rank: placement.rank, total: placement.total })}
         actions={
           <>
+            {share}
             <Button asChild>
               <Link href={`${leaderboardHref(problem.slug, { around: true })}#me`}>
                 {t("leaderboard")}
@@ -260,12 +297,7 @@ function AcceptedBanner({ check, problem, busy, onCheck }: ResultBannerProps) {
     if (guest && problem.leaderboard != null) body = t("guestBody");
     else if (!guest) body = t("publicBody");
     return (
-      <Banner
-        tone="ok"
-        icon={CircleCheck}
-        title={t("accepted")}
-        actions={hasCompare ? compare : undefined}
-      >
+      <Banner tone="ok" icon={CircleCheck} title={t("accepted")} actions={actions}>
         {body}
       </Banner>
     );
@@ -276,19 +308,14 @@ function AcceptedBanner({ check, problem, busy, onCheck }: ResultBannerProps) {
         tone="ok"
         icon={CircleCheck}
         title={t("acceptedLint", { count: lint })}
-        actions={hasCompare ? compare : undefined}
+        actions={actions}
       >
         {t("acceptedLintBody")}
       </Banner>
     );
   }
   return (
-    <Banner
-      tone="ok"
-      icon={CircleCheck}
-      title={t("acceptedNotes")}
-      actions={hasCompare ? compare : undefined}
-    >
+    <Banner tone="ok" icon={CircleCheck} title={t("acceptedNotes")} actions={actions}>
       {named.length > 0 && t("acceptedNotesBody", { sources: format.list(named) })}
     </Banner>
   );
