@@ -2,7 +2,14 @@ import { expect, it } from "vitest";
 
 import type { Schemas } from "@/lib/api/client";
 
-import { columnSort, DEFAULT_QUERY, leaderboardHref, parseBoardQuery } from "./query";
+import {
+  columnSort,
+  DEFAULT_QUERY,
+  leaderboardHref,
+  parseBoardQuery,
+  phoneColumn,
+  phoneSorts,
+} from "./query";
 
 const ORDER: Schemas["LeaderboardKey"][] = [
   { metric: "synth.critical_path_ns", dir: "asc" },
@@ -70,4 +77,26 @@ it("starts the dates from the newest", () => {
     dir: "desc",
     next: "submitted_at",
   });
+});
+
+it("shows phones the column of the sort, else the main metric", () => {
+  const columns = ["synth.critical_path_ns", "synth.area_um2", "synth.cells"];
+  expect(phoneColumn("rank", columns, ORDER)).toBe("synth.critical_path_ns");
+  expect(phoneColumn("-synth.cells", columns, ORDER)).toBe("synth.cells");
+  expect(phoneColumn("synth.area_um2", columns, ORDER)).toBe("synth.area_um2");
+  expect(phoneColumn("-submitted_at", columns, ORDER)).toBe("synth.critical_path_ns");
+  expect(phoneColumn("rank", [], [])).toBeUndefined();
+});
+
+it("offers phones the places, the other columns better first and the newest", () => {
+  const order: Schemas["LeaderboardKey"][] = [
+    { metric: "synth.critical_path_ns", dir: "asc" },
+    { metric: "synth.fmax_mhz", dir: "desc" },
+  ];
+  expect(phoneSorts(["synth.critical_path_ns", "synth.fmax_mhz", "synth.cells"], order)).toEqual([
+    "rank",
+    "-synth.fmax_mhz",
+    "synth.cells",
+    "-submitted_at",
+  ]);
 });

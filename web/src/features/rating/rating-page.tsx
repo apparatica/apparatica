@@ -4,7 +4,8 @@
 // points missing to the next place, how points are counted (the formula of the API), the table —
 // place, user, points, solved problems by level, all solved, the shift for a week — and pages.
 // Off the page, the own row comes after the gap «· · ·» with up to two rows around it. No period
-// switch and no search by nick (specs/08 §6).
+// switch and no search by nick (specs/08 §6). Phones (FR-MOB-03, without a mock-up) keep the
+// place, the user, the points and the week.
 import { ArrowRight, ChartColumn } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -16,6 +17,7 @@ import {
   type LeaderboardCell,
   LeaderboardGap,
   LeaderboardRow,
+  WIDE,
 } from "@/components/domain/leaderboard-row";
 import { PageState } from "@/components/domain/page-state";
 import { Button } from "@/components/ui/button";
@@ -136,8 +138,9 @@ function RatingTable({ rating, levels }: RatingPageProps) {
       ...levels.map((level) => ({
         key: level.key,
         text: number.format(row.solved[level.key] ?? 0),
+        wide: true,
       })),
-      { key: "solved", text: number.format(all) },
+      { key: "solved", text: number.format(all), wide: true },
       {
         key: "week",
         text: delta === null || delta === 0 ? "—" : `${delta > 0 ? "↑" : "↓"} ${Math.abs(delta)}`,
@@ -164,7 +167,10 @@ function RatingTable({ rating, levels }: RatingPageProps) {
   const head = "px-2 text-right font-normal";
   return (
     <div className="overflow-x-auto rounded-md border border-bd">
-      <table aria-label={t("label")} className="w-full min-w-[720px] border-collapse text-[12.5px]">
+      <table
+        aria-label={t("label")}
+        className="w-full border-collapse text-[12.5px] sm:min-w-[720px]"
+      >
         <thead>
           <tr className="h-[34px] border-b border-bd bg-sf2 text-left font-mono text-label whitespace-nowrap text-mu uppercase">
             <th scope="col" className="w-12 px-2 pl-3.5 font-normal">
@@ -177,11 +183,11 @@ function RatingTable({ rating, levels }: RatingPageProps) {
               {t("points")}
             </th>
             {levels.map((level, index) => (
-              <th key={level.key} scope="col" className={head}>
+              <th key={level.key} scope="col" className={`${head} ${WIDE}`}>
                 <DifficultyBadge difficulty={level} rank={index + 1} className="normal-case" />
               </th>
             ))}
-            <th scope="col" className={head}>
+            <th scope="col" className={`${head} ${WIDE}`}>
               {t("solved")}
             </th>
             <th scope="col" className={`${head} pr-3.5`}>

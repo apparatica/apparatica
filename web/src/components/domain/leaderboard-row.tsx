@@ -6,7 +6,8 @@
 // left and the chip «вы». Later solutions with the same syntax tree fold under the row of the
 // earliest one («×N совпадающих», FR-LB-04) and unfold into 28 px rows on --sf2. Between two
 // blocks of rows — the gap «· · ·»; without an own place — «вашего места пока нет». A chevron at the
-// end of a row opens the solution.
+// end of a row opens the solution. Phones (narrower than 640 px) hide the `wide` columns and the
+// date, and make the rows and the chevron 44 px for a finger.
 import { ChevronDown, ChevronRight, CornerDownRight } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -23,6 +24,8 @@ export interface LeaderboardCell {
   unit?: string | null | undefined;
   /** The main metric of the order. */
   primary?: boolean | undefined;
+  /** Shown from 640 px: phones hide the column. */
+  wide?: boolean | undefined;
 }
 
 export interface LeaderboardAuthor {
@@ -36,7 +39,7 @@ export interface LeaderboardRowProps {
   rank: number;
   author: LeaderboardAuthor;
   cells: readonly LeaderboardCell[];
-  /** The date column, formatted; the column is absent when undefined. */
+  /** The date column, formatted; the column is absent when undefined, hidden on phones. */
   date?: string | undefined;
   /** The entry of the signed-in user. */
   me?: boolean | undefined;
@@ -55,6 +58,8 @@ export interface LeaderboardRowProps {
 
 const PRIZES = 3;
 const cell = "px-2 first:pl-3.5 last:pr-3.5";
+/** The classes of a column header or cell that phones hide. */
+export const WIDE = "max-sm:hidden";
 
 function AuthorCell({ author, children }: { author: LeaderboardAuthor; children?: ReactNode }) {
   return (
@@ -77,11 +82,11 @@ function SolutionLink({ href, nick }: { href: string | undefined; nick: string }
   const t = useTranslations("domain.leaderboard");
   if (href === undefined) return null;
   return (
-    <td className="w-8 pr-2 text-right">
+    <td className="w-8 pr-2 text-right max-sm:w-11 max-sm:pr-0">
       <Link
         href={href}
         aria-label={t("open", { nick })}
-        className="inline-flex size-6 items-center justify-center rounded-sm align-middle text-mu hover:bg-sf2 hover:text-tx"
+        className="inline-flex size-6 items-center justify-center rounded-sm align-middle text-mu hover:bg-sf2 hover:text-tx max-sm:size-11"
       >
         <ChevronRight size={14} aria-hidden="true" />
       </Link>
@@ -92,7 +97,11 @@ function SolutionLink({ href, nick }: { href: string | undefined; nick: string }
 function Value({ value, prize }: { value: LeaderboardCell; prize: boolean }) {
   return (
     <td
-      className={cn(cell, "text-right font-mono whitespace-nowrap tabular-nums")}
+      className={cn(
+        cell,
+        "text-right font-mono whitespace-nowrap tabular-nums",
+        value.wide && WIDE,
+      )}
       data-primary={value.primary || undefined}
     >
       <span
@@ -133,7 +142,7 @@ export function LeaderboardRow({
       data-me={me || undefined}
       data-prize={prize || undefined}
       className={cn(
-        "h-[34px] scroll-mt-24 border-t border-bd first:border-t-0",
+        "h-[34px] scroll-mt-24 border-t border-bd first:border-t-0 max-sm:h-11",
         me ? "bg-acs" : "hover:bg-sf2",
       )}
     >
@@ -182,7 +191,9 @@ export function LeaderboardRow({
         <Value key={value.key} value={value} prize={prize} />
       ))}
       {date !== undefined && (
-        <td className={cn(cell, "text-right text-caption whitespace-nowrap text-mu")}>{date}</td>
+        <td className={cn(cell, "text-right text-caption whitespace-nowrap text-mu", WIDE)}>
+          {date}
+        </td>
       )}
       <SolutionLink href={href} nick={author.nick} />
     </tr>
@@ -205,7 +216,7 @@ export interface LeaderboardMemberProps {
 export function LeaderboardMember({ author, leader, cells, date, href }: LeaderboardMemberProps) {
   const t = useTranslations("domain.leaderboard");
   return (
-    <tr data-member="" className="h-7 border-t border-bd bg-sf2 text-mu">
+    <tr data-member="" className="h-7 border-t border-bd bg-sf2 text-mu max-sm:h-11">
       <td className={cell} />
       <td className={cn(cell, "w-full max-w-0")}>
         <span className="flex min-w-0 items-center gap-2">
@@ -218,14 +229,18 @@ export function LeaderboardMember({ author, leader, cells, date, href }: Leaderb
       {cells.map((value) => (
         <td
           key={value.key}
-          className={cn(cell, "text-right font-mono whitespace-nowrap tabular-nums")}
+          className={cn(
+            cell,
+            "text-right font-mono whitespace-nowrap tabular-nums",
+            value.wide && WIDE,
+          )}
         >
           {value.text}
           {value.unit != null && <span className="ml-1 text-[11px]">{value.unit}</span>}
         </td>
       ))}
       {date !== undefined && (
-        <td className={cn(cell, "text-right text-caption whitespace-nowrap")}>{date}</td>
+        <td className={cn(cell, "text-right text-caption whitespace-nowrap", WIDE)}>{date}</td>
       )}
       <SolutionLink href={href} nick={author.nick} />
     </tr>

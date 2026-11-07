@@ -4,8 +4,18 @@
 // the reference and the own entry; what the main metric means and how places are ordered; the
 // table with a place, author, the metrics of `columns` and the date per row, sorted by a column
 // without changing the places, with duplicates folded under the earliest solution; pages. The
-// server renders the query of the address; the controls change it.
-import { ArrowDown, ArrowRight, ArrowUp, ArrowUpDown, Info, Trophy } from "lucide-react";
+// server renders the query of the address; the controls change it. Phones (FR-MOB-03, without a
+// mock-up) keep the place, the author and one metric — of the sort, else the main one — and sort
+// with a menu instead of the headers.
+import {
+  ArrowDown,
+  ArrowRight,
+  ArrowUp,
+  ArrowUpDown,
+  ChevronDown,
+  Info,
+  Trophy,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -17,10 +27,19 @@ import {
   LeaderboardGap,
   LeaderboardMember,
   LeaderboardRow,
+  WIDE,
 } from "@/components/domain/leaderboard-row";
 import { PageState } from "@/components/domain/page-state";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Pagination } from "@/components/ui/pagination";
 import { useGuest } from "@/features/account/session";
 import { profileHref } from "@/features/profile/href";
@@ -33,8 +52,8 @@ import { loginHref } from "@/lib/session";
 import { cn } from "@/lib/utils";
 
 import { useShortDate } from "./date";
-import { useMetricWords, useOrderWords } from "./metrics";
-import { type BoardQuery, columnSort, leaderboardHref } from "./query";
+import { directionOf, isMetricName, metricOf, useMetricWords, useOrderWords } from "./metrics";
+import { type BoardQuery, columnSort, leaderboardHref, phoneColumn, phoneSorts } from "./query";
 
 export type BoardProblem = Pick<Schemas["ProblemDetail"], "slug" | "title" | "reference">;
 
@@ -52,8 +71,13 @@ export interface LeaderboardPageProps {
 const CARD_METRICS = 4;
 type Row = Schemas["LeaderboardRow"];
 
-/** The cells of a row: the metrics of the columns, the first of the order being the main one. */
-export function useCells(columns: readonly string[], primary: string | undefined) {
+/** The cells of a row: the metrics of the columns, the first of the order being the main one;
+ * phones show only the column `phone`. */
+export function useCells(
+  columns: readonly string[],
+  primary: string | undefined,
+  phone: string | undefined = undefined,
+) {
   const words = useMetricWords();
   return (metrics: Row["metrics"], units = false): LeaderboardCell[] =>
     columns.map((key) => {
@@ -63,6 +87,7 @@ export function useCells(columns: readonly string[], primary: string | undefined
         text: value === undefined ? "—" : words.value(key, value),
         unit: units ? words.unit(key) : null,
         primary: key === primary,
+        wide: phone !== undefined && key !== phone,
       };
     });
 }
@@ -187,12 +212,15 @@ function SortHeader({
   sort,
   href,
   primary,
+  wide = false,
 }: {
   label: string;
   unit: string | null;
   sort: ReturnType<typeof columnSort>;
   href: string;
   primary: boolean;
+  /** Phones hide the column. */
+  wide?: boolean;
 }) {
   const t = useTranslations("leaderboard.page.table");
   const Icon = !sort.active ? ArrowUpDown : sort.dir === "asc" ? ArrowUp : ArrowDown;
@@ -200,7 +228,7 @@ function SortHeader({
     <th
       scope="col"
       aria-sort={sort.active ? (sort.dir === "asc" ? "ascending" : "descending") : undefined}
-      className="px-2 text-right font-normal last:pr-3.5"
+      className={cn("px-2 text-right font-normal last:pr-3.5", wide && WIDE)}
     >
       <Link
         href={href}
@@ -233,7 +261,8 @@ function BoardTable({
   const words = useMetricWords();
   const date = useShortDate();
   const primary = board.order[0]?.metric;
-  const cells = useCells(board.columns, primary);
+  const phone = phoneColumn(query.sort, board.columns, board.order);
+  const cells = useCells(board.columns, primary, phone);
   const [expanded, setExpanded] = useState<ReadonlySet<string>>(new Set());
   const toggle = (id: string) =>
     setExpanded((current) => {
@@ -270,7 +299,7 @@ function BoardTable({
         aria-label={t("label")}
         aria-busy={busy || undefined}
         className={cn(
-          "w-full min-w-[720px] border-collapse text-[12.5px] transition-opacity",
+          "w-full border-collapse text-[12.5px] transition-opacity sm:min-w-[720px]",
           busy && "opacity-60",
         )}
       >
@@ -292,6 +321,7 @@ function BoardTable({
                   sort={sort}
                   href={sortHref(sort.next)}
                   primary={key === primary}
+                  wide={key !== phone}
                 />
               );
             })}
@@ -301,6 +331,7 @@ function BoardTable({
               sort={columnSort("submitted_at", query.sort, board.order)}
               href={sortHref(columnSort("submitted_at", query.sort, board.order).next)}
               primary={false}
+              wide
             />
             <th scope="col" className="w-8">
               <span className="sr-only">{t("solution")}</span>
@@ -344,6 +375,52 @@ function BoardTable({
   );
 }
 
+/** Phones: the sort of the table as a menu; the headers of the hidden columns cannot sort. */
+function SortMenu({
+  board,
+  sort,
+  onSort,
+}: {
+  board: LeaderboardPageProps["board"];
+  sort: string;
+  onSort: (sort: string) => void;
+}) {
+  const t = useTranslations("leaderboard.page.sort");
+  const names = useTranslations("leaderboard");
+  const words = useMetricWords();
+  const sorts = phoneSorts(board.columns, board.order);
+  const labelOf = (value: string) => {
+    if (value === "rank") return t("rank");
+    if (value === "-submitted_at") return t("newest");
+    if (value === "submitted_at") return t("oldest");
+    const key = value.replace(/^-/, "");
+    const metric = metricOf(key);
+    const by = isMetricName(metric) ? names(`by.${metric}`) : words.name(key);
+    const dir = value.startsWith("-") ? "desc" : "asc";
+    return dir === directionOf(key, board.order) ? by : t("reversed", { by });
+  };
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button aria-label={t("label", { sort: labelOf(sort) })} className="sm:hidden">
+          {labelOf(sort)}
+          <ChevronDown className="size-3.5!" aria-hidden="true" />
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuLabel>{t("title")}</DropdownMenuLabel>
+        <DropdownMenuRadioGroup value={sort} onValueChange={onSort}>
+          {sorts.map((value) => (
+            <DropdownMenuRadioItem key={value} value={value}>
+              {labelOf(value)}
+            </DropdownMenuRadioItem>
+          ))}
+        </DropdownMenuRadioGroup>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
 export function LeaderboardPage({ problem, level, board, query, card }: LeaderboardPageProps) {
   const t = useTranslations("leaderboard.page");
   const router = useRouter();
@@ -352,9 +429,9 @@ export function LeaderboardPage({ problem, level, board, query, card }: Leaderbo
   const { explain } = useOrderWords(board.order);
   const problemHref = problemHrefOf(problem.slug);
 
-  const setGroup = (group: boolean) =>
+  const change = (changes: Partial<BoardQuery>) =>
     startTransition(() => {
-      const next = { ...query, group, page: 1, around: false };
+      const next = { ...query, ...changes, page: 1, around: false };
       show(next);
       router.replace(leaderboardHref(problem.slug, next), { scroll: false });
     });
@@ -394,10 +471,13 @@ export function LeaderboardPage({ problem, level, board, query, card }: Leaderbo
           <label className="inline-flex h-[30px] cursor-pointer items-center gap-2 rounded-md border border-bc bg-sf px-2.5 text-[12.5px]">
             <Checkbox
               checked={shown.group}
-              onCheckedChange={(checked) => setGroup(checked === true)}
+              onCheckedChange={(checked) => change({ group: checked === true })}
             />
             {t("group")}
           </label>
+          {board.total > 0 && (
+            <SortMenu board={board} sort={shown.sort} onSort={(sort) => change({ sort })} />
+          )}
           {board.me !== null && (
             <Button asChild>
               <Link href={`${leaderboardHref(problem.slug, { ...query, around: true })}#me`}>

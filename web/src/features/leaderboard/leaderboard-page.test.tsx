@@ -153,3 +153,20 @@ it("tells an empty leaderboard", async () => {
   expect(screen.getByText("Эталон ещё не измерен.")).toBeInTheDocument();
   expect(screen.queryByRole("table")).not.toBeInTheDocument();
 });
+
+it("sorts with a menu on phones and keeps the column of the sort", async () => {
+  const user = userEvent.setup();
+  await renderPage("sync-fifo", { ...DEFAULT_QUERY, sort: "synth.area_um2" });
+  // Phones hide every metric but the one of the sort, and the date.
+  const hidden = (name: RegExp) =>
+    screen.getByRole("columnheader", { name }).classList.contains("max-sm:hidden");
+  expect(hidden(/площадь/)).toBe(false);
+  expect(hidden(/задержка/)).toBe(true);
+  expect(hidden(/Дата/)).toBe(true);
+  await user.click(screen.getByRole("button", { name: "Сортировка: По площади" }));
+  await user.click(await screen.findByRole("menuitemradio", { name: "Сначала новые" }));
+  expect(router.replace).toHaveBeenCalledWith(
+    "/problems/sync-fifo/leaderboard?sort=-submitted_at",
+    { scroll: false },
+  );
+});

@@ -85,3 +85,27 @@ export function columnSort(
     dir === natural ? sortOf(key, reverse(natural)) : primary ? "rank" : sortOf(key, natural);
   return { active: true, dir, next };
 }
+
+/** The metric column a phone shows: the one of the sort, else the main metric. */
+export function phoneColumn(
+  sort: string,
+  columns: readonly string[],
+  order: readonly Schemas["LeaderboardKey"][],
+): string | undefined {
+  const key = sort.replace(/^-/, "");
+  return columns.includes(key) ? key : order[0]?.metric;
+}
+
+/** The sorts of the phone menu: the places, every other column with its better values first and
+ * the newest solutions. */
+export function phoneSorts(
+  columns: readonly string[],
+  order: readonly Schemas["LeaderboardKey"][],
+): string[] {
+  const primary = order[0]?.metric;
+  return [
+    "rank",
+    ...columns.filter((key) => key !== primary).map((key) => sortOf(key, directionOf(key, order))),
+    "-submitted_at",
+  ];
+}

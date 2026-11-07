@@ -47,7 +47,8 @@ function Step({
   );
 }
 
-/** Pages as links: `href(page)` is the address of a page. */
+/** Pages as links: `href(page)` is the address of a page. Phones show «‹ 3 из 16 ›»: nine
+ * squares of 44 px do not fit their width. */
 export function Pagination({
   page,
   count,
@@ -66,16 +67,23 @@ export function Pagination({
       <Step href={page > 1 ? href(page - 1) : null} label={t("previous")}>
         <ChevronLeft size={14} aria-hidden="true" />
       </Step>
+      <span className="px-2 font-mono text-caption whitespace-nowrap sm:hidden">
+        {t("position", { page, count })}
+      </span>
       {pageItems(page, count).map((item, index) =>
         item === "gap" ? (
-          <span key={`gap-${index}`} className={cn(square, "text-mu")} aria-hidden="true">
+          <span
+            key={`gap-${index}`}
+            className={cn(square, "text-mu max-sm:hidden")}
+            aria-hidden="true"
+          >
             …
           </span>
         ) : item === page ? (
           <span
             key={item}
             aria-current="page"
-            className={cn(square, "border border-ac bg-acs font-semibold text-ac")}
+            className={cn(square, "border border-ac bg-acs font-semibold text-ac max-sm:hidden")}
           >
             {item}
           </span>
@@ -84,7 +92,7 @@ export function Pagination({
             key={item}
             href={href(item)}
             aria-label={t("page", { page: item })}
-            className={link}
+            className={cn(link, "max-sm:hidden")}
           >
             {item}
           </Link>

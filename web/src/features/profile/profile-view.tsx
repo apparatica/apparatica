@@ -106,7 +106,7 @@ export function ProfileView({ profile, levels, solutions }: ProfileData) {
         <ShareButton nick={profile.nick} />
       </header>
 
-      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(200px,100%),1fr))] gap-2">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-[repeat(auto-fit,minmax(200px,1fr))]">
         <Tile
           label={t("place.label")}
           value={rating === null ? "—" : format.number(rating.rank)}

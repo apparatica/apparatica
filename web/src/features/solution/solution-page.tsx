@@ -258,7 +258,11 @@ export function SolutionPage({ solution, problem, level }: SolutionPageProps) {
               {problem.title}
             </Link>
             {level !== null && <DifficultyBadge difficulty={level.difficulty} rank={level.rank} />}
-            <span>· {t("submitted", { date: submitted })}</span>
+            {/* Phones put the time on a line of its own, without the dot. */}
+            <span className="max-sm:basis-full">
+              <span className="max-sm:hidden">· </span>
+              {t("submitted", { date: submitted })}
+            </span>
             {solution.version !== problem.version && (
               <span className="font-mono text-label" title={t("versionHint")}>
                 · {t("version", { version: solution.version })}

@@ -196,7 +196,7 @@ export function SolutionsTab({ problem, onEdit }: SolutionsTabProps) {
               <Link
                 href={solutionHref(item.id)}
                 aria-label={t("open", { nick: item.author.nick })}
-                className="inline-flex size-6 flex-none items-center justify-center rounded-sm text-mu hover:bg-sf2 hover:text-tx"
+                className="inline-flex size-6 flex-none items-center justify-center rounded-sm text-mu hover:bg-sf2 hover:text-tx max-sm:-mr-2.5 max-sm:size-11"
               >
                 <ChevronRight size={14} aria-hidden="true" />
               </Link>
