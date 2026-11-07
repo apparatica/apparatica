@@ -3,7 +3,7 @@
 import { cache } from "react";
 
 import type { ApiError, Schemas } from "@/lib/api/client";
-import { serverApi, sessionApi } from "@/lib/api/server";
+import { serverApi, sessionApi, type Visitor, visitorApi } from "@/lib/api/server";
 
 import type { AccountDrafts } from "./server-draft";
 
@@ -49,4 +49,30 @@ export async function loadServerDraft(
   });
   if (data !== undefined) return { draft: data };
   return response.status === 404 ? { draft: null } : null;
+}
+
+/** The reference solutions as the visitor of the request sees them (FR-REF-01). */
+export type LoadedReference =
+  | { state: "open"; page: Schemas["ReferencePage"] }
+  /** Until the visitor's own accepted Submit of the problem (`after_accepted`, ОВ-2). */
+  | { state: "locked" }
+  /** The page is shown without them: the tab offers to load the page again. */
+  | { state: "failed" };
+
+/** null when the problem has none or hides them. */
+export async function loadReference(
+  slug: string,
+  visitor: Visitor,
+): Promise<LoadedReference | null> {
+  try {
+    const { data, error, response } = await visitorApi(visitor).GET(
+      "/api/v1/problems/{slug}/reference",
+      { params: { path: { slug } } },
+    );
+    if (data !== undefined) return { state: "open", page: data };
+    if (response.status === 404) return null;
+    return { state: error?.code === "REFERENCE_LOCKED" ? "locked" : "failed" };
+  } catch {
+    return { state: "failed" };
+  }
 }

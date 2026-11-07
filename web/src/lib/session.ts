@@ -2,6 +2,10 @@
 // of the site sees it and renders the header of a signed-in user without waiting for GET /me.
 export const SESSION_COOKIE = "ap_session";
 
+/** The guest cookie of the API (FR-GST-01): httpOnly and signed, the server of the site only passes
+ * it on. */
+export const GUEST_COOKIE = "ap_guest";
+
 /** `next` of a login, if it is a path of the site: the rule of the API (docs/api.md, `next`) —
  * a leading "/", but not "//" or "/\", and no whitespace. Anything else is dropped. */
 export function sitePath(value: unknown): string | null {

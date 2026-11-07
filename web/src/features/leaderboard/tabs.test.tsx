@@ -69,6 +69,10 @@ it("lists the solutions after the own accepted Submit, in the chosen order", asy
   const rows = within(list).getAllByRole("listitem");
   expect(rows.length).toBeGreaterThan(0);
   expect(within(rows[0] as HTMLElement).getByText(/нс · .* µm²/)).toBeInTheDocument();
+  expect(within(rows[0] as HTMLElement).getByRole("link", { name: /^Решение / })).toHaveAttribute(
+    "href",
+    expect.stringMatching(/^\/solutions\/[0-9a-f-]{36}$/),
+  );
   expect(screen.getByRole("button", { name: "По задержке" })).toHaveAttribute(
     "aria-pressed",
     "true",

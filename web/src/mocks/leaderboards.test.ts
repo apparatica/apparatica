@@ -82,7 +82,10 @@ it("closes the code of others and the reference until an accepted Submit", async
   const id = listed.data?.items[0]?.id ?? "";
   const locked = await client.GET("/api/v1/solutions/{id}", { params: { path: { id } } });
   expect(locked.data).toMatchObject({ code: null, code_locked: true });
-  expect(locked.data?.stages.at(-1)?.metrics_schema).toBe("synth/v1");
+  // The stages of the Submit of the package: its synthesis has the metrics, once.
+  const synth = locked.data?.stages.filter((stage) => stage.type === "synth") ?? [];
+  expect(synth).toHaveLength(1);
+  expect(synth[0]?.metrics).toMatchObject({ critical_path_ns: expect.any(Number) });
   const reference = await client.GET("/api/v1/problems/{slug}/reference", {
     params: { path: { slug: "sync-fifo" } },
   });

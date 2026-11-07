@@ -15,6 +15,7 @@ import {
   TriangleAlert,
   WifiOff,
 } from "lucide-react";
+import Link from "next/link";
 import { useFormatter, useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
@@ -23,6 +24,8 @@ import { Button } from "@/components/ui/button";
 import { notify } from "@/components/ui/toast";
 import { useGuest } from "@/features/account/session";
 import { isSolutionFile } from "@/features/editor/languages";
+import { leaderboardHref } from "@/features/leaderboard/query";
+import { CompareButton, useCompare } from "@/features/reference/compare";
 import { type Check, isFinished, type Submission } from "@/features/submission/machine";
 import type { SubmissionState } from "@/features/submission/use-submission";
 import { apiUrl } from "@/lib/api/browser";
@@ -88,7 +91,7 @@ const code = (chunks: ReactNode) => (
 export interface ResultBannerProps {
   check: Check;
   submission: SubmissionState;
-  problem: Pick<Schemas["ProblemDetail"], "tests" | "language" | "leaderboard">;
+  problem: Pick<Schemas["ProblemDetail"], "slug" | "tests" | "language" | "leaderboard">;
   /** The pipeline as drawn: the running block and its time. */
   blocks: readonly BlockView[];
   /** `Date.now()` of the last tick: the countdown to the next reconnect. */
@@ -192,6 +195,7 @@ function RunningBanner({ check, submission, problem, blocks }: ResultBannerProps
 
 function AcceptedBanner({ check, problem, busy, onCheck }: ResultBannerProps) {
   const t = useTranslations("problem.results.banner");
+  const hasCompare = useCompare() !== null;
   const format = useFormatter();
   const guest = useGuest();
   const lint = lintWarnings(check);
@@ -220,6 +224,8 @@ function AcceptedBanner({ check, problem, busy, onCheck }: ResultBannerProps) {
   const lintOnly = lint > 0 && sources.every((source) => source === "lint");
   const named = sources.map((source) => t(`sources.${source}`));
   const { placement } = check;
+  // «Смотреть рейтинг» and «Сравнить с эталоном» of the mock-up; «Поделиться» comes with T3.11.
+  const compare = <CompareButton variant={placement === null ? "default" : "primary"} />;
   if (placement !== null) {
     // The place leads; the notes follow the sentence about the leaderboard (mock-up BenchAccepted).
     let body = t("placedBody");
@@ -233,6 +239,16 @@ function AcceptedBanner({ check, problem, busy, onCheck }: ResultBannerProps) {
         tone="ok"
         icon={CircleCheck}
         title={t("acceptedPlace", { rank: placement.rank, total: placement.total })}
+        actions={
+          <>
+            <Button asChild>
+              <Link href={`${leaderboardHref(problem.slug, { around: true })}#me`}>
+                {t("leaderboard")}
+              </Link>
+            </Button>
+            {compare}
+          </>
+        }
       >
         {body}
         {notes !== null && <> {notes}</>}
@@ -244,20 +260,35 @@ function AcceptedBanner({ check, problem, busy, onCheck }: ResultBannerProps) {
     if (guest && problem.leaderboard != null) body = t("guestBody");
     else if (!guest) body = t("publicBody");
     return (
-      <Banner tone="ok" icon={CircleCheck} title={t("accepted")}>
+      <Banner
+        tone="ok"
+        icon={CircleCheck}
+        title={t("accepted")}
+        actions={hasCompare ? compare : undefined}
+      >
         {body}
       </Banner>
     );
   }
   if (lintOnly) {
     return (
-      <Banner tone="ok" icon={CircleCheck} title={t("acceptedLint", { count: lint })}>
+      <Banner
+        tone="ok"
+        icon={CircleCheck}
+        title={t("acceptedLint", { count: lint })}
+        actions={hasCompare ? compare : undefined}
+      >
         {t("acceptedLintBody")}
       </Banner>
     );
   }
   return (
-    <Banner tone="ok" icon={CircleCheck} title={t("acceptedNotes")}>
+    <Banner
+      tone="ok"
+      icon={CircleCheck}
+      title={t("acceptedNotes")}
+      actions={hasCompare ? compare : undefined}
+    >
       {named.length > 0 && t("acceptedNotesBody", { sources: format.list(named) })}
     </Banner>
   );

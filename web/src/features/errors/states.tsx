@@ -27,10 +27,11 @@ const NOT_FOUND = {
   page: "notFound",
   problem: "problemNotFound",
   profile: "profileNotFound",
+  solution: "solutionNotFound",
 } as const;
 
 /** 404: the address leads nowhere; for a problem page, the problem is not published; for a profile,
- * nobody has the nick. */
+ * nobody has the nick; for a solution, there is no such public solution. */
 export function NotFoundState({ kind = "page" }: { kind?: keyof typeof NOT_FOUND }) {
   const t = useTranslations("errors");
   const path = usePathname();

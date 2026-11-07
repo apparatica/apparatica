@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useGuest } from "@/features/account/session";
 import { profileHref } from "@/features/profile/href";
+import { solutionHref } from "@/features/solution/href";
 import type { Schemas } from "@/lib/api/client";
 import { loginHref } from "@/lib/session";
 
@@ -92,6 +93,7 @@ export function LeaderboardTab({ problem }: { problem: string }) {
       me={row.is_me}
       duplicates={row.duplicates}
       duplicateOf={row.duplicate_of?.author.nick ?? null}
+      href={solutionHref(row.solution_id)}
     />
   );
   const meShown = items.some((row) => row.is_me);
@@ -108,7 +110,7 @@ export function LeaderboardTab({ problem }: { problem: string }) {
           {items.map(rowOf)}
           {me !== null && !meShown && (
             <>
-              <LeaderboardGap columns={3} />
+              <LeaderboardGap columns={4} />
               {rowOf(me)}
             </>
           )}

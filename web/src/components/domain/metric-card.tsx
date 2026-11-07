@@ -39,7 +39,8 @@ export interface MetricCardProps extends Omit<ComponentProps<"div">, "children">
 
 const TONES = { better: "text-ok", worse: "text-wn", same: "text-mu" } as const;
 
-function Comparison({ comparison }: { comparison: MetricComparison }) {
+/** The comparison with the reference in words, in its tone: «↓ 8% лучше эталона». */
+export function ComparisonText({ comparison }: { comparison: MetricComparison }) {
   const t = useTranslations("domain.metric");
   let text: string;
   if (comparison.kind === "same") {
@@ -111,7 +112,7 @@ export function MetricCard({
       {comparison === null ? (
         <span className="text-caption text-tx">{note ?? t("none")}</span>
       ) : (
-        <Comparison comparison={comparison} />
+        <ComparisonText comparison={comparison} />
       )}
       <span className="font-mono text-[11px] text-mu">
         {numbers.length === 0 ? "—" : numbers.join(" · ")}

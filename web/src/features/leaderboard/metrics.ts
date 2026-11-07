@@ -3,6 +3,7 @@
 // without a name in the messages is shown by its key.
 import { useFormatter, useTranslations } from "next-intl";
 
+import type { MetricComparison } from "@/components/domain/metric-card";
 import type { Schemas } from "@/lib/api/client";
 
 /** Metrics of `synth/v1` with a name in words. */
@@ -18,6 +19,11 @@ export type MetricName = (typeof METRIC_NAMES)[number];
 
 export const isMetricName = (name: string): name is MetricName =>
   (METRIC_NAMES as readonly string[]).includes(name);
+
+/** The metrics of the cards of a synthesis, in the order of the mock-ups; all of them are better
+ * when lower. */
+export const CARD_METRICS = ["critical_path_ns", "area_um2", "cells", "flops"] as const;
+export type CardMetric = (typeof CARD_METRICS)[number];
 
 /** The metric of a key: "synth.area_um2" → "area_um2". */
 export const metricOf = (key: string): string => key.slice(key.indexOf(".") + 1);
@@ -49,6 +55,16 @@ export function directionOf(
   order: readonly Schemas["LeaderboardKey"][] | null | undefined,
 ): Direction {
   return order?.find((item) => item.metric === key)?.dir ?? "asc";
+}
+
+/** The value against the reference: better, worse or the same, and by what share of it. */
+export function compareMetric(value: number, reference: number, dir: Direction): MetricComparison {
+  if (value === reference) return { kind: "same" };
+  const better = dir === "asc" ? value < reference : value > reference;
+  return {
+    kind: better ? "better" : "worse",
+    share: reference === 0 ? null : Math.abs(value - reference) / Math.abs(reference),
+  };
 }
 
 export interface MetricWords {

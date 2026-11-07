@@ -37,6 +37,7 @@ export const Prize: Story = {
     author: { nick: "tim_hdl", href: "/u/tim_hdl" },
     cells: cells("0,71", "744"),
     date: "3 окт.",
+    href: "/solutions/7c3e6a52-0d4e-4c1a-9a0b-2f1d3c4b5a69",
   },
 };
 

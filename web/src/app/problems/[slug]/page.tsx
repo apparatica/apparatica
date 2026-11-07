@@ -3,11 +3,13 @@ import { cookies } from "next/headers";
 import { notFound } from "next/navigation";
 
 import { LAYOUT_COOKIE, parseBenchLayout } from "@/features/problem/layout";
-import { loadProblem, loadServerDraft } from "@/features/problem/load";
+import { loadProblem, loadReference, loadServerDraft } from "@/features/problem/load";
 import { parseLeftTab } from "@/features/problem/page-query";
 import { ProblemStatement } from "@/features/problem/problem-statement";
 import { ProblemView } from "@/features/problem/problem-view";
-import { SESSION_COOKIE } from "@/lib/session";
+import type { BenchReference } from "@/features/reference/reference-tab";
+import { ReferenceView } from "@/features/reference/reference-view";
+import { visitorOf } from "@/lib/api/server";
 import { statementSummary } from "@/lib/statement/summary";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -25,11 +27,24 @@ export async function generateMetadata({
 export default async function ProblemPage({ params, searchParams }: PageProps<"/problems/[slug]">) {
   const { slug } = await params;
   const jar = await cookies();
+  const visitor = visitorOf(jar);
   const [data, account] = await Promise.all([
     loadProblem(slug),
-    loadServerDraft(slug, jar.get(SESSION_COOKIE)?.value ?? null),
+    loadServerDraft(slug, visitor.session),
   ]);
   if (data === null) notFound();
+  // The reference solutions as this visitor sees them (FR-REF-01), rendered here like the statement.
+  const loaded = data.problem.reference === null ? null : await loadReference(slug, visitor);
+  let reference: BenchReference | null = null;
+  if (loaded?.state === "open") {
+    reference = {
+      state: "open",
+      view: <ReferenceView page={loaded.page} problem={data.problem} />,
+      solutions: loaded.page.solutions,
+    };
+  } else if (loaded !== null) {
+    reference = { state: loaded.state };
+  }
   const layout = parseBenchLayout(jar.get(LAYOUT_COOKIE)?.value);
   const { tab, submission } = await searchParams;
   return (
@@ -41,6 +56,7 @@ export default async function ProblemPage({ params, searchParams }: PageProps<"/
       tab={parseLeftTab(tab)}
       submission={typeof submission === "string" && UUID.test(submission) ? submission : null}
       account={account}
+      reference={reference}
     >
       <ProblemStatement {...data} />
     </ProblemView>

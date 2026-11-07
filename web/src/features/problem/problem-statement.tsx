@@ -14,7 +14,7 @@ import { Statement } from "@/lib/statement/statement";
 import type { ProblemData } from "./load";
 
 /** Pictures of the statement, `assets/…`, from the API by version: they never change. */
-function assetUrl(slug: string, version: number): (path: string) => string {
+export function assetUrl(slug: string, version: number): (path: string) => string {
   const base = `/api/v1/problems/${encodeURIComponent(slug)}/versions/${version}`;
   return (path) => `${base}/${path.split("/").map(encodeURIComponent).join("/")}`;
 }

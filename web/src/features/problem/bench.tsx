@@ -4,7 +4,10 @@
 // on the right, in panels whose sizes the browser remembers. The page owns the check
 // (useSubmission) and the code (Workspace); Run and Submit start from the buttons or the shortcuts.
 // A start the API refuses until a captcha is solved opens the captcha and starts again with it.
+// The reference solutions come rendered from the server; an accepted Submit that opens them reads
+// the page again, and «Сравнить с эталоном» compares them with the Submit or the draft.
 import { skipToken, useQuery } from "@tanstack/react-query";
+import { Lock } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { type ReactNode, useEffect, useState, useSyncExternalStore } from "react";
 import {
@@ -22,6 +25,17 @@ import { captchaRequest } from "@/features/captcha/request";
 import { useSubmissionHistory } from "@/features/guest/submissions";
 import { LeaderboardTab } from "@/features/leaderboard/leaderboard-tab";
 import { SolutionsTab } from "@/features/leaderboard/solutions-tab";
+import {
+  type CompareApi,
+  CompareDialog,
+  CompareProvider,
+  type Mine,
+} from "@/features/reference/compare";
+import {
+  type BenchReference,
+  ReferenceTab,
+  RefreshOnAccepted,
+} from "@/features/reference/reference-tab";
 import { isFinished } from "@/features/submission/machine";
 import { useSubmission } from "@/features/submission/use-submission";
 import { browserApi } from "@/lib/api/browser";
@@ -37,6 +51,7 @@ import { useLeftTab } from "./left-tab";
 import { type LeftTab, setPageQuery } from "./page-query";
 import { editorDiagnostics } from "./pipeline-view";
 import { ResultsPanel } from "./results-panel";
+import { synthStageOf } from "./synth-view";
 import { useCheckShortcuts } from "./shortcuts";
 import { SubmissionsTab } from "./submissions-tab";
 import type { AccountDrafts } from "./server-draft";
@@ -69,6 +84,8 @@ export interface BenchProps {
   submission?: string | null | undefined;
   /** The drafts of a signed-in user on the server, read with the page; null for a guest. */
   account?: AccountDrafts | null | undefined;
+  /** The reference solutions as the visitor sees them; null when the problem shows none. */
+  reference?: BenchReference | null | undefined;
   /** The statement panel, rendered by the server. */
   children: ReactNode;
 }
@@ -99,6 +116,7 @@ export function Bench({
   tab = "statement",
   submission: wanted,
   account = null,
+  reference = null,
   children,
 }: BenchProps) {
   const t = useTranslations("problem");
@@ -159,6 +177,29 @@ export function Bench({
   };
   useCheckShortcuts(start);
 
+  const accepted =
+    check !== null &&
+    check.kind === "submit" &&
+    isFinished(check) &&
+    (check.status === "accepted" || check.status === "accepted_with_warnings");
+
+  // «Сравнить с эталоном»: the accepted Submit on screen, else the code of the editor.
+  const [comparing, setComparing] = useState<{ index: number; mine: Mine } | null>(null);
+  const [compareOpen, setCompareOpen] = useState(false);
+  const compare: CompareApi | null =
+    reference?.state === "open" && reference.solutions.length > 0
+      ? {
+          open: (index) => {
+            const mine: Mine =
+              accepted && check !== null
+                ? { kind: "submit", id: check.id, synth: synthStageOf(check) }
+                : { kind: "draft", code: workspace.code() };
+            setComparing({ index, mine });
+            setCompareOpen(true);
+          },
+        }
+      : null;
+
   // The captcha is asked once per refused start; a cancelled one stays closed.
   const captcha = captchaRequest(error, failedAt);
   const [dismissed, setDismissed] = useState<number | null>(null);
@@ -181,90 +222,119 @@ export function Bench({
   };
 
   return (
-    <Group
-      id="bench"
-      orientation="horizontal"
-      defaultLayout={layout.columns}
-      onLayoutChanged={remember("columns")}
-      className="h-full min-h-0"
-    >
-      <Panel id="statement" defaultSize="38%" minSize="20%" maxSize="70%">
-        <Tabs
-          value={leftTab}
-          onValueChange={selectLeftTab}
-          className="flex h-full min-h-0 flex-col bg-sf"
-        >
-          <TabsList variant="panel" aria-label={t("tabs.label")} className="flex-none">
-            <TabsTrigger value="statement">{t("tabs.statement")}</TabsTrigger>
-            <TabsTrigger value="submissions">
-              {t("tabs.submissions")}
-              {history !== null && (
-                <span className="font-mono text-[11px] text-mu">{history.length}</span>
+    <CompareProvider value={compare}>
+      <Group
+        id="bench"
+        orientation="horizontal"
+        defaultLayout={layout.columns}
+        onLayoutChanged={remember("columns")}
+        className="h-full min-h-0"
+      >
+        <Panel id="statement" defaultSize="38%" minSize="20%" maxSize="70%">
+          <Tabs
+            value={leftTab}
+            onValueChange={selectLeftTab}
+            className="flex h-full min-h-0 flex-col bg-sf"
+          >
+            <TabsList variant="panel" aria-label={t("tabs.label")} className="flex-none">
+              <TabsTrigger value="statement">{t("tabs.statement")}</TabsTrigger>
+              <TabsTrigger value="submissions">
+                {t("tabs.submissions")}
+                {history !== null && (
+                  <span className="font-mono text-[11px] text-mu">{history.length}</span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="solutions">{t("tabs.solutions")}</TabsTrigger>
+              {problem.leaderboard !== null && (
+                <TabsTrigger value="leaderboard">{t("tabs.leaderboard")}</TabsTrigger>
               )}
-            </TabsTrigger>
-            <TabsTrigger value="solutions">{t("tabs.solutions")}</TabsTrigger>
-            {problem.leaderboard !== null && (
-              <TabsTrigger value="leaderboard">{t("tabs.leaderboard")}</TabsTrigger>
-            )}
-          </TabsList>
-          <TabsContent value="statement" className="min-h-0 flex-1 overflow-y-auto">
-            {children}
-          </TabsContent>
-          <TabsContent value="submissions" className="min-h-0 flex-1 overflow-y-auto">
-            <SubmissionsTab
-              problem={problem}
-              submissions={history}
-              selected={check?.id ?? null}
-              onOpen={(id) => void opener.open(id)}
-            />
-          </TabsContent>
-          <TabsContent value="solutions" className="min-h-0 flex-1 overflow-y-auto">
-            <SolutionsTab problem={problem} onEdit={() => workspace.focus()} />
-          </TabsContent>
-          {problem.leaderboard !== null && (
-            <TabsContent value="leaderboard" className="min-h-0 flex-1 overflow-y-auto">
-              <LeaderboardTab problem={problem.slug} />
+              {reference !== null && (
+                <TabsTrigger value="reference">
+                  {reference.state === "locked" && (
+                    <Lock size={12} aria-label={t("tabs.locked")} className="text-mu" />
+                  )}
+                  {t("tabs.reference")}
+                </TabsTrigger>
+              )}
+            </TabsList>
+            <TabsContent value="statement" className="min-h-0 flex-1 overflow-y-auto">
+              {children}
             </TabsContent>
-          )}
-        </Tabs>
-        {opener.dialog}
-        <CaptchaDialog
-          request={captcha !== null && captcha.since !== dismissed ? captcha : null}
-          onSolve={(solution) => start(kind, solution)}
-          onCancel={() => setDismissed(captcha?.since ?? null)}
+            <TabsContent value="submissions" className="min-h-0 flex-1 overflow-y-auto">
+              <SubmissionsTab
+                problem={problem}
+                submissions={history}
+                selected={check?.id ?? null}
+                onOpen={(id) => void opener.open(id)}
+              />
+            </TabsContent>
+            <TabsContent value="solutions" className="min-h-0 flex-1 overflow-y-auto">
+              <SolutionsTab problem={problem} onEdit={() => workspace.focus()} />
+            </TabsContent>
+            {problem.leaderboard !== null && (
+              <TabsContent value="leaderboard" className="min-h-0 flex-1 overflow-y-auto">
+                <LeaderboardTab problem={problem.slug} />
+              </TabsContent>
+            )}
+            {reference !== null && (
+              <TabsContent value="reference" className="min-h-0 flex-1 overflow-y-auto">
+                <ReferenceTab reference={reference} onEdit={() => workspace.focus()} />
+              </TabsContent>
+            )}
+          </Tabs>
+          {opener.dialog}
+          <CaptchaDialog
+            request={captcha !== null && captcha.since !== dismissed ? captcha : null}
+            onSolve={(solution) => start(kind, solution)}
+            onCancel={() => setDismissed(captcha?.since ?? null)}
+          />
+        </Panel>
+        <ResizeHandle label={t("panels.columns")} />
+        <Panel id="work" minSize="30%">
+          <Group
+            id="bench-work"
+            orientation="vertical"
+            defaultLayout={layout.rows}
+            onLayoutChanged={remember("rows")}
+            className="h-full min-h-0"
+          >
+            <Panel id="editor" defaultSize="50%" minSize="15%">
+              <EditorPane
+                workspace={workspace}
+                problem={problem}
+                update={update}
+                busy={busy}
+                markers={editorDiagnostics(check, problem.language)}
+                onCheck={start}
+              />
+            </Panel>
+            <ResizeHandle label={t("panels.rows")} vertical />
+            <Panel id="results" minSize="15%">
+              <ResultsPanel
+                submission={submission}
+                problem={problem}
+                busy={busy !== null}
+                onCheck={start}
+                onReveal={(line, column) => workspace.reveal(line, column)}
+              />
+            </Panel>
+          </Group>
+        </Panel>
+      </Group>
+      {/* An accepted Submit opens the reference of `after_accepted` (ОВ-2): the server reads it
+        again. */}
+      {reference?.state === "locked" && accepted && <RefreshOnAccepted check={check.id} />}
+      {comparing !== null && reference?.state === "open" && (
+        <CompareDialog
+          open={compareOpen}
+          onOpenChange={setCompareOpen}
+          references={reference.solutions}
+          index={comparing.index}
+          onIndex={(index) => setComparing({ ...comparing, index })}
+          mine={comparing.mine}
+          problem={problem}
         />
-      </Panel>
-      <ResizeHandle label={t("panels.columns")} />
-      <Panel id="work" minSize="30%">
-        <Group
-          id="bench-work"
-          orientation="vertical"
-          defaultLayout={layout.rows}
-          onLayoutChanged={remember("rows")}
-          className="h-full min-h-0"
-        >
-          <Panel id="editor" defaultSize="50%" minSize="15%">
-            <EditorPane
-              workspace={workspace}
-              problem={problem}
-              update={update}
-              busy={busy}
-              markers={editorDiagnostics(check, problem.language)}
-              onCheck={start}
-            />
-          </Panel>
-          <ResizeHandle label={t("panels.rows")} vertical />
-          <Panel id="results" minSize="15%">
-            <ResultsPanel
-              submission={submission}
-              problem={problem}
-              busy={busy !== null}
-              onCheck={start}
-              onReveal={(line, column) => workspace.reveal(line, column)}
-            />
-          </Panel>
-        </Group>
-      </Panel>
-    </Group>
+      )}
+    </CompareProvider>
   );
 }

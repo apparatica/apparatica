@@ -419,34 +419,38 @@ function summary(item: Solution, entries: Entry[]): Schemas["SolutionSummary"] {
 function stagesOf(item: Solution): Schemas["PublicStage"][] {
   const version = versionOf(item.slug);
   const total = Object.values(version?.tests ?? {}).reduce((sum, count) => sum + count, 0);
+  const delay = item.metrics["synth.critical_path_ns"] ?? 1;
+  const synth = {
+    critical_path_ns: delay,
+    fmax_mhz: round(1000 / delay, 1),
+    area_um2: item.metrics["synth.area_um2"] ?? 0,
+    cells: item.metrics["synth.cells"] ?? 0,
+    flops: item.metrics["synth.flops"] ?? 0,
+    latches: 0,
+    logic_depth: item.depth,
+    liberty: "nangate45",
+  };
   const stages: Schemas["PublicStage"][] = (version?.pipeline.submit ?? []).map(
     ({ key, type }) => ({
       key,
       type,
       status: type === "lint" && item.status === "accepted_with_warnings" ? "warning" : "passed",
       metrics_schema: `${type}/v1`,
-      metrics: {},
+      metrics: type === "synth" ? synth : {},
       tests: type === "sim" ? { passed: total, total } : null,
     }),
   );
-  const delay = item.metrics["synth.critical_path_ns"] ?? 1;
-  stages.push({
-    key: "synth",
-    type: "synth",
-    status: "passed",
-    metrics_schema: "synth/v1",
-    metrics: {
-      critical_path_ns: delay,
-      fmax_mhz: round(1000 / delay, 1),
-      area_um2: item.metrics["synth.area_um2"] ?? 0,
-      cells: item.metrics["synth.cells"] ?? 0,
-      flops: item.metrics["synth.flops"] ?? 0,
-      latches: 0,
-      logic_depth: item.depth,
-      liberty: "nangate45",
-    },
-    tests: null,
-  });
+  // A package without synthesis still ranks by the made-up one.
+  if (!stages.some((stage) => stage.type === "synth")) {
+    stages.push({
+      key: "synth",
+      type: "synth",
+      status: "passed",
+      metrics_schema: "synth/v1",
+      metrics: synth,
+      tests: null,
+    });
+  }
   return stages;
 }
 

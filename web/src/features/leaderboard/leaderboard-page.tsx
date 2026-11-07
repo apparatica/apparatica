@@ -24,6 +24,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Pagination } from "@/components/ui/pagination";
 import { useGuest } from "@/features/account/session";
 import { profileHref } from "@/features/profile/href";
+import { solutionHref } from "@/features/solution/href";
 import type { Schemas } from "@/lib/api/client";
 import { loginHref } from "@/lib/session";
 import { cn } from "@/lib/utils";
@@ -237,7 +238,8 @@ function BoardTable({
     });
   const sortHref = (sort: string) =>
     leaderboardHref(problem.slug, { ...query, sort, page: 1, around: false });
-  const columns = board.columns.length + 3;
+  // The place, the author, the metrics, the date and the chevron to the solution.
+  const columns = board.columns.length + 4;
   const author = (user: Schemas["UserRef"]) => ({ nick: user.nick, href: profileHref(user.nick) });
   const meShown = board.items.some((row) => row.is_me);
 
@@ -253,6 +255,7 @@ function BoardTable({
       expanded={expanded.has(row.solution_id)}
       onToggle={() => toggle(row.solution_id)}
       duplicateOf={row.duplicate_of?.author.nick ?? null}
+      href={solutionHref(row.solution_id)}
     />
   );
 
@@ -294,6 +297,9 @@ function BoardTable({
               href={sortHref(columnSort("submitted_at", query.sort, board.order).next)}
               primary={false}
             />
+            <th scope="col" className="w-8">
+              <span className="sr-only">{t("solution")}</span>
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -308,6 +314,7 @@ function BoardTable({
                     leader={row.author.nick}
                     cells={cells(row.metrics)}
                     date={date(member.submitted_at)}
+                    href={solutionHref(member.solution_id)}
                   />
                 ))}
               {expanded.has(row.solution_id) && row.duplicates > row.group.length && (

@@ -5,7 +5,8 @@
 // metric of the order is bold and tinted; the own row has the --acs fill, a 3 px --ac bar on the
 // left and the chip «вы». Later solutions with the same syntax tree fold under the row of the
 // earliest one («×N совпадающих», FR-LB-04) and unfold into 28 px rows on --sf2. Between two
-// blocks of rows — the gap «· · ·»; without an own place — «вашего места пока нет».
+// blocks of rows — the gap «· · ·»; without an own place — «вашего места пока нет». A chevron at the
+// end of a row opens the solution.
 import { ChevronDown, ChevronRight, CornerDownRight } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -48,6 +49,8 @@ export interface LeaderboardRowProps {
   duplicateOf?: string | null | undefined;
   /** The id of the row element: «К моей строке» scrolls to it. */
   id?: string | undefined;
+  /** The page of the solution: a chevron at the end of the row. */
+  href?: string | undefined;
 }
 
 const PRIZES = 3;
@@ -66,6 +69,23 @@ function AuthorCell({ author, children }: { author: LeaderboardAuthor; children?
       )}
       {children}
     </span>
+  );
+}
+
+/** The chevron to the solution of a row: the last cell. */
+function SolutionLink({ href, nick }: { href: string | undefined; nick: string }) {
+  const t = useTranslations("domain.leaderboard");
+  if (href === undefined) return null;
+  return (
+    <td className="w-8 pr-2 text-right">
+      <Link
+        href={href}
+        aria-label={t("open", { nick })}
+        className="inline-flex size-6 items-center justify-center rounded-sm align-middle text-mu hover:bg-sf2 hover:text-tx"
+      >
+        <ChevronRight size={14} aria-hidden="true" />
+      </Link>
+    </td>
   );
 }
 
@@ -101,6 +121,7 @@ export function LeaderboardRow({
   onToggle,
   duplicateOf = null,
   id,
+  href,
 }: LeaderboardRowProps) {
   const t = useTranslations("domain.leaderboard");
   const prize = rank <= PRIZES;
@@ -163,6 +184,7 @@ export function LeaderboardRow({
       {date !== undefined && (
         <td className={cn(cell, "text-right text-caption whitespace-nowrap text-mu")}>{date}</td>
       )}
+      <SolutionLink href={href} nick={author.nick} />
     </tr>
   );
 }
@@ -175,10 +197,12 @@ export interface LeaderboardMemberProps {
   /** The metrics of the group: the same as the leader's. */
   cells: readonly LeaderboardCell[];
   date?: string | undefined;
+  /** The page of the solution. */
+  href?: string | undefined;
 }
 
 /** A later solution with the same syntax tree, unfolded under the row that holds the place. */
-export function LeaderboardMember({ author, leader, cells, date }: LeaderboardMemberProps) {
+export function LeaderboardMember({ author, leader, cells, date, href }: LeaderboardMemberProps) {
   const t = useTranslations("domain.leaderboard");
   return (
     <tr data-member="" className="h-7 border-t border-bd bg-sf2 text-mu">
@@ -203,6 +227,7 @@ export function LeaderboardMember({ author, leader, cells, date }: LeaderboardMe
       {date !== undefined && (
         <td className={cn(cell, "text-right text-caption whitespace-nowrap")}>{date}</td>
       )}
+      <SolutionLink href={href} nick={author.nick} />
     </tr>
   );
 }

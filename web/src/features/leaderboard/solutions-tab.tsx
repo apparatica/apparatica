@@ -4,9 +4,9 @@
 // every version — accepted Submits of signed-in users, the best one of an author and the others —
 // in the order of the leaderboard, by another metric of its formula or the newest first. The code
 // of others opens after the visitor's own accepted Submit of the problem (ОВ-2): until then the
-// tab is a lock with the reason. Rows open the solution page with T3.8.
+// tab is a lock with the reason. The chevron of a row opens the solution page.
 import { useInfiniteQuery } from "@tanstack/react-query";
-import { ArrowRight, FileX, Lock } from "lucide-react";
+import { ArrowRight, ChevronRight, FileX, Lock } from "lucide-react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { useState } from "react";
@@ -15,6 +15,7 @@ import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { profileHref } from "@/features/profile/href";
+import { solutionHref } from "@/features/solution/href";
 import type { Schemas } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 
@@ -192,6 +193,13 @@ export function SolutionsTab({ problem, onEdit }: SolutionsTabProps) {
                   </span>
                 )}
               </div>
+              <Link
+                href={solutionHref(item.id)}
+                aria-label={t("open", { nick: item.author.nick })}
+                className="inline-flex size-6 flex-none items-center justify-center rounded-sm text-mu hover:bg-sf2 hover:text-tx"
+              >
+                <ChevronRight size={14} aria-hidden="true" />
+              </Link>
             </li>
           );
         })}

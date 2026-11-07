@@ -14,25 +14,19 @@ import {
   type LucideIcon,
   OctagonAlert,
 } from "lucide-react";
-import { useFormatter, useTranslations } from "next-intl";
+import { useTranslations } from "next-intl";
 import type { ReactNode } from "react";
 
-import { MetricCard, type MetricComparison } from "@/components/domain/metric-card";
+import { MetricCard } from "@/components/domain/metric-card";
 import { useGuest } from "@/features/account/session";
 import { getLeaderboardTop, leaderboardKeys } from "@/features/leaderboard/api";
-import { directionOf, useMetricWords, useOrderWords } from "@/features/leaderboard/metrics";
+import { CARD_METRICS, useOrderWords } from "@/features/leaderboard/metrics";
+import { CardGrid, SynthCards } from "@/features/leaderboard/synth-cards";
 import { type Check, isFinished, type Stage } from "@/features/submission/machine";
 import type { Schemas } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 
-import {
-  CARD_METRICS,
-  compareMetric,
-  metricOf,
-  netlistStageOf,
-  placeShare,
-  synthStageOf,
-} from "./synth-view";
+import { netlistStageOf, placeShare, synthStageOf } from "./synth-view";
 
 export type SynthProblem = Pick<Schemas["ProblemDetail"], "slug" | "leaderboard" | "reference">;
 
@@ -43,6 +37,7 @@ export interface ResultsSynthProps {
 
 export function ResultsSynth({ check, problem }: ResultsSynthProps) {
   const t = useTranslations("problem.results.synth");
+  const cards = useTranslations("leaderboard.synth");
   const synth = synthStageOf(check);
   const finished = isFinished(check);
   let body: ReactNode;
@@ -52,7 +47,7 @@ export function ResultsSynth({ check, problem }: ResultsSynthProps) {
     ) : (
       <CardGrid>
         {CARD_METRICS.map((metric) => (
-          <MetricCard key={metric} label={t(`metrics.${metric}`)} value={null} />
+          <MetricCard key={metric} label={cards(`metrics.${metric}`)} value={null} />
         ))}
       </CardGrid>
     );
@@ -74,7 +69,7 @@ export function ResultsSynth({ check, problem }: ResultsSynthProps) {
   } else {
     body = (
       <>
-        <SynthCards synth={synth} problem={problem} />
+        <SynthMetrics synth={synth} problem={problem} />
         <NetlistRow stage={netlistStageOf(check)} finished={finished} />
         <Place check={check} problem={problem} />
       </>
@@ -90,69 +85,27 @@ export function ResultsSynth({ check, problem }: ResultsSynthProps) {
   );
 }
 
-function CardGrid({ children }: { children: ReactNode }) {
-  return (
-    <div className="grid grid-cols-[repeat(auto-fit,minmax(150px,1fr))] gap-2">{children}</div>
-  );
-}
-
-function SynthCards({ synth, problem }: { synth: Stage; problem: SynthProblem }) {
+function SynthMetrics({ synth, problem }: { synth: Stage; problem: SynthProblem }) {
   const t = useTranslations("problem.results.synth");
-  const format = useFormatter();
-  const words = useMetricWords();
   const ranked = problem.leaderboard !== null;
   const board = useQuery({
     queryKey: leaderboardKeys.top(problem.slug),
     queryFn: ranked ? () => getLeaderboardTop(problem.slug) : skipToken,
   });
-  const reference = board.data?.reference?.metrics ?? null;
-  const best = board.data?.best?.metrics ?? null;
   let note: string;
   if (!ranked) note = t("note.noBoard");
   else if (board.isPending) note = t("note.loading");
   else if (board.isError) note = t("note.failed");
   else note = problem.reference === null ? t("note.noReference") : t("note.unmeasured");
-
-  const fmax = metricOf(synth, "fmax_mhz");
-  const frequency =
-    fmax === undefined
-      ? undefined
-      : fmax >= 1000
-        ? t("ghz", { value: format.number(fmax / 1000, { maximumFractionDigits: 2 }) })
-        : t("mhz", { value: format.number(fmax, { maximumFractionDigits: 0 }) });
-
   return (
-    <CardGrid>
-      {CARD_METRICS.map((metric) => {
-        const value = metricOf(synth, metric);
-        if (value === undefined) return null;
-        const key = `${synth.key}.${metric}`;
-        const theirs = reference?.[key];
-        const top = best?.[key];
-        const comparison: MetricComparison | null =
-          theirs === undefined
-            ? null
-            : compareMetric(value, theirs, directionOf(key, problem.leaderboard?.order));
-        return (
-          <MetricCard
-            key={metric}
-            label={t(`metrics.${metric}`)}
-            value={words.value(key, value)}
-            unit={
-              metric === "critical_path_ns" || metric === "area_um2"
-                ? t(`units.${metric}`)
-                : undefined
-            }
-            extra={metric === "critical_path_ns" ? frequency : undefined}
-            comparison={comparison}
-            note={note}
-            reference={theirs === undefined ? null : words.value(key, theirs)}
-            best={top === undefined ? null : words.value(key, top)}
-            hint={t(`hints.${metric}`)}
-          />
-        );
-      })}
-    </CardGrid>
+    <SynthCards
+      stage={synth.key}
+      metrics={synth.metrics}
+      reference={board.data?.reference?.metrics ?? null}
+      best={board.data?.best?.metrics ?? null}
+      order={problem.leaderboard?.order}
+      note={note}
+    />
   );
 }
 

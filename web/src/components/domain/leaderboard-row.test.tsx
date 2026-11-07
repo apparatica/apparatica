@@ -26,6 +26,11 @@ it("makes the places 1–3 bolder than the others and tints the main metric", ()
   );
   expect(within(prize).getByText("0,71")).toHaveClass("bg-acs", "font-semibold");
   expect(within(prize).getByText("3 окт.")).toBeInTheDocument();
+  // The chevron at the end opens the solution (mock-up SolutionLB).
+  expect(within(prize).getByRole("link", { name: "Решение tim_hdl" })).toHaveAttribute(
+    "href",
+    "/solutions/7c3e6a52-0d4e-4c1a-9a0b-2f1d3c4b5a69",
+  );
 
   const regular = rowOf("kirill");
   expect(regular).not.toHaveAttribute("data-prize");

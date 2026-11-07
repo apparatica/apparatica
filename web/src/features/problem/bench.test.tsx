@@ -7,11 +7,15 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import type { AltchaWidgetProps } from "@/features/captcha/altcha-widget";
 import type { CodeEditorProps } from "@/features/editor/code-editor";
+import type { DiffViewerProps } from "@/features/editor/diff-viewer";
 import { readDraft, writeDraft } from "@/features/guest/drafts";
 import { rememberSubmissions } from "@/features/guest/submissions";
+import { CompareButton } from "@/features/reference/compare";
+import type { BenchReference } from "@/features/reference/reference-tab";
 import { createApiClient } from "@/lib/api/client";
 import type { Schemas } from "@/lib/api/client";
 import { api } from "@/mocks/http";
+import { references } from "@/mocks/leaderboards";
 import versions from "@/mocks/problem-versions.json";
 import { server } from "@/mocks/server";
 import { configureMocks } from "@/mocks/submissions";
@@ -19,6 +23,7 @@ import { renderWithProviders } from "@/test/render";
 
 import { Bench } from "./bench";
 import { clearEditorStatus, readEditorStatus } from "./editor-status";
+import type { LeftTab } from "./page-query";
 
 const FIFO = versions.find(
   (problem) => problem.slug === "sync-fifo",
@@ -77,9 +82,30 @@ vi.mock("@/features/captcha/altcha-widget", () => ({
   },
 }));
 
-afterEach(() => clearEditorStatus());
+// An accepted Submit reads the page again for the reference it opens.
+const router = vi.hoisted(() => ({ refresh: vi.fn() }));
+vi.mock("next/navigation", async (actual) => ({
+  ...(await actual<typeof import("next/navigation")>()),
+  useRouter: () => router,
+}));
 
-function renderBench(props: { tab?: "statement" | "submissions" } = {}) {
+// The diff view of «Сравнить с эталоном» is Monaco too: both sides as text.
+vi.mock("@/features/editor/diff-viewer", () => ({
+  default: function FakeDiff({ original, label }: DiffViewerProps) {
+    return (
+      <div role="group" aria-label={label}>
+        <pre>{original}</pre>
+      </div>
+    );
+  },
+}));
+
+afterEach(() => {
+  clearEditorStatus();
+  router.refresh.mockClear();
+});
+
+function renderBench(props: { tab?: LeftTab; reference?: BenchReference } = {}) {
   return renderWithProviders(
     <Bench problem={FIFO} layout={{}} {...props}>
       <p>Текст условия</p>
@@ -481,5 +507,62 @@ describe("the limits of the guest", () => {
     expect(screen.queryByText("Проверку не удалось запустить")).not.toBeInTheDocument();
     // The code stays where it was.
     expect(await editor()).toHaveValue(FIFO.template);
+  });
+});
+
+describe("the reference", () => {
+  const [solution] = references["sync-fifo"] ?? [];
+  const open: BenchReference = {
+    state: "open",
+    view: <CompareButton />,
+    solutions: solution === undefined ? [] : [{ ...solution, metrics: null }],
+  };
+
+  it("is locked until an accepted Submit, which reads the page again", async () => {
+    configureMocks({ speed: Infinity });
+    renderBench({ tab: "reference", reference: { state: "locked" } });
+    const tab = screen.getByRole("tab", { name: /Эталон/ });
+    expect(tab).toHaveAttribute("aria-selected", "true");
+    expect(within(tab).getByLabelText("закрыто")).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { name: "Эталон откроется после вашего Accepted" }),
+    ).toBeInTheDocument();
+    await editor();
+    await userEvent.click(screen.getByRole("button", { name: /Submit/ }));
+    await screen.findByText("Принято");
+    await waitFor(() => expect(router.refresh).toHaveBeenCalledOnce());
+    // Nothing to compare with yet.
+    const results = screen.getByRole("region", { name: "Результаты проверки" });
+    expect(
+      within(results).queryByRole("button", { name: /Сравнить с эталоном/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("compares the draft from the tab and an accepted Submit from its banner", async () => {
+    configureMocks({ speed: Infinity });
+    renderBench({ tab: "reference", reference: open });
+    const tab = screen.getByRole("tab", { name: "Эталон" });
+    expect(within(tab).queryByLabelText("закрыто")).not.toBeInTheDocument();
+    await editor();
+
+    await userEvent.click(screen.getByRole("button", { name: /Сравнить с эталоном/ }));
+    let dialog = screen.getByRole("dialog", { name: "Сравнение с эталоном" });
+    expect(within(dialog).getByText(/^Слева — код из редактора/)).toBeInTheDocument();
+    expect(
+      await within(dialog).findByRole("group", { name: /^Код из редактора и / }),
+    ).toHaveTextContent("module sync_fifo");
+    await userEvent.keyboard("{Escape}");
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+    await userEvent.click(screen.getByRole("button", { name: /Submit/ }));
+    const results = screen.getByRole("region", { name: "Результаты проверки" });
+    await within(results).findByText("Принято");
+    expect(router.refresh).not.toHaveBeenCalled();
+    await userEvent.click(within(results).getByRole("button", { name: /Сравнить с эталоном/ }));
+    dialog = screen.getByRole("dialog", { name: "Сравнение с эталоном" });
+    expect(within(dialog).getByText(/^Слева — код вашего принятого Submit/)).toBeInTheDocument();
+    expect(await within(dialog).findByRole("group", { name: /^Ваш Submit и / })).toHaveTextContent(
+      "module sync_fifo",
+    );
   });
 });
