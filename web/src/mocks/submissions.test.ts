@@ -104,6 +104,24 @@ it("cancels a running check once", async () => {
   expect(again.error?.code).toBe("SUBMISSION_FINISHED");
 });
 
+it("ends an open stream as soon as the check is cancelled", async () => {
+  // The next event is minutes away: only the cancellation can end the stream within the test.
+  configureMocks({ speed: 0.001 });
+  const { data } = await submit("module sync_fifo; endmodule");
+  const id = data?.id ?? "";
+  const response = await events(`/api/v1/submissions/${id}/events`);
+  const reader = (response.body as ReadableStream<Uint8Array>).getReader();
+  const decoder = new TextDecoder();
+  let text = decoder.decode((await reader.read()).value);
+  expect(parse(text).map((frame) => frame.event)).toEqual(["queue"]);
+
+  await client.POST("/api/v1/submissions/{id}/cancel", { params: { path: { id } } });
+  for (let chunk = await reader.read(); !chunk.done; chunk = await reader.read()) {
+    text += decoder.decode(chunk.value);
+  }
+  expect(parse(text).at(-1)?.data).toMatchObject({ type: "finalized", status: "cancelled" });
+});
+
 it("redirects to the artifact files", async () => {
   configureMocks({ speed: Infinity });
   const { data } = await submit("// mock: wrong-answer");

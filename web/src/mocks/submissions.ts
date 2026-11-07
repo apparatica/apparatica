@@ -73,6 +73,8 @@ const defaults = {
 };
 const options = { ...defaults };
 const checks = new Map<string, Check>();
+/** The open event streams of a check: a cancellation wakes them at once, as the API does. */
+const streams = new Map<string, Set<() => void>>();
 
 /** `speed: Infinity` finishes every check at once (unit tests). */
 export function configureMocks(update: Partial<typeof options>): void {
@@ -81,6 +83,7 @@ export function configureMocks(update: Partial<typeof options>): void {
 
 export function resetMocks(): void {
   checks.clear();
+  streams.clear();
   resetCaptcha();
   Object.assign(options, defaults);
 }
@@ -310,6 +313,13 @@ function eventStream(
   let timer: ReturnType<typeof setTimeout> | undefined;
   let last = after ?? "0-0";
   let sent = 0;
+  let wake: (() => void) | undefined;
+  const woken = streams.get(check.id) ?? new Set();
+  streams.set(check.id, woken);
+  const stop = () => {
+    clearTimeout(timer);
+    if (wake !== undefined) woken.delete(wake);
+  };
   return new ReadableStream({
     start(controller) {
       const send = (event: StreamEvent) => {
@@ -331,10 +341,12 @@ function eventStream(
             leaderboard: null,
           };
           send({ id: `${msOf(last) + 1}-0`, event: finalized });
+          stop();
           controller.close();
           return;
         }
         if (event === undefined) {
+          stop();
           controller.close();
           return;
         }
@@ -354,8 +366,10 @@ function eventStream(
                 : event,
             );
             if (dropAfter !== undefined && sent >= dropAfter) {
+              stop();
               controller.close(); // the stream ends without `finalized`: the client reconnects
             } else if (event.event.type === "finalized") {
+              stop();
               controller.close();
             } else {
               next();
@@ -364,10 +378,15 @@ function eventStream(
           Math.max(0, due(check, event) - Date.now()),
         );
       };
+      wake = () => {
+        clearTimeout(timer);
+        next();
+      };
+      woken.add(wake);
       next();
     },
     cancel() {
-      clearTimeout(timer);
+      stop();
     },
   });
 }
@@ -469,6 +488,7 @@ export const submissionHandlers = [
       return problem(409, "SUBMISSION_FINISHED", "The check is over");
     }
     check.cancelled = Date.now();
+    for (const wake of [...(streams.get(check.id) ?? [])]) wake();
     return new HttpResponse(null, { status: 202 });
   }),
 
