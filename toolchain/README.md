@@ -53,7 +53,7 @@
 
 ## Синтез
 
-Этап `synth` (T3.1b, specs/07 §2.4) вызывает `yosys` и `sta` из `PATH`; liberty — `/opt/pdk/nangate45/NangateOpenCellLibrary_typical.lib`.
+Этап `synth` (specs/07 §2.4, [docs/judge.md](../docs/judge.md#systemverilog-synth)) вызывает `yosys` и `sta` из `PATH`; liberty — `/opt/pdk/nangate45/NangateOpenCellLibrary_typical.lib`. Ключ `NANGATE45_LIB_SHA256` даёт и имя библиотеки профиля (`ToolchainProfile.liberty` = `nangate45`, по ключу `<ИМЯ>_LIB_SHA256`).
 
 - **sv-elab** (бывший yosys-slang) встроен в Yosys с 0.67: `read_slang` доступен без `plugin -i`. Его slang — тот же коммит, что у pyslang этапа `precheck` (`SLANG_COMMIT` в `versions.lock`, ADR-0007): оба этапа разбирают код одной версией. В релизном архиве Yosys нет `.git`, поэтому ревизию для `slang_version` сборка берёт из `libs/slang/.git_archival.txt` и падает, если она не совпадает с `SLANG_COMMIT`. Обновлять Yosys и pyslang нужно вместе: новая версия Yosys с другим slang требует pyslang на том же коммите.
 - **OpenSTA** собирается из коммита `parallaxsw/OpenSTA`; в образ попадает только программа `sta`.
@@ -90,7 +90,7 @@ TOOLCHAIN_BASE_IMAGE=mirror.gcr.io/library/debian@sha256:<digest из Dockerfile
 TOOLCHAIN_DEBIAN_MIRROR=http://mirror.yandex.ru/debian
 ```
 
-Тесты образа (`tests/`) запускаются pytest на хосте из окружения `judge` (нужен Docker). Фикстура поднимает один контейнер с ограничениями песочницы specs/07 §5.1 (`tests/sandbox.py`) и выполняет каждую команду через `docker exec` — так же, как оркестратор выполняет этапы; инструменты тестирования в образ не попадают. Тесты проверяют версии, ограничения песочницы, сборку и симуляцию с FST-трассой, синтез на Nangate45 с OpenSTA, совпадение slang в Yosys и pyslang, лицензии библиотеки (`tests/test_synthesis.py`), использование предсобранного рантайма, рандомизацию через Z3, pyslang, Verible и `apx-run`, в том числе под `docker exec -t`, протокол `apx_tb_pkg` `apx-init` как PID 1, `SOURCES.md`, исполнитель судьи `LocalDockerExecutor` (`tests/test_executor.py`) этап `precheck` на pyslang образа (`tests/test_precheck.py`) пайплайны `precheck → lint` (`tests/test_lint.py`) и `precheck → lint → sim` с окном трассы (`tests/test_sim.py`), CLI судьи `new → validate → run` (`tests/test_cli.py`). Другой тег образа — через `TOOLCHAIN_IMAGE`.
+Тесты образа (`tests/`) запускаются pytest на хосте из окружения `judge` (нужен Docker). Фикстура поднимает один контейнер с ограничениями песочницы specs/07 §5.1 (`tests/sandbox.py`) и выполняет каждую команду через `docker exec` — так же, как оркестратор выполняет этапы; инструменты тестирования в образ не попадают. Тесты проверяют версии, ограничения песочницы, сборку и симуляцию с FST-трассой, этап `synth` (метрики эталонов демо-задач — как в S4, латчи, петли, драйверы, ошибки sv-elab, кэш, побайтный повтор), совпадение slang в Yosys и pyslang, шаблоны триггеров и лицензии библиотеки (`tests/test_synthesis.py`), использование предсобранного рантайма, рандомизацию через Z3, pyslang, Verible и `apx-run`, в том числе под `docker exec -t`, протокол `apx_tb_pkg` `apx-init` как PID 1, `SOURCES.md`, исполнитель судьи `LocalDockerExecutor` (`tests/test_executor.py`) этап `precheck` на pyslang образа (`tests/test_precheck.py`) пайплайны `precheck → lint` (`tests/test_lint.py`) и `precheck → lint → sim` с окном трассы (`tests/test_sim.py`), CLI судьи `new → validate → run` (`tests/test_cli.py`). Другой тег образа — через `TOOLCHAIN_IMAGE`.
 
 ## Публикация
 

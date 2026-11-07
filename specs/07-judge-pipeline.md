@@ -92,15 +92,17 @@ class Stage(Protocol):
 
 ### 2.4 `synth` — синтез (Ф3)
 
-Скрипт Yosys (ADR-0007, подтверждён спайком S4 — [docs/spikes/s4.md](../docs/spikes/s4.md)). `read_slang` встроен в Yosys ≥ 0.67 (sv-elab, бывший yosys-slang), плагин не загружается:
+Скрипт Yosys (ADR-0007, подтверждён спайком S4 — [docs/spikes/s4.md](../docs/spikes/s4.md)). `read_slang` встроен в Yosys ≥ 0.67 (sv-elab, бывший yosys-slang), плагин не загружается. Yosys запускается с `-qq -w .*`: в консоль идут только ошибки, предупреждения — в отчёты `tee` (без `-w` предупреждения `check` внутри `synth` печатаются по блоку на бит петли и выбирают лимит вывода).
 
 ```
 read_liberty -lib <lib>
 read_slang --no-synthesis-define --no-default-translate-off-format \
            solution.sv --top <top> -G WIDTH=8 -G DEPTH=16
+check                                        → конфликт драйверов (до synth: он заменяет их константой)
 synth -top <top> -flatten
 select -count t:$_DLATCH* t:$_DLATCHSR* t:$_SR_* t:$dlatch* t:$sr   → latches
-check                                        → комбинационные петли (со строкой решения)
+printattrs <те же ячейки>                    → строки блоков с латчами
+check                                        → комбинационные петли (через вентили, сигнал и строка)
 rename <top> <top>__netlist ; write_verilog -noattr netlist_generic.v ; rename <top>__netlist <top>
                                              → вход этапа netlist_sim (§2.5)
 dfflibmap -liberty <lib>
@@ -108,16 +110,18 @@ abc -liberty <lib>
 hilomap -singleton -hicell LOGIC1_X1 Z -locell LOGIC0_X1 Z ; splitnets -ports ; opt_clean -purge
 stat -liberty <lib> -json                    → area_um2 (нет ключа area — 0), cells, ячейки по типам
 ltp -noff * t:DFF* t:SDFF* %u %d             → logic_depth (триггеры liberty исключены)
-write_verilog -noexpr -noattr netlist.v ; write_json netlist.json
+write_verilog -noexpr -noattr netlist.v      → вход OpenSTA
 ```
 
-Латчи **и комбинационные петли** при `forbid_latches` → `failed`, `failure_kind=compile`: неполное присваивание в `always @*` sv-elab превращает в латчи, а в `always_comb` — в петлю, которую видит только `check` (S4). Триггеры (`flops`) — ячейки liberty с группой `ff`.
+`-G` задаётся для каждого параметра интерфейса: значение из `stages.synth.params`, иначе значение по умолчанию из `problem.yaml`; значения — только числовые литералы (они попадают в скрипт). Метрики эталонов демо-задач с этим скриптом совпадают с замерами S4: проверки `check`, `select` и `printattrs` дизайн не меняют. Нетлист для схемы (`write_json`) появится с T6.b.
 
-Затем OpenSTA по смапленному нетлисту с **фиксированными** ограничениями из образа (не из решения): `create_clock` с периодом `clock_period_ns` на порт с ролью `clock` (без такого порта — виртуальный клок), `set_input_delay`/`set_output_delay` 0, `set_driving_cell -lib_cell BUF_X1` на входы, `set_load` ёмкостью `DFF_X1/D` на выходы. `critical_path_ns = clock_period_ns − WNS` — одна формула для путей reg→reg, in→reg, reg→out и in→out; `fmax_mhz = 1000 / critical_path_ns` — только для задач с клоком (для комбинационных это не частота). Ошибка `read_slang` или несинтезируемая конструкция → `failed`, `failure_kind=compile`, сообщение «решение проходит симуляцию, но не синтезируется: …».
+Латчи **и комбинационные петли** при `forbid_latches` → `failed`, `failure_kind=compile`: неполное присваивание в `always @*` sv-elab превращает в латчи, а в `always_comb` — в петлю, которую видит только `check` (S4). Диагностика латча указывает на блок `always`, петли — на объявление сигнала. Сигнал с несколькими драйверами (два блока `always_ff` пишут одну переменную) → `compile` всегда: `synth` молча заменяет его константой. Триггеры (`flops`) — ячейки liberty с группой `ff`.
+
+Затем OpenSTA по смапленному нетлисту с **фиксированными** ограничениями из образа (не из решения): `create_clock` с периодом `clock_period_ns` на порт с ролью `clock` (без такого порта — виртуальный клок), `set_input_delay`/`set_output_delay` 0, `set_driving_cell -lib_cell BUF_X1` на входы, `set_load` ёмкостью `DFF_X1/D` на выходы. `critical_path_ns = clock_period_ns − WNS` — одна формула для путей reg→reg, in→reg, reg→out и in→out; `fmax_mhz = 1000 / critical_path_ns` — только для задач с клоком (для комбинационных это не частота). Дизайн без путей (выходы — константы) получает `critical_path_ns = 0`. Портов с ролью `clock` — не больше одного. Ошибка `read_slang` или несинтезируемая конструкция → `failed`, `failure_kind=compile`, диагностики `SYNTH_ERROR` со строкой решения из сообщения Yosys, подпись «решение не синтезируется».
 
 Метрики детерминированы побайтно (S4: 300 запусков, две машины, `runc` и `runsc`); синтез с STA демо-задачи — 1–3,5 с.
 
-Кэш результата — по ключу `(code_hash, problem_version, toolchain_profile)`.
+Кэш результата (FR-JDG-11) — прогон этапа целиком: коды выхода, вывод консоли и файлы. Ключ, как у кэша сборки (§2.3), — sha256 команд и входных файлов плана: канонический текст (`code_hash`), скрипты Yosys и OpenSTA с параметрами, периодом и библиотекой, — в области профиля тулчейна и digest его образа. Это строже, чем `(code_hash, problem_version, toolchain_profile)`, и новая версия задачи с тем же синтезом не синтезирует заново. Кэшируются только исходы, которые код получит всегда (`passed` или `compile`), но не лимиты и не ошибки; хранение — бакет `build-cache` на 24 ч. При попадании в консоли — строка о результате из кэша и сохранённый вывод, у этапа `cached: true`.
 
 ### 2.5 `netlist_sim` — симуляция нетлиста (Ф3)
 

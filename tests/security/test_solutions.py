@@ -3,9 +3,11 @@
 A case is a file in solutions/ with its expectation in a comment line:
 
     // expect: status=<verdict> [stage=<stage key>] [limit=<limit kind>] [code=<diagnostic code>]
+    //         [kind=submit]
 
 `stage` is where the check fails first; nothing runs after it (a forbidden solution never reaches
-Verilator). `code` is among the codes of the errors of that stage.
+Verilator). `code` is among the codes of the errors of that stage. A case is checked as a Run unless
+it needs the stages of Submit (synthesis).
 """
 
 import re
@@ -16,6 +18,7 @@ import pytest
 
 from apparatica_worker.sandboxd.client import SandboxdClient
 from harness import HERE, judge
+from judge.core.stage import SubmissionKind
 
 CASES = sorted((HERE / "solutions").glob("*.sv"))
 EXPECT = re.compile(r"^// expect: (.+)$", re.MULTILINE)
@@ -27,6 +30,12 @@ class Expectation:
     stage: str | None = None
     limit: str | None = None
     code: str | None = None
+    kind: str = "run"
+
+    @property
+    def submission(self) -> SubmissionKind:
+        assert self.kind in ("run", "submit"), self.kind
+        return "submit" if self.kind == "submit" else "run"
 
 
 def expectation(path: Path) -> Expectation:
@@ -45,7 +54,7 @@ def test_every_case_has_an_expectation() -> None:
 @pytest.mark.parametrize("path", CASES, ids=[path.stem for path in CASES])
 def test_solution(client: SandboxdClient, path: Path) -> None:
     expected = expectation(path)
-    check = judge(client, path.read_bytes())
+    check = judge(client, path.read_bytes(), kind=expected.submission)
     verdict, why = check.verdict, check.describe()
     assert verdict.status == expected.status, why
     assert verdict.detail.limit == expected.limit, why

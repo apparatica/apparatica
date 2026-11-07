@@ -1,0 +1,18 @@
+12. Executing LTP pass (find longest path).
+Suppressed Warning: Detected loop at \next[3] in counter
+Suppressed Warning: Detected loop at \next[2] in counter
+Suppressed Warning: Detected loop at \next[1] in counter
+Suppressed Warning: Detected loop at \next[0] in counter
+Suppressed Warning: Detected loop at \next[2] in counter
+Suppressed Warning: Detected loop at \next[3] in counter
+Suppressed Warning: Detected loop at \next[1] in counter
+Suppressed Warning: Detected loop at \next[0] in counter
+Suppressed Warning: Detected loop at \next[3] in counter
+
+Longest topological path in counter (length=5):
+    0: \count[3]
+    1: $abc$264$new_n40 (via $abc$264$blif$264$20)
+    2: $abc$264$new_n43 (via $abc$264$blif$264$23)
+    3: \next[2] (via $abc$264$blif$264$24)
+    4: $abc$264$new_n21 (via $abc$264$blif$264$1)
+    5: $abc$264$auto$rtlil.cc:3492:MuxGate$254 (via $abc$264$blif$264$7)

@@ -3,8 +3,14 @@
 A stage after a failed one or after a platform error is skipped; cancellation marks the running
 stage cancelled and skips the rest. The pipeline reports stage results; the verdict is aggregated
 separately (`judge.core.verdict`) by whoever owns the final status.
+
+A deterministic plan (`StagePlan.cache`, e.g. synthesis) is looked up in the stage cache first and
+replayed from there; its fresh run is kept once the stage ends with a result the same code always
+gets (FR-JDG-11).
 """
 
+import base64
+import binascii
 import threading
 import time
 import traceback
@@ -12,10 +18,11 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Literal
 
-from pydantic import BaseModel, ValidationError
+from pydantic import BaseModel, ConfigDict, ValidationError
 
-from judge.core.cache import NO_CACHE, BuildCache
+from judge.core.cache import NO_CACHE, BuildCache, plan_key
 from judge.core.events import (
     DoneEvent,
     EventSink,
@@ -31,6 +38,7 @@ from judge.core.package import Problem
 from judge.core.registry import LanguageModule
 from judge.core.stage import (
     Channel,
+    CommandResult,
     ExecResult,
     FinishedStage,
     SkipReason,
@@ -46,6 +54,10 @@ from judge.core.stage import (
 
 # Runs per stage: the first one plus follow-ups such as the trace window of `sim`.
 MAX_RUNS_PER_STAGE = 4
+# A replayed run of a deterministic plan says so before its console output.
+CACHED_RUN_NOTE = "result from the cache: this code was checked earlier on this toolchain"
+# A larger run (netlists, reports) is not kept in the stage cache.
+CACHED_RUN_LIMIT = 32 << 20
 
 # Receives the artifacts of a finished stage: (stage key, file name, content).
 ArtifactSink = Callable[[str, str, bytes], None]
@@ -174,6 +186,8 @@ def _run_stage(
 ) -> tuple[StageResult, StageOutcome | None]:
     sink.emit(StageStartEvent(stage=ctx.key, stage_type=ctx.type, ordinal=ctx.ordinal))
     started_at, started = datetime.now(UTC), time.monotonic()
+    runs: list[ExecResult] = []
+    fresh: list[tuple[str, ExecResult]] = []  # runs of deterministic plans, for the stage cache
 
     def finish(outcome: StageOutcome | None) -> StageResult:
         """The stage result; no outcome means the stage was cancelled."""
@@ -189,7 +203,7 @@ def _run_stage(
             duration_ms=round((time.monotonic() - started) * 1000),
             metrics_schema=stage.metrics_schema,
             metrics=outcome.metrics if outcome else {},
-            cached=outcome.cached if outcome else False,
+            cached=outcome is not None and (outcome.cached or any(run.cached for run in runs)),
             summary=outcome.summary if outcome else StageSummary(),
         )
 
@@ -197,7 +211,6 @@ def _run_stage(
         sink.emit(LogEvent(stage=ctx.key, ch="sys", text=message))
         return finish(StageOutcome(status="error", error_code=code)), None
 
-    runs: list[ExecResult] = []
     try:
         step: StageOutcome | StagePlan = stage.plan(ctx)
         while isinstance(step, StagePlan):
@@ -206,8 +219,17 @@ def _run_stage(
             on_line = _line_handler(ctx.key, step, sink)
             if step.note is not None:
                 sink.emit(LogEvent(stage=ctx.key, ch="sys", text=step.note))
-            # Follow-up runs work on what the first one left (e.g. the built simulator).
-            run = executor.run(ctx.key, step, on_line, cancel, reuse_dir=bool(runs))
+            key = plan_key(ctx.type, step) if step.cache else None
+            run = _cached_run(ctx.build_cache, key) if key is not None else None
+            if run is not None:
+                sink.emit(LogEvent(stage=ctx.key, ch="sys", text=CACHED_RUN_NOTE))
+                for line in run.output.split("\n")[:-1]:
+                    on_line("out", line)
+            else:
+                # Follow-up runs work on what the first one left (e.g. the built simulator).
+                run = executor.run(ctx.key, step, on_line, cancel, reuse_dir=bool(runs))
+                if key is not None and not _stopped(run):
+                    fresh.append((key, run))
             runs.append(run)
             if run.cancelled:
                 sink.emit(LogEvent(stage=ctx.key, ch="sys", text=cancel_note()))
@@ -223,7 +245,82 @@ def _run_stage(
         return error("EXECUTOR_FAILED", str(exc))
     except Exception:  # a broken plugin must not take the pipeline down
         return error("STAGE_CRASHED", traceback.format_exc(limit=5))
+    if _deterministic(step):
+        for key, run in fresh:
+            _keep_run(ctx.build_cache, key, run)
     return finish(step), step
+
+
+# --- the stage cache of deterministic plans ----------------------------------------------------
+
+
+class _Stored(BaseModel):
+    model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
+
+
+class _StoredCommand(_Stored):
+    argv: list[str]
+    exit_code: int | None
+    duration_s: float
+
+
+class _StoredRun(_Stored):
+    """A run in the stage cache. The cache is shared storage: it is read back strictly, and
+    anything else is a miss. Files are base64."""
+
+    version: Literal[1]
+    commands: list[_StoredCommand]
+    output: str
+    files: dict[str, str]
+    oversized: list[str]
+
+
+def _stopped(run: ExecResult) -> bool:
+    return run.timed_out or run.output_limited or run.cancelled or run.memory_exceeded
+
+
+def _deterministic(outcome: StageOutcome) -> bool:
+    """What the same code always gets: not a limit, which depends on the sandbox, and not an
+    error of the platform or of the problem."""
+    if outcome.status == "failed":
+        return outcome.failure_kind != "limit"
+    return outcome.status in ("passed", "warning")
+
+
+def _cached_run(cache: BuildCache, key: str) -> ExecResult | None:
+    data = cache.get(key)
+    if data is None:
+        return None
+    try:
+        stored = _StoredRun.model_validate_json(data)
+        files = {name: base64.b64decode(text, validate=True) for name, text in stored.files.items()}
+    except (ValidationError, binascii.Error, ValueError):
+        return None
+    return ExecResult(
+        commands=tuple(
+            CommandResult(tuple(c.argv), c.exit_code, c.duration_s) for c in stored.commands
+        ),
+        output=stored.output,
+        files=files,
+        oversized=frozenset(stored.oversized),
+        cached=True,
+    )
+
+
+def _keep_run(cache: BuildCache, key: str, run: ExecResult) -> None:
+    stored = _StoredRun(
+        version=1,
+        commands=[
+            _StoredCommand(argv=list(c.argv), exit_code=c.exit_code, duration_s=c.duration_s)
+            for c in run.commands
+        ],
+        output=run.output,
+        files={name: base64.b64encode(data).decode() for name, data in run.files.items()},
+        oversized=sorted(run.oversized),
+    )
+    data = stored.model_dump_json().encode()
+    if len(data) <= CACHED_RUN_LIMIT:
+        cache.put(key, data)
 
 
 def _line_handler(stage_key: str, plan: StagePlan, sink: EventSink) -> OnLine:

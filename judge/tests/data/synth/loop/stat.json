@@ -1,0 +1,64 @@
+{
+   "creator": "Yosys 0.70+post (git sha1 0c11ea098be065e585a90a06e7b7da49936cf231, Release, GNU /usr/bin/c++ 14.2.0)",
+   "invocation": "stat -liberty /opt/pdk/nangate45/NangateOpenCellLibrary_typical.lib -json ",
+   "modules": {
+      "\\counter": {
+         "num_wires":         40,
+         "num_wire_bits":     40,
+         "num_pub_wires":     11,
+         "num_pub_wire_bits": 11,
+         "num_ports":         7,
+         "num_port_bits":     7,
+         "num_memories":      0,
+         "num_memory_bits":   0,
+         "num_processes":     0,
+         "num_cells":         33,
+         "num_submodules":       0,
+         "area":              47.348000,
+         "sequential_area":    18.088000,
+         "num_cells_by_type": {
+            "AND2_X1": 1,
+            "AOI211_X1": 5,
+            "AOI21_X1": 3,
+            "DFF_X1": 4,
+            "INV_X1": 4,
+            "MUX2_X1": 1,
+            "NAND2_X1": 3,
+            "NOR2_X1": 6,
+            "OAI211_X1": 2,
+            "OAI21_X1": 2,
+            "OAI22_X1": 1,
+            "OR2_X1": 1
+         }
+      }
+   },
+      "design": {
+         "num_wires":         40,
+         "num_wire_bits":     40,
+         "num_pub_wires":     11,
+         "num_pub_wire_bits": 11,
+         "num_ports":         7,
+         "num_port_bits":     7,
+         "num_memories":      0,
+         "num_memory_bits":   0,
+         "num_processes":     0,
+         "num_cells":         33,
+         "num_submodules":       0,
+         "area":              47.348000,
+         "sequential_area":    18.088000,
+         "num_cells_by_type": {
+            "AND2_X1": 1,
+            "AOI211_X1": 5,
+            "AOI21_X1": 3,
+            "DFF_X1": 4,
+            "INV_X1": 4,
+            "MUX2_X1": 1,
+            "NAND2_X1": 3,
+            "NOR2_X1": 6,
+            "OAI211_X1": 2,
+            "OAI21_X1": 2,
+            "OAI22_X1": 1,
+            "OR2_X1": 1
+         }
+      }
+}

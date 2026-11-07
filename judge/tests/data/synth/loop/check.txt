@@ -1,0 +1,29 @@
+5. Executing CHECK pass (checking for obvious problems).
+Checking module counter...
+Suppressed Warning: found logic loop in module counter:
+    cell $abc$242$blif$242$12 ($_MUX_)
+      A[0] --> Y[0]
+    wire \next [0] source: solution.sv:3.15
+Suppressed Warning: found logic loop in module counter:
+    cell $abc$242$blif$242$5 ($_ORNOT_)
+      A[0] --> Y[0]
+    cell $abc$242$blif$242$11 ($_AND_)
+      A[0] --> Y[0]
+    wire \next [3] source: solution.sv:3.15
+Suppressed Warning: found logic loop in module counter:
+    cell $abc$242$blif$242$13 ($_NAND_)
+      A[0] --> Y[0]
+    cell $abc$242$blif$242$16 ($_NAND_)
+      A[0] --> Y[0]
+    cell $abc$242$blif$242$17 ($_AND_)
+      B[0] --> Y[0]
+    wire \next [1] source: solution.sv:3.15
+Suppressed Warning: found logic loop in module counter:
+    cell $abc$242$blif$242$18 ($_NAND_)
+      A[0] --> Y[0]
+    cell $abc$242$blif$242$21 ($_NAND_)
+      A[0] --> Y[0]
+    cell $abc$242$blif$242$22 ($_AND_)
+      B[0] --> Y[0]
+    wire \next [2] source: solution.sv:3.15
+Found and reported 4 problems.

@@ -1,0 +1,15 @@
+3. Executing CHECK pass (checking for obvious problems).
+Checking module counter...
+Suppressed Warning: multiple conflicting drivers for counter.\count [3]:
+    port Q[3] of cell $driver$count_1 ($dff)
+    port Q[3] of cell $driver$count ($dff)
+Suppressed Warning: multiple conflicting drivers for counter.\count [2]:
+    port Q[2] of cell $driver$count_1 ($dff)
+    port Q[2] of cell $driver$count ($dff)
+Suppressed Warning: multiple conflicting drivers for counter.\count [1]:
+    port Q[1] of cell $driver$count_1 ($dff)
+    port Q[1] of cell $driver$count ($dff)
+Suppressed Warning: multiple conflicting drivers for counter.\count [0]:
+    port Q[0] of cell $driver$count_1 ($dff)
+    port Q[0] of cell $driver$count ($dff)
+Found and reported 4 problems.

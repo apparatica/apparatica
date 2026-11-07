@@ -1,0 +1,7 @@
+12. Executing LTP pass (find longest path).
+
+Longest topological path in counter (length=3):
+    0: \rst
+    1: $abc$204$new_n12 (via $abc$204$blif$204$0)
+    2: $abc$204$new_n28 (via $abc$204$blif$204$16)
+    3: $abc$204$auto$rtlil.cc:3492:MuxGate$190 (via $abc$204$blif$204$17)

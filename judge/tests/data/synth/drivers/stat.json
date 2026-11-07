@@ -1,0 +1,42 @@
+{
+   "creator": "Yosys 0.70+post (git sha1 0c11ea098be065e585a90a06e7b7da49936cf231, Release, GNU /usr/bin/c++ 14.2.0)",
+   "invocation": "stat -liberty /opt/pdk/nangate45/NangateOpenCellLibrary_typical.lib -json ",
+   "modules": {
+      "\\counter": {
+         "num_wires":         7,
+         "num_wire_bits":     7,
+         "num_pub_wires":     7,
+         "num_pub_wire_bits": 7,
+         "num_ports":         7,
+         "num_port_bits":     7,
+         "num_memories":      0,
+         "num_memory_bits":   0,
+         "num_processes":     0,
+         "num_cells":         1,
+         "num_submodules":       0,
+         "area":              0.532000,
+         "sequential_area":    0.000000,
+         "num_cells_by_type": {
+            "LOGIC0_X1": 1
+         }
+      }
+   },
+      "design": {
+         "num_wires":         7,
+         "num_wire_bits":     7,
+         "num_pub_wires":     7,
+         "num_pub_wire_bits": 7,
+         "num_ports":         7,
+         "num_port_bits":     7,
+         "num_memories":      0,
+         "num_memory_bits":   0,
+         "num_processes":     0,
+         "num_cells":         1,
+         "num_submodules":       0,
+         "area":              0.532000,
+         "sequential_area":    0.000000,
+         "num_cells_by_type": {
+            "LOGIC0_X1": 1
+         }
+      }
+}

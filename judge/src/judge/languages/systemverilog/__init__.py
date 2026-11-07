@@ -6,10 +6,11 @@ from judge.core.registry import LanguageModule
 from judge.languages.systemverilog.stages.lint import LintStage
 from judge.languages.systemverilog.stages.precheck import PrecheckStage
 from judge.languages.systemverilog.stages.sim import SimStage
+from judge.languages.systemverilog.stages.synth import SynthStage
 
 LANGUAGE = LanguageModule(
     name="systemverilog",
-    stages={stage.stage_type: stage for stage in (PrecheckStage, LintStage, SimStage)},
+    stages={stage.stage_type: stage for stage in (PrecheckStage, LintStage, SimStage, SynthStage)},
     template_checks=(PrecheckStage.stage_type,),
     package_template=resources.files(__name__).joinpath("package_template"),
 )

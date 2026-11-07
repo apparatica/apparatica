@@ -13,6 +13,8 @@ from apparatica.core.db import Database
 from apparatica.core.settings import Settings, get_settings
 from apparatica.main import create_app
 from apparatica.submissions.models import ToolchainProfile
+from apparatica.submissions.profiles import ProfileRefusedError
+from apparatica.submissions.profiles import liberty as profiles_liberty
 from apparatica.submissions.tokens import InvalidJobTokenError, JobTokens
 from conftest import CONFIG_DIR
 
@@ -76,17 +78,20 @@ def test_production_needs_keys_a_queue_and_a_cache() -> None:
     assert other.verify(tokens.issue(submission), submission).submission_id == submission
 
 
-def profiles(url: str) -> list[tuple[str, bool, dict[str, str]]]:
-    async def run() -> list[tuple[str, bool, dict[str, str]]]:
+def profiles(url: str) -> list[tuple[str, bool, dict[str, str], str | None]]:
+    async def run() -> list[tuple[str, bool, dict[str, str], str | None]]:
         database = Database(url)
         try:
             async with database.sessions() as session:
                 rows = await session.execute(
                     select(
-                        ToolchainProfile.id, ToolchainProfile.is_default, ToolchainProfile.tools
+                        ToolchainProfile.id,
+                        ToolchainProfile.is_default,
+                        ToolchainProfile.tools,
+                        ToolchainProfile.liberty,
                     ).order_by(ToolchainProfile.id)
                 )
-                return [(id, default, tools) for id, default, tools in rows]
+                return [(id, default, tools, liberty) for id, default, tools, liberty in rows]
         finally:
             await database.dispose()
 
@@ -123,16 +128,17 @@ def test_toolchain_profiles(
         assert (
             capsys.readouterr().out == "created   sv-2026.10.1\ncreated   sv-2026.10.2, default\n"
         )
-        [(_, old_default, tools), (_, new_default, _)] = profiles(database_url)
+        [(_, old_default, tools, liberty), (_, new_default, _, _)] = profiles(database_url)
         assert (old_default, new_default) == (False, True)
         assert tools["verilator"] == "5.052"
         assert tools["pyslang"] == "12.0.0"
         assert "verilator_sha256" not in tools
+        assert liberty == "nangate45"  # NANGATE45_LIB_SHA256: the `liberty` of synth metrics
 
         # Switching the default; a profile is immutable.
         assert add("sv-2026.10.1", "--default") == 0
         assert capsys.readouterr().out == "unchanged sv-2026.10.1, default\n"
-        assert [default for _, default, _ in profiles(database_url)] == [True, False]
+        assert [default for _, default, _, _ in profiles(database_url)] == [True, False]
         assert add("sv-2026.10.1", digest="sha256:" + "b" * 64) == 1
         assert "is immutable" in capsys.readouterr().out
         assert add("sv-2026.10.3", digest="b" * 64) == 1
@@ -143,3 +149,11 @@ def test_toolchain_profiles(
         assert "is immutable" in capsys.readouterr().out
     finally:
         get_settings.cache_clear()
+
+
+def test_the_liberty_of_a_profile() -> None:
+    assert profiles_liberty("VERILATOR_VERSION=5.052\n") is None
+    lock = "A_VERSION=1\nNANGATE45_LIB_SHA256=ab\n# X_LIB_SHA256=cd\n"
+    assert profiles_liberty(lock) == "nangate45"
+    with pytest.raises(ProfileRefusedError, match="more than one liberty"):
+        profiles_liberty("A_VERSION=1\nNANGATE45_LIB_SHA256=ab\nSKY130_LIB_SHA256=cd\n")

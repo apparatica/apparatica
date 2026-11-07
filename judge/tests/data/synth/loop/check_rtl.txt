@@ -1,0 +1,43 @@
+3. Executing CHECK pass (checking for obvious problems).
+Checking module counter...
+Suppressed Warning: found logic loop in module counter:
+    cell $procmux$10 ($mux) source: solution.sv:6.28-6.48|solution.sv:6.10-6.48
+      A[0] --> Y[0]
+    cell $procmux$13 ($mux) source: solution.sv:5.24-5.34|solution.sv:5.5-6.48
+      A[0] --> Y[0]
+    cell $procmux$17 ($mux) source: solution.sv:5.24-5.34|solution.sv:5.5-6.48
+      A[0] --> Y[0]
+    cell $6 ($buf)
+      A[0] --> Y[0]
+    wire \next [0] source: solution.sv:3.15
+Suppressed Warning: found logic loop in module counter:
+    cell $procmux$10 ($mux) source: solution.sv:6.28-6.48|solution.sv:6.10-6.48
+      A[1] --> Y[1]
+    cell $procmux$13 ($mux) source: solution.sv:5.24-5.34|solution.sv:5.5-6.48
+      A[1] --> Y[1]
+    cell $procmux$17 ($mux) source: solution.sv:5.24-5.34|solution.sv:5.5-6.48
+      A[1] --> Y[1]
+    cell $6 ($buf)
+      A[1] --> Y[1]
+    wire \next [1] source: solution.sv:3.15
+Suppressed Warning: found logic loop in module counter:
+    cell $procmux$10 ($mux) source: solution.sv:6.28-6.48|solution.sv:6.10-6.48
+      A[2] --> Y[2]
+    cell $procmux$13 ($mux) source: solution.sv:5.24-5.34|solution.sv:5.5-6.48
+      A[2] --> Y[2]
+    cell $procmux$17 ($mux) source: solution.sv:5.24-5.34|solution.sv:5.5-6.48
+      A[2] --> Y[2]
+    cell $6 ($buf)
+      A[2] --> Y[2]
+    wire \next [2] source: solution.sv:3.15
+Suppressed Warning: found logic loop in module counter:
+    cell $procmux$10 ($mux) source: solution.sv:6.28-6.48|solution.sv:6.10-6.48
+      A[3] --> Y[3]
+    cell $procmux$13 ($mux) source: solution.sv:5.24-5.34|solution.sv:5.5-6.48
+      A[3] --> Y[3]
+    cell $procmux$17 ($mux) source: solution.sv:5.24-5.34|solution.sv:5.5-6.48
+      A[3] --> Y[3]
+    cell $6 ($buf)
+      A[3] --> Y[3]
+    wire \next [3] source: solution.sv:3.15
+Found and reported 4 problems.

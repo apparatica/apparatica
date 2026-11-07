@@ -28,6 +28,7 @@ from apparatica.submissions.profiles import (
     ProfileRefusedError,
     ProfileSpec,
     add_profile,
+    liberty,
     tool_versions,
 )
 from judge.core.pack import PackError
@@ -109,14 +110,16 @@ def _import(args: argparse.Namespace) -> int:
 
 def _add_profile(args: argparse.Namespace) -> int:
     try:
+        versions = args.versions.read_text(encoding="utf-8")
         spec = ProfileSpec(
             id=args.id,
             language=args.language,
             image=args.image,
             image_digest=args.digest,
-            tools=tool_versions(args.versions.read_text(encoding="utf-8")),
+            tools=tool_versions(versions),
             normalization_version=args.normalization_version,
             waveview=args.waveview,
+            liberty=liberty(versions),
         )
     except OSError as error:
         print(f"FAIL {args.versions}: {error.strerror}")

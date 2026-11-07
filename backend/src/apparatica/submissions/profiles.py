@@ -14,22 +14,46 @@ from apparatica.submissions.models import ToolchainProfile
 
 PROFILE_KEY = "TOOLCHAIN_PROFILE"
 VERSION_SUFFIX = "_VERSION"
+LIBERTY_SUFFIX = "_LIB_SHA256"
 
 
 class ProfileRefusedError(Exception):
     pass
 
 
-def tool_versions(versions_lock: str) -> dict[str, str]:
-    """`toolchain/versions.lock` (`KEY=value` lines) → `{"verilator": "5.052", ...}`."""
-    tools = {}
+def _entries(versions_lock: str) -> dict[str, str]:
+    """`toolchain/versions.lock`: `KEY=value` lines and `#` comments."""
+    entries = {}
     for line in versions_lock.splitlines():
         key, sep, value = line.strip().partition("=")
-        if sep and not key.startswith("#") and key.endswith(VERSION_SUFFIX):
-            tools[key.removesuffix(VERSION_SUFFIX).lower()] = value.strip()
+        if sep and not key.startswith("#"):
+            entries[key] = value.strip()
+    return entries
+
+
+def tool_versions(versions_lock: str) -> dict[str, str]:
+    """`toolchain/versions.lock` → `{"verilator": "5.052", ...}` from its `*_VERSION` keys."""
+    tools = {
+        key.removesuffix(VERSION_SUFFIX).lower(): value
+        for key, value in _entries(versions_lock).items()
+        if key.endswith(VERSION_SUFFIX)
+    }
     if not tools:
         raise ProfileRefusedError("versions.lock lists no *_VERSION keys")
     return tools
+
+
+def liberty(versions_lock: str) -> str | None:
+    """The synthesis library of the image by its `<NAME>_LIB_SHA256` key: `NANGATE45_LIB_SHA256`
+    → `nangate45`, the name the `synth` stage puts into `synth/v1` metrics. None: no synthesis."""
+    names = [
+        key.removesuffix(LIBERTY_SUFFIX).lower()
+        for key in _entries(versions_lock)
+        if key.endswith(LIBERTY_SUFFIX)
+    ]
+    if len(names) > 1:
+        raise ProfileRefusedError(f"versions.lock lists more than one liberty: {', '.join(names)}")
+    return names[0] if names else None
 
 
 @dataclass(frozen=True)
@@ -41,6 +65,7 @@ class ProfileSpec:
     tools: dict[str, str]
     normalization_version: int
     waveview: str | None = None  # the version of the waveview site (waveview/versions.lock)
+    liberty: str | None = None  # the synthesis library: synth metrics compare within one only
 
 
 async def add_profile(
@@ -61,6 +86,7 @@ async def add_profile(
             tools=spec.tools,
             normalization_version=spec.normalization_version,
             waveview=spec.waveview,
+            liberty=spec.liberty,
         )
         session.add(existing)
         await session.flush()
@@ -73,6 +99,7 @@ async def add_profile(
             tools=existing.tools,
             normalization_version=existing.normalization_version,
             waveview=existing.waveview,
+            liberty=existing.liberty,
         )
         if stored != spec:
             raise ProfileRefusedError(

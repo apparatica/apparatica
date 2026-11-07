@@ -30,6 +30,7 @@ stages:
   lint: {type: lint}
   sim_run: {type: sim, testbench: main, groups: [public], max_cycles: 10000}
   sim_full: {type: sim, testbench: main, groups: [public, hidden], max_cycles: 10000}
+  synth: {type: synth}  # run by key in toolchain/tests/test_synthesis.py
 pipelines:
   practice:
     run: [precheck, lint, sim_run]

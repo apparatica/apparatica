@@ -43,7 +43,8 @@ stages:
   sim_full: {type: sim, testbench: main, groups: [public, hidden], max_cycles: 10000}
   sim_junk: {type: sim, testbench: junk, groups: [public]}
   sim_huge: {type: sim, testbench: huge, groups: [public]}
+  synth: {type: synth}
 pipelines:
   practice:
     run: [precheck, lint, sim_run]
-    submit: [precheck, lint, sim_full]
+    submit: [precheck, lint, sim_full, synth]

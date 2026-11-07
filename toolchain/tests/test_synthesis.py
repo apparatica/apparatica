@@ -1,57 +1,131 @@
-"""Synthesis tools of the image (ADR-0007): Yosys with sv-elab, OpenSTA, the Nangate45 liberty.
+"""Synthesis in the image (ADR-0007): Yosys with sv-elab, OpenSTA, the Nangate45 liberty and the
+`synth` stage on top of them (specs/07 §2.4)."""
 
-The `synth` stage itself comes with T3.1b; these tests check that the tools run in the sandbox and
-do what the stage script of specs/07 §2.4 relies on.
-"""
-
-import json
 import re
+import threading
 import tomllib
+from fnmatch import fnmatchcase
 from pathlib import Path
 
 import pytest
 
-from sandbox import Sandbox, output
+from judge.core.events import Event, LogEvent
+from judge.core.executor import LocalDockerExecutor
+from judge.core.limits import load_resource_classes, sandbox_limits, stage_limits
+from judge.core.package import Problem, StageConfig, load_manifest
+from judge.core.pipeline import CACHED_RUN_NOTE, Job, run_pipeline
+from judge.core.registry import get_language
+from judge.core.stage import FinishedStage, StageContext, StageResult
+from judge.languages.systemverilog.stages.synth import (
+    NANGATE45,
+    NETLIST_GENERIC,
+    SynthConfig,
+    SynthStage,
+)
+from sandbox import IMAGE, RUNTIME, Sandbox, output
 
 REPO = Path(__file__).parents[2]
 CORPUS = sorted((REPO / "judge" / "tests" / "data" / "precheck" / "good").glob("*.sv"))
-NANGATE45 = "/opt/pdk/nangate45"
-LIBERTY = f"{NANGATE45}/NangateOpenCellLibrary_typical.lib"
-# The frontend of the synth stage: no implicit SYNTHESIS define, translate_off comments are plain
-# comments, so the design is the same for synthesis and simulation (ADR-0007).
+PACKAGE = REPO / "judge" / "tests" / "data" / "packages" / "counter"
+RESOURCE_CLASSES = load_resource_classes(REPO / "config" / "resource-classes.yaml")
+PDK = str(Path(NANGATE45.path).parent.as_posix())
 READ_SLANG = "read_slang --no-synthesis-define --no-default-translate-off-format"
 
-COUNTER = """\
-module top (input logic clk, input logic rst, output logic [3:0] count);
-  always_ff @(posedge clk) count <= rst ? 4'd0 : count + 4'd1;
-endmodule
-"""
+HEADER = (
+    "module counter (input logic clk, input logic rst, input logic en,\n"
+    "                output logic [3:0] count);\n"
+)
+CORRECT = HEADER + (
+    "  always_ff @(posedge clk)\n"
+    "    if (rst) count <= '0;\n"
+    "    else if (en) count <= count == 4'd9 ? '0 : count + 4'd1;\n"
+    "endmodule\n"
+)
+# Simulation does not tell these from a correct counter on the tests; synthesis does.
+INCOMPLETE = HEADER + (
+    "  logic [3:0] next;\n"
+    "  always_comb begin\n"
+    "    if (count == 4'd9) next = '0;\n"
+    "    else if (count < 4'd9) next = count + 4'd1;\n"
+    "  end\n"
+    "  always_ff @(posedge clk)\n"
+    "    if (rst) count <= '0;\n"
+    "    else if (en) count <= next;\n"
+    "endmodule\n"
+)
+UNSYNTHESIZABLE = {
+    "loop": (INCOMPLETE, "LOGIC_LOOP", 3),
+    "latch": (INCOMPLETE.replace("always_comb", "always @*"), "LATCH", 4),
+    "drivers": (
+        HEADER + "  always_ff @(posedge clk) if (rst) count <= '0;\n"
+        "  always_ff @(posedge clk) if (en) count <= count + 4'd1;\nendmodule\n",
+        "MULTIPLE_DRIVERS",
+        None,
+    ),
+    "async-load": (
+        HEADER + "  always_ff @(posedge clk or posedge rst or posedge en)\n"
+        "    count <= rst ? '0 : count + 4'd1;\nendmodule\n",
+        "SYNTH_ERROR",
+        4,
+    ),
+}
+# The references of the demo problems, synthesized in S4 (docs/spikes/s4.md):
+# area µm², cells, flops, critical path ns, logic depth, fmax.
+S4_METRICS = {
+    "mux4": (41.762, 41, 0, 0.1722, 3, None),
+    "carry-adder": (47.348, 38, 0, 0.3868, 9, None),
+    "counter-mod-n": (34.58, 18, 4, 0.3174, 3, 3150.6),
+    "seq-detector": (31.92, 15, 5, 0.1765, 2, 5665.72),
+    "sync-fifo": (1194.872, 526, 145, 0.5917, 7, 1690.05),
+}
 
-# The mapping part of the stage script (specs/07 §2.4).
-MAP = f"""\
-read_liberty -lib {LIBERTY}
-{READ_SLANG} solution.sv --top top
-synth -top top -flatten
-dfflibmap -liberty {LIBERTY}
-abc -liberty {LIBERTY}
-hilomap -singleton -hicell LOGIC1_X1 Z -locell LOGIC0_X1 Z
-splitnets -ports
-opt_clean -purge
-tee -q -o stat.json stat -liberty {LIBERTY} -json
-write_verilog -noexpr -noattr netlist.v
-"""
 
-STA = f"""\
-read_liberty {LIBERTY}
-read_verilog netlist.v
-link_design top
-create_clock -name clk -period 2.0 [get_ports clk]
-set_input_delay 0 -clock clk [delete_from_list [all_inputs] [get_ports clk]]
-set_output_delay 0 -clock clk [all_outputs]
-set_driving_cell -lib_cell BUF_X1 [delete_from_list [all_inputs] [get_ports clk]]
-set_load 0.00114 [all_outputs]
-puts "worst_slack [worst_slack -max]"
-"""
+class Console:
+    def __init__(self) -> None:
+        self.lines: list[tuple[str, str]] = []
+
+    def emit(self, event: Event) -> None:
+        if isinstance(event, LogEvent):
+            self.lines.append((event.ch, event.text))
+
+
+class MemoryCache:
+    def __init__(self) -> None:
+        self.files: dict[str, bytes] = {}
+
+    def get(self, key: str) -> bytes | None:
+        return self.files.get(key)
+
+    def put(self, key: str, data: bytes) -> None:
+        self.files[key] = data
+
+
+def with_synth(problem: Problem) -> Problem:
+    """The demo problems get their synth stage with T3.2: here it is the default one."""
+    stages = dict(problem.stages) | {"synth": StageConfig(type="synth")}
+    return problem.model_copy(update={"stages": stages})
+
+
+def synthesize(
+    package: Path, solution: str | bytes, cache: MemoryCache | None = None
+) -> tuple[StageResult, Console]:
+    problem = with_synth(load_manifest(package))
+    code = solution.encode() if isinstance(solution, str) else solution
+    job = Job(problem, package, "submit", seed=1, solution=code, stages=("precheck", "synth"))
+    sink = Console()
+    with LocalDockerExecutor(
+        IMAGE, sandbox_limits(problem, RESOURCE_CLASSES), runtime=RUNTIME
+    ) as executor:
+        results = run_pipeline(
+            job,
+            get_language("systemverilog"),
+            executor,
+            sink,
+            RESOURCE_CLASSES,
+            build_cache=cache or MemoryCache(),
+        )
+    assert results[0].status == "passed", results[0]
+    return results[-1], sink
 
 
 def yosys(sandbox: Sandbox, workdir: str, script: str) -> str:
@@ -88,32 +162,98 @@ def test_corpus_solution_synthesizes_without_latches_and_loops(
     )
 
 
-def test_counter_maps_to_nangate45_and_is_timed(sandbox: Sandbox, workdir: str) -> None:
-    sandbox.write(f"{workdir}/solution.sv", COUNTER)
-    yosys(sandbox, workdir, MAP)
-    stat = json.loads(sandbox.read(f"{workdir}/stat.json"))["design"]
-    flops = {cell: n for cell, n in stat["num_cells_by_type"].items() if cell.startswith("DFF")}
-    assert sum(flops.values()) == 4, stat
-    assert stat["area"] > 0
+@pytest.mark.parametrize("problem", sorted(S4_METRICS))
+def test_the_references_of_the_demo_problems_have_the_metrics_of_s4(problem: str) -> None:
+    """The stage script gives what S4 measured: its extra checks do not change the design."""
+    package = REPO / "problems" / problem
+    manifest = load_manifest(package)
+    assert manifest.reference is not None
+    reference = (package / manifest.reference.solutions[0].file).read_bytes()
+    synth, _ = synthesize(package, reference)
+    assert synth.status == "passed", synth
+    metrics = synth.metrics
+    area, cells, flops, critical, depth, fmax = S4_METRICS[problem]
+    assert (metrics["area_um2"], metrics["cells"], metrics["flops"]) == (area, cells, flops)
+    assert (metrics["critical_path_ns"], metrics["logic_depth"]) == (critical, depth)
+    assert metrics.get("fmax_mhz") == fmax
+    assert (metrics["latches"], metrics["liberty"]) == (0, "nangate45")
+    assert sum(metrics["cells_by_type"].values()) == cells
 
-    sandbox.write(f"{workdir}/sta.tcl", STA)
-    sta = sandbox.exec(["sta", "-no_init", "-exit", "sta.tcl"], cwd=workdir, timeout=60)
-    assert sta.returncode == 0, output(sta)
-    match = re.search(r"^worst_slack (\S+)$", sta.stdout.decode(), re.MULTILINE)
-    assert match, output(sta)
-    critical_path_ns = 2.0 - float(match.group(1))
-    assert 0 < critical_path_ns < 2.0
+
+@pytest.mark.parametrize("case", sorted(UNSYNTHESIZABLE))
+def test_unsynthesizable_solutions_fail_as_compile(case: str) -> None:
+    solution, code, line = UNSYNTHESIZABLE[case]
+    synth, sink = synthesize(PACKAGE, solution)
+    assert (synth.status, synth.failure_kind) == ("failed", "compile"), synth
+    assert [(d.code, d.line) for d in synth.summary.diagnostics] == [(code, line)]
+    assert all("\x1b" not in text for _, text in sink.lines), "colors are removed"
 
 
-def test_synthesis_is_deterministic(sandbox: Sandbox) -> None:
-    """Two runs give byte-identical metrics and netlist (S4: 300 runs on two machines)."""
-    results = []
-    for _ in range(2):
-        workdir = sandbox.mkdtemp()
-        sandbox.write(f"{workdir}/solution.sv", COUNTER)
-        yosys(sandbox, workdir, MAP)
-        results.append((sandbox.read(f"{workdir}/stat.json"), sandbox.read(f"{workdir}/netlist.v")))
-    assert results[0] == results[1]
+def test_a_second_check_of_the_same_code_replays_the_stage_cache() -> None:
+    cache = MemoryCache()
+    first, _ = synthesize(PACKAGE, CORRECT, cache)
+    second, sink = synthesize(PACKAGE, CORRECT, cache)
+    assert (first.cached, second.cached) == (False, True)
+    assert second.metrics == first.metrics
+    assert ("sys", CACHED_RUN_NOTE) in sink.lines
+
+
+def test_the_stage_run_is_byte_identical() -> None:
+    """Metrics, reports and both netlists (S4: 300 runs on two machines)."""
+    problem = load_manifest(PACKAGE)
+    ctx = StageContext(
+        key="synth",
+        type="synth",
+        ordinal=1,
+        config=SynthConfig(),
+        problem=problem,
+        package_dir=PACKAGE,
+        kind="submit",
+        seed=1,
+        solution=b"",
+        limits=stage_limits(problem, "synth", "synth", RESOURCE_CLASSES),
+        previous={
+            "precheck": FinishedStage(
+                StageResult(key="precheck", type="precheck", ordinal=0, status="passed"),
+                {"solution.sv": CORRECT.encode()},
+            )
+        },
+    )
+    plan = SynthStage().plan(ctx)
+    files = []
+    with LocalDockerExecutor(
+        IMAGE, sandbox_limits(problem, RESOURCE_CLASSES), runtime=RUNTIME
+    ) as executor:
+        for _ in range(2):
+            run = executor.run("synth", plan, lambda channel, text: None, threading.Event())
+            assert run.ok, run.output
+            files.append(dict(run.files))
+    assert files[0] == files[1]
+    assert NETLIST_GENERIC in files[0]
+
+
+def test_the_flop_patterns_are_the_ff_cells_of_the_liberty(sandbox: Sandbox) -> None:
+    """`flops` and the logic depth count liberty cells by name: exactly those with an `ff` group."""
+    cells: dict[str, bool] = {}
+    current = None
+    for line in sandbox.read(NANGATE45.path).splitlines():
+        found = re.match(r'\s*cell\s*\(\s*"?(\w+)"?\s*\)', line)
+        if found:
+            current = found[1]
+            cells[current] = False
+        elif current and re.match(r"\s*ff\s*\(", line):
+            cells[current] = True
+    assert any(cells.values())
+    for cell, is_flop in cells.items():
+        named = any(fnmatchcase(cell, pattern) for pattern in NANGATE45.flops)
+        assert named == is_flop, cell
+
+
+def test_the_liberty_of_the_stage_is_the_one_of_versions_lock(lock: dict[str, str]) -> None:
+    """The profile names its liberty after the `<NAME>_LIB_SHA256` key (ToolchainProfile.liberty),
+    the metrics after the stage: they must agree."""
+    assert f"{NANGATE45.name.upper()}_LIB_SHA256" in lock
+    assert Path(NANGATE45.path).name == "NangateOpenCellLibrary_typical.lib"
 
 
 def test_nangate45_ships_with_license_and_source(sandbox: Sandbox, lock: dict[str, str]) -> None:
@@ -124,16 +264,16 @@ def test_nangate45_ships_with_license_and_source(sandbox: Sandbox, lock: dict[st
         "LICENSE": lock["NANGATE45_LICENSE_SHA256"],
         "README.md": lock["NANGATE45_README_SHA256"],
     }
-    result = sandbox.exec(["sha256sum", *files], cwd=NANGATE45)
+    result = sandbox.exec(["sha256sum", *files], cwd=PDK)
     assert result.returncode == 0, output(result)
     sums = {}
     for line in result.stdout.decode().splitlines():
         digest, name = line.split()
         sums[name] = digest
     assert sums == files
-    header = sandbox.exec(["head", "-c", "2048", LIBERTY]).stdout.decode()
+    header = sandbox.exec(["head", "-c", "2048", NANGATE45.path]).stdout.decode()
     assert "Copyright (C) 2004-2011, Nangate Inc." in header
-    assert "Version: PDKv1.3_v2010_12" in sandbox.read(f"{NANGATE45}/README.md")
+    assert "Version: PDKv1.3_v2010_12" in sandbox.read(f"{PDK}/README.md")
 
     policy = tomllib.loads((REPO / "scripts" / "license-policy.toml").read_text(encoding="utf-8"))
     exceptions = {(e["ecosystem"], e["name"]): e["adr"] for e in policy["exceptions"]}

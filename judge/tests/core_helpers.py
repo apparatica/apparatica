@@ -36,6 +36,7 @@ class ScriptConfig(BaseModel):
 
     code: str = "pass"
     warn: bool = False
+    cache: bool = False  # a deterministic plan (StagePlan.cache)
 
 
 class ScriptStage:
@@ -55,6 +56,7 @@ class ScriptStage:
             inputs={"solution.sv": ctx.solution, **{f"from/{k}": v for k, v in inputs.items()}},
             collect=("out.txt",),
             line_filter=_progress,
+            cache=ctx.config.cache,
         )
 
     def interpret(self, ctx: StageContext, runs: Sequence[ExecResult]) -> StageOutcome | StagePlan:

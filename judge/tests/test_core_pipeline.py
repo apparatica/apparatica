@@ -13,7 +13,7 @@ from core_helpers import (
 
 from judge.core import events
 from judge.core.executor import HostExecutor, OnLine
-from judge.core.pipeline import Job, PipelineConfigError, run_pipeline
+from judge.core.pipeline import CACHED_RUN_NOTE, Job, PipelineConfigError, run_pipeline
 from judge.core.stage import ExecResult, StagePlan, StageResult
 
 
@@ -250,3 +250,59 @@ def test_build_cache_reaches_the_stages() -> None:
         notes = [e.text for e in sink.events if isinstance(e, events.LogEvent) and e.ch == "sys"]
         runs.append((results[0].cached, notes))
     assert runs == [(False, []), (True, ["from the cache: binary"])]
+
+
+def run_twice(code: str, cache: MemoryCache) -> list[tuple[StageResult, list[tuple[str, str]]]]:
+    """The same deterministic stage `a` and a stage `b` that reads its out.txt, run twice."""
+    stages: dict[str, dict[str, object]] = {
+        "a": {"type": "script", "code": code, "cache": True},
+        "b": {"type": "script", "code": "assert open('from/a').read() == 'made'"},
+    }
+    problem = make_problem(stages, ["a", "b"])
+    job = Job(problem, Path(), "run", seed=1, solution=b"module demo; endmodule\n")
+    checks = []
+    for _ in range(2):
+        sink = ListSink()
+        with HostExecutor() as executor:
+            results = run_pipeline(job, FAKE, executor, sink, RESOURCE_CLASSES, build_cache=cache)
+        assert results[1].status == "passed", "the files of the replayed run reach later stages"
+        lines: list[tuple[str, str]] = [
+            (e.ch, e.text) for e in sink.events if isinstance(e, events.LogEvent)
+        ]
+        checks.append((results[0], lines))
+    return checks
+
+
+def test_a_deterministic_plan_is_replayed_from_the_stage_cache(tmp_path: Path) -> None:
+    counter = tmp_path / "runs"
+    code = (
+        f"open({str(counter)!r}, 'a').write('x'); print('measured'); "
+        "open('out.txt', 'w').write('made')"
+    )
+    first, second = run_twice(code, MemoryCache())
+    assert counter.read_text() == "x", "the second check does not run the plan"
+    assert (first[0].cached, first[1]) == (False, [("out", "measured")])
+    assert (second[0].cached, second[1]) == (True, [("sys", CACHED_RUN_NOTE), ("out", "measured")])
+    assert first[0].metrics == second[0].metrics
+
+
+def test_a_limit_is_not_kept_in_the_stage_cache() -> None:
+    cache = MemoryCache()
+    problem = make_problem(
+        {"a": {"type": "script", "code": "print('x' * 2_000_000)", "cache": True}}, ["a"]
+    )
+    job = Job(problem, Path(), "run", seed=1, solution=b"")
+    with HostExecutor() as executor:
+        results = run_pipeline(job, FAKE, executor, ListSink(), RESOURCE_CLASSES, build_cache=cache)
+    assert (results[0].failure_kind, results[0].limit) == ("limit", "output")
+    assert not cache.files
+
+
+def test_a_broken_stage_cache_entry_is_a_miss(tmp_path: Path) -> None:
+    counter = tmp_path / "runs"
+    code = f"open({str(counter)!r}, 'a').write('x'); open('out.txt', 'w').write('made')"
+    cache = MemoryCache()
+    run_twice(code, cache)
+    cache.files = {key: b'{"version": 1, "files": "forged"}' for key in cache.files}
+    run_twice(code, cache)
+    assert counter.read_text() == "xx", "the forged entry is not used and is replaced"

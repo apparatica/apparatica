@@ -161,6 +161,9 @@ class StagePlan:
     `inputs` are written into the directory first, those named in `executable` with the executable
     bit; `collect` names files read back afterwards, each at most `collect_limit` bytes. `timeout_s`
     and `output_limit` cover the whole plan. `note` goes to the console before the commands run.
+    `cache`: the plan is deterministic (FR-JDG-11) — its run is kept in the stage cache by
+    `plan_key` and replayed for the same plan instead of running again, so it must name everything
+    it reads in `commands` and `inputs` and leave nothing a later plan of the stage needs.
     """
 
     commands: tuple[Command, ...]
@@ -172,6 +175,7 @@ class StagePlan:
     collect_limit: int = 1 << 20
     line_filter: LineFilter | None = None
     note: str | None = None
+    cache: bool = False
 
 
 @dataclass(frozen=True)
@@ -192,6 +196,7 @@ class ExecResult:
     memory_exceeded: bool = False
     files: Mapping[str, bytes] = field(default_factory=dict)  # collected files that exist
     oversized: frozenset[str] = frozenset()  # collected files over the limit, not read
+    cached: bool = False  # replayed from the stage cache, not run (StagePlan.cache)
 
     @property
     def ok(self) -> bool:
