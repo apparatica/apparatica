@@ -42,6 +42,7 @@ from apparatica.core.requests import RequestContextMiddleware
 from apparatica.core.settings import Settings, get_settings
 from apparatica.core.storage import Storage
 from apparatica.leaderboards import api as leaderboards_api
+from apparatica.leaderboards.ranking import placement_of
 from apparatica.problems import api as problems_api
 from apparatica.submissions import api as submissions_api
 from apparatica.submissions.queue import DramatiqQueue, JobQueue, NoQueue
@@ -143,6 +144,8 @@ def create_app(
     app.state.stream_hub = hub
     app.state.storage = Storage(settings)  # event journals, pictures of statements
     app.state.job_queue = queue
+    # The place of a submission (FR-RUN-05): leaderboards stand above submissions (specs/03 §3).
+    app.state.placement_of = placement_of
     app.state.guest_cookies = guest_cookies
     app.state.sessions = sessions
     app.state.email_logins = email_logins

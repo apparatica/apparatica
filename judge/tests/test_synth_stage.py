@@ -196,9 +196,9 @@ def test_a_synthesized_design_has_its_metrics_and_the_netlist_for_netlist_sim() 
     outcome = interpret(run(files))
     assert outcome.status == "passed"
     assert outcome.metrics == {
-        "critical_path_ns": 0.2455,
-        "fmax_mhz": 4073.32,
-        "area_um2": 36.176,
+        "critical_path_ns": 0.246,
+        "fmax_mhz": 4065.04,
+        "area_um2": 36.18,
         "cells": 23,
         "flops": 4,
         "latches": 0,
@@ -217,13 +217,13 @@ def test_a_synthesized_design_has_its_metrics_and_the_netlist_for_netlist_sim() 
         },
     }
     assert outcome.outputs == {"netlist_generic": files[NETLIST_GENERIC]}
-    assert outcome.summary.caption == "0,2455 нс, 36,176 мкм², ячеек 23"
+    assert outcome.summary.caption == "0,246 нс, 36,18 мкм², ячеек 23"
 
 
 def test_a_combinational_design_has_a_delay_but_no_frequency() -> None:
     ports = [Port(name="a", dir="input", width="4"), Port(name="y", dir="output", width="4")]
     outcome = interpret(run(fixture("good")), context(problem(ports=ports)))
-    assert outcome.metrics["critical_path_ns"] == 0.2455
+    assert outcome.metrics["critical_path_ns"] == 0.246
     assert "fmax_mhz" not in outcome.metrics
 
 

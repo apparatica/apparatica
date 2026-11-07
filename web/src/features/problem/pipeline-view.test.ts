@@ -82,7 +82,7 @@ describe("a finished check", () => {
         ["lint", "passed", null],
         ["sim", "passed", { kind: "caption", text: "пройдено 4 из 4" }],
         // synth with netlist_sim: the metrics of synthesis, not the tests of the netlist
-        ["synth", "passed", { kind: "caption", text: "0,5917 нс, 1194,87 мкм², ячеек 526" }],
+        ["synth", "passed", { kind: "caption", text: "0,592 нс, 1194,87 мкм², ячеек 526" }],
       ],
     ],
     [
@@ -90,7 +90,7 @@ describe("a finished check", () => {
       [
         ["lint", "warning", { kind: "warnings", count: 1 }],
         ["sim", "passed", { kind: "caption", text: "пройдено 4 из 4" }],
-        ["synth", "passed", { kind: "caption", text: "0,1722 нс, 41,762 мкм², ячеек 41" }],
+        ["synth", "passed", { kind: "caption", text: "0,172 нс, 41,76 мкм², ячеек 41" }],
       ],
     ],
     [

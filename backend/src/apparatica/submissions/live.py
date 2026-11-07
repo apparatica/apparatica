@@ -28,6 +28,7 @@ from prometheus_client import Gauge, Histogram
 from apparatica.core.storage import Storage
 from apparatica.submissions.events import FinalizedEvent, QueueEvent
 from apparatica.submissions.queue import JobQueue
+from apparatica.submissions.schemas import LeaderboardPlacement
 from apparatica.submissions.streams import Entry, StreamHub, entry_key
 from judge.core.jobs import submission_stream_key
 from judge.core.verdict import VerdictDetail
@@ -57,11 +58,13 @@ class Watched:
     verdict_detail: dict[str, Any] | None
     finished_at: datetime | None
     journal: str | None  # storage key of the events of its last attempt
+    leaderboard: LeaderboardPlacement | None = None  # the place now, of a final status
 
     def finalized(self) -> FinalizedEvent:
         return FinalizedEvent(
             status=self.status,  # type: ignore[arg-type]  # a final status
             verdict_detail=VerdictDetail.model_validate(self.verdict_detail or {}),
+            leaderboard=self.leaderboard,
         )
 
 

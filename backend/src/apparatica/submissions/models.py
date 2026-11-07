@@ -90,6 +90,8 @@ class Submission(Base):
     started_at: Mapped[datetime | None]
     finished_at: Mapped[datetime | None]
     client_ip_hash: Mapped[str | None]
+    # An accepted Submit of a signed-in user (specs/04 §6): set by the ingestor with the verdict.
+    is_public: Mapped[bool] = mapped_column(server_default="false")
 
 
 class StageResult(Base):

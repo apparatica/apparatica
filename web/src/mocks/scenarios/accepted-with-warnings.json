@@ -150,8 +150,8 @@
     "duration_ms": 4685,
     "metrics_schema": "synth/v1",
     "metrics": {
-     "critical_path_ns": 0.1722,
-     "area_um2": 41.762,
+     "critical_path_ns": 0.172,
+     "area_um2": 41.76,
      "cells": 41,
      "flops": 0,
      "latches": 0,
@@ -168,7 +168,7 @@
      }
     },
     "summary": {
-     "caption": "0,1722 нс, 41,762 мкм², ячеек 41",
+     "caption": "0,172 нс, 41,76 мкм², ячеек 41",
      "skip_reason": null,
      "diagnostics": [],
      "tests": [],
@@ -871,8 +871,8 @@
      "duration_ms": 4685,
      "metrics_schema": "synth/v1",
      "metrics": {
-      "critical_path_ns": 0.1722,
-      "area_um2": 41.762,
+      "critical_path_ns": 0.172,
+      "area_um2": 41.76,
       "cells": 41,
       "flops": 0,
       "latches": 0,
@@ -890,7 +890,7 @@
      },
      "cached": false,
      "summary": {
-      "caption": "0,1722 нс, 41,762 мкм², ячеек 41",
+      "caption": "0,172 нс, 41,76 мкм², ячеек 41",
       "skip_reason": null,
       "diagnostics": [],
       "tests": [],

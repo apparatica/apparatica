@@ -84,6 +84,10 @@ OOM_KILLED = 137
 LATCH_CELLS = "t:$_DLATCH* t:$_DLATCHSR* t:$_SR_* t:$dlatch* t:$sr"
 # Slack of a design without timing paths (OpenSTA reports a huge number).
 NO_PATHS_SLACK = 1e30
+# The precision of the tools (ADR-0006): finer digits would tell apart solutions the leaderboard
+# should rank together. Delay in ns to 1 ps, area in µm² to 0.01.
+DELAY_DIGITS = 3
+AREA_DIGITS = 2
 MAX_DIAGNOSTICS = 50
 
 # A parameter value goes into the Yosys script: a number literal only, no spaces or separators.
@@ -364,14 +368,14 @@ def metrics(run: ExecResult, *, clocked: bool, period_ns: float, latches: int) -
     depth = _LTP.search(_file(run, LTP))
     if depth is None:
         raise OutputError(f"{LTP}: no longest path")
-    critical = 0.0 if sta.wns_ns >= NO_PATHS_SLACK else round(period_ns - sta.wns_ns, 4)
+    critical = 0.0 if sta.wns_ns >= NO_PATHS_SLACK else round(period_ns - sta.wns_ns, DELAY_DIGITS)
     if critical < 0:
         raise OutputError(f"{STA_RESULT}: slack {sta.wns_ns} over the period")
     cells = stat.num_cells_by_type
     return SynthMetrics(
         critical_path_ns=critical,
         fmax_mhz=round(1000 / critical, 2) if clocked and critical > 0 else None,
-        area_um2=round(stat.area, 4),
+        area_um2=round(stat.area, AREA_DIGITS),
         cells=stat.num_cells,
         flops=sum(
             n for cell, n in cells.items() if any(fnmatchcase(cell, p) for p in NANGATE45.flops)

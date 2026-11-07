@@ -12,7 +12,9 @@ under a row lock of the submission, so that a redelivered or reordered record ch
 - a finished submission takes no more records; a final record for it publishes `finalized` again,
   in case the first publication was lost;
 - the end of a check of a signed-in user updates their status of the problem in the same
-  transaction (`apparatica.problems.progress`, FR-USR-06).
+  transaction (`apparatica.problems.progress`, FR-USR-06); their accepted Submit becomes public
+  and enters the leaderboard of the problem (`apparatica.leaderboards.ranking`, FR-LB-02), and
+  `finalized` carries the place (FR-RUN-05).
 
 A `waveform` record ends a recreated FST (FR-WAV-05) under a row lock of its `waveforms` row: the
 FST becomes an artifact and the row `ready`, or the row is `failed`. Only a ready row is final, so
@@ -36,7 +38,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from apparatica.core.db import Database
 from apparatica.core.ids import uuid7
 from apparatica.judging.retention import Retention
-from apparatica.problems.progress import record_check
+from apparatica.leaderboards.ranking import placement_of, rank_submit
+from apparatica.problems.progress import ACCEPTED, record_check
 from apparatica.submissions.events import FinalizedEvent
 from apparatica.submissions.models import Artifact, Submission, Waveform
 from apparatica.submissions.models import StageResult as StageResultRow
@@ -50,6 +53,7 @@ from judge.core.jobs import (
     StoredArtifact,
     WaveformRecord,
 )
+from judge.core.leaderboard import ast_hash
 from judge.core.stage import StageResult, SubmissionKind
 from judge.core.verdict import SubmissionStatus, Verdict, VerdictDetail, aggregate
 
@@ -164,7 +168,7 @@ class Ingestor:
             raise InvalidRecordError("no such submission")
         final = isinstance(record, DoneRecord | AttemptFailedRecord)
         if submission.status in FINAL_STATUSES:
-            return finalized(submission) if final else None
+            return await finalized(session, submission) if final else None
         if record.attempt < submission.attempt:
             log.info(
                 "record of an earlier attempt dropped",
@@ -198,15 +202,17 @@ class Ingestor:
                     verdict = aggregate(record.results, cancelled=record.cancelled)
                 else:
                     verdict = internal_error(EMPTY_PIPELINE)
+                results: Sequence[StageResult] = record.results
             case AttemptFailedRecord():
                 verdict = internal_error(record.error_code)
+                results = ()
         log.info(
             "check finalized",
             submission_id=str(submission.id),
             attempt=record.attempt,
             status=verdict.status,
         )
-        return await finalize(session, submission, verdict, now)
+        return await finalize(session, submission, verdict, now, results)
 
     async def _store_artifacts(
         self, session: AsyncSession, submission: Submission, record: DoneRecord
@@ -304,12 +310,18 @@ def internal_error(code: str) -> Verdict:
 
 
 async def finalize(
-    session: AsyncSession, submission: Submission, verdict: Verdict, now: datetime
+    session: AsyncSession,
+    submission: Submission,
+    verdict: Verdict,
+    now: datetime,
+    results: Sequence[StageResult] = (),
 ) -> FinalizedEvent:
-    """The final status of a submission (only the ingestor sets it) and its event."""
+    """The final status of a submission (only the ingestor sets it) and its event; `results` are
+    the stage results of the last attempt."""
     submission.status = verdict.status
     submission.verdict_detail = verdict.detail.model_dump(mode="json")
     submission.finished_at = now
+    submission.ast_hash = ast_hash(results)
     if submission.user_id is not None:
         await record_check(
             session,
@@ -320,11 +332,17 @@ async def finalize(
             status=verdict.status,
             finished_at=now,
         )
-    return finalized(submission)
+        if submission.kind == "submit" and verdict.status in ACCEPTED:
+            submission.is_public = True  # specs/04 §6
+            await rank_submit(session, submission, results, now)
+    return await finalized(session, submission)
 
 
-def finalized(submission: Submission) -> FinalizedEvent:
+async def finalized(session: AsyncSession, submission: Submission) -> FinalizedEvent:
+    """The event of a final status: the place is counted before it is sent, so the banner and the
+    leaderboard agree."""
     return FinalizedEvent(
         status=submission.status,  # type: ignore[arg-type]  # a final status, checked by the caller
         verdict_detail=VerdictDetail.model_validate(submission.verdict_detail or {}),
+        leaderboard=await placement_of(session, submission),
     )

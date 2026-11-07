@@ -32,6 +32,7 @@ from apparatica.submissions.live import Watched
 from apparatica.submissions.models import Artifact, StageResult, ToolchainProfile
 from apparatica.submissions.models import Submission as SubmissionRow
 from apparatica.submissions.models import Waveform as WaveformRow
+from apparatica.submissions.placements import PlacementOf
 from apparatica.submissions.queue import (
     QUEUE_UNAVAILABLE,
     Job,
@@ -220,9 +221,11 @@ async def get_submission(
     queue: JobQueue,
     author: Author,
     *,
+    placement_of: PlacementOf | None = None,
     waveview: str | None = None,
 ) -> Submission | None:
-    """The submission of this author; `waveview` is the origin of the viewer site."""
+    """The submission of this author; `waveview` is the origin of the viewer site. A final one
+    has the place of its author from `placement_of` (a new one has none yet)."""
     row = await session.execute(
         select(SubmissionRow, ProblemVersion, Problem.slug, ToolchainProfile.waveview)
         .join(ProblemVersion, ProblemVersion.id == SubmissionRow.problem_version_id)
@@ -267,8 +270,12 @@ async def get_submission(
         kind=submission.kind,  # type: ignore[arg-type]  # checked by the table constraint
         status=submission.status,  # type: ignore[arg-type]  # a submission_status value
         code=submission.code,
-        public=False,  # publication and places arrive with T3.4
-        leaderboard=None,
+        public=submission.is_public,
+        leaderboard=(
+            await placement_of(session, submission)
+            if placement_of is not None and submission.status in FINAL_STATUSES
+            else None
+        ),
         seed=str(submission.seed),
         toolchain_profile=submission.toolchain_profile_id,
         waveview_url=(
@@ -310,7 +317,7 @@ async def get_submission(
 
 
 async def watch_submission(
-    session: AsyncSession, submission_id: uuid.UUID, author: Author
+    session: AsyncSession, submission_id: uuid.UUID, author: Author, placement_of: PlacementOf
 ) -> Watched | None:
     """What the event stream of a submission needs (specs/07 §4.2), for its author."""
     submission = await session.scalar(
@@ -328,14 +335,16 @@ async def watch_submission(
         .order_by(Artifact.created_at.desc(), Artifact.storage_key.desc())
         .limit(1)
     )
+    final = submission.status in FINAL_STATUSES
     return Watched(
         id=submission.id,
         status=submission.status,
-        final=submission.status in FINAL_STATUSES,
+        final=final,
         queue=queue_name(submission.queue_class),
         verdict_detail=submission.verdict_detail,
         finished_at=submission.finished_at,
         journal=journal,
+        leaderboard=await placement_of(session, submission) if final else None,
     )
 
 

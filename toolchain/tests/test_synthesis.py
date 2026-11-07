@@ -70,14 +70,15 @@ UNSYNTHESIZABLE = {
         4,
     ),
 }
-# The references of the demo problems, synthesized in S4 (docs/spikes/s4.md):
+# The references of the demo problems, synthesized in S4 (docs/spikes/s4.md), with the precision of
+# the stage (ADR-0006: delay to 1 ps, area to 0.01 µm²; S4 reported 0.1 ps and 0.001 µm²):
 # area µm², cells, flops, critical path ns, logic depth, fmax.
 S4_METRICS = {
-    "mux4": (41.762, 41, 0, 0.1722, 3, None),
-    "carry-adder": (47.348, 38, 0, 0.3868, 9, None),
-    "counter-mod-n": (34.58, 18, 4, 0.3174, 3, 3150.6),
-    "seq-detector": (31.92, 15, 5, 0.1765, 2, 5665.72),
-    "sync-fifo": (1194.872, 526, 145, 0.5917, 7, 1690.05),
+    "mux4": (41.76, 41, 0, 0.172, 3, None),
+    "carry-adder": (47.35, 38, 0, 0.387, 9, None),
+    "counter-mod-n": (34.58, 18, 4, 0.317, 3, 3154.57),
+    "seq-detector": (31.92, 15, 5, 0.177, 2, 5649.72),
+    "sync-fifo": (1194.87, 526, 145, 0.592, 7, 1689.19),
 }
 
 

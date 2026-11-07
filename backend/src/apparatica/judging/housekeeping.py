@@ -12,8 +12,9 @@
   cleared (NFR-PRIV-01).
 - **Sessions** — expired sessions of users are deleted (FR-AUTH-04).
 - **Accounts** — accounts past their `delete_at` are deleted with their submissions and the files
-  of their artifacts, drafts, statuses of problems, logins, consents and sessions (FR-USR-05).
-  Public solutions, when they come, are to pass to «удалённый участник» instead (decision ОВ-12).
+  of their artifacts, drafts, statuses of problems, logins, consents, sessions and entries of
+  leaderboards, whose places are counted again (FR-USR-05). Public solutions are to pass to
+  «удалённый участник» instead (decision ОВ-12, T3.4a).
 - **Problem stats** — the authors of every problem with a judged and with an accepted Submit, for
   the acceptance rate of the catalogue (FR-CAT-04).
 """
@@ -39,6 +40,7 @@ from apparatica.core.storage import Storage
 from apparatica.judging.ingest import finalize, internal_error, transient
 from apparatica.judging.leader import Leadership
 from apparatica.judging.publish import publish_finalized
+from apparatica.leaderboards.ranking import boards_of, recount
 from apparatica.problems.models import Problem as ProblemRow
 from apparatica.problems.models import ProblemStats, ProblemVersion, UserProblemStatus
 from apparatica.problems.progress import ACCEPTED
@@ -306,12 +308,18 @@ class AccountPurge:
             )
             if user is None:
                 return 0
-            # The statuses refer to submissions; drafts, logins, consents, sessions: cascade.
+            # The statuses refer to submissions; drafts, logins, consents, sessions and entries
+            # of leaderboards: cascade. The places in those leaderboards are counted again.
+            # Public solutions go with the account until they pass to «удалённый участник»
+            # (ОВ-12, T3.4a).
+            boards = await boards_of(session, user_id)
             await session.execute(
                 delete(UserProblemStatus).where(UserProblemStatus.user_id == user_id)
             )
             await session.execute(delete(Submission).where(Submission.user_id == user_id))
             await session.delete(user)
+            await session.flush()
+            await recount(session, boards, self.clock())
         return 1
 
 

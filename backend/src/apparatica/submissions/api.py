@@ -160,7 +160,12 @@ async def get_submission(
     """A submission of the caller with its stages and artifacts."""
     state = request.app.state
     submission = await service.get_submission(
-        session, id, state.job_queue, author, waveview=state.settings.waveview_url
+        session,
+        id,
+        state.job_queue,
+        author,
+        placement_of=state.placement_of,
+        waveview=state.settings.waveview_url,
     )
     if submission is None:
         raise ApiError(ErrorCode.NOT_FOUND, f"No submission {id}")
@@ -203,7 +208,7 @@ async def stream_submission_events(
     """The live log and progress of a check (specs/07 §4); after the stream expires, the same
     events from the archive. The status is final only with the `finalized` event. While the check
     waits, `queue` events carry its position; they have no `id:`."""
-    watched = await service.watch_submission(session, id, author)
+    watched = await service.watch_submission(session, id, author, request.app.state.placement_of)
     if watched is None:
         raise ApiError(ErrorCode.NOT_FOUND, f"No submission {id}")
     after = last_event_id or from_ or "0-0"
