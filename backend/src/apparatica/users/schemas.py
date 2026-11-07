@@ -1,14 +1,13 @@
 """Schemas of the own account and of public profiles (specs/05 §3, phase 2); the account itself,
 `Me`, belongs to auth, which creates it at the first login."""
 
-import uuid
 from datetime import date, datetime
 from typing import Literal
 
 from pydantic import BaseModel, Field
 
 from apparatica.auth.schemas import DisplayName, Me, Nick
-from apparatica.leaderboards.schemas import ProblemRef
+from apparatica.leaderboards.schemas import BestPlace, ProfileRating
 from apparatica.submissions.schemas import SubmissionSummary
 
 
@@ -44,21 +43,11 @@ class SolvedProblem(BaseModel):
     solved_at: datetime = Field(description="First accepted Submit")
 
 
-class ProfileRating(BaseModel):
-    """The place in the global leaderboard (FR-LB-05)."""
+class SubmitCount(BaseModel):
+    """Submits of the user with a verdict: cancelled ones and internal errors do not count."""
 
-    rank: int
-    total: int = Field(description="Users with points")
-    points: int
-
-
-class BestPlace(BaseModel):
-    """A place in the leaderboard of a problem, from the best (FR-USR-04)."""
-
-    problem: ProblemRef
-    rank: int
-    entries: int = Field(description="Authors in that leaderboard")
-    solution_id: uuid.UUID
+    accepted: int = Field(description="Accepted, with or without warnings")
+    total: int
 
 
 class Profile(BaseModel):
@@ -73,9 +62,11 @@ class Profile(BaseModel):
     solved: list[SolvedProblem] = Field(description="Newest first")
     rating: ProfileRating | None = Field(description="Null: no points yet (phase 3)")
     best_places: list[BestPlace] = Field(
-        description="Best places in problem leaderboards, up to 10 (phase 3)"
+        description="Places held in the current leaderboards of problems, the best first, up to"
+        " 10 (phase 3); a solution matching an earlier one holds no place (FR-LB-04)"
     )
     solutions: int = Field(description="Public solutions (phase 3)")
+    submits: SubmitCount = Field(description="Of published problems, for «Принято» (phase 3)")
 
 
 class ExportedIdentity(BaseModel):

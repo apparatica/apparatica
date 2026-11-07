@@ -95,8 +95,19 @@ class Board:
     @property
     def stages(self) -> list[str]:
         """Keys of the stages of the formula."""
-        order = self.formula.order if self.formula is not None else []
-        return list(dict.fromkeys(item.metric.split(".", 1)[0] for item in order))
+        return stages_of(self.formula)
+
+
+def formula_of(version: ProblemVersion) -> Leaderboard | None:
+    """The formula of the leaderboard of a version; None: it has none."""
+    leaderboard = version.manifest.get("leaderboard")
+    return None if leaderboard is None else Leaderboard.model_validate(leaderboard)
+
+
+def stages_of(formula: Leaderboard | None) -> list[str]:
+    """Keys of the stages of the formula."""
+    order = formula.order if formula is not None else []
+    return list(dict.fromkeys(item.metric.split(".", 1)[0] for item in order))
 
 
 async def find_board(session: AsyncSession, slug: str) -> Board | None:
@@ -115,8 +126,7 @@ async def find_board(session: AsyncSession, slug: str) -> Board | None:
 
 
 async def board_of(session: AsyncSession, problem: Problem, current: ProblemVersion) -> Board:
-    leaderboard = current.manifest.get("leaderboard")
-    formula = None if leaderboard is None else Leaderboard.model_validate(leaderboard)
+    formula = formula_of(current)
     key = await current_key(session, current)
     profile: str | None
     if key is not None:

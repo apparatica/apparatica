@@ -525,7 +525,8 @@ const keyOfNick = (nick: string): string | null => {
     : null;
 };
 
-/** The places, best places and public solutions of a profile (users.ts). */
+/** The places, held places and public solutions of a profile (users.ts); a follower of a group
+ * holds no place. */
 export function mockStanding(
   nick: string,
 ): Pick<Schemas["Profile"], "rating" | "best_places" | "solutions"> {
@@ -536,7 +537,7 @@ export function mockStanding(
   const places = fixtures.problems.flatMap(({ slug }) => {
     const entries = board(slug);
     const entry = entries.find((item) => authorKey(item.solution.author) === key);
-    return entry === undefined
+    return entry === undefined || entry.leader !== null
       ? []
       : [
           {
@@ -544,14 +545,20 @@ export function mockStanding(
             rank: entry.rank,
             entries: entries.length,
             solution_id: entry.solution.id,
+            order: MOCK_FORMULA.order,
           },
         ];
   });
+  const rating = all[index];
   return {
     rating:
-      index < 0 ? null : { rank: index + 1, total: all.length, points: all[index]?.points ?? 0 },
+      rating === undefined
+        ? null
+        : { rank: index + 1, total: all.length, points: rating.points, week_delta: rating.week },
     best_places: places
-      .sort((a, b) => a.rank - b.rank || a.problem.number - b.problem.number)
+      .sort(
+        (a, b) => a.rank - b.rank || b.entries - a.entries || a.problem.number - b.problem.number,
+      )
       .slice(0, 10),
     solutions: own.length,
   };
@@ -577,6 +584,8 @@ export function rivalProfile(nick: string): Schemas["Profile"] | null {
     })),
     solved,
     ...mockStanding(nick),
+    // A made-up share: every solution and a few rejected Submits.
+    submits: { accepted: own.length, total: own.length + (hash(nick) % 4) * own.length },
   };
 }
 

@@ -157,6 +157,22 @@ function profileOf(user: MockUser): Schemas["Profile"] {
     })),
     solved,
     ...mockStanding(user.me.nick),
+    submits: submitsOf(user),
+  };
+}
+
+/** Submits with a verdict: not cancelled, no internal error, not running. */
+function submitsOf(user: MockUser): Schemas["SubmitCount"] {
+  const done = mockSubmissions(user.me.id).filter(
+    ({ kind, status, finished_at }) =>
+      kind === "submit" &&
+      finished_at !== null &&
+      status !== "cancelled" &&
+      status !== "internal_error",
+  );
+  return {
+    accepted: done.filter(({ status }) => ACCEPTED.has(status)).length,
+    total: done.length,
   };
 }
 

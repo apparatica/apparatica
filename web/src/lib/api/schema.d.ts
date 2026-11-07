@@ -551,7 +551,8 @@ export interface paths {
         };
         /**
          * List User Solutions
-         * @description Public solutions of a user, newest first (FR-USR-04). NOT_FOUND as for the profile.
+         * @description Public solutions of a user, newest first, with their places in the leaderboards pages
+         *     show now (FR-USR-04). NOT_FOUND as for the profile.
          */
         get: operations["list_user_solutions"];
         put?: never;
@@ -745,8 +746,14 @@ export interface components {
             /**
              * Solution Id
              * Format: uuid
+             * @description The solution that holds the place
              */
             solution_id: string;
+            /**
+             * Order
+             * @description The formula of that leaderboard
+             */
+            order: components["schemas"]["LeaderboardKey"][];
         };
         /**
          * CaptchaChallenge
@@ -1841,7 +1848,7 @@ export interface components {
             rating: components["schemas"]["ProfileRating"] | null;
             /**
              * Best Places
-             * @description Best places in problem leaderboards, up to 10 (phase 3)
+             * @description Places held in the current leaderboards of problems, the best first, up to 10 (phase 3); a solution matching an earlier one holds no place (FR-LB-04)
              */
             best_places: components["schemas"]["BestPlace"][];
             /**
@@ -1849,6 +1856,8 @@ export interface components {
              * @description Public solutions (phase 3)
              */
             solutions: number;
+            /** @description Of published problems, for «Принято» (phase 3) */
+            submits: components["schemas"]["SubmitCount"];
         };
         /**
          * ProfileRating
@@ -1864,6 +1873,11 @@ export interface components {
             total: number;
             /** Points */
             points: number;
+            /**
+             * Week Delta
+             * @description Places gained in 7 days (negative: lost); null: not ranked a week ago
+             */
+            week_delta: number | null;
         };
         /**
          * PublicStage
@@ -2681,6 +2695,19 @@ export interface components {
             created_at: string;
             /** Finished At */
             finished_at: string | null;
+        };
+        /**
+         * SubmitCount
+         * @description Submits of the user with a verdict: cancelled ones and internal errors do not count.
+         */
+        SubmitCount: {
+            /**
+             * Accepted
+             * @description Accepted, with or without warnings
+             */
+            accepted: number;
+            /** Total */
+            total: number;
         };
         /** Tag */
         Tag: {
@@ -4658,15 +4685,6 @@ export interface operations {
             };
             /** @description Internal Server Error */
             500: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["Error"];
-                };
-            };
-            /** @description Not Implemented */
-            501: {
                 headers: {
                     [name: string]: unknown;
                 };

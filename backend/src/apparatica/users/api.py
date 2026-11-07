@@ -18,6 +18,7 @@ from apparatica.core.db import get_session
 from apparatica.core.errors import ApiError, ErrorCode, problem_responses
 from apparatica.core.http import PRIVATE, cached_json
 from apparatica.leaderboards.schemas import UserSolutionPage
+from apparatica.leaderboards.solutions import user_solutions
 from apparatica.users import drafts, profiles
 from apparatica.users.export import export_account
 from apparatica.users.schemas import AccountExport, Draft, DraftSave, MeUpdate, Profile
@@ -214,7 +215,7 @@ async def get_profile(
 ) -> Response:
     """A public profile (FR-USR-04). NOT_FOUND also for a hidden account or one being deleted."""
     levels = [level.key for level in request.app.state.platform.difficulties]
-    profile = await profiles.get_profile(session, nick, levels)
+    profile = await profiles.get_profile(session, nick, levels, datetime.now(UTC).date())
     if profile is None:
         raise ApiError(ErrorCode.NOT_FOUND, f"No user {nick!r}")
     return cached_json(request, profile)
@@ -223,15 +224,20 @@ async def get_profile(
 @router.get(
     "/users/{nick}/solutions",
     response_model=UserSolutionPage,
-    responses=problem_responses(
-        ErrorCode.NOT_IMPLEMENTED, ErrorCode.NOT_FOUND, ErrorCode.VALIDATION_ERROR
-    ),
+    responses=problem_responses(ErrorCode.NOT_FOUND, ErrorCode.VALIDATION_ERROR),
     openapi_extra=PHASE_3,
 )
 async def list_user_solutions(
+    request: Request,
+    session: Session,
     nick: Annotated[Nick, Path()],
     page: Annotated[int, Query(ge=1)] = 1,
     per_page: Annotated[int, Query(ge=1, le=100)] = 20,
-) -> UserSolutionPage:
-    """Public solutions of a user, newest first (FR-USR-04). NOT_FOUND as for the profile."""
-    raise ApiError(ErrorCode.NOT_IMPLEMENTED, "Declared by the phase 3 contract; arrives in T3.10")
+) -> Response:
+    """Public solutions of a user, newest first, with their places in the leaderboards pages
+    show now (FR-USR-04). NOT_FOUND as for the profile."""
+    user = await profiles.find_user(session, nick)
+    if user is None:
+        raise ApiError(ErrorCode.NOT_FOUND, f"No user {nick!r}")
+    body = await user_solutions(session, user.id, page=page, per_page=per_page)
+    return cached_json(request, body)

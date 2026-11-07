@@ -20,7 +20,19 @@ from dataclasses import astuple, dataclass
 from datetime import datetime
 from decimal import Decimal
 
-from sqlalchemy import ColumnElement, Select, func, literal, select, text, tuple_
+from sqlalchemy import (
+    ColumnElement,
+    Integer,
+    Select,
+    Subquery,
+    and_,
+    cast,
+    func,
+    literal,
+    select,
+    text,
+    tuple_,
+)
 from sqlalchemy.dialects.postgresql import insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
@@ -254,6 +266,42 @@ async def current_key(session: AsyncSession, current: ProblemVersion) -> BoardKe
     if default is None:
         return None
     return BoardKey(current.problem_id, current.leaderboard_epoch, default, formula)
+
+
+def current_boards() -> Subquery:
+    """The leaderboards pages show now, as `current_key` finds them, of every published problem:
+    `problem_id`, `version_id` (the current version), `leaderboard_epoch`, `formula_version` and
+    `toolchain_profile_id` (the default profile of its language). A problem without a formula
+    has a null `formula_version` and matches no entry."""
+    version = aliased(ProblemVersion, name="current_version")
+    return (
+        select(
+            Problem.id.label("problem_id"),
+            version.id.label("version_id"),
+            version.leaderboard_epoch,
+            cast(version.manifest["leaderboard"]["formula_version"].astext, Integer).label(
+                "formula_version"
+            ),
+            ToolchainProfile.id.label("toolchain_profile_id"),
+        )
+        .join(version, version.id == Problem.current_version_id)
+        .join(
+            ToolchainProfile,
+            and_(ToolchainProfile.language == version.language, ToolchainProfile.is_default),
+        )
+        .where(Problem.is_published)
+        .subquery("current_board")
+    )
+
+
+def in_board(boards: Subquery) -> ColumnElement[bool]:
+    """An entry of one of the leaderboards of `current_boards()`."""
+    return and_(
+        LeaderboardEntry.problem_id == boards.c.problem_id,
+        LeaderboardEntry.leaderboard_epoch == boards.c.leaderboard_epoch,
+        LeaderboardEntry.toolchain_profile_id == boards.c.toolchain_profile_id,
+        LeaderboardEntry.formula_version == boards.c.formula_version,
+    )
 
 
 async def default_profile(session: AsyncSession, language: str) -> str | None:

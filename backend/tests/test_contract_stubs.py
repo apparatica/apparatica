@@ -33,15 +33,3 @@ def test_stubs_validate_parameters(client: TestClient, method: str, path: str, b
     response = client.request(method, path, json=body, follow_redirects=False)
     assert response.status_code == 422
     assert response.json()["code"] == "VALIDATION_ERROR"
-
-
-@pytest.mark.parametrize(
-    "path",
-    [
-        "/api/v1/users/ada/solutions",
-    ],
-)
-def test_phase_3_stubs(client: TestClient, path: str) -> None:
-    response = client.get(path)
-    assert response.status_code == 501
-    assert response.json()["code"] == "NOT_IMPLEMENTED"

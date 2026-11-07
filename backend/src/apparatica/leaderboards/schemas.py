@@ -130,6 +130,27 @@ class SolutionPage(BaseModel):
     )
 
 
+class ProfileRating(BaseModel):
+    """The place in the global leaderboard (FR-LB-05)."""
+
+    rank: int
+    total: int = Field(description="Users with points")
+    points: int
+    week_delta: int | None = Field(
+        description="Places gained in 7 days (negative: lost); null: not ranked a week ago"
+    )
+
+
+class BestPlace(BaseModel):
+    """A place in the leaderboard of a problem, from the best (FR-USR-04)."""
+
+    problem: ProblemRef
+    rank: int
+    entries: int = Field(description="Authors in that leaderboard")
+    solution_id: uuid.UUID = Field(description="The solution that holds the place")
+    order: list[LeaderboardKey] = Field(description="The formula of that leaderboard")
+
+
 class UserSolutionPage(BaseModel):
     """Public solutions of a user, newest first (FR-USR-04)."""
 

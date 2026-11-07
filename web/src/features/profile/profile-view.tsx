@@ -1,9 +1,11 @@
 "use client";
 
-// The public profile (FR-USR-04, mock-up Profile): the nick, the date of the account, solved
-// problems by level and the list of them. The places, points, acceptance and streak of the mock-up
-// arrive with the leaderboards (Ф3) and the activity (Ф4), and the avatar shows the initials: the
-// pictures of GitHub would tell it who looks at the profile.
+// The public profile (FR-USR-04, mock-up Profile): the nick and the date of the account; the
+// place and the points in the global leaderboard with the shift for a week, solved problems and
+// the share of accepted Submits; solved problems by level and the list of them; the places held in
+// the leaderboards of problems and the public solutions. The streak and the activity of the
+// mock-up arrive with phase 4; the avatar shows the initials: the pictures of GitHub would tell it
+// who looks at the profile.
 import { ArrowRight, Share2 } from "lucide-react";
 import Link from "next/link";
 import { useFormatter, useNow, useTranslations } from "next-intl";
@@ -14,16 +16,20 @@ import {
   difficultyTone,
   findDifficulty,
 } from "@/components/domain/difficulty-badge";
+import { WeekShift } from "@/components/domain/week-shift";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { notify } from "@/components/ui/toast";
 import { useAccount } from "@/features/account/session";
+import { useMetricWords } from "@/features/leaderboard/metrics";
+import { leaderboardHref } from "@/features/leaderboard/query";
 import type { Schemas } from "@/lib/api/client";
 import { shareLink } from "@/lib/share";
 import { cn } from "@/lib/utils";
 
-import { profileHref } from "./href";
+import { profileHref, userSolutionsHref } from "./href";
 import type { ProfileData } from "./load";
+import { SolutionItem } from "./solution-item";
 
 /** Solved problems listed before «Все N». */
 export const SOLVED_SHOWN = 8;
@@ -53,7 +59,20 @@ function Card({
   );
 }
 
-export function ProfileView({ profile, levels }: ProfileData) {
+const linkClass =
+  "inline-flex cursor-pointer items-center gap-1 text-caption text-ac underline-offset-2 hover:underline";
+
+function Tile({ label, value, caption }: { label: string; value: ReactNode; caption: ReactNode }) {
+  return (
+    <div className="flex flex-col gap-1 rounded-md border border-bd bg-sf px-4 py-3.5">
+      <span className="font-mono text-label text-mu uppercase">{label}</span>
+      <span className="text-metric">{value}</span>
+      <span className="flex flex-wrap gap-x-2 text-caption text-mu">{caption}</span>
+    </div>
+  );
+}
+
+export function ProfileView({ profile, levels, solutions }: ProfileData) {
   const t = useTranslations("profile");
   const format = useFormatter();
   const me = useAccount();
@@ -61,6 +80,7 @@ export function ProfileView({ profile, levels }: ProfileData) {
   const solved = profile.progress.reduce((sum, level) => sum + level.solved, 0);
   const total = profile.progress.reduce((sum, level) => sum + level.total, 0);
   const since = format.dateTime(new Date(profile.created_at), { dateStyle: "long" });
+  const { rating, submits } = profile;
 
   return (
     <div className="mx-auto flex max-w-[1240px] flex-col gap-4 px-4 pt-3 pb-4 sm:px-8 sm:pt-6">
@@ -86,19 +106,142 @@ export function ProfileView({ profile, levels }: ProfileData) {
         <ShareButton nick={profile.nick} />
       </header>
 
-      <div className="grid grid-cols-[repeat(auto-fill,minmax(min(200px,100%),1fr))] gap-2">
-        <div className="flex flex-col gap-1 rounded-md border border-bd bg-sf px-4 py-3.5">
-          <span className="font-mono text-label text-mu uppercase">{t("solved.label")}</span>
-          <span className="text-metric">{solved}</span>
-          <span className="text-caption text-mu">{t("solved.of", { total })}</span>
-        </div>
+      <div className="grid grid-cols-[repeat(auto-fit,minmax(min(200px,100%),1fr))] gap-2">
+        <Tile
+          label={t("place.label")}
+          value={rating === null ? "—" : format.number(rating.rank)}
+          caption={
+            rating === null ? (
+              t("place.none")
+            ) : (
+              <>
+                <span>{t("place.of", { total: rating.total })}</span>
+                <WeekShift delta={rating.week_delta} />
+              </>
+            )
+          }
+        />
+        <Tile
+          label={t("points.label")}
+          value={format.number(rating?.points ?? 0)}
+          caption={t("points.hint")}
+        />
+        <Tile label={t("solved.label")} value={solved} caption={t("solved.of", { total })} />
+        <Tile
+          label={t("accepted.label")}
+          value={
+            submits.total === 0
+              ? "—"
+              : format.number(submits.accepted / submits.total, { style: "percent" })
+          }
+          caption={
+            submits.total === 0
+              ? t("accepted.none")
+              : t("accepted.of", { accepted: submits.accepted, total: submits.total })
+          }
+        />
       </div>
 
-      <div className="grid items-start gap-4 lg:grid-cols-2">
-        <Levels levels={levels} progress={profile.progress} />
+      <Levels levels={levels} progress={profile.progress} />
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-3">
         <Solved levels={levels} solved={profile.solved} own={own} />
+        <BestPlaces places={profile.best_places} own={own} />
+        <Solutions nick={profile.nick} solutions={solutions} total={profile.solutions} own={own} />
       </div>
     </div>
+  );
+}
+
+/** «каталога» in the empty states of the own profile. */
+const catalogue = (chunks: ReactNode) => (
+  <Link href="/problems" className="text-ac underline-offset-2 hover:underline">
+    {chunks}
+  </Link>
+);
+
+function BestPlaces({ places, own }: { places: Schemas["BestPlace"][]; own: boolean }) {
+  const t = useTranslations("profile.places");
+  const words = useMetricWords();
+  return (
+    <Card title={t("title")}>
+      {places.length === 0 ? (
+        <p className="text-mu">{own ? t.rich("emptyOwn", { link: catalogue }) : t("empty")}</p>
+      ) : (
+        <ul className="-my-1">
+          {places.map((place) => {
+            const [main] = place.order;
+            return (
+              <li
+                key={place.problem.slug}
+                className="flex items-center gap-4 border-t border-bd py-2.5 first:border-t-0"
+              >
+                <span className="w-[76px] flex-none font-mono text-mu tabular-nums">
+                  {t.rich("rank", {
+                    rank: place.rank,
+                    entries: place.entries,
+                    n: (chunks) => (
+                      <span className={cn("text-tx", place.rank <= 3 && "font-semibold")}>
+                        {chunks}
+                      </span>
+                    ),
+                  })}
+                </span>
+                <span className="flex min-w-0 flex-1 flex-col">
+                  <Link
+                    href={leaderboardHref(place.problem.slug)}
+                    className="truncate font-medium hover:text-ac"
+                  >
+                    {place.problem.title}
+                  </Link>
+                  {main !== undefined && (
+                    <span className="truncate text-caption text-mu">
+                      {t("by", { metric: words.name(main.metric) })}
+                    </span>
+                  )}
+                </span>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </Card>
+  );
+}
+
+function Solutions({
+  nick,
+  solutions,
+  total,
+  own,
+}: {
+  nick: string;
+  solutions: Schemas["SolutionSummary"][];
+  total: number;
+  own: boolean;
+}) {
+  const t = useTranslations("profile.solutions");
+  return (
+    <Card
+      title={t("title")}
+      action={
+        total > solutions.length && (
+          <Link href={userSolutionsHref(nick)} className={linkClass}>
+            {t("all", { count: total })}
+            <ArrowRight size={12} aria-hidden="true" />
+          </Link>
+        )
+      }
+    >
+      {solutions.length === 0 ? (
+        <p className="text-mu">{own ? t.rich("emptyOwn", { link: catalogue }) : t("empty")}</p>
+      ) : (
+        <ul className="-my-1">
+          {solutions.map((item) => (
+            <SolutionItem key={item.id} item={item} />
+          ))}
+        </ul>
+      )}
+    </Card>
   );
 }
 
@@ -203,11 +346,7 @@ function Solved({
       title={t("title")}
       action={
         more && (
-          <button
-            type="button"
-            onClick={() => setAll(true)}
-            className="inline-flex cursor-pointer items-center gap-1 text-caption text-ac underline-offset-2 hover:underline"
-          >
+          <button type="button" onClick={() => setAll(true)} className={linkClass}>
             {t("all", { count: solved.length })}
             <ArrowRight size={12} aria-hidden="true" />
           </button>
@@ -215,17 +354,7 @@ function Solved({
       }
     >
       {solved.length === 0 ? (
-        <p className="text-mu">
-          {own
-            ? t.rich("emptyOwn", {
-                link: (chunks) => (
-                  <Link href="/problems" className="text-ac underline-offset-2 hover:underline">
-                    {chunks}
-                  </Link>
-                ),
-              })
-            : t("empty")}
-        </p>
+        <p className="text-mu">{own ? t.rich("emptyOwn", { link: catalogue }) : t("empty")}</p>
       ) : (
         <ul className="-my-1">
           {shown.map((problem) => {

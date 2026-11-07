@@ -17,8 +17,9 @@ import uuid
 from dataclasses import dataclass
 from typing import Any
 
-from sqlalchemy import SQLColumnExpression, and_, exists, false, func, select
+from sqlalchemy import ColumnElement, SQLColumnExpression, and_, exists, false, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import aliased
 
 from apparatica.auth.models import User
 from apparatica.core.errors import ApiError, ErrorCode
@@ -36,12 +37,14 @@ from apparatica.leaderboards.boards import (
     check_sort,
     columns_of,
     directed,
+    formula_of,
     metric_value,
     metrics_of,
     reference_metrics,
+    stages_of,
     user_ref,
 )
-from apparatica.leaderboards.ranking import placement_of
+from apparatica.leaderboards.ranking import current_boards, in_board, placement_of
 from apparatica.leaderboards.schemas import (
     DuplicateOf,
     ProblemRef,
@@ -52,6 +55,7 @@ from apparatica.leaderboards.schemas import (
     SolutionPage,
     SolutionSummary,
     TestCount,
+    UserSolutionPage,
 )
 from apparatica.leaderboards.schemas import ReferenceSolution as ReferenceSchema
 from apparatica.problems.models import Problem, ProblemVersion, ReferenceSolution, UserProblemStatus
@@ -151,23 +155,45 @@ async def _summarize(
     problem = _ref(board)
     found = []
     for submission, version, author, place, leader, leader_author in rows:
-        summary = SolutionSummary(
-            id=submission.id,
-            problem=problem,
-            version=version,
-            author=user_ref(author),
-            status=submission.status,
-            metrics=metrics[submission.id],
-            rank=place,
-            duplicate_of=(
-                DuplicateOf(solution_id=leader.submission_id, author=user_ref(leader_author))
-                if leader is not None and leader_author is not None
-                else None
-            ),
-            submitted_at=submission.created_at,
+        summary = _summary(
+            submission,
+            version,
+            author,
+            place,
+            leader,
+            leader_author,
+            problem,
+            metrics[submission.id],
         )
         found.append((summary, submission, author))
     return found
+
+
+def _summary(
+    submission: Submission,
+    version: int,
+    author: User,
+    place: int | None,
+    leader: Entry | None,
+    leader_author: User | None,
+    problem: ProblemRef,
+    metrics: dict[str, float],
+) -> SolutionSummary:
+    return SolutionSummary(
+        id=submission.id,
+        problem=problem,
+        version=version,
+        author=user_ref(author),
+        status=submission.status,  # type: ignore[arg-type]  # public: accepted ones
+        metrics=metrics,
+        rank=place,
+        duplicate_of=(
+            DuplicateOf(solution_id=leader.submission_id, author=user_ref(leader_author))
+            if leader is not None and leader_author is not None
+            else None
+        ),
+        submitted_at=submission.created_at,
+    )
 
 
 async def list_solutions(
@@ -195,6 +221,81 @@ async def list_solutions(
         total=total or 0,
         code_locked=not await code_open(session, board.problem.id, visitor),
     )
+
+
+def _of_user(user_id: uuid.UUID) -> ColumnElement[bool]:
+    return and_(Submission.user_id == user_id, Submission.is_public, Problem.is_published)
+
+
+async def user_solutions(
+    session: AsyncSession, user_id: uuid.UUID, *, page: int, per_page: int
+) -> UserSolutionPage:
+    """Public solutions of the user on published problems, newest first (FR-USR-04), each with
+    its place in the leaderboard pages show now, as in the list of the problem."""
+    boards = current_boards()
+    current = aliased(ProblemVersion, name="current")
+    rows = list(
+        await session.execute(
+            select(Submission, ProblemVersion.version, User, PLACE, Leader, LeaderAuthor)
+            .add_columns(Problem, current)
+            .join(ProblemVersion, ProblemVersion.id == Submission.problem_version_id)
+            .join(Problem, Problem.id == ProblemVersion.problem_id)
+            .join(current, current.id == Problem.current_version_id)
+            .join(User, User.id == Submission.user_id)
+            .outerjoin(boards, boards.c.problem_id == Problem.id)
+            .outerjoin(Entry, and_(Entry.submission_id == Submission.id, in_board(boards)))
+            .outerjoin(Leader, Leader.id == Entry.group_leader_entry_id)
+            .outerjoin(LeaderAuthor, LeaderAuthor.id == Leader.user_id)
+            .where(_of_user(user_id))
+            .order_by(Submission.created_at.desc(), Submission.id.desc())
+            .offset((page - 1) * per_page)
+            .limit(per_page)
+        )
+    )
+    # The metrics of the stages of each formula, problem by problem.
+    by_stages: dict[tuple[str, ...], set[uuid.UUID]] = {}
+    for row in rows:
+        stages = tuple(stages_of(formula_of(row[-1])))
+        by_stages.setdefault(stages, set()).add(row[0].id)
+    metrics: dict[uuid.UUID, dict[str, float]] = {}
+    for stages, ids in by_stages.items():
+        metrics.update(await metrics_of(session, ids, stages))
+    items = [
+        _summary(
+            submission,
+            version,
+            author,
+            place,
+            leader,
+            leader_author,
+            ProblemRef(
+                slug=problem.slug,
+                number=problem.number,
+                title=latest.title,
+                difficulty=latest.difficulty,
+            ),
+            metrics[submission.id],
+        )
+        for submission, version, author, place, leader, leader_author, problem, latest in rows
+    ]
+    return UserSolutionPage(
+        items=items,
+        page=page,
+        per_page=per_page,
+        total=await count_user_solutions(session, user_id),
+    )
+
+
+async def count_user_solutions(session: AsyncSession, user_id: uuid.UUID) -> int:
+    """Public solutions of the user on published problems."""
+    total = await session.scalar(
+        select(func.count())
+        .select_from(Submission)
+        .join(ProblemVersion, ProblemVersion.id == Submission.problem_version_id)
+        .join(Problem, Problem.id == ProblemVersion.problem_id)
+        .where(_of_user(user_id))
+    )
+    return total or 0
 
 
 async def get_solution(

@@ -29,7 +29,12 @@ from apparatica.auth.models import User
 from apparatica.auth.schemas import UserRef
 from apparatica.core.platform import RatingFormula
 from apparatica.leaderboards.models import UserRating, UserRatingSnapshot
-from apparatica.leaderboards.schemas import GlobalLeaderboard, PointsFormula, RatingRow
+from apparatica.leaderboards.schemas import (
+    GlobalLeaderboard,
+    PointsFormula,
+    ProfileRating,
+    RatingRow,
+)
 
 WEEK = timedelta(days=7)
 SNAPSHOT_DAYS = 14  # a missed day falls back to an older snapshot, kept this long
@@ -158,9 +163,7 @@ async def global_leaderboard(
     today: date,
 ) -> GlobalLeaderboard:
     """A page of the global leaderboard; `me` and the rows around it for a signed-in viewer."""
-    week_ago = await session.scalar(
-        select(func.max(UserRatingSnapshot.day)).where(UserRatingSnapshot.day <= today - WEEK)
-    )
+    week_ago = await _week_ago(session, today)
     before = aliased(UserRatingSnapshot)
     rows = (
         select(UserRating, User.nick, User.display_name, User.avatar_url, before.rank)
@@ -206,4 +209,39 @@ async def global_leaderboard(
         ),
         me=me,
         around_me=around,
+    )
+
+
+async def rating_of(session: AsyncSession, user_id: uuid.UUID, today: date) -> ProfileRating | None:
+    """The place of the user for the profile; None: no points yet."""
+    before = aliased(UserRatingSnapshot)
+    found = (
+        await session.execute(
+            select(UserRating.rank, UserRating.points, before.rank)
+            .outerjoin(
+                before,
+                and_(
+                    before.user_id == UserRating.user_id,
+                    before.day == await _week_ago(session, today),
+                ),
+            )
+            .where(UserRating.user_id == user_id)
+        )
+    ).one_or_none()
+    if found is None:
+        return None
+    rank, points, rank_before = found
+    total = await session.scalar(select(func.count()).select_from(UserRating)) or 0
+    return ProfileRating(
+        rank=rank,
+        total=total,
+        points=points,
+        week_delta=None if rank_before is None else rank_before - rank,
+    )
+
+
+async def _week_ago(session: AsyncSession, today: date) -> date | None:
+    """The day of the snapshot «за неделю» compares with: the latest one 7 days old or older."""
+    return await session.scalar(
+        select(func.max(UserRatingSnapshot.day)).where(UserRatingSnapshot.day <= today - WEEK)
     )

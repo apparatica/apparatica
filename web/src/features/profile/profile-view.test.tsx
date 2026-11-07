@@ -36,16 +36,45 @@ function profileOf(solved: number, fields: Partial<Schemas["Profile"]> = {}): Sc
     rating: null,
     best_places: [],
     solutions: 0,
+    submits: { accepted: 0, total: 0 },
     ...fields,
   };
 }
 
-function renderProfile(profile: Schemas["Profile"], signedIn = false) {
+function renderProfile(
+  profile: Schemas["Profile"],
+  signedIn = false,
+  solutions: Schemas["SolutionSummary"][] = [],
+) {
   return renderWithProviders(
     <SessionProvider signedIn={signedIn}>
-      <ProfileView profile={profile} levels={levels} />
+      <ProfileView profile={profile} levels={levels} solutions={solutions} />
     </SessionProvider>,
   );
+}
+
+const ORDER: Schemas["LeaderboardKey"][] = [
+  { metric: "synth.critical_path_ns", dir: "asc" },
+  { metric: "synth.area_um2", dir: "asc" },
+];
+
+function solution(index: number, rank: number | null): Schemas["SolutionSummary"] {
+  return {
+    id: `solution-${index}`,
+    problem: {
+      slug: `problem-${index}`,
+      number: index,
+      title: `Задача ${index}`,
+      difficulty: "easy",
+    },
+    version: 1,
+    author: { nick: "ada", display_name: null, avatar_url: null },
+    status: "accepted",
+    metrics: { "synth.cells": 40, "synth.area_um2": 41.2, "synth.critical_path_ns": 0.19 },
+    rank,
+    duplicate_of: null,
+    submitted_at: new Date(Date.UTC(2025, 9, 4, 12)).toISOString(),
+  };
 }
 
 it("shows the nick, the date of the account and the solved problems by level", () => {
@@ -108,4 +137,79 @@ it("copies the link of the profile", async () => {
   // No Web Share in jsdom: the link goes to the clipboard.
   await user.click(screen.getByRole("button", { name: "Поделиться профилем" }));
   await expect(navigator.clipboard.readText()).resolves.toBe("http://localhost:3000/u/ada");
+});
+
+const tile = (label: string) =>
+  screen.getByText(label, { selector: "span.uppercase" }).parentElement;
+
+it("shows the place, the points and the share of accepted Submits", () => {
+  renderProfile(
+    profileOf(2, {
+      rating: { rank: 47, total: 1280, points: 412, week_delta: 5 },
+      submits: { accepted: 20, total: 63 },
+    }),
+  );
+  expect(tile("Место")).toHaveTextContent("47из 1 280 участников+5 за неделю");
+  expect(tile("Очки")).toHaveTextContent("412за решённые задачи и места");
+  expect(tile("Принято")).toHaveTextContent("32 %20 из 63 отправок");
+});
+
+it("shows dashes without points and without Submits", () => {
+  renderProfile(profileOf(0));
+  expect(tile("Место")).toHaveTextContent("—нет очков в общем рейтинге");
+  expect(tile("Очки")).toHaveTextContent("0");
+  expect(tile("Принято")).toHaveTextContent("—нет отправок");
+});
+
+it("lists the best places with the main metric of the formula", () => {
+  renderProfile(
+    profileOf(2, {
+      best_places: [
+        {
+          problem: { slug: "mux4", number: 1, title: "Мультиплексор 4:1", difficulty: "easy" },
+          rank: 8,
+          entries: 412,
+          solution_id: "solution-1",
+          order: ORDER,
+        },
+      ],
+    }),
+  );
+  const places = screen.getByRole("region", { name: "Лучшие места в рейтингах" });
+  const [row] = within(places).getAllByRole("listitem");
+  expect(row).toHaveTextContent("8 из 412Мультиплексор 4:1по метрике: задержка");
+  expect(within(places).getByRole("link", { name: "Мультиплексор 4:1" })).toHaveAttribute(
+    "href",
+    "/problems/mux4/leaderboard",
+  );
+});
+
+it("lists the newest public solutions and links to all of them", () => {
+  renderProfile(profileOf(2, { solutions: 7 }), false, [solution(1, 8), solution(2, null)]);
+  const list = screen.getByRole("region", { name: "Публичные решения" });
+  const links = within(list).getAllByRole("link", { name: /^Решение задачи/ });
+  expect(links.map((link) => link.getAttribute("href"))).toEqual([
+    "/solutions/solution-1",
+    "/solutions/solution-2",
+  ]);
+  expect(links[0]).toHaveTextContent("Задача 10,19 нс · 41,2 µm² · место 84 окт. 2025 г.");
+  expect(links[1]).not.toHaveTextContent("место");
+  expect(within(list).getByRole("link", { name: "Все 7" })).toHaveAttribute(
+    "href",
+    "/u/ada/solutions",
+  );
+});
+
+it("offers the owner the catalogue without places and solutions", async () => {
+  signIn();
+  renderProfile(profileOf(0), true);
+  await screen.findByText(/так профиль видят другие участники/);
+  for (const name of ["Лучшие места в рейтингах", "Публичные решения"]) {
+    const card = screen.getByRole("region", { name });
+    expect(within(card).getByRole("link", { name: "каталога" })).toHaveAttribute(
+      "href",
+      "/problems",
+    );
+  }
+  expect(screen.getByRole("region", { name: "Публичные решения" })).not.toHaveTextContent("Все");
 });
