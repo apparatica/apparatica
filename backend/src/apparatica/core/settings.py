@@ -123,6 +123,14 @@ class Settings(BaseSettings):
         le=600,
         description="How often the ingestor recounts acceptance rates; 10 min at most (FR-CAT-04)",
     )
+    reference_runs_every_s: PositiveFloat = Field(
+        default=60,
+        description="How often the ingestor looks for reference solutions to run (FR-SYN-04)",
+    )
+    reference_retry_s: PositiveFloat = Field(
+        default=3600,
+        description="A run of a reference solution without a verdict is repeated after this long",
+    )
 
     @field_validator("smtp_url", "github_client_id", "github_client_secret", mode="before")
     @classmethod

@@ -17,6 +17,8 @@
   «удалённый участник» instead (decision ОВ-12, T3.4a).
 - **Problem stats** — the authors of every problem with a judged and with an accepted Submit, for
   the acceptance rate of the catalogue (FR-CAT-04).
+- **References** — reference solutions of current versions without a run on the default toolchain
+  profile get one (`apparatica.leaderboards.references`, FR-SYN-04).
 """
 
 import asyncio
@@ -41,11 +43,14 @@ from apparatica.judging.ingest import finalize, internal_error, transient
 from apparatica.judging.leader import Leadership
 from apparatica.judging.publish import publish_finalized
 from apparatica.leaderboards.ranking import boards_of, recount
+from apparatica.leaderboards.references import queue_runs
 from apparatica.problems.models import Problem as ProblemRow
 from apparatica.problems.models import ProblemStats, ProblemVersion, UserProblemStatus
 from apparatica.problems.progress import ACCEPTED
 from apparatica.submissions.events import FinalizedEvent
 from apparatica.submissions.models import Artifact, Submission, Waveform
+from apparatica.submissions.queue import JobQueue
+from apparatica.submissions.tokens import JobTokens
 from judge.core.jobs import ATTEMPT_MAX, lease_key
 from judge.core.limits import ResourceClasses, check_timeout_s
 from judge.core.package import Problem
@@ -415,6 +420,22 @@ class ProblemStatsRefresh:
         async with self.database.sessions.begin() as session:
             result = await session.execute(statement)
         return result.rowcount if isinstance(result, CursorResult) else 0
+
+
+@dataclass(frozen=True)
+class ReferenceRuns:
+    database: Database
+    queue: JobQueue
+    tokens: JobTokens
+    retry_s: float
+    clock: Clock = field(default=_now)
+
+    async def __call__(self) -> int:
+        """Queues the runs of reference solutions that need one; returns how many (FR-SYN-04)."""
+        async with self.database.sessions() as session:
+            return await queue_runs(
+                session, self.queue, self.tokens, self.clock(), timedelta(seconds=self.retry_s)
+            )
 
 
 @dataclass

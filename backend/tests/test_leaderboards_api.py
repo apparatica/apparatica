@@ -8,16 +8,18 @@ from typing import Any
 import pytest
 import test_leaderboard_ranking as ranking
 from fastapi.testclient import TestClient
-from sqlalchemy import select, update
+from sqlalchemy import select
 from test_ingest import LINT, SIM, run
-from test_leaderboard_ranking import accepted, check, signed_in
+from test_leaderboard_ranking import NEXT_PROFILE, accepted, check, signed_in
+from test_reference_runs import measure_reference
 from test_sessions import sign_in
 from test_submissions_api import CODE, PROFILE
 
 from apparatica.auth.guests import COOKIE as GUEST_COOKIE
 from apparatica.auth.sessions import COOKIE as SESSION_COOKIE
 from apparatica.core.db import Database
-from apparatica.problems.models import Problem, ProblemVersion, ReferenceSolution
+from apparatica.problems.models import Problem, ProblemVersion
+from apparatica.submissions.profiles import add_profile
 from judge.core.stage import HiddenTests, StageSummary
 from judge.core.stage import TestCase as Case
 
@@ -61,14 +63,6 @@ def change_manifest(database_url: str, slug: str, **fields: Any) -> None:
             assert version is not None
             manifest = {**version.manifest, **fields}
             version.manifest = {key: value for key, value in manifest.items() if value is not None}
-
-    run(database_url, scenario)
-
-
-def measure_reference(database_url: str, metrics: dict[str, float]) -> None:
-    async def scenario(database: Database) -> None:
-        async with database.sessions.begin() as session:
-            await session.execute(update(ReferenceSolution).values(metrics=metrics))
 
     run(database_url, scenario)
 
@@ -263,7 +257,7 @@ def test_a_solution_page(api: TestClient, database_url: str) -> None:
         }
     )
     solution, _ = check(api, database_url, results)
-    measure_reference(database_url, {DELAY: 0.3, AREA: 200.5, "synth.flops": 0})
+    measure_reference(database_url, {"critical_path_ns": 0.3, "area_um2": 200.5, "flops": 0})
 
     body = get(nobody(api), f"/api/v1/solutions/{solution}")
     assert body["id"] == solution
@@ -352,3 +346,29 @@ def test_reference_solutions(api: TestClient, database_url: str) -> None:
     response = api.get(REFERENCE)
     assert response.status_code == 404
     assert response.json()["code"] == "NOT_FOUND"
+
+
+def test_reference_metrics_are_those_of_the_default_profile(
+    api: TestClient, database_url: str
+) -> None:
+    """FR-SYN-04: the metrics of the accepted run on the default profile; after the switch of the
+    profile none until the reference runs on the new one."""
+    reference = {
+        "visibility": "public",
+        "solutions": [{"file": "reference/mux4.sv", "title": "case по sel"}],
+    }
+    change_manifest(database_url, "mux4", reference=reference)
+    measure_reference(database_url, {"critical_path_ns": 0.3, "area_um2": 200.5, "cells": 12})
+    [solution] = get(nobody(api), REFERENCE)["solutions"]
+    assert solution["metrics"] == {DELAY: 0.3, AREA: 200.5, CELLS: 12}
+    assert get(api, BOARD)["reference"]["metrics"] == solution["metrics"]
+
+    async def switch(database: Database) -> None:
+        async with database.sessions.begin() as session:
+            await add_profile(session, NEXT_PROFILE, default=True)
+
+    run(database_url, switch)
+    assert get(api, REFERENCE)["solutions"][0]["metrics"] is None
+    assert get(api, BOARD)["reference"] is None
+    measure_reference(database_url, {"critical_path_ns": 0.4, "area_um2": 210, "cells": 12})
+    assert get(api, REFERENCE)["solutions"][0]["metrics"] == {DELAY: 0.4, AREA: 210, CELLS: 12}

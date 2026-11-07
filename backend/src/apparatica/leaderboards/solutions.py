@@ -287,11 +287,14 @@ async def get_reference(session: AsyncSession, board: Board, visitor: Visitor) -
         raise ApiError(
             ErrorCode.REFERENCE_LOCKED, "The reference solutions open after your accepted Submit"
         )
-    solutions = await session.scalars(
-        select(ReferenceSolution)
-        .where(ReferenceSolution.problem_version_id == board.version.id)
-        .order_by(ReferenceSolution.id)
-    )
+    solutions = (
+        await session.scalars(
+            select(ReferenceSolution)
+            .where(ReferenceSolution.problem_version_id == board.version.id)
+            .order_by(ReferenceSolution.id)
+        )
+    ).all()
+    measured = await reference_metrics(session, board, [solution.id for solution in solutions])
     return ReferencePage(
         version=board.version.version,
         visibility=visibility,
@@ -300,7 +303,7 @@ async def get_reference(session: AsyncSession, board: Board, visitor: Visitor) -
                 title=solution.title,
                 code=solution.code,
                 explanation_md=solution.explanation_md,
-                metrics=reference_metrics(solution.metrics),
+                metrics=measured.get(solution.id),
             )
             for solution in solutions
         ],

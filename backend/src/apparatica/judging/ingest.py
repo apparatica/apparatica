@@ -14,7 +14,8 @@ under a row lock of the submission, so that a redelivered or reordered record ch
 - the end of a check of a signed-in user updates their status of the problem in the same
   transaction (`apparatica.problems.progress`, FR-USR-06); their accepted Submit becomes public
   and enters the leaderboard of the problem (`apparatica.leaderboards.ranking`, FR-LB-02), and
-  `finalized` carries the place (FR-RUN-05).
+  `finalized` carries the place (FR-RUN-05); a run of a reference solution that is not accepted
+  is logged (FR-SYN-04).
 
 A `waveform` record ends a recreated FST (FR-WAV-05) under a row lock of its `waveforms` row: the
 FST becomes an artifact and the row `ready`, or the row is `failed`. Only a ready row is final, so
@@ -335,6 +336,15 @@ async def finalize(
         if submission.kind == "submit" and verdict.status in ACCEPTED:
             submission.is_public = True  # specs/04 §6
             await rank_submit(session, submission, results, now)
+    elif submission.reference_solution_id is not None and verdict.status not in ACCEPTED:
+        # A reference that passed `judge validate` fails on this profile: a case for review.
+        log.warning(
+            "reference run not accepted",
+            submission_id=str(submission.id),
+            reference_solution_id=str(submission.reference_solution_id),
+            toolchain_profile=submission.toolchain_profile_id,
+            status=verdict.status,
+        )
     return await finalized(session, submission)
 
 

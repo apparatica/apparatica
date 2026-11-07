@@ -249,14 +249,19 @@ async def current_key(session: AsyncSession, current: ProblemVersion) -> BoardKe
     formula = _formula_version(current.manifest)
     if formula is None:
         return None
-    default = await session.scalar(
-        select(ToolchainProfile.id).where(
-            ToolchainProfile.language == current.language, ToolchainProfile.is_default
-        )
-    )
+    default = await default_profile(session, current.language)
     if default is None:
         return None
     return BoardKey(current.problem_id, current.leaderboard_epoch, default, formula)
+
+
+async def default_profile(session: AsyncSession, language: str) -> str | None:
+    """The toolchain profile that checks new submissions of the language."""
+    return await session.scalar(
+        select(ToolchainProfile.id).where(
+            ToolchainProfile.language == language, ToolchainProfile.is_default
+        )
+    )
 
 
 def _formula_version(manifest: dict[str, object]) -> int | None:

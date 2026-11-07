@@ -5,8 +5,9 @@ database or of Valkey leaves it pending: the consumer reads its own pending entr
 ones, and takes over the entries that another consumer left idle (it died). After a record ended
 a check, `finalized` goes to the submission stream, whose TTL is then shortened.
 
-Next to the consumer, the leading instance runs the periodic tasks (`housekeeping`), and every
-instance ends the cancelled checks that wait in the queue (`cancels`).
+Next to the consumer, the leading instance runs the periodic tasks (`housekeeping`; among them it
+queues the runs of reference solutions), and every instance ends the cancelled checks that wait in
+the queue (`cancels`).
 """
 
 import asyncio
@@ -36,6 +37,7 @@ from apparatica.judging.housekeeping import (
     Housekeeping,
     Periodic,
     ProblemStatsRefresh,
+    ReferenceRuns,
     SessionPurge,
     Watchdog,
 )
@@ -44,6 +46,7 @@ from apparatica.judging.leader import Leadership
 from apparatica.judging.metrics import RECORDS, QueueCollector
 from apparatica.judging.publish import publish_finalized
 from apparatica.judging.retention import load_retention
+from apparatica.submissions.queue import DramatiqQueue
 from apparatica.submissions.tokens import JobTokens
 from judge.core.jobs import QUEUES, RESULT_RECORD, RESULTS_STREAM, RESULTS_STREAM_FIELD
 from judge.core.limits import load_resource_classes
@@ -190,6 +193,9 @@ async def run_ingest(settings: Settings, stop: asyncio.Event) -> None:
         Periodic("accounts", PURGE_EVERY_S, AccountPurge(database, storage, bucket)),
         Periodic("problem-stats", settings.problem_stats_every_s, ProblemStatsRefresh(database)),
     ]
+    queue = DramatiqQueue(settings.queue_url)  # runs of reference solutions
+    references = ReferenceRuns(database, queue, tokens, settings.reference_retry_s)
+    tasks.append(Periodic("references", settings.reference_runs_every_s, references))
     if retention.guest_submissions_days is not None:
         guests = GuestPurge(database, storage, bucket, retention.guest_submissions_days)
         tasks.append(Periodic("guests", PURGE_EVERY_S, guests))
@@ -208,5 +214,6 @@ async def run_ingest(settings: Settings, stop: asyncio.Event) -> None:
             group.create_task(CancelWatcher(valkey, ingestor).run(stop))
     finally:
         REGISTRY.unregister(queues)
+        await queue.close()
         await valkey.aclose()
         await database.dispose()

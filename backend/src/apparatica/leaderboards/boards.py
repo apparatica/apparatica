@@ -11,7 +11,9 @@ as pages show them — the leaderboard of the current version on the default too
   stages reported, `<stage key>.<metric>` (specs/05 §5); `columns` are the formula and then the
   other metrics of the first place.
 - The reference shown with the leaderboard is the best reference solution by the formula; its
-  metrics are public whatever the visibility of its code (FR-REF-01).
+  metrics are public whatever the visibility of its code (FR-REF-01). The metrics of a reference
+  solution are those of its latest accepted run on the default profile (FR-SYN-04,
+  `apparatica.leaderboards.references`), the same public metrics as of a solution.
 """
 
 import re
@@ -32,6 +34,7 @@ from sqlalchemy import (
     or_,
     select,
 )
+from sqlalchemy.dialects.postgresql import distinct_on
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 from sqlalchemy.sql.elements import UnaryExpression
@@ -40,7 +43,7 @@ from apparatica.auth.models import User
 from apparatica.auth.schemas import UserRef
 from apparatica.core.errors import ApiError, ErrorCode
 from apparatica.leaderboards.models import LeaderboardEntry
-from apparatica.leaderboards.ranking import BoardKey, current_key
+from apparatica.leaderboards.ranking import BoardKey, current_key, default_profile
 from apparatica.leaderboards.schemas import (
     DuplicateOf,
     GroupMember,
@@ -49,7 +52,8 @@ from apparatica.leaderboards.schemas import (
     ReferenceMetrics,
 )
 from apparatica.problems.models import Problem, ProblemVersion, ReferenceSolution
-from apparatica.submissions.models import StageResult
+from apparatica.problems.progress import ACCEPTED
+from apparatica.submissions.models import StageResult, Submission
 from judge.core.leaderboard import sort_values
 from judge.core.package import Leaderboard
 
@@ -86,6 +90,7 @@ class Board:
     version: ProblemVersion
     formula: Leaderboard | None  # None: the problem has no leaderboard
     key: BoardKey | None  # None: no leaderboard, or no default profile of the language
+    profile: str | None  # the default toolchain profile of the language
 
     @property
     def stages(self) -> list[str]:
@@ -112,7 +117,13 @@ async def find_board(session: AsyncSession, slug: str) -> Board | None:
 async def board_of(session: AsyncSession, problem: Problem, current: ProblemVersion) -> Board:
     leaderboard = current.manifest.get("leaderboard")
     formula = None if leaderboard is None else Leaderboard.model_validate(leaderboard)
-    return Board(problem, current, formula, await current_key(session, current))
+    key = await current_key(session, current)
+    profile: str | None
+    if key is not None:
+        profile = key.toolchain_profile_id
+    else:
+        profile = await default_profile(session, current.language)
+    return Board(problem, current, formula, key, profile)
 
 
 def user_ref(user: User) -> UserRef:
@@ -386,26 +397,44 @@ async def best_reference(session: AsyncSession, board: Board) -> tuple[str, Metr
     if board.formula is None:
         return None
     formula = board.formula
-    references = await session.scalars(
-        select(ReferenceSolution)
-        .where(
-            ReferenceSolution.problem_version_id == board.version.id,
-            ReferenceSolution.metrics.is_not(None),
+    references = (
+        await session.execute(
+            select(ReferenceSolution.id, ReferenceSolution.title)
+            .where(ReferenceSolution.problem_version_id == board.version.id)
+            .order_by(ReferenceSolution.id)
         )
-        .order_by(ReferenceSolution.id)
+    ).all()
+    measured = await reference_metrics(
+        session, board, [reference_id for reference_id, _ in references]
     )
     best: tuple[list[float], str, Metrics] | None = None
-    for reference in references:
-        metrics = reference_metrics(reference.metrics)
+    for reference_id, title in references:
+        metrics = measured.get(reference_id)
         if metrics is None or any(item.metric not in metrics for item in formula.order):
             continue
         values = sort_values(formula, metrics)
         if best is None or values < best[0]:
-            best = (values, reference.title, metrics)
+            best = (values, title, metrics)
     return None if best is None else (best[1], best[2])
 
 
-def reference_metrics(stored: Mapping[str, Any] | None) -> Metrics | None:
-    """The metrics of a reference solution as `reference_solutions.metrics` keeps them:
-    `<stage key>.<metric>` → number on the default toolchain profile (FR-SYN-04, T3.3)."""
-    return None if stored is None else numbers(stored)
+async def reference_metrics(
+    session: AsyncSession, board: Board, reference_ids: Collection[uuid.UUID]
+) -> dict[uuid.UUID, Metrics]:
+    """The public metrics of the reference solutions measured on the default profile: those of
+    the latest accepted run of each (FR-SYN-04). A reference without one is missing."""
+    if board.profile is None or not reference_ids:
+        return {}
+    runs = await session.execute(
+        select(Submission.reference_solution_id, Submission.id)
+        .where(
+            Submission.reference_solution_id.in_(reference_ids),
+            Submission.toolchain_profile_id == board.profile,
+            Submission.status.in_(ACCEPTED),
+        )
+        .order_by(Submission.reference_solution_id, Submission.created_at.desc())
+        .ext(distinct_on(Submission.reference_solution_id))
+    )
+    references = {run: reference for reference, run in runs if reference is not None}
+    metrics = await metrics_of(session, references, board.stages)
+    return {reference: metrics[run] for run, reference in references.items()}

@@ -67,11 +67,25 @@ class Submission(Base):
         Index("ix_submissions_user_id_created_at", "user_id", text("created_at DESC")),
         Index("ix_submissions_problem_version_id_status", "problem_version_id", "status"),
         Index("ix_submissions_ast_hash", "ast_hash"),
+        # A run of a reference solution (FR-SYN-04) is a Submit without an author.
+        CheckConstraint(
+            "reference_solution_id IS NULL"
+            " OR (user_id IS NULL AND guest_id IS NULL AND kind = 'submit')",
+            name="reference_run",
+        ),
+        Index(
+            "ix_submissions_reference_runs",
+            "reference_solution_id",
+            "toolchain_profile_id",
+            text("created_at DESC"),
+            postgresql_where=text("reference_solution_id IS NOT NULL"),
+        ),
     )
 
     id: Mapped[uuid.UUID] = uuid_pk()
     problem_version_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("problem_versions.id"))
-    # The author: a signed-in user, else a guest (FR-GST-01); never both.
+    # The author: a signed-in user, else a guest (FR-GST-01); never both. Neither: a run of a
+    # reference solution on a toolchain profile (FR-SYN-04), which the platform makes.
     guest_id: Mapped[uuid.UUID | None]
     user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("users.id"))
     kind: Mapped[str]
@@ -92,6 +106,9 @@ class Submission(Base):
     client_ip_hash: Mapped[str | None]
     # An accepted Submit of a signed-in user (specs/04 §6): set by the ingestor with the verdict.
     is_public: Mapped[bool] = mapped_column(server_default="false")
+    reference_solution_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("reference_solutions.id")
+    )
 
 
 class StageResult(Base):

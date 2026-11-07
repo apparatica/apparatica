@@ -119,4 +119,5 @@ class ReferenceSolution(Base):
     title: Mapped[str]
     code: Mapped[str]
     explanation_md: Mapped[str | None]
-    metrics: Mapped[dict[str, Any] | None]  # filled after the reference runs on a profile
+    # Its metrics are those of its runs on toolchain profiles (`submissions.reference_solution_id`,
+    # FR-SYN-04): `apparatica.leaderboards.references` queues them.

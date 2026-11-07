@@ -90,7 +90,7 @@ PostgreSQL 17+. Первичные ключи — UUIDv7 (сортируемы �
 Уникальность `(problem_id, version)`. Индекс GIN по `tags`.
 
 **`reference_solutions`**
-`id uuid pk`, `problem_version_id fk`, `title text`, `code text`, `explanation_md text`, `metrics jsonb null` (заполняется после прогона эталона на профиле).
+`id uuid pk`, `problem_version_id fk`, `title text`, `code text`, `explanation_md text`. Метрики эталона — метрики его прогона на профиле тулчейна (`submissions.reference_solution_id`, Ф3, FR-SYN-04).
 
 **`toolchain_profiles`**
 `id text pk` (например `sv-2026.10`), `language text` (инвариант 4), `image text`, `image_digest text`, `tools jsonb` (версии), `liberty text null` (с Ф3), `normalization_version int`, `is_default bool`, `created_at`.
@@ -143,7 +143,7 @@ PostgreSQL 17+. Первичные ключи — UUIDv7 (сортируемы �
 
 **`user_ratings`**: `user_id pk`, `points int`, `solved_by_difficulty jsonb`, `rank int`, `formula_version int`, `updated_at`. Пересчитывается ингестором; снимки для «+5 за неделю» — `user_rating_snapshots(user_id, date, rank)`.
 
-Миграция `submissions`: `is_public bool` (true для принятых Submit вошедших пользователей), `is_hidden bool` (модерация).
+Миграция `submissions`: `is_public bool` (true для принятых Submit вошедших пользователей), `is_hidden bool` (модерация), `reference_solution_id uuid null fk` — прогон эталона (FR-SYN-04): Submit без автора (`user_id` и `guest_id` пусты), его ставит ингестор на профиле по умолчанию; метрики эталона — метрики его последнего принятого прогона на этом профиле. Индекс `(reference_solution_id, toolchain_profile_id, created_at desc)` по прогонам.
 
 **`moderation_log`**: `id`, `actor_id`, `action text`, `target_type text`, `target_id text`, `reason text`, `created_at`. Нужна к публичной бете вместе со скрытием решений и пользователей.
 

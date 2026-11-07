@@ -141,35 +141,62 @@ async def create_submission(
     await session.commit()
     if guest is not None:
         await captcha.count(guest, author.address)
-    job = JudgeJob(
-        submission_id=submission.id,
-        token=tokens.issue(submission.id),
-        problem=request.problem,
-        version=version.version,
-        package_uri=version.package_uri,
-        content_hash=version.content_hash,
-        resource_class=version.resource_class,
-        kind=request.kind,
-        seed=submission.seed,
-        code=submission.code,
-        toolchain_profile=profile.id,
-        toolchain_image=f"{profile.image}@{profile.image_digest}",
-    )
+    job = judge_job(submission, request.problem, version, profile, tokens)
     try:
-        await queue.enqueue(Job(queue=queue_name(version.resource_class), payload=job))
+        await enqueue_check(session, queue, submission, job)
     except QueueUnavailableError as error:
-        submission.status = "internal_error"
-        submission.verdict_detail = VerdictDetail(error_codes=[QUEUE_UNAVAILABLE]).model_dump(
-            mode="json"
-        )
-        submission.finished_at = datetime.now(UTC)
-        await session.commit()
         raise ApiError(ErrorCode.JUDGE_UNAVAILABLE, "The queue of checks is unavailable") from error
     if submission.kind == "run":
         await preempt_runs(session, submission, version.problem_id, queue, author)
     result = await get_submission(session, submission.id, queue, author, waveview=waveview)
     assert result is not None
     return SubmissionCreated(**dict(result), quota=await quotas.status(session, author))
+
+
+def judge_job(
+    submission: SubmissionRow,
+    slug: str,
+    version: ProblemVersion,
+    profile: ToolchainProfile,
+    tokens: JobTokens,
+) -> JudgeJob:
+    """The job of the worker that checks a stored submission."""
+    return JudgeJob(
+        submission_id=submission.id,
+        token=tokens.issue(submission.id),
+        problem=slug,
+        version=version.version,
+        package_uri=version.package_uri,
+        content_hash=version.content_hash,
+        resource_class=version.resource_class,
+        kind=submission.kind,  # type: ignore[arg-type]  # a SubmissionKind, checked by the table
+        seed=submission.seed,
+        code=submission.code,
+        toolchain_profile=profile.id,
+        toolchain_image=f"{profile.image}@{profile.image_digest}",
+    )
+
+
+async def enqueue_check(
+    session: AsyncSession,
+    queue: JobQueue,
+    submission: SubmissionRow,
+    job: JudgeJob,
+    *,
+    rejudge: bool = False,
+) -> None:
+    """Queue the job of a committed submission. A queue that cannot be reached ends the check
+    with internal_error, committed, and QueueUnavailableError is raised again."""
+    try:
+        await queue.enqueue(Job(queue=queue_name(job.resource_class, rejudge=rejudge), payload=job))
+    except QueueUnavailableError:
+        submission.status = "internal_error"
+        submission.verdict_detail = VerdictDetail(error_codes=[QUEUE_UNAVAILABLE]).model_dump(
+            mode="json"
+        )
+        submission.finished_at = datetime.now(UTC)
+        await session.commit()
+        raise
 
 
 async def preempt_runs(
