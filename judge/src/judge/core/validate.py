@@ -3,7 +3,8 @@
 The checks run the package through the same pipelines as submissions:
 
 1. `problem.yaml` against the schema and its cross references;
-2. the language module, stage plugins and stage configs, stage limits of the resource class;
+2. the language module, stage plugins and stage configs, stage limits of the resource class,
+   the rules of the language across stages (for SV: every `synth` is followed by `netlist_sim`);
 3. the files the manifest names exist inside the package;
 4. the statement is UTF-8 and renders: KaTeX, WaveDrom, pictures from assets/ (`statement`);
 5. the starter template passes the stages the language checks templates with (precheck);
@@ -128,6 +129,10 @@ class PackageValidator:
                     )
         except (UnknownLanguageError, PipelineConfigError, ValueError) as error:
             yield Check("fail", "этапы и лимиты", str(error))
+            return
+        broken = language.package_rules(problem)
+        if broken:
+            yield Check("fail", "этапы и лимиты", "; ".join(broken))
             return
         yield Check("ok", "этапы и лимиты")
 

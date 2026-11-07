@@ -1,5 +1,6 @@
 """`judge validate` checks on a fake language: a stage judges the solution by a marker in it."""
 
+import dataclasses
 import sys
 from collections.abc import Sequence
 from pathlib import Path
@@ -168,6 +169,19 @@ def test_unknown_stage_type(tmp_path: Path) -> None:
     assert failures(validate(package)) == [
         "этапы и лимиты: stage late: language systemverilog has no stage type 'synth'"
     ]
+
+
+def test_rules_of_the_language_across_stages(tmp_path: Path) -> None:
+    def rules(problem: Problem) -> list[str]:
+        return [f"{key} без проверки" for key in problem.stages if key == "late"]
+
+    strict = dataclasses.replace(FAKE, package_rules=rules)
+    validator = PackageValidator(
+        lambda problem: HostExecutor(), RESOURCE_CLASSES, language_lookup=lambda name: strict
+    )
+    checks = validator.validate(write_package(tmp_path))
+    assert failures(checks) == ["этапы и лимиты: late без проверки"]
+    assert len(checks) == 2  # nothing runs after it
 
 
 def test_invalid_stage_config(tmp_path: Path) -> None:

@@ -2,8 +2,8 @@
 schema: 1
 id: carry-adder
 number: 3
-version: 2
-changelog: Таблица портов перенесена из условия в интерфейс задачи; текст и тесты не изменились.
+version: 3
+changelog: Добавлены синтез, проверка нетлиста и рейтинг решений; условие и тесты не изменились.
 leaderboard_epoch: 1
 language: systemverilog
 kind: design
@@ -40,11 +40,19 @@ stages:
   lint: {type: lint}
   sim_run: {type: sim, testbench: main, groups: [public], max_cycles: 10000}
   sim_full: {type: sim, testbench: main, groups: [public, hidden], max_cycles: 10000}
+  synth: {type: synth}
+  netlist_sim: {type: sim, testbench: main, groups: [public, hidden], max_cycles: 10000, design: synth.netlist_generic}
 
 pipelines:
   practice:
     run: [precheck, lint, sim_run]
-    submit: [precheck, lint, sim_full]
+    submit: [precheck, lint, sim_full, synth, netlist_sim]
+
+leaderboard:
+  formula_version: 1
+  order:
+    - {metric: synth.critical_path_ns, dir: asc}
+    - {metric: synth.area_um2, dir: asc}
 
 reference:
   solutions:

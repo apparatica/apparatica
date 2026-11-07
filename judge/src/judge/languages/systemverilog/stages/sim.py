@@ -8,6 +8,12 @@ output limits of the stage. The verdict comes from the result file of `apx_tb_pk
 `tbproto`); progress lines become live test events. When an open test fails, a follow-up run of
 the same binary records the FST trace window around the first mismatch and must reproduce that
 mismatch (ADR-0004).
+
+With `design` the stage simulates an output of an earlier stage instead of the solution:
+`netlist_sim` (specs/07 §2.5) builds the netlist of `synth` in a wrapper `top` with the parameters
+of the problem (`netlist.py`). A wrapper that does not build is a problem bug (`error`); a failed
+test says that the synthesized circuit behaves differently from the code. No trace is recorded:
+the netlist is not readable for the user.
 """
 
 import re
@@ -21,6 +27,7 @@ from judge.core.executor import check_relative
 from judge.core.package import Problem, Testbench
 from judge.core.stage import (
     Command,
+    Diagnostic,
     ExecResult,
     HiddenTests,
     Mismatch,
@@ -32,6 +39,7 @@ from judge.core.stage import (
 )
 from judge.languages.systemverilog import tbproto
 from judge.languages.systemverilog.stages.common import SOLUTION, canonical_solution
+from judge.languages.systemverilog.stages.netlist import netlist_design
 
 TB_PKG = "/opt/apx/sv/apx_tb_pkg.sv"
 RESULT = "tb_result.jsonl"
@@ -45,6 +53,14 @@ OPEN_GROUP = "public"  # tests of other groups are hidden: counters only (specs/
 OOM_KILLED = 137
 # The `$finish` notice of apx_tb_pkg names an internal file: not for the user's console.
 _FINISH_NOTICE = re.compile(r"^- \S*apx_tb_pkg\.sv:\d+: Verilog \$finish$")
+DESIGN = "design.v"
+# The parameter check of the netlist wrapper; -Wno-fatal would leave it a warning (S4).
+_USERFATAL = re.compile(r"^%Error-USERFATAL", re.MULTILINE)
+NETLIST_HINT = (
+    "Схема после синтеза ведёт себя иначе, чем код в симуляции. Обычные причины: результат"
+    " зависит от начального состояния (не все регистры сбрасываются), блокирующие присваивания в"
+    " always_ff или чтение значения до того, как оно присвоено."
+)
 
 DesignRef = Annotated[str, StringConstraints(pattern=r"^[a-z0-9_]+\.[A-Za-z0-9_.-]+$")]
 
@@ -145,7 +161,7 @@ def _design(ctx: StageContext, config: SimConfig) -> tuple[str, bytes]:
     finished = ctx.previous.get(stage)
     if finished is None or output not in finished.outputs:
         raise LookupError(f"stage {ctx.key}: design {config.design} was not produced")
-    return "design.v", finished.outputs[output]
+    return DESIGN, netlist_design(ctx, stage, finished.outputs[output])
 
 
 class _Progress:
@@ -227,6 +243,7 @@ class SimStage:
             "-j",
             str(config.build_jobs),
             "-Wno-fatal",
+            *(() if config.design is None else ("-Werror-USERFATAL",)),
             "-Wno-lint",
             TB_PKG,
             *sources,
@@ -329,12 +346,15 @@ class SimStage:
     def _after_build(self, ctx: StageContext, build: ExecResult) -> StageOutcome | StagePlan:
         """Why the build failed, or the run of its binary with what is left of the stage limits;
         the binary goes to the cache first, before anything could change it."""
+        assert isinstance(ctx.config, SimConfig)
         stopped = _stopped(build)
         if stopped is not None:
             return stopped
         exit_code = build.commands[0].exit_code
         if exit_code == OOM_KILLED:
             return StageOutcome(status="failed", failure_kind="limit", limit="memory")
+        if exit_code != 0 and ctx.config.design is not None:
+            return _design_not_built(build)
         if exit_code != 0:
             summary = StageSummary(caption="решение не собирается вместе с тестбенчем")
             return StageOutcome(status="failed", failure_kind="compile", summary=summary)
@@ -351,6 +371,7 @@ class SimStage:
     def _outcome(
         self, ctx: StageContext, run: ExecResult
     ) -> tuple[StageOutcome, tbproto.TbResult | None]:
+        assert isinstance(ctx.config, SimConfig)
         stopped = _stopped(run)
         if stopped is not None:
             return stopped, None
@@ -370,7 +391,14 @@ class SimStage:
             ), result
         summary, metrics = self._report(ctx, result)
         failed = any(test.status == "failed" for test in result.tests)
-        if failed:
+        if failed and ctx.config.design is not None:
+            outcome = StageOutcome(
+                status="failed",
+                failure_kind="wrong",
+                metrics=metrics,
+                summary=_differs_from_code(summary),
+            )
+        elif failed:
             outcome = StageOutcome(
                 status="failed", failure_kind="wrong", metrics=metrics, summary=summary
             )
@@ -513,6 +541,27 @@ class SimStage:
             metrics["trace_cursor_ps"] = result.first_mismatch.time_ps
             metrics["trace_signals"] = [signal.model_dump() for signal in signals]
         return outcome.model_copy(update={"metrics": metrics, "artifacts": artifacts})
+
+
+def _design_not_built(build: ExecResult) -> StageOutcome:
+    """The netlist comes from the synthesis of code that passed it: a failed build is a problem
+    bug (the testbench sets other parameters) or a platform one, not a mistake of the solution."""
+    if _USERFATAL.search(build.output):
+        caption = "тестбенч задаёт параметры, отличные от параметров синтеза"
+        summary = StageSummary(caption=caption)
+        return StageOutcome(status="error", error_code="NETLIST_PARAMS_MISMATCH", summary=summary)
+    summary = StageSummary(caption="нетлист не собирается вместе с тестбенчем")
+    return StageOutcome(status="error", error_code="NETLIST_BUILD_FAILED", summary=summary)
+
+
+def _differs_from_code(summary: StageSummary) -> StageSummary:
+    """The caption of a failed test says it is the synthesized circuit that failed it."""
+    failure = (summary.caption or "").removeprefix("упал ")
+    caption = f"синтезированная схема ведёт себя иначе, чем исходный код: {failure}"
+    hint = Diagnostic(severity="info", code="NETLIST_MISMATCH", message=NETLIST_HINT)
+    return summary.model_copy(
+        update={"caption": caption, "diagnostics": [*summary.diagnostics, hint]}
+    )
 
 
 def _stopped(run: ExecResult) -> StageOutcome | None:

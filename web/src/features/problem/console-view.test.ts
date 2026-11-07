@@ -37,6 +37,12 @@ describe("the rows of a check", () => {
       { kind: "passed", hidden: false, from: 1, to: 2, total: 2 },
       { kind: "passed", hidden: true, from: 1, to: 2, total: 2 },
       "sim_full: passed",
+      "── synth",
+      "synth: passed",
+      "── netlist_sim",
+      { kind: "passed", hidden: false, from: 1, to: 2, total: 2 },
+      { kind: "passed", hidden: true, from: 1, to: 2, total: 2 },
+      "netlist_sim: passed",
     ]);
   });
 

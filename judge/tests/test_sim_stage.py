@@ -23,6 +23,7 @@ from judge.core.stage import (
 from judge.languages.systemverilog.stages.sim import (
     BINARY_LIMIT,
     CACHED_NOTE,
+    NETLIST_HINT,
     SimConfig,
     SimStage,
     trace_signals,
@@ -33,6 +34,8 @@ PACKAGE = Path(__file__).parent / "data" / "packages" / "counter"
 CANONICAL = b"module counter; endmodule\n"
 SEED = 41917
 BINARY = b"\x7fELF simulator"
+NETLIST = b"module counter__netlist; endmodule\n"
+NETLIST_DESIGN = "synth.netlist_generic"
 
 
 def context(
@@ -51,7 +54,7 @@ def context(
         ),
         "synth": FinishedStage(
             StageResult(key="synth", type="synth", ordinal=1, status="passed"),
-            {"netlist_generic": b"module counter_net; endmodule\n"},
+            {"netlist_generic": NETLIST},
         ),
     }
     settings = {"testbench": "main", "groups": groups or ["public", "hidden"]} | config
@@ -245,13 +248,51 @@ def test_build_and_run_share_the_stage_limits() -> None:
 
 
 def test_plan_options() -> None:
-    ctx = context(["public"], max_cycles=500, design="synth.netlist_generic")
-    build = SimStage().plan(ctx)
+    ctx = context(["public"], max_cycles=500)
     simulate = simulation(ctx).commands[0].argv
     assert "+apx_max_cycles=500" in simulate
     assert "+apx_groups=public" in simulate
-    assert build.inputs["design.v"] == b"module counter_net; endmodule\n"
+
+
+def test_a_netlist_is_built_in_its_wrapper_with_parameter_checks_as_errors() -> None:
+    build = SimStage().plan(context(design=NETLIST_DESIGN))
+    argv = build.commands[0].argv
+    design = build.inputs["design.v"]
+    assert design.startswith(NETLIST + b"\n// Wrapper of netlist_sim")
+    assert b"counter__netlist u (.clk(clk), .rst(rst), .en(en), .count(count));" in design
     assert "solution.sv" not in build.inputs
+    assert argv[-3:] == ("design.v", "--top-module", "tb_top")
+    # After -Wno-fatal: the `$fatal` of a parameter check fails the build (S4).
+    assert argv.index("-Werror-USERFATAL") == argv.index("-Wno-fatal") + 1
+    assert "-Werror-USERFATAL" not in SimStage().plan(context()).commands[0].argv
+
+
+@pytest.mark.parametrize(
+    ("output", "code"),
+    [
+        ("%Error-USERFATAL: design.v:12:5: synthesized for N=8\n", "NETLIST_PARAMS_MISMATCH"),
+        ("%Error: design.v:3:1: syntax error\n", "NETLIST_BUILD_FAILED"),
+    ],
+)  # fmt: skip
+def test_a_netlist_that_does_not_build_is_a_problem_error(output: str, code: str) -> None:
+    ctx = context(design=NETLIST_DESIGN)
+    outcome = SimStage().interpret(ctx, [built(1, binary=None, output=output)])
+    assert isinstance(outcome, StageOutcome)
+    assert (outcome.status, outcome.error_code) == ("error", code)
+
+
+def test_a_failed_test_of_the_netlist_says_the_circuit_differs_from_the_code() -> None:
+    ctx = context(design=NETLIST_DESIGN)
+    outcome = outcome_of(ctx, run_with(OPEN_FAIL))
+    assert (outcome.status, outcome.failure_kind) == ("failed", "wrong")
+    differs = "синтезированная схема ведёт себя иначе, чем исходный код"
+    assert outcome.summary.caption == f"{differs}: тест тест t2, такт 18"
+    (hint,) = outcome.summary.diagnostics
+    assert (hint.severity, hint.code, hint.message) == ("info", "NETLIST_MISMATCH", NETLIST_HINT)
+    hidden = outcome_of(ctx, run_with(HIDDEN_FAIL)).summary.caption
+    assert hidden == f"{differs}: скрытый тест 1, такт 30"
+    passed = outcome_of(ctx, run_with(PASSED))
+    assert (passed.status, passed.summary.diagnostics) == ("passed", [])
 
 
 def test_the_binary_is_cached_before_it_runs() -> None:
@@ -303,7 +344,7 @@ def test_the_cache_key_is_what_the_build_reads() -> None:
     assert cache_key(context(["public"])) == key
     assert cache_key(context(max_cycles=10, trace=False)) == key
     assert cache_key(context(solution=b"module counter; wire a; endmodule\n")) != key
-    assert cache_key(context(design="synth.netlist_generic")) != key
+    assert cache_key(context(design=NETLIST_DESIGN)) != key
     assert cache_key(context(build_jobs=2)) != key
 
 
@@ -312,6 +353,7 @@ def test_the_cache_key_is_what_the_build_reads() -> None:
     [
         ({"testbench": "other"}, "no testbench 'other'"),
         ({"design": "synth.netlist"}, "design synth.netlist was not produced"),
+        ({"design": "precheck.solution.sv"}, "only a synth netlist is simulated"),
     ],
 )
 def test_plan_reports_missing_inputs(config: dict[str, Any], message: str) -> None:
@@ -420,7 +462,7 @@ def test_a_design_without_a_clock_port_is_traced_with_the_testbench_clock() -> N
 
 
 def test_no_trace_when_disabled_or_for_a_netlist() -> None:
-    for ctx in (context(trace=False), context(design="synth.netlist_generic")):
+    for ctx in (context(trace=False), context(design=NETLIST_DESIGN)):
         outcome = outcome_of(ctx, run_with(OPEN_FAIL))
         assert "trace" not in outcome.metrics
 

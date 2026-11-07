@@ -12,14 +12,20 @@ import type { Schemas } from "@/lib/api/client";
 
 export type Limit = NonNullable<Stage["limit"]>;
 
+// By stage type; netlist_sim is a stage of type sim, known by its key (specs/06 §2).
 const BLOCKS: Record<string, PipelineBlock> = {
   precheck: "lint",
   lint: "lint",
   sim: "sim",
   synth: "synth",
-  netlist_sim: "synth",
   formal: "formal",
 };
+const BLOCKS_BY_KEY: Record<string, PipelineBlock> = { netlist_sim: "synth" };
+
+/** The block a stage is drawn in; undefined for a stage the panel does not show. */
+export function blockOf(stage: { key: string; type: string }): PipelineBlock | undefined {
+  return BLOCKS_BY_KEY[stage.key] ?? BLOCKS[stage.type];
+}
 
 /** The test group that Run checks; the others are hidden (specs/06 §3.4). */
 export const OPEN_GROUP = "public";
@@ -105,7 +111,8 @@ function foldBlock(
     return text ? { kind: "caption", text } : null;
   };
 
-  // The first stage that did not pass decides; a block of passed stages shows the last caption.
+  // The first stage that did not pass decides; a block of passed stages shows the last caption of
+  // its own stages: the synth block shows the metrics of synthesis, not the tests of the netlist.
   const decisive = stages.find((stage) => stage.status !== "passed" && stage.status !== "warning");
   if (decisive === undefined) {
     const warnings = countWarnings(stages);
@@ -113,7 +120,9 @@ function foldBlock(
     const detail =
       status === "warning" && warnings > 0
         ? { kind: "warnings" as const, count: warnings }
-        : caption(stages.findLast((stage) => stage.summary.caption));
+        : caption(
+            stages.findLast((stage) => !(stage.key in BLOCKS_BY_KEY) && stage.summary.caption),
+          );
     return { block, status, detail, durationMs };
   }
   switch (decisive.status) {
@@ -149,7 +158,7 @@ export function pipelineView(
 ): BlockView[] {
   const byBlock = new Map<PipelineBlock, Stage[]>();
   for (const stage of stagesOf(pipeline, check)) {
-    const block = BLOCKS[stage.type];
+    const block = blockOf(stage);
     if (block === undefined) continue;
     byBlock.set(block, [...(byBlock.get(block) ?? []), stage]);
   }
@@ -212,14 +221,14 @@ export function firstError(check: Check): Schemas["Diagnostic"] | null {
 
 /** Lint warnings of an accepted check. */
 export function lintWarnings(check: Check): number {
-  return countWarnings(check.stages.filter((stage) => BLOCKS[stage.type] === "lint"));
+  return countWarnings(check.stages.filter((stage) => blockOf(stage) === "lint"));
 }
 
 /** The diagnostics of precheck and lint on lines of the solution: the markers of the editor
  * (FR-EDT-05). */
 export function editorDiagnostics(check: Check | null, language: string): Schemas["Diagnostic"][] {
   return (check?.stages ?? [])
-    .filter((stage) => BLOCKS[stage.type] === "lint")
+    .filter((stage) => blockOf(stage) === "lint")
     .flatMap((stage) => stage.summary.diagnostics)
     .filter((item) => item.line != null && isSolutionFile(item.file ?? null, language));
 }

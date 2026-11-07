@@ -4,12 +4,13 @@ A language module registers itself under the entry point group below; the core n
 `judge.languages` directly (import-linter contract).
 """
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from functools import cache
 from importlib.metadata import entry_points
 from importlib.resources.abc import Traversable
 
+from judge.core.package import Problem
 from judge.core.stage import Stage
 
 ENTRY_POINT_GROUP = "apparatica.judge.languages"
@@ -24,6 +25,9 @@ class LanguageModule:
     # Files of a new package for `judge new`: __slug__, __top__ and __number__ are substituted
     # in file names and contents.
     package_template: Traversable | None = None
+    # Rules of a package across its stages that `judge validate` checks, e.g. a stage that needs
+    # another one after it in the pipeline: the problems found, none for a valid package.
+    package_rules: Callable[[Problem], list[str]] = lambda problem: []
 
 
 class UnknownLanguageError(LookupError):

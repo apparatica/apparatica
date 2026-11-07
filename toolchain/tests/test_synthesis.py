@@ -1,5 +1,5 @@
-"""Synthesis in the image (ADR-0007): Yosys with sv-elab, OpenSTA, the Nangate45 liberty and the
-`synth` stage on top of them (specs/07 §2.4)."""
+"""Synthesis in the image (ADR-0007): Yosys with sv-elab, OpenSTA, the Nangate45 liberty, the
+`synth` stage on top of them (specs/07 §2.4) and the simulation of its netlist (§2.5)."""
 
 import re
 import threading
@@ -11,6 +11,7 @@ import pytest
 
 from judge.core.events import Event, LogEvent
 from judge.core.executor import LocalDockerExecutor
+from judge.core.leaderboard import leaderboard_metrics
 from judge.core.limits import load_resource_classes, sandbox_limits, stage_limits
 from judge.core.package import Problem, StageConfig, load_manifest
 from judge.core.pipeline import CACHED_RUN_NOTE, Job, run_pipeline
@@ -100,18 +101,16 @@ class MemoryCache:
         self.files[key] = data
 
 
-def with_synth(problem: Problem) -> Problem:
-    """The demo problems get their synth stage with T3.2: here it is the default one."""
-    stages = dict(problem.stages) | {"synth": StageConfig(type="synth")}
-    return problem.model_copy(update={"stages": stages})
-
-
-def synthesize(
-    package: Path, solution: str | bytes, cache: MemoryCache | None = None
-) -> tuple[StageResult, Console]:
-    problem = with_synth(load_manifest(package))
+def check(
+    package: Path,
+    solution: str | bytes,
+    stages: tuple[str, ...] | None,
+    cache: MemoryCache | None = None,
+    problem: Problem | None = None,
+) -> tuple[list[StageResult], Console]:
+    problem = problem or load_manifest(package)
     code = solution.encode() if isinstance(solution, str) else solution
-    job = Job(problem, package, "submit", seed=1, solution=code, stages=("precheck", "synth"))
+    job = Job(problem, package, "submit", seed=1, solution=code, stages=stages)
     sink = Console()
     with LocalDockerExecutor(
         IMAGE, sandbox_limits(problem, RESOURCE_CLASSES), runtime=RUNTIME
@@ -125,7 +124,20 @@ def synthesize(
             build_cache=cache or MemoryCache(),
         )
     assert results[0].status == "passed", results[0]
+    return results, sink
+
+
+def synthesize(
+    package: Path, solution: str | bytes, cache: MemoryCache | None = None
+) -> tuple[StageResult, Console]:
+    results, sink = check(package, solution, ("precheck", "synth"), cache)
     return results[-1], sink
+
+
+def reference(package: Path) -> bytes:
+    manifest = load_manifest(package)
+    assert manifest.reference is not None
+    return (package / manifest.reference.solutions[0].file).read_bytes()
 
 
 def yosys(sandbox: Sandbox, workdir: str, script: str) -> str:
@@ -166,10 +178,7 @@ def test_corpus_solution_synthesizes_without_latches_and_loops(
 def test_the_references_of_the_demo_problems_have_the_metrics_of_s4(problem: str) -> None:
     """The stage script gives what S4 measured: its extra checks do not change the design."""
     package = REPO / "problems" / problem
-    manifest = load_manifest(package)
-    assert manifest.reference is not None
-    reference = (package / manifest.reference.solutions[0].file).read_bytes()
-    synth, _ = synthesize(package, reference)
+    synth, _ = synthesize(package, reference(package))
     assert synth.status == "passed", synth
     metrics = synth.metrics
     area, cells, flops, critical, depth, fmax = S4_METRICS[problem]
@@ -196,6 +205,43 @@ def test_a_second_check_of_the_same_code_replays_the_stage_cache() -> None:
     assert (first.cached, second.cached) == (False, True)
     assert second.metrics == first.metrics
     assert ("sys", CACHED_RUN_NOTE) in sink.lines
+
+
+def test_the_netlist_of_a_reference_passes_the_testbench_and_ranks_it() -> None:
+    """netlist_sim (specs/07 §2.5) on a problem with parameters: the wrapper takes the testbench's
+    `#(.WIDTH(WIDTH))`, and the accepted Submit has the metrics of the formula."""
+    package = REPO / "problems" / "mux4"
+    results, _ = check(package, reference(package), None)
+    assert [(r.key, r.status) for r in results] == [
+        ("precheck", "passed"),
+        ("lint", "passed"),
+        ("sim_full", "passed"),
+        ("synth", "passed"),
+        ("netlist_sim", "passed"),
+    ]
+    netlist_sim = results[-1]
+    assert netlist_sim.metrics["tests_passed"] == netlist_sim.metrics["tests_total"] > 0
+    assert leaderboard_metrics(load_manifest(package), results) == {
+        "synth.critical_path_ns": S4_METRICS["mux4"][3],
+        "synth.area_um2": S4_METRICS["mux4"][0],
+    }
+
+
+def test_a_testbench_with_other_parameters_than_synthesis_is_a_problem_error() -> None:
+    """A netlist synthesized for WIDTH=4 under a testbench with WIDTH=8: `$fatal` of the wrapper
+    stops the build under -Werror-USERFATAL (S4), not a wrong answer of the solution."""
+    package = REPO / "problems" / "mux4"
+    problem = load_manifest(package)
+    stages = dict(problem.stages) | {
+        "synth": StageConfig.model_validate({"type": "synth", "params": {"WIDTH": 4}})
+    }
+    narrow = problem.model_copy(update={"stages": stages})
+    results, sink = check(
+        package, reference(package), ("precheck", "synth", "netlist_sim"), problem=narrow
+    )
+    netlist_sim = results[-1]
+    assert (netlist_sim.status, netlist_sim.error_code) == ("error", "NETLIST_PARAMS_MISMATCH")
+    assert any("netlist synthesized for WIDTH=4" in text for _, text in sink.lines), sink.lines
 
 
 def test_the_stage_run_is_byte_identical() -> None:

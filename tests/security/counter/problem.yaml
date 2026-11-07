@@ -44,7 +44,13 @@ stages:
   sim_junk: {type: sim, testbench: junk, groups: [public]}
   sim_huge: {type: sim, testbench: huge, groups: [public]}
   synth: {type: synth}
+  netlist_sim: {type: sim, testbench: main, groups: [public, hidden], max_cycles: 10000, design: synth.netlist_generic}
 pipelines:
   practice:
     run: [precheck, lint, sim_run]
-    submit: [precheck, lint, sim_full, synth]
+    submit: [precheck, lint, sim_full, synth, netlist_sim]
+leaderboard:
+  formula_version: 1
+  order:
+    - {metric: synth.critical_path_ns, dir: asc}
+    - {metric: synth.area_um2, dir: asc}

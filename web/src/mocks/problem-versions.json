@@ -2,7 +2,7 @@
   {
     "slug": "mux4",
     "number": 1,
-    "version": 2,
+    "version": 3,
     "title": "Мультиплексор 4:1",
     "difficulty": "easy",
     "tags": [
@@ -107,6 +107,14 @@
         {
           "key": "sim_full",
           "type": "sim"
+        },
+        {
+          "key": "synth",
+          "type": "synth"
+        },
+        {
+          "key": "netlist_sim",
+          "type": "sim"
         }
       ]
     },
@@ -114,18 +122,30 @@
       "public": 2,
       "hidden": 2
     },
-    "leaderboard": null,
+    "leaderboard": {
+      "formula_version": 1,
+      "order": [
+        {
+          "metric": "synth.critical_path_ns",
+          "dir": "asc"
+        },
+        {
+          "metric": "synth.area_um2",
+          "dir": "asc"
+        }
+      ]
+    },
     "reference": {
       "visibility": "after_accepted",
       "solutions": 1
     },
-    "changelog": "Таблица портов перенесена из условия в интерфейс задачи; текст и тесты не изменились.",
+    "changelog": "Добавлены синтез, проверка нетлиста и рейтинг решений; условие и тесты не изменились.",
     "published_at": "2026-10-01T00:00:00Z"
   },
   {
     "slug": "counter-mod-n",
     "number": 2,
-    "version": 2,
+    "version": 3,
     "title": "Счётчик по модулю N",
     "difficulty": "easy",
     "tags": [
@@ -224,6 +244,14 @@
         {
           "key": "sim_full",
           "type": "sim"
+        },
+        {
+          "key": "synth",
+          "type": "synth"
+        },
+        {
+          "key": "netlist_sim",
+          "type": "sim"
         }
       ]
     },
@@ -231,18 +259,30 @@
       "public": 2,
       "hidden": 2
     },
-    "leaderboard": null,
+    "leaderboard": {
+      "formula_version": 1,
+      "order": [
+        {
+          "metric": "synth.critical_path_ns",
+          "dir": "asc"
+        },
+        {
+          "metric": "synth.area_um2",
+          "dir": "asc"
+        }
+      ]
+    },
     "reference": {
       "visibility": "after_accepted",
       "solutions": 1
     },
-    "changelog": "Таблица портов перенесена из условия в интерфейс задачи; текст и тесты не изменились.",
+    "changelog": "Добавлены синтез, проверка нетлиста и рейтинг решений; условие и тесты не изменились.",
     "published_at": "2026-10-01T00:00:00Z"
   },
   {
     "slug": "carry-adder",
     "number": 3,
-    "version": 2,
+    "version": 3,
     "title": "Сумматор с переносом",
     "difficulty": "easy",
     "tags": [
@@ -338,6 +378,14 @@
         {
           "key": "sim_full",
           "type": "sim"
+        },
+        {
+          "key": "synth",
+          "type": "synth"
+        },
+        {
+          "key": "netlist_sim",
+          "type": "sim"
         }
       ]
     },
@@ -345,18 +393,30 @@
       "public": 2,
       "hidden": 2
     },
-    "leaderboard": null,
+    "leaderboard": {
+      "formula_version": 1,
+      "order": [
+        {
+          "metric": "synth.critical_path_ns",
+          "dir": "asc"
+        },
+        {
+          "metric": "synth.area_um2",
+          "dir": "asc"
+        }
+      ]
+    },
     "reference": {
       "visibility": "after_accepted",
       "solutions": 1
     },
-    "changelog": "Таблица портов перенесена из условия в интерфейс задачи; текст и тесты не изменились.",
+    "changelog": "Добавлены синтез, проверка нетлиста и рейтинг решений; условие и тесты не изменились.",
     "published_at": "2026-10-01T00:00:00Z"
   },
   {
     "slug": "seq-detector",
     "number": 4,
-    "version": 2,
+    "version": 3,
     "title": "Детектор последовательности 1011",
     "difficulty": "medium",
     "tags": [
@@ -439,6 +499,14 @@
         {
           "key": "sim_full",
           "type": "sim"
+        },
+        {
+          "key": "synth",
+          "type": "synth"
+        },
+        {
+          "key": "netlist_sim",
+          "type": "sim"
         }
       ]
     },
@@ -446,18 +514,30 @@
       "public": 2,
       "hidden": 2
     },
-    "leaderboard": null,
+    "leaderboard": {
+      "formula_version": 1,
+      "order": [
+        {
+          "metric": "synth.critical_path_ns",
+          "dir": "asc"
+        },
+        {
+          "metric": "synth.area_um2",
+          "dir": "asc"
+        }
+      ]
+    },
     "reference": {
       "visibility": "after_accepted",
       "solutions": 1
     },
-    "changelog": "Таблица портов перенесена из условия в интерфейс задачи; текст и тесты не изменились.",
+    "changelog": "Добавлены синтез, проверка нетлиста и рейтинг решений; условие и тесты не изменились.",
     "published_at": "2026-10-01T00:00:00Z"
   },
   {
     "slug": "sync-fifo",
     "number": 5,
-    "version": 2,
+    "version": 3,
     "title": "Синхронный FIFO",
     "difficulty": "medium",
     "tags": [
@@ -590,6 +670,14 @@
         {
           "key": "sim_full",
           "type": "sim"
+        },
+        {
+          "key": "synth",
+          "type": "synth"
+        },
+        {
+          "key": "netlist_sim",
+          "type": "sim"
         }
       ]
     },
@@ -597,12 +685,24 @@
       "public": 2,
       "hidden": 2
     },
-    "leaderboard": null,
+    "leaderboard": {
+      "formula_version": 1,
+      "order": [
+        {
+          "metric": "synth.critical_path_ns",
+          "dir": "asc"
+        },
+        {
+          "metric": "synth.area_um2",
+          "dir": "asc"
+        }
+      ]
+    },
     "reference": {
       "visibility": "after_accepted",
       "solutions": 1
     },
-    "changelog": "Таблица портов перенесена из условия в интерфейс задачи; текст и тесты не изменились.",
+    "changelog": "Добавлены синтез, проверка нетлиста и рейтинг решений; условие и тесты не изменились.",
     "published_at": "2026-10-01T00:00:00Z"
   }
 ]

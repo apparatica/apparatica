@@ -209,12 +209,17 @@ def test_a_submit_after_a_run_does_not_build_again(
     orchestrator(check(s3, "mux4", code), "judge.light")
     orchestrator(check(s3, "mux4", code, "submit"), "judge.light")
     assert isinstance(orchestrator.reporter, Reports)
-    run, submit = (report.results[-1] for report in orchestrator.reporter.items)
-    assert (run.status, run.cached) == ("passed", False)
-    assert (submit.status, submit.cached) == ("passed", True)
+    run, submit = (
+        next(r for r in report.results if r.key.startswith("sim_"))
+        for report in orchestrator.reporter.items
+    )
+    assert (run.key, run.status, run.cached) == ("sim_run", "passed", False)
+    assert (submit.key, submit.status, submit.cached) == ("sim_full", "passed", True)
     assert submit.metrics["tests_total"] > run.metrics["tests_total"]  # the hidden tests ran
-    [cached] = s3.list_objects_v2(Bucket="build-cache")["Contents"]
-    assert cached["Key"].startswith("sv-dev/")
+    # The simulator of the code, the run of synth and the simulator of its netlist.
+    cached = s3.list_objects_v2(Bucket="build-cache")["Contents"]
+    assert len(cached) == 3
+    assert all(item["Key"].startswith("sv-dev/") for item in cached)
     log = next(
         a.key
         for a in orchestrator.reporter.items[1].artifacts

@@ -31,6 +31,7 @@ it("draws the stages of Run and Submit as not run before the first check", () =>
   expect(pipelineView(FIFO.pipeline, null, null)).toEqual([
     { block: "lint", status: "pending", detail: { kind: "notRun" }, durationMs: null },
     { block: "sim", status: "pending", detail: { kind: "notRun" }, durationMs: null },
+    { block: "synth", status: "pending", detail: { kind: "notRun" }, durationMs: null },
   ]);
 });
 
@@ -38,6 +39,7 @@ it("waits with every block of a queued check", () => {
   expect(shape(pipelineView(FIFO.pipeline, queuedCheck(scenarios.accepted), null))).toEqual([
     ["lint", "pending", null],
     ["sim", "pending", null],
+    ["synth", "pending", null],
   ]);
 });
 
@@ -79,6 +81,8 @@ describe("a finished check", () => {
       [
         ["lint", "passed", null],
         ["sim", "passed", { kind: "caption", text: "пройдено 4 из 4" }],
+        // synth with netlist_sim: the metrics of synthesis, not the tests of the netlist
+        ["synth", "passed", { kind: "caption", text: "0,5917 нс, 1194,87 мкм², ячеек 526" }],
       ],
     ],
     [
@@ -86,6 +90,7 @@ describe("a finished check", () => {
       [
         ["lint", "warning", { kind: "warnings", count: 1 }],
         ["sim", "passed", { kind: "caption", text: "пройдено 4 из 4" }],
+        ["synth", "passed", { kind: "caption", text: "0,1722 нс, 41,762 мкм², ячеек 41" }],
       ],
     ],
     [
@@ -150,6 +155,7 @@ describe("a finished check", () => {
     expect(shape(pipelineView(FIFO.pipeline, check, null))).toEqual([
       ["lint", "pending", { kind: "notRun" }],
       ["sim", "pending", { kind: "notRun" }],
+      ["synth", "pending", { kind: "notRun" }],
     ]);
   });
 });

@@ -351,7 +351,7 @@ it("shows only the checks of the open problem", async () => {
 });
 
 it("goes on in the background after the page closes and tells how it ended", async () => {
-  configureMocks({ speed: 10 });
+  configureMocks({ speed: 40 }); // a Submit with synthesis: 50 s recorded
   const finished = vi.fn();
   const unsubscribe = onFinished(finished);
   const { result, unmount } = setup();

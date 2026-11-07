@@ -144,6 +144,16 @@ def test_minimal_manifest_and_defaults() -> None:
             "unknown stage keys: leaderboard.order: 'synth'",
         ),
         (
+            {
+                "stages__synth": {"type": "synth"},
+                "leaderboard": {
+                    "formula_version": 1,
+                    "order": [{"metric": "synth.area_um2", "dir": "asc"}],
+                },
+            },
+            "leaderboard.order: stages not in pipelines.practice.submit: synth.area_um2",
+        ),
+        (
             {"leaderboard": {"formula_version": 1, "order": [{"metric": "Area", "dir": "asc"}]}},
             "leaderboard.order[0].metric: String should match pattern",
         ),

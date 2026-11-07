@@ -32,8 +32,14 @@ def _edit(path: Path, old: str, new: str) -> None:
     path.write_bytes(content.replace(old.encode(), new.encode()))
 
 
-LEADERBOARD = """
-leaderboard:
+# The formula of the packages, replaced in the new version of counter-mod-n.
+FORMULA = """leaderboard:
+  formula_version: 1
+  order:
+    - {metric: synth.critical_path_ns, dir: asc}
+    - {metric: synth.area_um2, dir: asc}
+"""
+LEADERBOARD = """leaderboard:
   formula_version: 2
   order: [{metric: sim_full.cycles, dir: asc}]
 """
@@ -51,7 +57,7 @@ def catalogue(
     storage: MemoryStorage,
     tmp_path_factory: pytest.TempPathFactory,
 ) -> str:
-    """The five problems published; counter-mod-n COUNTER + 1 published over COUNTER, with a
+    """The five problems published; counter-mod-n COUNTER + 1 published over COUNTER, with another
     leaderboard and hidden references; mux4 MUX4 + 1 imported but not published; a problem
     `draft` v1 imported but never published. The new versions of counter-mod-n and mux4 have
     pictures in `storage`."""
@@ -69,8 +75,7 @@ def catalogue(
         _edit(manifest, f"version: {repo_version(name)}\n", f"version: {version}\n")
         if slug == "counter-mod-n":
             _edit(manifest, "reference:\n", "reference:\n  visibility: hidden\n")
-            with manifest.open("ab") as file:
-                file.write(LEADERBOARD.encode())
+            _edit(manifest, FORMULA, LEADERBOARD)
         if slug != "draft":
             (copy / "assets" / "dir").mkdir(parents=True)
             (copy / "assets" / "fsm.svg").write_bytes(SVG)
@@ -281,13 +286,21 @@ def test_problem_is_its_current_version(api: TestClient) -> None:
             {"key": "precheck", "type": "precheck"},
             {"key": "lint", "type": "lint"},
             {"key": "sim_full", "type": "sim"},
+            {"key": "synth", "type": "synth"},
+            {"key": "netlist_sim", "type": "sim"},
         ],
     }
     assert problem["tests"] == {"public": 2, "hidden": 2}
     assert problem["changelog"] == load_manifest(PROBLEMS / "mux4").changelog
     assert problem["published_at"].endswith("Z") or "+00:00" in problem["published_at"]
     assert problem["acceptance"] is None  # no stats yet
-    assert problem["leaderboard"] is None
+    assert problem["leaderboard"] == {
+        "formula_version": 1,
+        "order": [
+            {"metric": "synth.critical_path_ns", "dir": "asc"},
+            {"metric": "synth.area_um2", "dir": "asc"},
+        ],
+    }
     assert problem["reference"] == {"visibility": "after_accepted", "solutions": 1}
 
 

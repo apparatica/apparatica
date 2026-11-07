@@ -1,6 +1,6 @@
-// Leaderboards, public solutions and reference solutions of the mock API (phase 3). The packages of
-// the demo problems have no synthesis yet (T3.1b), so the mocks give each of them a leaderboard by
-// synthesis metrics, delay then area, and a made-up reference measurement. The rivals are a fixed,
+// Leaderboards, public solutions and reference solutions of the mock API (phase 3). Every demo
+// problem ranks by its synthesis metrics, delay then area, as its package says; the reference gets
+// a made-up measurement, not the one of the toolchain (T3.3). The rivals are a fixed,
 // seeded crowd without accounts: every problem has some, with shared places and solutions that
 // match the reference syntax tree (grouped under the earliest). Signed-in users of users.ts join
 // with the seeded solutions of `ada` and with their accepted Submits (submissions.ts), measured
@@ -27,6 +27,7 @@ export const references = referenceFile as Record<
   Omit<Schemas["ReferenceSolution"], "metrics">[] | undefined
 >;
 
+/** The formula of every demo package (problems/): delay, then area. */
 export const MOCK_FORMULA: Schemas["LeaderboardFormula"] = {
   formula_version: 1,
   order: [

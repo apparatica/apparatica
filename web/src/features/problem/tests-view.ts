@@ -5,7 +5,7 @@
 import type { Check, Stage, TestCase } from "@/features/submission/machine";
 import type { Schemas } from "@/lib/api/client";
 
-import { OPEN_GROUP, pendingStage } from "./pipeline-view";
+import { blockOf, OPEN_GROUP, pendingStage } from "./pipeline-view";
 
 /** Why tests did not run, or, for a test that started, why it did not finish. */
 export type NotRunReason =
@@ -82,10 +82,11 @@ function hiddenTotal(groups: Record<string, number>): number {
   );
 }
 
-/** The stages of the check that run tests, in pipeline order: those not started yet too. */
+/** The stages of the check that run tests of the code, in pipeline order: those not started yet
+ * too. The tests of the netlist belong to the synth block (specs/08 §6). */
 function simStages(check: Check, pipeline: Schemas["PipelineInfo"]): Stage[] {
   return pipeline[check.kind].flatMap(({ key, type }, ordinal) =>
-    type === "sim"
+    blockOf({ key, type }) === "sim"
       ? [check.stages.find((stage) => stage.key === key) ?? pendingStage(key, type, ordinal)]
       : [],
   );

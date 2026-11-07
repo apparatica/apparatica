@@ -180,6 +180,7 @@ class Problem(_Model):
         _require_unique("tag", self.tags)
         _require_unique("testbench id", [tb.id for tb in self.testbenches])
         stages = set(self.stages)
+        submit = set(self.pipelines.practice.submit)
         timeouts = self.limits.stage_timeout_s if self.limits else {}
         order = self.leaderboard.order if self.leaderboard else []
         references = [
@@ -192,6 +193,11 @@ class Problem(_Model):
         unknown = [f"{where}: {key!r}" for where, key in references if key not in stages]
         if unknown:
             raise ValueError(f"unknown stage keys: {', '.join(unknown)}")
+        unranked = [item.metric for item in order if item.metric.split(".")[0] not in submit]
+        if unranked:
+            raise ValueError(
+                f"leaderboard.order: stages not in pipelines.practice.submit: {', '.join(unranked)}"
+            )
         return self
 
 

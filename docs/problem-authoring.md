@@ -64,13 +64,24 @@ stages:
   lint: {type: lint}
   sim_run: {type: sim, testbench: main, groups: [public], max_cycles: 10000}
   sim_full: {type: sim, testbench: main, groups: [public, hidden], max_cycles: 10000}
+  synth: {type: synth}
+  netlist_sim: {type: sim, testbench: main, groups: [public, hidden], max_cycles: 10000, design: synth.netlist_generic}
 pipelines:
   practice:
     run: [precheck, lint, sim_run]
-    submit: [precheck, lint, sim_full]
+    submit: [precheck, lint, sim_full, synth, netlist_sim]
+leaderboard:
+  formula_version: 1
+  order:
+    - {metric: synth.critical_path_ns, dir: asc}
+    - {metric: synth.area_um2, dir: asc}
 ```
 
-Run проверяет только открытые тесты, Submit — открытые и скрытые. `max_cycles` — лимит тактов на прогон: превышение даёт «Превышен лимит». Остальные настройки этапов (флаги линта, окно трассы и т. п.) — в [judge.md](judge.md).
+Run проверяет только открытые тесты, Submit — открытые и скрытые, синтезирует решение и прогоняет те же тесты на синтезированной схеме. `max_cycles` — лимит тактов на прогон: превышение даёт «Превышен лимит». Остальные настройки этапов (флаги линта, окно трассы и т. п.) — в [judge.md](judge.md).
+
+- **Синтез** (`synth`) синтезирует решение при значениях параметров по умолчанию; другие значения — в `params` (`{type: synth, params: {WIDTH: 4}}`), период клока для задержки — `clock_period_ns` (по умолчанию 2,0 нс).
+- **Симуляция нетлиста** (`netlist_sim`) обязательна после каждого `synth` в `submit` — без неё `judge validate` не пропустит пакет: метрики идут в рейтинг, только если схема после синтеза проходит тот же тестбенч. Тестбенч должен инстанцировать модуль с теми же значениями параметров, с которыми шёл синтез: иначе этап падает с ошибкой задачи `NETLIST_PARAMS_MISMATCH`, и `judge validate` покажет её на эталоне.
+- **Рейтинг** (`leaderboard`) — метрики `<этап>.<метрика>` по порядку сравнения; этапы формулы должны быть в `submit`. Метрики синтеза — `critical_path_ns`, `area_um2`, `cells`, `flops`, `logic_depth` ([judge.md](judge.md#systemverilog-synth)). Смена формулы — новый `formula_version`.
 
 ## Условие
 

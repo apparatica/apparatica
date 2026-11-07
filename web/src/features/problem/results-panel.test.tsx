@@ -85,8 +85,9 @@ it("shows the pipeline that has not run and the hint before the first check", ()
   renderPanel(stateOf(null));
   expect(stageOf("Линт")).toHaveTextContent("не запускался");
   expect(stageOf("Симуляция")).toHaveTextContent("не запускался");
-  // Synthesis and formal come in later phases: no stages, no blocks.
-  expect(within(pipeline()).queryByText("Синтез")).not.toBeInTheDocument();
+  expect(stageOf("Синтез")).toHaveTextContent("не запускался");
+  // Formal comes in a later phase: no stages, no block.
+  expect(within(pipeline()).queryByText("Формал")).not.toBeInTheDocument();
   expect(screen.getByText("—")).toBeInTheDocument();
   expect(screen.getByText("Результатов пока нет")).toBeInTheDocument();
 });
