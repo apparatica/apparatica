@@ -20,6 +20,8 @@ import { notify } from "@/components/ui/toast";
 import { CaptchaDialog } from "@/features/captcha/captcha-dialog";
 import { captchaRequest } from "@/features/captcha/request";
 import { useSubmissionHistory } from "@/features/guest/submissions";
+import { LeaderboardTab } from "@/features/leaderboard/leaderboard-tab";
+import { SolutionsTab } from "@/features/leaderboard/solutions-tab";
 import { isFinished } from "@/features/submission/machine";
 import { useSubmission } from "@/features/submission/use-submission";
 import { browserApi } from "@/lib/api/browser";
@@ -200,6 +202,10 @@ export function Bench({
                 <span className="font-mono text-[11px] text-mu">{history.length}</span>
               )}
             </TabsTrigger>
+            <TabsTrigger value="solutions">{t("tabs.solutions")}</TabsTrigger>
+            {problem.leaderboard !== null && (
+              <TabsTrigger value="leaderboard">{t("tabs.leaderboard")}</TabsTrigger>
+            )}
           </TabsList>
           <TabsContent value="statement" className="min-h-0 flex-1 overflow-y-auto">
             {children}
@@ -212,6 +218,14 @@ export function Bench({
               onOpen={(id) => void opener.open(id)}
             />
           </TabsContent>
+          <TabsContent value="solutions" className="min-h-0 flex-1 overflow-y-auto">
+            <SolutionsTab problem={problem} onEdit={() => workspace.focus()} />
+          </TabsContent>
+          {problem.leaderboard !== null && (
+            <TabsContent value="leaderboard" className="min-h-0 flex-1 overflow-y-auto">
+              <LeaderboardTab problem={problem.slug} />
+            </TabsContent>
+          )}
         </Tabs>
         {opener.dialog}
         <CaptchaDialog

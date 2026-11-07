@@ -1,8 +1,8 @@
 // The state of the problem page in its address (specs/08 §1): the open tab of the left panel
-// (`?tab=submissions`) and the shown submission (`?submission=<id>`). Changed without a navigation:
+// (`?tab=submissions`, `solutions`, `leaderboard`) and the shown submission (`?submission=<id>`). Changed without a navigation:
 // the server renders the page for them only when it is opened.
 
-export const LEFT_TABS = ["statement", "submissions"] as const;
+export const LEFT_TABS = ["statement", "submissions", "solutions", "leaderboard"] as const;
 export type LeftTab = (typeof LEFT_TABS)[number];
 
 export const parseLeftTab = (value: unknown): LeftTab =>

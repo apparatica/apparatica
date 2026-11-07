@@ -28,7 +28,8 @@ function PhoneProblem({
   children: ReactNode;
 }) {
   const t = useTranslations("problem");
-  const [current, select] = useLeftTab(tab);
+  // The tabs «Решения» and «Рейтинг» come to phones with T3.13.
+  const [current, select] = useLeftTab(tab === "submissions" ? tab : "statement");
   const history = useSubmissionHistory(problem.slug);
   // No check of this page reads the list of the server: the open tab does, once.
   useQuery({

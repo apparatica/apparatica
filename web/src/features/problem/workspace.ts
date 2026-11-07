@@ -152,6 +152,11 @@ export class Workspace {
     this.acknowledge();
   }
 
+  /** Moves the focus to the editor: «Перейти к редактору» of the locked solutions. */
+  focus(): void {
+    this.editor?.focus();
+  }
+
   /** Puts the cursor on a line of the solution and scrolls to it: links in the results. */
   reveal(line: number, column = 1): void {
     const editor = this.editor;

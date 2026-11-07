@@ -90,8 +90,10 @@ export function useSubmission({
         delays: reconnectDelaysMs,
         onFinalized: ({ id, kind, status, placement }) => {
           void queryClient.invalidateQueries({ queryKey: submissionKeys.detail(id) });
-          // An accepted Submit may have moved the places of the problem.
-          if (placement !== null) {
+          // An accepted Submit may have moved the places of the problem, and it opens the code
+          // of the solutions of others even without a place (a guest).
+          const accepted = status === "accepted" || status === "accepted_with_warnings";
+          if (placement !== null || (kind === "submit" && accepted)) {
             void queryClient.invalidateQueries({ queryKey: leaderboardKeys.problem(problem) });
           }
           if (document.visibilityState === "hidden") {

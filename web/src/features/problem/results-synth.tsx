@@ -20,15 +20,14 @@ import type { ReactNode } from "react";
 import { MetricCard, type MetricComparison } from "@/components/domain/metric-card";
 import { useGuest } from "@/features/account/session";
 import { getLeaderboardTop, leaderboardKeys } from "@/features/leaderboard/api";
+import { directionOf, useMetricWords, useOrderWords } from "@/features/leaderboard/metrics";
 import { type Check, isFinished, type Stage } from "@/features/submission/machine";
 import type { Schemas } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 
 import {
   CARD_METRICS,
-  type CardMetric,
   compareMetric,
-  directionOf,
   metricOf,
   netlistStageOf,
   placeShare,
@@ -40,31 +39,6 @@ export type SynthProblem = Pick<Schemas["ProblemDetail"], "slug" | "leaderboard"
 export interface ResultsSynthProps {
   check: Check;
   problem: SynthProblem;
-}
-
-/** Metrics of the leaderboard formula that have a name in words. */
-const ORDER_NAMES = [
-  "critical_path_ns",
-  "fmax_mhz",
-  "area_um2",
-  "cells",
-  "flops",
-  "logic_depth",
-] as const;
-type OrderName = (typeof ORDER_NAMES)[number];
-const isOrderName = (name: string): name is OrderName =>
-  (ORDER_NAMES as readonly string[]).includes(name);
-
-const DIGITS: Record<CardMetric, number> = {
-  critical_path_ns: 3,
-  area_um2: 2,
-  cells: 0,
-  flops: 0,
-};
-
-function useMetricFormat(): (metric: CardMetric, value: number) => string {
-  const format = useFormatter();
-  return (metric, value) => format.number(value, { maximumFractionDigits: DIGITS[metric] });
 }
 
 export function ResultsSynth({ check, problem }: ResultsSynthProps) {
@@ -125,7 +99,7 @@ function CardGrid({ children }: { children: ReactNode }) {
 function SynthCards({ synth, problem }: { synth: Stage; problem: SynthProblem }) {
   const t = useTranslations("problem.results.synth");
   const format = useFormatter();
-  const formatMetric = useMetricFormat();
+  const words = useMetricWords();
   const ranked = problem.leaderboard !== null;
   const board = useQuery({
     queryKey: leaderboardKeys.top(problem.slug),
@@ -158,12 +132,12 @@ function SynthCards({ synth, problem }: { synth: Stage; problem: SynthProblem })
         const comparison: MetricComparison | null =
           theirs === undefined
             ? null
-            : compareMetric(value, theirs, directionOf(key, problem.leaderboard));
+            : compareMetric(value, theirs, directionOf(key, problem.leaderboard?.order));
         return (
           <MetricCard
             key={metric}
             label={t(`metrics.${metric}`)}
-            value={formatMetric(metric, value)}
+            value={words.value(key, value)}
             unit={
               metric === "critical_path_ns" || metric === "area_um2"
                 ? t(`units.${metric}`)
@@ -172,8 +146,8 @@ function SynthCards({ synth, problem }: { synth: Stage; problem: SynthProblem })
             extra={metric === "critical_path_ns" ? frequency : undefined}
             comparison={comparison}
             note={note}
-            reference={theirs === undefined ? null : formatMetric(metric, theirs)}
-            best={top === undefined ? null : formatMetric(metric, top)}
+            reference={theirs === undefined ? null : words.value(key, theirs)}
+            best={top === undefined ? null : words.value(key, top)}
             hint={t(`hints.${metric}`)}
           />
         );
@@ -251,7 +225,7 @@ function NetlistRow({ stage, finished }: { stage: Stage | undefined; finished: b
 
 function Place({ check, problem }: ResultsSynthProps) {
   const t = useTranslations("problem.results.synth.place");
-  const names = useTranslations("problem.results.synth.order");
+  const { names: order } = useOrderWords(problem.leaderboard?.order ?? []);
   const guest = useGuest();
   const { placement } = check;
   if (problem.leaderboard === null || !isFinished(check)) return null;
@@ -259,13 +233,6 @@ function Place({ check, problem }: ResultsSynthProps) {
     const accepted = check.status === "accepted" || check.status === "accepted_with_warnings";
     return guest && accepted ? <p className="text-caption text-mu">{t("guest")}</p> : null;
   }
-  const order = [
-    ...problem.leaderboard.order.map(({ metric }) => {
-      const name = metric.slice(metric.indexOf(".") + 1);
-      return isOrderName(name) ? names(name) : metric;
-    }),
-    t("then"),
-  ].join(" → ");
   const { rank, total } = placement;
   return (
     <div className="flex flex-col gap-1.5">
