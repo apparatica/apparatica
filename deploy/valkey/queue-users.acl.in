@@ -10,7 +10,10 @@ user default on nopass -@all +ping
 user api on >@API_PASSWORD@ ~dramatiq ~dramatiq:* ~queue:* %R~sub:* %W~cancel:* &judge:cancel +@all -@dangerous
 # worker: takes checks from the queues, removes their positions, holds leases and counts attempts,
 # writes the events of its checks and their results (it reads neither stream), learns of cancels.
-user worker on >@WORKER_PASSWORD@ ~dramatiq ~dramatiq:* %W~queue:* ~lease:* ~attempts:* %W~sub:* %W~judge:results %R~cancel:* &judge:cancel +@all -@dangerous -publish
+# KEYS, the one administrative command: the maintenance of the Dramatiq broker requeues the
+# messages of dead workers (ADR-0002) and looks up their acks with it. The senders, the API and the
+# ingestor, leave the maintenance to the workers and have no KEYS.
+user worker on >@WORKER_PASSWORD@ ~dramatiq ~dramatiq:* %W~queue:* ~lease:* ~attempts:* %W~sub:* %W~judge:results %R~cancel:* &judge:cancel +@all -@dangerous +keys -publish
 # ingest: reads the results through its consumer group, writes `finalized` to the event streams;
 # its leader holds leader:ingest, the watchdog looks whether a worker holds a check; it ends the
 # cancelled checks that wait; it reads the queue positions for the metrics (docs/configuration.md#метрики).

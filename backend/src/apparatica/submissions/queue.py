@@ -94,7 +94,10 @@ class NoQueue:
 
 class DramatiqQueue:
     def __init__(self, url: str) -> None:
-        self._broker = RedisBroker(url=url, middleware=[])  # it only sends
+        # It only sends. The maintenance of the queues (the messages of dead workers back to their
+        # queues, ADR-0002) is the workers' business: it needs KEYS, which the senders do not have
+        # (deploy/valkey/queue-users.acl.in), and a failed maintenance fails the command with it.
+        self._broker = RedisBroker(url=url, middleware=[], maintenance_chance=0)
         for queue in QUEUES:
             self._broker.declare_queue(queue)
         self._redis = redis.asyncio.Redis.from_url(url)

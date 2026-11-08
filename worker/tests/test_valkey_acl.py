@@ -16,7 +16,7 @@ import boto3
 import pytest
 import redis
 from dramatiq import Message
-from dramatiq.brokers.redis import RedisBroker
+from dramatiq.brokers.redis import MAINTENANCE_SCALE, RedisBroker
 from moto import mock_aws
 from testcontainers.community.redis import RedisContainer
 
@@ -185,6 +185,43 @@ def test_the_users_do_their_work(server: tuple[str, str], tmp_path: Path) -> Non
             read()
 
 
+def test_the_worker_requeues_the_messages_of_a_dead_worker(server: tuple[str, str]) -> None:
+    """The maintenance of the broker (ADR-0002) as the worker runs it, with KEYS; a sender with
+    maintenance would fail the command it sends, so the senders have none."""
+    api_url, worker_url = server
+    queue = f"judge.maintenance-{uuid.uuid4().hex}"
+    heartbeats = "dramatiq:__heartbeats__"
+
+    def broker(url: str, *, maintenance: bool) -> RedisBroker:
+        chance = MAINTENANCE_SCALE if maintenance else 0
+        made = RedisBroker(url=url, middleware=[], maintenance_chance=chance)
+        made.declare_queue(queue)
+        return made
+
+    sender = broker(api_url, maintenance=False)
+    sent = sender.enqueue(
+        Message(queue_name=queue, actor_name=ACTOR, args=(), kwargs={}, options={})
+    )
+    sender.close()
+    # A worker takes the message and dies before the ack: its heartbeat is long gone.
+    dead = broker(worker_url, maintenance=False)
+    assert len(dead.do_fetch(queue, 1)) == 1
+    worker = redis.Redis.from_url(worker_url)
+    worker.zadd(heartbeats, {dead.broker_id: 0})
+    dead.close()
+
+    api = broker(api_url, maintenance=True)
+    with pytest.raises(redis.exceptions.ResponseError, match="keys"):
+        api.enqueue(Message(queue_name=queue, actor_name=ACTOR, args=(), kwargs={}, options={}))
+    api.close()
+
+    alive = broker(worker_url, maintenance=True)
+    fetched = alive.do_fetch(queue, 1)
+    alive.close()
+    assert [Message.decode(data).message_id for data in fetched] == [sent.message_id]
+    assert worker.zscore(heartbeats, dead.broker_id) is None
+
+
 def ingest(api_url: str) -> str:
     """The URL of the ingest user on the same server."""
     return api_url.replace(
@@ -240,7 +277,8 @@ def test_the_ingestor_reads_results_and_writes_finalized(server: tuple[str, str]
         ("worker", lambda r: r.set("session:1", "x")),  # keys of no component
         ("worker", lambda r: r.zrank("queue:judge.light", "x")),  # positions: remove only
         ("worker", lambda r: r.flushall()),
-        ("worker", lambda r: r.keys("*")),
+        ("api", lambda r: r.keys("*")),  # KEYS is the worker's, for the maintenance
+        ("ingest", lambda r: r.keys("*")),
         ("worker", lambda r: r.config_get("*")),
         ("api", lambda r: r.set("lease:1", "x")),
         ("api", lambda r: r.incr("attempts:1")),
@@ -260,7 +298,8 @@ def test_the_ingestor_reads_results_and_writes_finalized(server: tuple[str, str]
         "other-key",
         "read-position",
         "flushall",
-        "keys",
+        "api-keys",
+        "ingest-keys",
         "config",
         "lease",
         "attempts",

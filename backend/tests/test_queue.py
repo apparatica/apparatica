@@ -1,8 +1,10 @@
 """The queue of checks on Valkey: Dramatiq messages for the worker and queue positions."""
 
 import asyncio
+import random
 import uuid
 
+import pytest
 import redis
 from dramatiq.brokers.redis import RedisBroker
 
@@ -80,3 +82,29 @@ def test_an_unreachable_queue() -> None:
             await queue.close()
 
     assert asyncio.run(scenario()) is None
+
+
+def test_the_api_leaves_the_maintenance_to_the_workers(
+    valkey_url: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The maintenance of the broker needs KEYS, which only the worker has
+    (deploy/valkey/queue-users.acl.in): a sender never runs it, even when the dice say so."""
+    # The broker rolls random.randint(1, MAINTENANCE_SCALE) against its chance: always 1 here.
+    monkeypatch.setattr(random, "randint", lambda low, high: low)
+    client = redis.Redis.from_url(valkey_url)
+    # A dead worker: the maintenance would remove it.
+    client.zadd("dramatiq:__heartbeats__", {"dead-worker": 0})
+
+    async def scenario() -> None:
+        queue = DramatiqQueue(valkey_url)
+        try:
+            await queue.enqueue(job("judge.rejudge"))
+        finally:
+            await queue.close()
+
+    asyncio.run(scenario())
+    assert client.zscore("dramatiq:__heartbeats__", "dead-worker") == 0
+    client.delete(
+        "dramatiq:__heartbeats__", "dramatiq:judge.rejudge", "dramatiq:judge.rejudge.msgs"
+    )
+    client.delete(position_key("judge.rejudge"))
