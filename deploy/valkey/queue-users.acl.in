@@ -14,4 +14,6 @@ user worker on >@WORKER_PASSWORD@ ~dramatiq ~dramatiq:* %W~queue:* ~lease:* ~att
 # ingest: reads the results through its consumer group, writes `finalized` to the event streams;
 # its leader holds leader:ingest, the watchdog looks whether a worker holds a check; it ends the
 # cancelled checks that wait; it reads the queue positions for the metrics (docs/configuration.md#метрики).
-user ingest on >@INGEST_PASSWORD@ ~judge:results %W~sub:* ~leader:ingest %R~lease:* %R~queue:* &judge:cancel +@all -@dangerous -publish
+# Its leader puts runs of reference solutions on judge.rejudge with their positions: the scripts of
+# the broker touch the whole namespace (heartbeats, the acks of dead workers), as for the API.
+user ingest on >@INGEST_PASSWORD@ ~judge:results %W~sub:* ~leader:ingest %R~lease:* %R~queue:* ~queue:judge.rejudge ~dramatiq ~dramatiq:* &judge:cancel +@all -@dangerous -publish

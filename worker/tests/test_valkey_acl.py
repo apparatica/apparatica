@@ -211,6 +211,16 @@ def test_the_ingestor_reads_results_and_writes_finalized(server: tuple[str, str]
     client.zcard("queue:judge.light")
     client.zrange("queue:judge.light", 0, 0, withscores=True)
     client.xlen(RESULTS_STREAM)
+    # The leader puts a run of a reference solution on judge.rejudge, as DramatiqQueue does it.
+    run = str(uuid.uuid4())
+    client.zadd(position_key("judge.rejudge"), {run: time.time()})
+    broker = RedisBroker(url=ingest(api_url), middleware=[])
+    broker.declare_queue("judge.rejudge")
+    broker.enqueue(
+        Message(queue_name="judge.rejudge", actor_name=ACTOR, args=(run,), kwargs={}, options={})
+    )
+    broker.close()
+    assert redis.Redis.from_url(worker_url).llen("dramatiq:judge.rejudge") >= 1
     # The SSE endpoint of the API reads what the ingestor and the worker wrote.
     api = redis.Redis.from_url(api_url)
     assert api.xrange("sub:1")
@@ -242,8 +252,8 @@ def test_the_ingestor_reads_results_and_writes_finalized(server: tuple[str, str]
         ("worker", lambda r: r.publish("judge:cancel", "x")),
         ("worker", lambda r: r.set("cancel:1", "user")),  # reads cancels, makes none
         ("api", lambda r: r.get("cancel:1")),
-        ("ingest", lambda r: r.xadd("dramatiq:judge.light", {"x": "1"})),
-        ("ingest", lambda r: r.zadd("queue:judge.light", {"x": 1})),  # reads positions only
+        # Reads the positions of the queues, puts only reference runs on judge.rejudge.
+        ("ingest", lambda r: r.zadd("queue:judge.light", {"x": 1})),
         ("default", lambda r: r.get("queue:judge.light")),
     ],
     ids=[
@@ -262,7 +272,6 @@ def test_the_ingestor_reads_results_and_writes_finalized(server: tuple[str, str]
         "worker-publish",
         "worker-cancel",
         "api-read-cancel",
-        "ingest-queue",
         "ingest-position",
         "default",
     ],
