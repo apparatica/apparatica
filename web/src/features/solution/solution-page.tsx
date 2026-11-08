@@ -160,7 +160,7 @@ function DuplicateCard({ duplicate }: { duplicate: NonNullable<Solution["duplica
         <h2 className="font-medium">
           {t.rich("title", {
             link: (chunks) => (
-              <Link href={solutionHref(duplicate.solution_id)} className="text-ac underline">
+              <Link href={solutionHref(duplicate.solution_id)} className="text-in underline">
                 {chunks}
               </Link>
             ),

@@ -230,21 +230,23 @@ function SortHeader({
       aria-sort={sort.active ? (sort.dir === "asc" ? "ascending" : "descending") : undefined}
       className={cn("px-2 text-right font-normal last:pr-3.5", wide && WIDE)}
     >
+      {/* The name starts with the visible text (WCAG 2.5.3); the accent of the active column is
+          its arrow: accent text on the header falls short of 4.5:1. */}
       <Link
         href={href}
         scroll={false}
-        aria-label={t("sortBy", { column: label })}
         className={cn(
           "inline-flex items-center gap-1 whitespace-nowrap hover:text-tx",
-          sort.active && "text-ac",
+          sort.active && "text-tx",
           primary && "font-medium",
         )}
       >
         <span>
           {label}
-          {unit !== null && <span className="normal-case">, {unit}</span>}
+          {unit !== null && <span className="normal-case">, {unit}</span>}{" "}
+          <span className="sr-only">{t("sortBy")}</span>
         </span>
-        <Icon size={12} aria-hidden="true" className={cn(!sort.active && "opacity-60")} />
+        <Icon size={12} aria-hidden="true" className={cn(sort.active ? "text-ac" : "opacity-60")} />
       </Link>
     </th>
   );

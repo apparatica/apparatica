@@ -76,7 +76,7 @@ it("shows the cards, the order of places and a page of rows", async () => {
     "aria-sort",
     "ascending",
   );
-  expect(screen.getByRole("link", { name: "Сортировать по столбцу «площадь»" })).toHaveAttribute(
+  expect(screen.getByRole("link", { name: "площадь, µm² (сортировать)" })).toHaveAttribute(
     "href",
     "/problems/sync-fifo/leaderboard?sort=synth.area_um2",
   );
