@@ -7,11 +7,12 @@ import time
 import uuid
 from collections.abc import Iterable, Iterator
 from pathlib import Path
-from typing import Any
+from typing import Any, get_args
 
 import pytest
 import redis
 import structlog
+import yaml
 from fastapi import APIRouter
 from fastapi.testclient import TestClient
 from prometheus_client import REGISTRY
@@ -21,9 +22,12 @@ from apparatica.core.settings import Settings
 from apparatica.judging.metrics import QueueCollector
 from apparatica.main import create_app
 from apparatica.submissions.api import SubmissionId
+from apparatica.submissions.schemas import SubmissionStatus
 from judge.core.jobs import QUEUES, RESULTS_STREAM, position_key
 
 DASHBOARD = Path(__file__).parents[2] / "deploy" / "grafana" / "dashboards" / "apparatica.json"
+PLATFORM_RULES = Path(__file__).parents[2] / "deploy" / "prometheus" / "rules" / "platform.yml"
+CHECKS_FINISHED_TOTAL = "apparatica_checks_finished_total"
 SUFFIXES = {"counter": ("_total",), "histogram": ("_bucket", "_count", "_sum"), "gauge": ("",)}
 
 
@@ -134,12 +138,29 @@ def exposed(families: Iterable[Metric]) -> set[str]:
     return {f.name + suffix for f in families for suffix in SUFFIXES.get(f.type, ())}
 
 
-def test_the_dashboard_shows_metrics_of_the_api_and_the_ingestor() -> None:
-    """The worker checks its own (`apparatica_worker_*`) in its tests."""
-    dashboard = json.loads(DASHBOARD.read_text(encoding="utf-8"))
-    exprs = [t["expr"] for panel in dashboard["panels"] for t in panel.get("targets", [])]
-    shown = {name for expr in exprs for name in re.findall(r"\bapparatica_\w+", expr)}
+def unknown_metrics(exprs: Iterable[str]) -> set[str]:
+    """Metrics of the expressions no process exposes. The worker checks its own in its tests."""
+    read = {name for expr in exprs for name in re.findall(r"\bapparatica_\w+", expr)}
     queues = QueueCollector(redis.Redis(), QUEUES).describe()  # registered by the ingestor
     names = exposed(REGISTRY.collect()) | exposed(queues)
-    missing = {name for name in shown if not name.startswith("apparatica_worker_")} - names
-    assert not missing
+    return {name for name in read if not name.startswith("apparatica_worker_")} - names
+
+
+def test_the_dashboard_shows_metrics_of_the_api_and_the_ingestor() -> None:
+    dashboard = json.loads(DASHBOARD.read_text(encoding="utf-8"))
+    assert not unknown_metrics(
+        t["expr"] for panel in dashboard["panels"] for t in panel.get("targets", [])
+    )
+
+
+def test_the_alerts_read_metrics_of_the_api_and_the_ingestor() -> None:
+    rules = yaml.safe_load(PLATFORM_RULES.read_text(encoding="utf-8"))
+    assert not unknown_metrics(r["expr"] for group in rules["groups"] for r in group["rules"])
+
+
+def test_every_final_status_is_counted_from_the_start() -> None:
+    """rate() does not see the first increment of a new series: the alert would miss it."""
+    final = set(get_args(SubmissionStatus)) - {"queued", "running"}
+    assert "internal_error" in final
+    counted = {s: REGISTRY.get_sample_value(CHECKS_FINISHED_TOTAL, {"status": s}) for s in final}
+    assert None not in counted.values()

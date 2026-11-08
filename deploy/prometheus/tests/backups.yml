@@ -142,6 +142,6 @@ tests:
             exp_annotations:
               summary: Prometheus не получает метрики хоста
               description: >-
-                node-exporter недоступен или не читает файлы метрик бэкапов: алерты бэкапов не
-                сработают.
+                node-exporter недоступен или не читает файлы метрик бэкапов: алерты бэкапов и места
+                на диске не сработают.
               runbook: deploy/RUNBOOK.md#алерты

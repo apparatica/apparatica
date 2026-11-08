@@ -112,6 +112,18 @@ dc --profile monitoring exec alertmanager amtool --alertmanager.url=http://local
 
 **`HostMetricsMissing`** (Prometheus не получает метрики хоста): `dc --profile monitoring ps node-exporter` и его логи. Ошибка `failed to parse textfile data` — испорчен файл в `/var/lib/apparatica/metrics`: удалите его и запустите юнит его задачи (`systemctl start apparatica-backup` или `apparatica-backup-check`), он запишет новый.
 
+**`QueueBacklog`, `QueueStalled`** (очередь растёт или стоит): `dc ps worker sandboxd`, затем `dc logs --tail 100 worker sandboxd`. Воркер упал — `dc up -d --wait worker`, проверки из очереди он возьмёт сам. Работает, но слоты заняты (Grafana: «Загрузка слотов», «Время этапов») — наплыв проверок: подождать или добавить слоты (`APX_SLOTS`). Если `QueueStalled` не проходит, а воркер свободен, в `queue:<очередь>` осталась запись проверки, которой нет в брокере (API не смог убрать её при сбое Valkey): посмотрите записи и удалите лишнюю (замените `zrange … withscores` на `zrem queue:judge.light <id>`):
+
+```sh
+dc exec valkey-queue sh -c 'valkey-cli --no-auth-warning --user api -a "$API_PASSWORD" zrange queue:judge.light 0 -1 withscores'
+```
+
+**`InternalErrorsHigh`** (много внутренних ошибок): `dc logs --since 20m worker sandboxd ingest | grep -i error`. Какие этапы падают — метрики `apparatica_worker_stages_total{status="error"}` и `apparatica_worker_attempts_total` в Grafana. Если ошибки начались с деплоя — [откат](#откат). Ошибка проверки пользователю не стоит квоты, повторную проверку он запускает сам.
+
+**`QueueMetricsMissing`** (нет метрик очереди): `dc ps ingest valkey-queue`, логи обоих. В логе ингестора `queue metrics unavailable` — он не может прочитать Valkey: проблема в `valkey-queue` или его ACL.
+
+**`DiskSpaceLow`** — см. [место на диске](#место-на-диске).
+
 **Сообщения не приходят**: в логах `alertmanager` ошибки `telegram` — неверный токен (`401`), бот не в чате или неверный id (`400 chat not found`), Telegram недоступен с хоста. Токен меняется в `secrets.env` (`TELEGRAM_BOT_TOKEN`), id — в инвентаре (`apparatica_alert_telegram_chat_id`), затем `just deploy`.
 
 ## Восстановление базы

@@ -1,0 +1,200 @@
+# Unit tests of rules/platform.yml: `just alerts-test` (promtool test rules).
+rule_files:
+  - ../rules/platform.yml
+
+evaluation_interval: 1m
+
+tests:
+  # More than ten waiting: firing after 5 minutes, not before; a burst that clears stays quiet.
+  - interval: 1m
+    input_series:
+      - series: apparatica_queue_waiting{queue="judge.light", job="ingest", instance="ingest:9100"}
+        values: 0x4 12x10 3x10
+    alert_rule_test:
+      - eval_time: 8m
+        alertname: QueueBacklog
+        exp_alerts: []
+      - eval_time: 11m
+        alertname: QueueBacklog
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              queue: judge.light
+            exp_annotations:
+              summary: Очередь проверок растёт
+              description: >-
+                В очереди judge.light ждут 12 проверок дольше 5 минут: воркеры не справляются.
+              runbook: deploy/RUNBOOK.md#алерты
+      - eval_time: 20m
+        alertname: QueueBacklog
+        exp_alerts: []
+
+  # Exactly ten is not more than ten; a long rejudge queue is expected.
+  - interval: 1m
+    input_series:
+      - series: apparatica_queue_waiting{queue="judge.light", job="ingest", instance="ingest:9100"}
+        values: 10x20
+      - series: apparatica_queue_waiting{queue="judge.rejudge", job="ingest", instance="ingest:9100"}
+        values: 500x20
+    alert_rule_test:
+      - eval_time: 15m
+        alertname: QueueBacklog
+        exp_alerts: []
+
+  # A check waits longer than 5 minutes: firing at once, whatever the size of the queue.
+  - interval: 1m
+    input_series:
+      - series: apparatica_queue_oldest_wait_seconds{queue="judge.heavy", job="ingest", instance="ingest:9100"}
+        values: 0 60 120 180 240 300 360 420
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: QueueStalled
+        exp_alerts: []
+      - eval_time: 6m
+        alertname: QueueStalled
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              queue: judge.heavy
+            exp_annotations:
+              summary: Проверки не берутся из очереди
+              description: >-
+                Самая старая проверка очереди judge.heavy ждёт 6m 0s: воркер не работает или все его
+                слоты заняты.
+              runbook: deploy/RUNBOOK.md#алерты
+
+  - interval: 1m
+    input_series:
+      - series: apparatica_queue_oldest_wait_seconds{queue="judge.rejudge", job="ingest", instance="ingest:9100"}
+        values: 1000x10
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: QueueStalled
+        exp_alerts: []
+
+  # 3 of 100 checks ended with an internal error: more than 2%.
+  - interval: 1m
+    input_series:
+      - series: apparatica_checks_finished_total{status="internal_error", job="ingest", instance="ingest:9100"}
+        values: 0+0.2x20
+      - series: apparatica_checks_finished_total{status="accepted", job="ingest", instance="ingest:9100"}
+        values: 10+6.4667x20
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: InternalErrorsHigh
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+            exp_annotations:
+              summary: Много внутренних ошибок проверки
+              description: Внутренней ошибкой закончились 3% проверок за 15 минут.
+              runbook: deploy/RUNBOOK.md#алерты
+
+  # 1 of 100: below the threshold.
+  - interval: 1m
+    input_series:
+      - series: apparatica_checks_finished_total{status="internal_error", job="ingest", instance="ingest:9100"}
+        values: 0+0.1x20
+      - series: apparatica_checks_finished_total{status="accepted", job="ingest", instance="ingest:9100"}
+        values: 10+9.9x20
+    alert_rule_test:
+      - eval_time: 20m
+        alertname: InternalErrorsHigh
+        exp_alerts: []
+
+  # The first internal error since the start of the ingestor counts, because the series exists at
+  # zero (judging/metrics.py). Idle afterwards: the alert passes when the window does.
+  - interval: 1m
+    input_series:
+      - series: apparatica_checks_finished_total{status="internal_error", job="ingest", instance="ingest:9100"}
+        values: 0x5 1x40
+      - series: apparatica_checks_finished_total{status="accepted", job="ingest", instance="ingest:9100"}
+        values: 0x5 1x40
+    alert_rule_test:
+      - eval_time: 4m
+        alertname: InternalErrorsHigh
+        exp_alerts: []
+      - eval_time: 8m
+        alertname: InternalErrorsHigh
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+            exp_annotations:
+              summary: Много внутренних ошибок проверки
+              description: Внутренней ошибкой закончились 50% проверок за 15 минут.
+              runbook: deploy/RUNBOOK.md#алерты
+      - eval_time: 30m
+        alertname: InternalErrorsHigh
+        exp_alerts: []
+
+  # No checks at all: 0/0 stays quiet.
+  - interval: 1m
+    input_series:
+      - series: apparatica_checks_finished_total{status="internal_error", job="ingest", instance="ingest:9100"}
+        values: 0x30
+      - series: apparatica_checks_finished_total{status="accepted", job="ingest", instance="ingest:9100"}
+        values: 0x30
+    alert_rule_test:
+      - eval_time: 25m
+        alertname: InternalErrorsHigh
+        exp_alerts: []
+
+  # 10% free on the root for 5 minutes fires; 20% free and a full tmpfs do not.
+  - interval: 1m
+    input_series:
+      - series: node_filesystem_avail_bytes{device="/dev/vda2", fstype="ext4", mountpoint="/", job="node", instance="node-exporter:9100"}
+        values: 20x4 10x10
+      - series: node_filesystem_size_bytes{device="/dev/vda2", fstype="ext4", mountpoint="/", job="node", instance="node-exporter:9100"}
+        values: 100x14
+      - series: node_filesystem_avail_bytes{device="tmpfs", fstype="tmpfs", mountpoint="/run", job="node", instance="node-exporter:9100"}
+        values: 0x14
+      - series: node_filesystem_size_bytes{device="tmpfs", fstype="tmpfs", mountpoint="/run", job="node", instance="node-exporter:9100"}
+        values: 100x14
+    alert_rule_test:
+      - eval_time: 6m
+        alertname: DiskSpaceLow
+        exp_alerts: []
+      - eval_time: 12m
+        alertname: DiskSpaceLow
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+              device: /dev/vda2
+              fstype: ext4
+              mountpoint: /
+              job: node
+              instance: node-exporter:9100
+            exp_annotations:
+              summary: Заканчивается место на диске
+              description: >-
+                На / свободно 10%. Когда место закончится, остановятся Postgres и проверки.
+              runbook: deploy/RUNBOOK.md#место-на-диске
+
+  # The metrics stop (Valkey down, the ingestor down) and come back. A test has no stale markers: a
+  # series counts as present for 5 minutes after its last sample, until 10m here, so 25m is 15 of
+  # absence.
+  - interval: 1m
+    input_series:
+      - series: apparatica_queue_waiting{queue="judge.light", job="ingest", instance="ingest:9100"}
+        values: 0x5 _x30 0x10
+    alert_rule_test:
+      - eval_time: 5m
+        alertname: QueueMetricsMissing
+        exp_alerts: []
+      - eval_time: 20m
+        alertname: QueueMetricsMissing
+        exp_alerts: []
+      - eval_time: 30m
+        alertname: QueueMetricsMissing
+        exp_alerts:
+          - exp_labels:
+              severity: critical
+            exp_annotations:
+              summary: Нет метрик очереди
+              description: >-
+                Ингестор не работает или не может прочитать valkey-queue: проверки не ставятся в
+                очередь или их результаты не сохраняются, а алерты очереди не сработают.
+              runbook: deploy/RUNBOOK.md#алерты
+      - eval_time: 40m
+        alertname: QueueMetricsMissing
+        exp_alerts: []

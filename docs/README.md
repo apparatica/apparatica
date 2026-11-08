@@ -17,7 +17,7 @@
 | [problem-authoring.md](problem-authoring.md) | как написать задачу: пакет, тестбенч, мутанты, `judge validate` | актуален; проверка условия — с T1.10 |
 | [deployment.md](deployment.md) | серверы кодом (Ansible): хосты, файрвол, Docker и gVisor, релизы, секреты, деплой, мониторинг; операции — [deploy/RUNBOOK.md](../deploy/RUNBOOK.md) | актуален для staging, с деплоем из CI; production — T3.14 |
 | [backups.md](backups.md) | бэкапы Postgres (WAL-G): архив WAL, полные бэкапы, шифрование, проверка восстановления, на стенде и на сервере; восстановление — [RUNBOOK](../deploy/RUNBOOK.md#восстановление-базы) | актуален; staging — Cloudflare R2 |
-| [alerts.md](alerts.md) | алерты: метрики бэкапов, правила Prometheus, Alertmanager и Telegram, бот и чат, проверка правил; что делать — [RUNBOOK](../deploy/RUNBOOK.md#алерты) | актуален; только бэкапы, остальные NFR-OBS-04 — T3.14 |
+| [alerts.md](alerts.md) | алерты: метрики бэкапов, правила Prometheus, Alertmanager и Telegram, бот и чат, проверка правил; что делать — [RUNBOOK](../deploy/RUNBOOK.md#алерты) | актуален |
 | [legal.md](legal.md) | юридические документы: тексты, оператор, редакции и согласие; реестр обработки ПДн, обработчики, порядок при утечке | актуален; тексты — черновики до юриста (ОВ-18) |
 | [security.md](security.md) | модель угроз, песочница, права компонентов (Valkey, хранилище, Docker) | актуален |
 | [api.md](api.md) | источник правды контракта (`backend/openapi.json`, генерируется из кода), как обновить контракт и клиент, общие правила, отправки | актуален; версионирование API — с первым несовместимым изменением |

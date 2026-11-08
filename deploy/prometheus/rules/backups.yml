@@ -48,7 +48,7 @@ groups:
             Еженедельный таймер apparatica-backup-check.timer не запускается.
           runbook: deploy/RUNBOOK.md#бэкапы
 
-      # Without the metrics of the host the rules above cannot fire.
+      # Without the metrics of the host the rules above and DiskSpaceLow cannot fire.
       - alert: HostMetricsMissing
         expr: up{job="node"} == 0 or node_textfile_scrape_error == 1
         for: 15m
@@ -57,5 +57,6 @@ groups:
         annotations:
           summary: Prometheus не получает метрики хоста
           description: >-
-            node-exporter недоступен или не читает файлы метрик бэкапов: алерты бэкапов не сработают.
+            node-exporter недоступен или не читает файлы метрик бэкапов: алерты бэкапов и места на
+            диске не сработают.
           runbook: deploy/RUNBOOK.md#алерты

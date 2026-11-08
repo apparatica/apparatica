@@ -1,0 +1,74 @@
+# Alerts on the work of the platform (NFR-OBS-04; docs/alerts.md): the queues, the share of internal
+# errors, the disks of the host. Tests: deploy/prometheus/tests/platform.yml (`just alerts-test`).
+groups:
+  - name: platform
+    rules:
+      # N of NFR-OBS-04. Two slots and tens of seconds per Submit: ten checks waiting for five minutes
+      # is more than the peak load of ОВ-8. A rejudge is long by design and takes no slot of live
+      # users, so its queue is left out, here and below.
+      - alert: QueueBacklog
+        expr: max by (queue) (apparatica_queue_waiting{queue!="judge.rejudge"}) > 10
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: Очередь проверок растёт
+          description: >-
+            В очереди {{ $labels.queue }} ждут {{ $value }} проверок дольше 5 минут: воркеры не
+            справляются.
+          runbook: deploy/RUNBOOK.md#алерты
+
+      # At the expected load a dead worker never makes ten checks wait: a check waiting this long
+      # says so. The age needs no `for`: it is a duration already.
+      - alert: QueueStalled
+        expr: max by (queue) (apparatica_queue_oldest_wait_seconds{queue!="judge.rejudge"}) > 300
+        labels:
+          severity: critical
+        annotations:
+          summary: Проверки не берутся из очереди
+          description: >-
+            Самая старая проверка очереди {{ $labels.queue }} ждёт
+            {{ $value | humanizeDuration }}: воркер не работает или все его слоты заняты.
+          runbook: deploy/RUNBOOK.md#алерты
+
+      # A share of no checks is NaN, and NaN > 0.02 is false: an idle site stays quiet. At the
+      # expected load one internal error is over 2%, and that is meant.
+      - alert: InternalErrorsHigh
+        expr: >-
+          sum(rate(apparatica_checks_finished_total{status="internal_error"}[15m]))
+          / sum(rate(apparatica_checks_finished_total[15m])) > 0.02
+        labels:
+          severity: critical
+        annotations:
+          summary: Много внутренних ошибок проверки
+          description: >-
+            Внутренней ошибкой закончились {{ $value | humanizePercentage }} проверок за 15 минут.
+          runbook: deploy/RUNBOOK.md#алерты
+
+      # tmpfs is memory and is emptied by a restart.
+      - alert: DiskSpaceLow
+        expr: >-
+          node_filesystem_avail_bytes{fstype!~"tmpfs|ramfs"} / node_filesystem_size_bytes < 0.15
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: Заканчивается место на диске
+          description: >-
+            На {{ $labels.mountpoint }} свободно {{ $value | humanizePercentage }}. Когда место
+            закончится, остановятся Postgres и проверки.
+          runbook: deploy/RUNBOOK.md#место-на-диске
+
+      # Without these metrics QueueBacklog and QueueStalled cannot fire. The ingestor leaves them out
+      # when it cannot read Valkey, and they go stale when the ingestor is down.
+      - alert: QueueMetricsMissing
+        expr: absent(apparatica_queue_waiting)
+        for: 15m
+        labels:
+          severity: critical
+        annotations:
+          summary: Нет метрик очереди
+          description: >-
+            Ингестор не работает или не может прочитать valkey-queue: проверки не ставятся в
+            очередь или их результаты не сохраняются, а алерты очереди не сработают.
+          runbook: deploy/RUNBOOK.md#алерты

@@ -8,6 +8,7 @@ maximum.
 
 import time
 from collections.abc import Iterable, Iterator, Sequence
+from typing import get_args
 
 import redis
 import structlog
@@ -15,6 +16,7 @@ from prometheus_client import Counter
 from prometheus_client.core import GaugeMetricFamily, Metric
 from prometheus_client.registry import Collector
 
+from apparatica.submissions.schemas import SubmissionStatus
 from judge.core.jobs import RESULTS_STREAM, position_key
 
 log = structlog.get_logger(__name__)
@@ -22,6 +24,11 @@ log = structlog.get_logger(__name__)
 CHECKS_FINISHED = Counter(
     "apparatica_checks_finished", "Checks given their final status by the ingestor", ["status"]
 )
+# Every final status from the start, at zero: rate() cannot see the first increment of a series that
+# did not exist, and the alert on internal errors would miss the first of them (docs/alerts.md).
+for status in get_args(SubmissionStatus):
+    if status not in ("queued", "running"):
+        CHECKS_FINISHED.labels(status)
 RECORDS = Counter(
     "apparatica_ingest_records",
     "Records of judge:results by type and outcome: stored, dropped (refused) or failed",
