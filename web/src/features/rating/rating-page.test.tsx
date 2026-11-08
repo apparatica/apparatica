@@ -17,7 +17,7 @@ type Row = Schemas["RatingRow"];
 
 const row = (rank: number, nick: string, points: number, week: number | null, me = false): Row => ({
   rank,
-  user: { nick, display_name: null, avatar_url: null },
+  user: { nick, display_name: null, avatar_url: null, deleted: false },
   points,
   solved: { easy: 2, medium: 1, hard: 0 },
   week_delta: week,

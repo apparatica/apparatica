@@ -443,7 +443,8 @@ export interface paths {
          * @description Request deletion of the account in 7 days (FR-USR-05): `delete_at` is set, the profile is
          *     hidden at once, sessions stay so that POST /me/restore can cancel it. Repeating keeps the
          *     date. At `delete_at` the sessions end, and the account is deleted with its submissions,
-         *     drafts, logins and consents.
+         *     drafts, logins and consents; its public solutions stay, as those of «удалённый участник»
+         *     with their places (ОВ-12).
          */
         delete: operations["delete_me"];
         options?: never;
@@ -2175,6 +2176,12 @@ export interface components {
             /** Avatar Url */
             avatar_url: string | null;
             /**
+             * Deleted
+             * @description The solution of a deleted account (ОВ-12): shown as «удалённый участник», the nick is not a profile
+             * @default false
+             */
+            deleted: boolean;
+            /**
              * Created At
              * Format: date-time
              */
@@ -2812,6 +2819,12 @@ export interface components {
             display_name: string | null;
             /** Avatar Url */
             avatar_url: string | null;
+            /**
+             * Deleted
+             * @description The solution of a deleted account (ОВ-12): shown as «удалённый участник», the nick is not a profile
+             * @default false
+             */
+            deleted: boolean;
         };
         /**
          * UserSolutionPage

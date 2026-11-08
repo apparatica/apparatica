@@ -37,7 +37,7 @@ export interface ShareProps {
 function useShareText(card: ShareCard): string {
   const t = useTranslations("share.text");
   if (card.kind === "problem") return t("problem", { title: card.title });
-  const { title, nick, placement } = card;
+  const { title, nickOf: nick, placement } = card;
   return placement === null
     ? t("solution", { title, nick })
     : t("solutionPlace", { title, nick, ...placement });

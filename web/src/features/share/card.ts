@@ -2,6 +2,7 @@
 // the server and its small copy in the dialog «Поделиться» are drawn from the same data.
 import type { Difficulty } from "@/components/domain/difficulty-badge";
 import { CARD_METRICS } from "@/features/leaderboard/metrics";
+import type { AuthorNames } from "@/features/profile/author";
 import type { Schemas } from "@/lib/api/client";
 
 export interface ShareLevel {
@@ -32,7 +33,10 @@ export interface SolutionCard {
   kind: "solution";
   title: string;
   level: ShareLevel | null;
+  /** The author: «удалённый участник» of a deleted account. */
   nick: string;
+  /** The author after «Решение»: «удалённого участника». */
+  nickOf: string;
   status: "accepted" | "accepted_with_warnings";
   metrics: ShareMetric[];
   placement: { rank: number; total: number } | null;
@@ -75,13 +79,15 @@ export function problemCard(
 export function solutionCard(
   solution: Schemas["Solution"],
   level: ShareLevel | null,
+  authors: Pick<AuthorNames, "name" | "of">,
 ): SolutionCard {
   const { placement } = solution;
   return {
     kind: "solution",
     title: solution.problem.title,
     level,
-    nick: solution.author.nick,
+    nick: authors.name(solution.author),
+    nickOf: authors.of(solution.author),
     status: solution.status,
     metrics: synthMetrics(solution.stages),
     placement: placement === null ? null : { rank: placement.rank, total: placement.total },

@@ -214,6 +214,7 @@ function ShareCheck({ check, problem }: Pick<ResultBannerProps, "check" | "probl
     title: card.title,
     level: card.level,
     nick: account.nick,
+    nickOf: account.nick,
     status: check.status === "accepted_with_warnings" ? check.status : "accepted",
     metrics: synthMetrics(check.stages),
     placement: placement === null ? null : { rank: placement.rank, total: placement.total },

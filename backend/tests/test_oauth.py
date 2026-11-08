@@ -20,7 +20,7 @@ from test_sessions import add_user, consents, run
 
 from apparatica.auth import oauth
 from apparatica.auth.accounts import nicks
-from apparatica.auth.models import Identity, User
+from apparatica.auth.models import DELETED_USER_ID, Identity, User
 from apparatica.auth.sessions import COOKIE
 from apparatica.core.db import Database
 from apparatica.core.flags import Overrides
@@ -236,7 +236,8 @@ def test_a_taken_nick_gets_a_suffix_and_an_email_account_is_another_account(
 
     async def count(database: Database) -> int:
         async with database.sessions() as session:
-            return await session.scalar(select(func.count()).select_from(User)) or 0
+            accounts = select(func.count()).where(User.id != DELETED_USER_ID)
+            return await session.scalar(accounts) or 0
 
     assert run(database_url, count) == 2  # accounts are not joined by email (ADR-0010)
 

@@ -16,10 +16,12 @@ in the transaction that stores its verdict, so the place is known before `finali
   hiding and showing again rebuild the entries of the user from the Submits left (`rebuild`).
   The row of the user is the lock between them and the ingestor: a moderator holds it for
   update, `rank_submit` for share, and both take it before the leaderboards.
+- The entries of a deleted account pass to «удалённый участник» with their places (ОВ-12), so
+  this one user holds many entries of a leaderboard, and its Submits are told apart by id.
 """
 
 import uuid
-from collections.abc import Collection, Iterable, Sequence
+from collections.abc import Collection, Sequence
 from dataclasses import astuple, dataclass
 from datetime import datetime
 from decimal import Decimal
@@ -34,6 +36,7 @@ from sqlalchemy import (
     delete,
     func,
     literal,
+    or_,
     select,
     text,
     tuple_,
@@ -42,9 +45,9 @@ from sqlalchemy.dialects.postgresql import Insert, insert
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 
-from apparatica.auth.models import User
+from apparatica.auth.models import DELETED_USER_ID, User
 from apparatica.core.ids import uuid7
-from apparatica.leaderboards.models import LeaderboardEntry
+from apparatica.leaderboards.models import KEY_COLUMNS, ONE_ENTRY_OF_A_USER, LeaderboardEntry
 from apparatica.problems.models import Problem, ProblemVersion
 from apparatica.submissions.models import StageResult as StageRow
 from apparatica.submissions.models import Submission, ToolchainProfile
@@ -93,7 +96,8 @@ async def rank_submit(
     new = statement.excluded
     await session.execute(
         statement.on_conflict_do_update(
-            constraint="uq_leaderboard_entries_user",
+            index_elements=[*KEY_COLUMNS, "user_id"],
+            index_where=text(ONE_ENTRY_OF_A_USER),
             set_={
                 "submission_id": new.submission_id,
                 "sort_values": new.sort_values,
@@ -146,15 +150,24 @@ def _insert(
     )
 
 
-async def rebuild(session: AsyncSession, user_ids: Collection[uuid.UUID], now: datetime) -> None:
+async def rebuild(
+    session: AsyncSession,
+    user_ids: Collection[uuid.UUID],
+    now: datetime,
+    *,
+    anonymous: Collection[uuid.UUID] = (),
+) -> None:
     """Enter the users into the leaderboards again from their Submits, after a moderator hid or
     showed a solution or a user (FR-ADM-03): in each leaderboard the best accepted Submit that is
     not hidden, of a user who is not hidden; none, if there is no such Submit. The leaderboards
     that had or get an entry of the users are counted again.
 
     The caller holds the rows of the users for update, so that no Submit of theirs enters
-    meanwhile. The rule is the ingestor's (`rank_submit`), applied to the stored stage results."""
-    if not user_ids:
+    meanwhile. The rule is the ingestor's (`rank_submit`), applied to the stored stage results.
+
+    `anonymous`: hidden Submits of «удалённый участник». Their entries just go: which other
+    Submits were of the same deleted author is not known, so nothing can take their place."""
+    if not user_ids and not anonymous:
         return
     submissions = (
         await session.execute(
@@ -194,12 +207,12 @@ async def rebuild(session: AsyncSession, user_ids: Collection[uuid.UUID], now: d
         known = best.get((submission.user_id, key))
         if known is None or (values, submission.created_at) < (known[0], known[1]):
             best[submission.user_id, key] = (values, submission.created_at, submission)
-    keys = {key for _, key in best}
-    for user_id in user_ids:
-        keys.update(await boards_of(session, user_id))
-    ordered = sorted(keys)
+    gone = or_(
+        LeaderboardEntry.user_id.in_(user_ids), LeaderboardEntry.submission_id.in_(anonymous)
+    )
+    ordered = sorted({key for _, key in best} | set(await _boards_where(session, gone)))
     await lock(session, ordered)
-    await session.execute(delete(LeaderboardEntry).where(LeaderboardEntry.user_id.in_(user_ids)))
+    await session.execute(delete(LeaderboardEntry).where(gone))
     for (_, key), (values, _, submission) in best.items():
         await session.execute(_insert(submission, key, values, submission.ast_hash, now))
     for key in ordered:
@@ -207,7 +220,11 @@ async def rebuild(session: AsyncSession, user_ids: Collection[uuid.UUID], now: d
 
 
 async def boards_of(session: AsyncSession, user_id: uuid.UUID) -> list[BoardKey]:
-    """The leaderboards with an entry of the user, to count again after it is deleted."""
+    """The leaderboards with an entry of the user, to lock before its entries change."""
+    return await _boards_where(session, LeaderboardEntry.user_id == user_id)
+
+
+async def _boards_where(session: AsyncSession, entries: ColumnElement[bool]) -> list[BoardKey]:
     rows = await session.execute(
         select(
             LeaderboardEntry.problem_id,
@@ -215,18 +232,10 @@ async def boards_of(session: AsyncSession, user_id: uuid.UUID) -> list[BoardKey]
             LeaderboardEntry.toolchain_profile_id,
             LeaderboardEntry.formula_version,
         )
-        .where(LeaderboardEntry.user_id == user_id)
+        .where(entries)
         .distinct()
     )
     return sorted(BoardKey(*row) for row in rows)
-
-
-async def recount(session: AsyncSession, keys: Iterable[BoardKey], now: datetime) -> None:
-    """Count the groups and places of the leaderboards again, e.g. after entries were deleted."""
-    ordered = sorted(set(keys))
-    await lock(session, ordered)
-    for key in ordered:
-        await _recount(session, key, now)
 
 
 async def lock(session: AsyncSession, keys: Sequence[BoardKey]) -> None:
@@ -301,11 +310,15 @@ async def placement_of(
             .where(*key.where())
         )
 
+    # «Удалённый участник» holds many entries of a leaderboard: only this Submit's is its own.
+    own = (
+        LeaderboardEntry.submission_id == submission.id
+        if submission.user_id == DELETED_USER_ID
+        else LeaderboardEntry.user_id == submission.user_id
+    )
     found = (
         await session.execute(
-            board(select(LeaderboardEntry.submission_id, leader.submission_id, place)).where(
-                LeaderboardEntry.user_id == submission.user_id
-            )
+            board(select(LeaderboardEntry.submission_id, leader.submission_id, place)).where(own)
         )
     ).one_or_none()
     if found is None or found[2] is None:

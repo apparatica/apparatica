@@ -12,9 +12,9 @@
   cleared (NFR-PRIV-01).
 - **Sessions** — expired sessions of users are deleted (FR-AUTH-04).
 - **Accounts** — accounts past their `delete_at` are deleted with their submissions and the files
-  of their artifacts, drafts, statuses of problems, logins, consents, sessions and entries of
-  leaderboards, whose places are counted again (FR-USR-05). Public solutions are to pass to
-  «удалённый участник» instead (decision ОВ-12, T3.4a).
+  of their artifacts, drafts, statuses of problems, logins, consents and sessions (FR-USR-05).
+  Public solutions and the entries of leaderboards pass to «удалённый участник» with their
+  places (decision ОВ-12); those of a user hidden by a moderator are not public and go too.
 - **Problem stats** — the authors of every problem with a judged and with an accepted Submit, for
   the acceptance rate of the catalogue (FR-CAT-04).
 - **References** — reference solutions of current versions without a run on the default toolchain
@@ -38,8 +38,9 @@ from botocore.exceptions import BotoCoreError, ClientError
 from pydantic import ValidationError
 from sqlalchemy import CursorResult, and_, delete, distinct, func, literal, select, update
 from sqlalchemy.dialects.postgresql import insert
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from apparatica.auth.models import EmailToken, User, UserSession
+from apparatica.auth.models import DELETED_USER_ID, EmailToken, User, UserSession
 from apparatica.core.db import Database
 from apparatica.core.platform import RatingFormula
 from apparatica.core.storage import Storage
@@ -47,7 +48,8 @@ from apparatica.judging.ingest import finalize, internal_error, transient
 from apparatica.judging.leader import Leadership
 from apparatica.judging.publish import publish_finalized
 from apparatica.leaderboards import rating
-from apparatica.leaderboards.ranking import boards_of, recount
+from apparatica.leaderboards.models import LeaderboardEntry
+from apparatica.leaderboards.ranking import boards_of
 from apparatica.leaderboards.ranking import lock as lock_boards
 from apparatica.leaderboards.references import queue_runs
 from apparatica.problems.models import Problem as ProblemRow
@@ -320,23 +322,50 @@ class AccountPurge:
             )
             if user is None:
                 return 0
-            # The statuses refer to submissions; drafts, logins, consents, sessions, entries of
-            # leaderboards and the rating: cascade. The places in those leaderboards and in the
-            # global one are counted again; their locks are taken before the rows go, in the
-            # order of the ingestor. Public solutions go with the account until they pass to
-            # «удалённый участник» (ОВ-12, T3.4a).
+            # The statuses refer to submissions; drafts, logins, consents, sessions and the
+            # rating: cascade. Entries change owner and keep their places; the global places are
+            # counted again. The locks are taken before the rows change, in the order of the
+            # ingestor.
             boards = await boards_of(session, user_id)
             await lock_boards(session, boards)
             await rating.lock(session)
             await session.execute(
                 delete(UserProblemStatus).where(UserProblemStatus.user_id == user_id)
             )
+            if not user.is_hidden:
+                await self._anonymize(session, user_id)
             await session.execute(delete(Submission).where(Submission.user_id == user_id))
             await session.delete(user)
             await session.flush()
-            await recount(session, boards, self.clock())
             await rating.recount(session, self.rating, self.clock())
         return 1
+
+    @staticmethod
+    async def _anonymize(session: AsyncSession, user_id: uuid.UUID) -> None:
+        """The public solutions and the entries of the user pass to «удалённый участник» (ОВ-12).
+        What stays is what anyone could see, and what no one but the author could is gone: the
+        hash of the address, the artifacts (their files are deleted by now), the waveform jobs."""
+        kept = list(
+            await session.scalars(
+                select(Submission.id).where(
+                    Submission.user_id == user_id,
+                    Submission.is_public,
+                    Submission.is_hidden.is_(False),
+                )
+            )
+        )
+        await session.execute(delete(Waveform).where(Waveform.submission_id.in_(kept)))
+        await session.execute(delete(Artifact).where(Artifact.submission_id.in_(kept)))
+        await session.execute(
+            update(Submission)
+            .where(Submission.id.in_(kept))
+            .values(user_id=DELETED_USER_ID, client_ip_hash=None)
+        )
+        await session.execute(
+            update(LeaderboardEntry)
+            .where(LeaderboardEntry.user_id == user_id)
+            .values(user_id=DELETED_USER_ID)
+        )
 
 
 @dataclass
@@ -401,7 +430,8 @@ class ProblemStatsRefresh:
 
     async def __call__(self) -> int:
         """Counts the authors of every problem, over all its versions; returns how many problems.
-        Guest submissions count while they are kept (`guest_submissions_days`)."""
+        Guest submissions count while they are kept (`guest_submissions_days`). «Удалённый
+        участник» stands for many authors, none of whom is known, and does not count."""
         author = func.coalesce(Submission.user_id, Submission.guest_id)
         counts = (
             select(
@@ -418,6 +448,7 @@ class ProblemStatsRefresh:
                     Submission.problem_version_id == ProblemVersion.id,
                     Submission.kind == "submit",
                     Submission.status.not_in(UNJUDGED),
+                    Submission.user_id.is_distinct_from(DELETED_USER_ID),
                 ),
             )
             .group_by(ProblemRow.id)

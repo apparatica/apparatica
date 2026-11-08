@@ -200,7 +200,8 @@ def test_the_shift_for_a_week(api: TestClient, database_url: str) -> None:
 
 
 def test_a_deleted_account_leaves_the_rating(api: TestClient, database_url: str) -> None:
-    """The places close up: eve leads the group of ada now and takes place 1 with its bonus."""
+    """The account leaves the rating, its place in the problem stays taken (ОВ-12): eve still
+    follows that solution and gets no bonus; the global places close up."""
     cookies = crowd(api, database_url)
     api.cookies.set(SESSION_COOKIE, cookies["ada"])
     response = api.get("/api/v1/me")
@@ -213,4 +214,4 @@ def test_a_deleted_account_leaves_the_rating(api: TestClient, database_url: str)
 
     assert run(database_url, purge) == 1
     api.cookies.clear()
-    assert rows(leaderboard(api)) == [(1, "eve", 4), (2, "bob", 3), (3, "dan", 3), (4, "kim", 1)]
+    assert rows(leaderboard(api)) == [(1, "bob", 3), (2, "dan", 3), (3, "eve", 1), (4, "kim", 1)]

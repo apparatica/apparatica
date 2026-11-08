@@ -11,7 +11,7 @@ function item(index: number): Schemas["SolutionSummary"] {
     id: `solution-${index}`,
     problem: { slug: "mux4", number: 1, title: "Мультиплексор 4:1", difficulty: "easy" },
     version: 1,
-    author: { nick: "ada", display_name: null, avatar_url: null },
+    author: { nick: "ada", display_name: null, avatar_url: null, deleted: false },
     status: "accepted",
     metrics: { "synth.critical_path_ns": 0.19 },
     rank: index === 21 ? 3 : null,

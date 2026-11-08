@@ -22,7 +22,7 @@ from testcontainers.core.container import DockerContainer
 
 from apparatica.auth import accounts
 from apparatica.auth.accounts import sign_up
-from apparatica.auth.models import EmailToken, Identity, User
+from apparatica.auth.models import DELETED_USER_ID, EmailToken, Identity, User
 from apparatica.auth.sessions import COOKIE
 from apparatica.core.db import Database
 from apparatica.core.flags import Overrides
@@ -279,7 +279,9 @@ def test_a_taken_nick_is_drawn_again(database_url: str, monkeypatch: pytest.Monk
             )
             assert not created
             assert again.id == first.id
-            count = len((await session.scalars(select(User))).all())
+            count = len(
+                (await session.scalars(select(User).where(User.id != DELETED_USER_ID))).all()
+            )
         assert count == 2
         return first.nick, again.nick
 

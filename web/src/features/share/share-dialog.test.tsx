@@ -23,6 +23,7 @@ const SOLUTION: SolutionCard = {
   title: "Синхронный FIFO",
   level,
   nick: "nastya.k",
+  nickOf: "nastya.k",
   status: "accepted",
   metrics: [
     { key: "synth.critical_path_ns", value: 0.79 },

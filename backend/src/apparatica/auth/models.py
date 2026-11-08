@@ -18,6 +18,9 @@ from apparatica.auth.schemas import Role
 from apparatica.core.db import Base, created_at, uuid_pk
 
 ROLES: tuple[str, ...] = get_args(Role)
+# «Удалённый участник» (decision ОВ-12): the author of the public solutions of deleted
+# accounts. One row, made by a migration: no login, no profile, no points.
+DELETED_USER_ID = uuid.UUID("00000000-0000-0000-0000-000000000001")
 
 
 class User(Base):

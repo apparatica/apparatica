@@ -167,8 +167,12 @@ def _set_role(args: argparse.Namespace) -> int:
 
     try:
         found = asyncio.run(run())
-    except ModerationRefusedError:  # hidden_staff
-        print(f"FAIL {args.nick} скрыт модератором: сначала снимите скрытие")
+    except ModerationRefusedError as refused:
+        print(
+            f"FAIL {args.nick}: служебный пользователь"
+            if refused.refusal == "service_target"
+            else f"FAIL {args.nick} скрыт модератором: сначала снимите скрытие"
+        )
         return 1
     if not found:
         print(f"FAIL нет пользователя {args.nick}")

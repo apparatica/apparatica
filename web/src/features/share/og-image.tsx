@@ -331,7 +331,7 @@ async function SolutionOg({ card }: { card: SolutionCard }) {
       subtitle={[
         <span key="solution">{t("solution")}&nbsp;</span>,
         <span key="nick" style={{ color: C.tx }}>
-          {card.nick}
+          {card.nickOf}
         </span>,
         place !== null && <span key="place">&nbsp;·&nbsp;{place}</span>,
       ]}

@@ -94,7 +94,8 @@ async def delete_me(signed_in: SignedIn, session: Session) -> Me:
     """Request deletion of the account in 7 days (FR-USR-05): `delete_at` is set, the profile is
     hidden at once, sessions stay so that POST /me/restore can cancel it. Repeating keeps the
     date. At `delete_at` the sessions end, and the account is deleted with its submissions,
-    drafts, logins and consents."""
+    drafts, logins and consents; its public solutions stay, as those of «удалённый участник»
+    with their places (ОВ-12)."""
     now = datetime.now(UTC)
     user = await _locked(session, signed_in)
     ask_deletion(user, now)

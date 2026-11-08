@@ -167,7 +167,8 @@ def test_the_export_has_the_own_data(api: TestClient, database_url: str) -> None
 
 def test_the_purge_deletes_accounts_past_their_time(api: TestClient, database_url: str) -> None:
     ada = sign_in(api, database_url)
-    solved = checked(api, database_url, LINT, SIM, kind="submit")
+    solved = checked(api, database_url, LINT, SIM, kind="submit")  # public: stays
+    run_of_ada = checked(api, database_url, LINT, SIM, code=CODE + "\n// run")
     assert api.put(
         "/api/v1/me/drafts/mux4", json={"code": "draft", "problem_version": MUX4}
     ).is_success
@@ -199,8 +200,11 @@ def test_the_purge_deletes_accounts_past_their_time(api: TestClient, database_ur
         assert await purge() == 1
         assert await purge() == 0
         async with database.sessions() as session:
-            assert list(await session.scalars(select(User.nick))) == ["grace"]
-            assert {str(id_) for id_ in await session.scalars(select(Submission.id))} == {kept}
+            nicks = await session.scalars(select(User.nick).order_by(User.nick))
+            assert list(nicks) == ["deleted-participant", "grace"]
+            left_ids = {str(id_) for id_ in await session.scalars(select(Submission.id))}
+            assert left_ids == {kept, solved}
+            assert run_of_ada not in left_ids
             for table in (Identity, UserSession, Draft, UserProblemStatus):
                 left = await session.scalar(
                     select(func.count()).select_from(table).where(table.user_id == ada.id)

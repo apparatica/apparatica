@@ -16,7 +16,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useGuest } from "@/features/account/session";
-import { profileHref } from "@/features/profile/href";
+import { useAuthorNames } from "@/features/profile/author";
 import { solutionHref } from "@/features/solution/href";
 import type { Schemas } from "@/lib/api/client";
 import { loginHref } from "@/lib/session";
@@ -31,6 +31,7 @@ export const SHORT_ROWS = 5;
 export function LeaderboardTab({ problem }: { problem: string }) {
   const t = useTranslations("leaderboard.tab");
   const words = useMetricWords();
+  const authors = useAuthorNames();
   const guest = useGuest();
   const board = useQuery({
     queryKey: leaderboardKeys.short(problem),
@@ -88,11 +89,11 @@ export function LeaderboardTab({ problem }: { problem: string }) {
     <LeaderboardRow
       key={row.solution_id}
       rank={row.rank}
-      author={{ nick: row.author.nick, href: profileHref(row.author.nick) }}
+      author={authors.row(row.author)}
       cells={cells(row)}
       me={row.is_me}
       duplicates={row.duplicates}
-      duplicateOf={row.duplicate_of?.author.nick ?? null}
+      duplicateOf={row.duplicate_of ? authors.of(row.duplicate_of.author) : null}
       href={solutionHref(row.solution_id)}
     />
   );

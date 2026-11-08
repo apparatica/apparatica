@@ -49,6 +49,20 @@ async function renderSolution(solution: Schemas["Solution"]) {
   return problem;
 }
 
+it("names a deleted author in words, with no profile or dates (ОВ-12)", async () => {
+  const solution = await solutionOf("sync-fifo", (items) =>
+    items.find((item) => item.author.deleted),
+  );
+  await renderSolution(solution);
+  expect(
+    screen.getByRole("heading", { level: 1, name: "Решение удалённого участника" }),
+  ).toBeInTheDocument();
+  const about = screen.getByRole("complementary", { name: "О решении" });
+  expect(within(about).getByText("удалённый участник")).toBeInTheDocument();
+  expect(within(about).queryByRole("link", { name: "Профиль" })).not.toBeInTheDocument();
+  expect(within(about).queryByText(/на платформе с/)).not.toBeInTheDocument();
+});
+
 it("shows the author, the verdict, the place and the metrics to anyone, the code locked", async () => {
   const solution = await solutionOf("sync-fifo", (items) => items.find((item) => item.rank === 1));
   await renderSolution(solution);

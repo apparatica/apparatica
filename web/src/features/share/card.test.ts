@@ -45,12 +45,17 @@ it("makes the card of a solution: no code, the place and the first metric of the
     order: [{ metric: "synth.critical_path_ns", dir: "asc" }],
     code: "module secret; endmodule",
   } as unknown as Schemas["Solution"];
-  const card = solutionCard(solution, null);
+  const names = {
+    name: (author: { nick: string }) => author.nick,
+    of: (author: { nick: string }) => `of ${author.nick}`,
+  };
+  const card = solutionCard(solution, null, names);
   expect(card).toEqual({
     kind: "solution",
     title: "Синхронный FIFO",
     level: null,
     nick: "nastya.k",
+    nickOf: "of nastya.k",
     status: "accepted_with_warnings",
     metrics: [{ key: "synth.cells", value: 176 }],
     placement: { rank: 5, total: 304 },

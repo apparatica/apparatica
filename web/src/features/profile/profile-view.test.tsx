@@ -68,7 +68,7 @@ function solution(index: number, rank: number | null): Schemas["SolutionSummary"
       difficulty: "easy",
     },
     version: 1,
-    author: { nick: "ada", display_name: null, avatar_url: null },
+    author: { nick: "ada", display_name: null, avatar_url: null, deleted: false },
     status: "accepted",
     metrics: { "synth.cells": 40, "synth.area_um2": 41.2, "synth.critical_path_ns": 0.19 },
     rank,

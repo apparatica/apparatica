@@ -1,18 +1,16 @@
 """The leaderboards of problems that the ingestor keeps (T3.4: FR-LB-01/02/04/06, ADR-0006): one
 entry per user, shared places, groups of equal solutions; the place of a Submit in the submission,
-in `finalized` and after the deletion of an account."""
+and in `finalized`."""
 
 import dataclasses
 import uuid
 from collections.abc import Iterator
-from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import select
 from sqlalchemy.orm import aliased
-from test_account_deletion import Files, set_delete_at
 from test_ingest import LINT, SIM, run
 from test_sessions import sign_in
 from test_submissions_api import PROFILE, RecordingQueue, submit
@@ -21,7 +19,6 @@ from apparatica.auth.models import User
 from apparatica.auth.sessions import COOKIE as SESSION_COOKIE
 from apparatica.core.db import Database
 from apparatica.core.settings import Settings
-from apparatica.judging.housekeeping import AccountPurge
 from apparatica.judging.ingest import Ingestor
 from apparatica.judging.retention import load_retention
 from apparatica.leaderboards.models import LeaderboardEntry
@@ -257,29 +254,3 @@ def test_another_default_profile_shows_another_leaderboard(
 
     run(database_url, switch)
     assert placement(api, submission_id) is None
-
-
-def test_a_deleted_account_leaves_its_leaderboards(api: TestClient, database_url: str) -> None:
-    """The entries go with the account (until ОВ-12 is done, T3.4a) and the places close up."""
-    ada = sign_in(api, database_url)
-    check(api, database_url, accepted(0.5, 500, "n1:ada"))
-    signed_in(api, database_url, "bob")
-    check(api, database_url, accepted(0.5, 500, "n1:ada"))
-    signed_in(api, database_url, "eve")
-    eve, _ = check(api, database_url, accepted(0.6, 500, "n1:eve"))
-    assert board(database_url) == [("ada", 1, None), ("bob", None, "ada"), ("eve", 2, None)]
-    now = datetime.now(UTC)
-    set_delete_at(database_url, ada.id, now - timedelta(seconds=1))
-
-    async def purge(database: Database) -> int:
-        return await AccountPurge(database, Files(), "artifacts", RATING, clock=lambda: now)()
-
-    assert run(database_url, purge) == 1
-    assert board(database_url) == [("bob", 1, None), ("eve", 2, None)]
-    assert placement(api, eve) == {
-        "rank": 2,
-        "total": 2,
-        "better_than": 0,
-        "is_best": True,
-        "duplicate_of": None,
-    }

@@ -13,7 +13,7 @@ from test_sessions import run, sign_in
 
 from apparatica.admin.cli import main
 from apparatica.admin.models import ModerationLog
-from apparatica.auth.models import User
+from apparatica.auth.models import DELETED_USER_ID, User
 from apparatica.auth.roles import require_role
 from apparatica.core.db import Database
 from apparatica.core.settings import Settings, get_settings
@@ -96,7 +96,8 @@ def test_the_role_is_read_at_each_request(
 
     async def roles(database: Database) -> dict[str, str]:
         async with database.sessions() as session:
-            return dict((await session.execute(select(User.nick, User.role))).tuples().all())
+            accounts = select(User.nick, User.role).where(User.id != DELETED_USER_ID)
+            return dict((await session.execute(accounts)).tuples().all())
 
     assert run(database_url, roles) == {"ada": "moderator"}
 

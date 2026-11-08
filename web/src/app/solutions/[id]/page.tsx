@@ -5,6 +5,7 @@ import { getTranslations } from "next-intl/server";
 
 import { findDifficulty } from "@/components/domain/difficulty-badge";
 import { loadProblem } from "@/features/problem/load";
+import { authorNames } from "@/features/profile/author";
 import { loadSolution } from "@/features/solution/load";
 import { SolutionPage } from "@/features/solution/solution-page";
 import { visitorOf } from "@/lib/api/server";
@@ -24,13 +25,14 @@ export async function generateMetadata({
   if (data === null) return {};
   const t = await getTranslations("solution");
   const { solution } = data;
-  const title = t("metaTitle", { nick: solution.author.nick, title: solution.problem.title });
+  const nick = authorNames(await getTranslations("author")).of(solution.author);
+  const title = t("metaTitle", { nick, title: solution.problem.title });
   // Metrics, author and place are public; the code is not (FR-SOL-02).
   const description =
     solution.placement === null
-      ? t("description", { nick: solution.author.nick, title: solution.problem.title })
+      ? t("description", { nick, title: solution.problem.title })
       : t("descriptionPlace", {
-          nick: solution.author.nick,
+          nick,
           title: solution.problem.title,
           rank: solution.placement.rank,
           total: solution.placement.total,

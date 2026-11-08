@@ -39,7 +39,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import aliased
 from sqlalchemy.sql.elements import UnaryExpression
 
-from apparatica.auth.models import User
+from apparatica.auth.models import DELETED_USER_ID, User
 from apparatica.auth.schemas import UserRef
 from apparatica.core.errors import ApiError, ErrorCode
 from apparatica.leaderboards.models import LeaderboardEntry
@@ -137,7 +137,12 @@ async def board_of(session: AsyncSession, problem: Problem, current: ProblemVers
 
 
 def user_ref(user: User) -> UserRef:
-    return UserRef(nick=user.nick, display_name=user.display_name, avatar_url=user.avatar_url)
+    return UserRef(
+        nick=user.nick,
+        display_name=user.display_name,
+        avatar_url=user.avatar_url,
+        deleted=user.id == DELETED_USER_ID,
+    )
 
 
 async def metrics_of(

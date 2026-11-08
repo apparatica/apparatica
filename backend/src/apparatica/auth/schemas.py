@@ -50,6 +50,11 @@ class UserRef(BaseModel):
     nick: Nick
     display_name: str | None
     avatar_url: str | None
+    deleted: bool = Field(
+        default=False,
+        description="The solution of a deleted account (ОВ-12): shown as «удалённый участник», "
+        "the nick is not a profile",
+    )
 
 
 class Me(BaseModel):

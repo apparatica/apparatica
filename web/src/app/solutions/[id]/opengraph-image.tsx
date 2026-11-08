@@ -3,9 +3,11 @@
 // cookies sees it, rendered on the first request and kept for `revalidate` seconds: the place
 // moves as others submit.
 import { notFound } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 
 import { findDifficulty } from "@/components/domain/difficulty-badge";
 import { loadProblem } from "@/features/problem/load";
+import { authorNames } from "@/features/profile/author";
 import { solutionCard } from "@/features/share/card";
 import { OG_SIZE, renderOg } from "@/features/share/og-image";
 import { loadSolution } from "@/features/solution/load";
@@ -25,5 +27,5 @@ export default async function Image({ params }: { params: Promise<{ id: string }
   const data = await loadProblem(solution.problem.slug);
   const level =
     data === null ? null : (findDifficulty(data.levels, solution.problem.difficulty) ?? null);
-  return renderOg(solutionCard(solution, level));
+  return renderOg(solutionCard(solution, level, authorNames(await getTranslations("author"))));
 }

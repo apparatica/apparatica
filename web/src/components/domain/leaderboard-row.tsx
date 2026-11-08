@@ -30,6 +30,8 @@ export interface LeaderboardCell {
 
 export interface LeaderboardAuthor {
   nick: string;
+  /** The name after «Решение», if it differs from `nick`. */
+  of?: string | undefined;
   /** The profile; without it the nick is text. */
   href?: string | null | undefined;
 }
@@ -195,7 +197,7 @@ export function LeaderboardRow({
           {date}
         </td>
       )}
-      <SolutionLink href={href} nick={author.nick} />
+      <SolutionLink href={href} nick={author.of ?? author.nick} />
     </tr>
   );
 }
@@ -242,7 +244,7 @@ export function LeaderboardMember({ author, leader, cells, date, href }: Leaderb
       {date !== undefined && (
         <td className={cn(cell, "text-right text-caption whitespace-nowrap", WIDE)}>{date}</td>
       )}
-      <SolutionLink href={href} nick={author.nick} />
+      <SolutionLink href={href} nick={author.of ?? author.nick} />
     </tr>
   );
 }

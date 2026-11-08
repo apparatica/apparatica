@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 
 import { Breadcrumbs } from "@/components/shell/breadcrumbs";
 import { leaderboardPath } from "@/features/leaderboard/query";
+import { authorNames } from "@/features/profile/author";
 import { loadSolution } from "@/features/solution/load";
 import { visitorOf } from "@/lib/api/server";
 
@@ -16,6 +17,7 @@ export default async function SolutionBreadcrumbs({ params }: PageProps<"/soluti
   ]);
   if (solution === null) return null;
   const { slug, title } = solution.problem;
+  const authors = authorNames(await getTranslations("author"));
   return (
     <Breadcrumbs
       items={[
@@ -24,7 +26,7 @@ export default async function SolutionBreadcrumbs({ params }: PageProps<"/soluti
         ...(solution.order.length > 0
           ? [{ label: t("problemLeaderboard"), href: leaderboardPath(slug) }]
           : []),
-        { label: t("solution", { nick: solution.author.nick }) },
+        { label: t("solution", { nick: authors.of(solution.author) }) },
       ]}
     />
   );

@@ -14,7 +14,7 @@ import { useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
-import { profileHref } from "@/features/profile/href";
+import { useAuthorNames } from "@/features/profile/author";
 import { solutionHref } from "@/features/solution/href";
 import type { Schemas } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
@@ -68,6 +68,7 @@ export function SolutionsTab({ problem, onEdit }: SolutionsTabProps) {
   const t = useTranslations("leaderboard.solutions");
   const names = useTranslations("leaderboard");
   const words = useMetricWords();
+  const authors = useAuthorNames();
   const order = problem.leaderboard?.order ?? [];
   const sorts = solutionSorts(order);
   const [sort, setSort] = useState(sorts[0] ?? "rank");
@@ -151,6 +152,7 @@ export function SolutionsTab({ problem, onEdit }: SolutionsTabProps) {
       </div>
       <ul aria-label={t("label")} className="flex flex-col">
         {items.map((item) => {
+          const profile = authors.href(item.author);
           const metrics = metricKeys(item.metrics).map((key) =>
             words.inline(key, item.metrics[key] as number),
           );
@@ -167,15 +169,19 @@ export function SolutionsTab({ problem, onEdit }: SolutionsTabProps) {
               >
                 {item.rank ?? "—"}
               </span>
-              <Avatar name={item.author.nick} size={20} className="rounded-sm" />
+              <Avatar name={authors.name(item.author)} size={20} className="rounded-sm" />
               <div className="flex min-w-0 flex-1 flex-col">
                 <span className="flex min-w-0 items-baseline gap-2">
-                  <Link
-                    href={profileHref(item.author.nick)}
-                    className="truncate font-medium hover:text-ac hover:underline"
-                  >
-                    {item.author.nick}
-                  </Link>
+                  {profile === null ? (
+                    <span className="truncate font-medium">{authors.name(item.author)}</span>
+                  ) : (
+                    <Link
+                      href={profile}
+                      className="truncate font-medium hover:text-ac hover:underline"
+                    >
+                      {authors.name(item.author)}
+                    </Link>
+                  )}
                   {item.version !== problem.version && (
                     <span className="flex-none font-mono text-label text-mu">
                       {t("version", { version: item.version })}
@@ -189,13 +195,13 @@ export function SolutionsTab({ problem, onEdit }: SolutionsTabProps) {
                 )}
                 {item.duplicate_of !== null && (
                   <span className="truncate text-caption text-mu">
-                    {t("sameAs", { nick: item.duplicate_of.author.nick })}
+                    {t("sameAs", { nick: authors.of(item.duplicate_of.author) })}
                   </span>
                 )}
               </div>
               <Link
                 href={solutionHref(item.id)}
-                aria-label={t("open", { nick: item.author.nick })}
+                aria-label={t("open", { nick: authors.of(item.author) })}
                 className="inline-flex size-6 flex-none items-center justify-center rounded-sm text-mu hover:bg-sf2 hover:text-tx max-sm:-mr-2.5 max-sm:size-11"
               >
                 <ChevronRight size={14} aria-hidden="true" />

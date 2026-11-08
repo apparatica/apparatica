@@ -1852,7 +1852,7 @@
           "users"
         ],
         "summary": "Delete Me",
-        "description": "Request deletion of the account in 7 days (FR-USR-05): `delete_at` is set, the profile is\nhidden at once, sessions stay so that POST /me/restore can cancel it. Repeating keeps the\ndate. At `delete_at` the sessions end, and the account is deleted with its submissions,\ndrafts, logins and consents.",
+        "description": "Request deletion of the account in 7 days (FR-USR-05): `delete_at` is set, the profile is\nhidden at once, sessions stay so that POST /me/restore can cancel it. Repeating keeps the\ndate. At `delete_at` the sessions end, and the account is deleted with its submissions,\ndrafts, logins and consents; its public solutions stay, as those of «удалённый участник»\nwith their places (ОВ-12).",
         "operationId": "delete_me",
         "responses": {
           "202": {
@@ -6210,6 +6210,12 @@
             ],
             "title": "Avatar Url"
           },
+          "deleted": {
+            "type": "boolean",
+            "title": "Deleted",
+            "description": "The solution of a deleted account (ОВ-12): shown as «удалённый участник», the nick is not a profile",
+            "default": false
+          },
           "created_at": {
             "type": "string",
             "format": "date-time",
@@ -7768,6 +7774,12 @@
               }
             ],
             "title": "Avatar Url"
+          },
+          "deleted": {
+            "type": "boolean",
+            "title": "Deleted",
+            "description": "The solution of a deleted account (ОВ-12): shown as «удалённый участник», the nick is not a profile",
+            "default": false
           }
         },
         "type": "object",

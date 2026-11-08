@@ -73,7 +73,11 @@ const ADA_SOLVED = [
   { slug: "carry-adder", at: "2026-10-02T18:05:00Z" },
 ];
 
-type Author = { kind: "rival"; nick: string } | { kind: "account"; user: MockUser };
+/** `deleted`: a solution left by a deleted account (ОВ-12); `key` tells these authors apart. */
+type Author =
+  | { kind: "rival"; nick: string }
+  | { kind: "account"; user: MockUser }
+  | { kind: "deleted"; key: string };
 
 interface Solution {
   id: string;
@@ -141,6 +145,9 @@ const metricsOf = (m: Measure): Metrics => ({
 const referenceCode = (slug: string) => references[slug]?.[0]?.code ?? "";
 const normalized = (code: string) => code.replace(/\/\/.*$/gm, "").replace(/\s+/g, "");
 
+/** The rival whose account is gone, in the crowd of every problem. */
+const DELETED_RIVAL = 5;
+
 const NICK_HEADS = ["rtl", "fpga", "asic", "clk", "lut", "flop", "mux", "gate", "wire", "bus"];
 const NICK_TAILS = ["fan", "owl", "fox", "lynx", "bee", "elk", "yak", "koi", "wren", "hawk"];
 const nickOf = (index: number) => {
@@ -169,7 +176,8 @@ const rivals: Solution[] = fixtures.problems.flatMap(({ slug, number }) => {
     solutions.push({
       id: uuid(number, i + 1),
       slug,
-      author: { kind: "rival", nick },
+      author:
+        i === DELETED_RIVAL ? { kind: "deleted", key: `${slug}-${i}` } : { kind: "rival", nick },
       ast: asReference ? "reference" : `rival-${i}`,
       metrics: metricsOf(m),
       depth: m.depth,
@@ -235,16 +243,22 @@ function solutions(slug?: string): Solution[] {
   );
 }
 
-const authorKey = (author: Author) =>
-  author.kind === "rival" ? `rival:${author.nick}` : `user:${author.user.me.id}`;
+const authorKey = (author: Author) => {
+  if (author.kind === "deleted") return `deleted:${author.key}`;
+  return author.kind === "rival" ? `rival:${author.nick}` : `user:${author.user.me.id}`;
+};
 
 function authorRef(author: Author): UserRef {
+  if (author.kind === "deleted") {
+    return { nick: "deleted-participant", display_name: null, avatar_url: null, deleted: true };
+  }
   return author.kind === "rival"
-    ? { nick: author.nick, display_name: null, avatar_url: null }
+    ? { nick: author.nick, display_name: null, avatar_url: null, deleted: false }
     : {
         nick: author.user.me.nick,
         display_name: author.user.me.display_name,
         avatar_url: author.user.me.avatar_url,
+        deleted: false,
       };
 }
 

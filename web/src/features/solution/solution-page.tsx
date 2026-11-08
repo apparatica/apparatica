@@ -20,7 +20,7 @@ import { isMetricName, metricOf } from "@/features/leaderboard/metrics";
 import { leaderboardHref } from "@/features/leaderboard/query";
 import { SynthCards } from "@/features/leaderboard/synth-cards";
 import { blockOf } from "@/features/problem/pipeline-view";
-import { profileHref } from "@/features/profile/href";
+import { useAuthorNames } from "@/features/profile/author";
 import { solutionCard } from "@/features/share/card";
 import { ShareButton } from "@/features/share/share-dialog";
 import type { Schemas } from "@/lib/api/client";
@@ -81,6 +81,8 @@ function LockedCode({ problemHref }: { problemHref: string }) {
 function AuthorCard({ author }: { author: Solution["author"] }) {
   const t = useTranslations("solution.author");
   const format = useFormatter();
+  const authors = useAuthorNames();
+  const profile = authors.href(author);
   const since = format.dateTime(new Date(author.created_at), {
     day: "numeric",
     month: "long",
@@ -88,16 +90,20 @@ function AuthorCard({ author }: { author: Solution["author"] }) {
   });
   return (
     <Card className="flex-row items-center gap-3">
-      <Avatar name={author.nick} size={40} className="rounded-sm" />
+      <Avatar name={authors.name(author)} size={40} className="rounded-sm" />
       <div className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate font-medium">{author.nick}</span>
-        <span className="text-caption text-mu">
-          {t("since", { date: since })} · {t("solved", { count: author.solved })}
-        </span>
+        <span className="truncate font-medium">{authors.name(author)}</span>
+        {profile !== null && (
+          <span className="text-caption text-mu">
+            {t("since", { date: since })} · {t("solved", { count: author.solved })}
+          </span>
+        )}
       </div>
-      <Button asChild>
-        <Link href={profileHref(author.nick)}>{t("profile")}</Link>
-      </Button>
+      {profile !== null && (
+        <Button asChild>
+          <Link href={profile}>{t("profile")}</Link>
+        </Button>
+      )}
     </Card>
   );
 }
@@ -153,6 +159,7 @@ function VerdictCard({ solution }: { solution: Solution }) {
 
 function DuplicateCard({ duplicate }: { duplicate: NonNullable<Solution["duplicate_of"]> }) {
   const t = useTranslations("solution.duplicate");
+  const authors = useAuthorNames();
   return (
     <section className="flex gap-2.5 rounded-md border border-in bg-ins p-3.5">
       <Link2 size={16} aria-hidden="true" className="mt-0.5 flex-none text-in" />
@@ -164,7 +171,7 @@ function DuplicateCard({ duplicate }: { duplicate: NonNullable<Solution["duplica
                 {chunks}
               </Link>
             ),
-            nick: duplicate.author.nick,
+            nick: authors.of(duplicate.author),
           })}
         </h2>
         <p className="text-caption text-mu">{t("body")}</p>
@@ -237,6 +244,7 @@ export function SolutionPage({ solution, problem, level }: SolutionPageProps) {
   const t = useTranslations("solution");
   const problemWords = useTranslations("problem");
   const format = useFormatter();
+  const authors = useAuthorNames();
   const problemHref = problemHrefOf(problem.slug);
   const submitted = format.dateTime(new Date(solution.submitted_at), {
     day: "numeric",
@@ -252,7 +260,7 @@ export function SolutionPage({ solution, problem, level }: SolutionPageProps) {
     <div className="mx-auto flex max-w-[1240px] flex-col gap-4 px-4 pt-3 pb-6 sm:px-8 sm:pt-6">
       <header className="flex flex-wrap items-end justify-between gap-3">
         <div className="flex min-w-0 flex-col gap-1">
-          <h1 className="text-title-1">{t("title", { nick: solution.author.nick })}</h1>
+          <h1 className="text-title-1">{t("title", { nick: authors.of(solution.author) })}</h1>
           <p className="flex flex-wrap items-center gap-x-2 gap-y-1 text-mu">
             <Link href={problemHref} className="hover:text-tx hover:underline">
               {problem.title}
@@ -271,7 +279,10 @@ export function SolutionPage({ solution, problem, level }: SolutionPageProps) {
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <ShareButton card={solutionCard(solution, level)} href={shortHref(solution.id)} />
+          <ShareButton
+            card={solutionCard(solution, level, authors)}
+            href={shortHref(solution.id)}
+          />
           <Button variant="primary" asChild>
             <Link href={problemHref}>
               {t("openProblem")}

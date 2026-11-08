@@ -123,7 +123,7 @@ def test_a_leaderboard_folds_equal_solutions(
     assert flat["total"] == 4
     assert flat["items"][3]["duplicate_of"] == {
         "solution_id": crowd["eve"],
-        "author": {"nick": "eve", "display_name": None, "avatar_url": None},
+        "author": {"nick": "eve", "display_name": None, "avatar_url": None, "deleted": False},
     }
     assert flat["items"][2]["duplicates"] == 0
 

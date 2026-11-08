@@ -42,7 +42,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Pagination } from "@/components/ui/pagination";
 import { useGuest } from "@/features/account/session";
-import { profileHref } from "@/features/profile/href";
+import { useAuthorNames } from "@/features/profile/author";
 import { solutionHref } from "@/features/solution/href";
 import { problemHref as problemHrefOf } from "@/features/problem/href";
 import type { ProblemCard } from "@/features/share/card";
@@ -159,13 +159,14 @@ function Cards({ problem, board }: Pick<LeaderboardPageProps, "problem" | "board
   const t = useTranslations("leaderboard.page.cards");
   const date = useShortDate();
   const guest = useGuest();
+  const authors = useAuthorNames();
   const { best, reference, me, columns } = board;
   const problemHref = problemHrefOf(problem.slug);
   return (
     <div className="grid gap-2 lg:grid-cols-3">
       <SummaryCard
         title={t("best")}
-        aside={best === null ? null : `${best.author.nick} · ${date(best.submitted_at)}`}
+        aside={best === null ? null : `${authors.name(best.author)} · ${date(best.submitted_at)}`}
       >
         {best === null ? (
           <CardNote>{t("noBest")}</CardNote>
@@ -276,13 +277,13 @@ function BoardTable({
     leaderboardHref(problem.slug, { ...query, sort, page: 1, around: false });
   // The place, the author, the metrics, the date and the chevron to the solution.
   const columns = board.columns.length + 4;
-  const author = (user: Schemas["UserRef"]) => ({ nick: user.nick, href: profileHref(user.nick) });
+  const authors = useAuthorNames();
   const meShown = board.items.some((row) => row.is_me);
 
   const rowOf = (row: Row) => (
     <LeaderboardRow
       rank={row.rank}
-      author={author(row.author)}
+      author={authors.row(row.author)}
       cells={cells(row.metrics)}
       date={date(row.submitted_at)}
       me={row.is_me}
@@ -290,7 +291,7 @@ function BoardTable({
       duplicates={row.duplicates}
       expanded={expanded.has(row.solution_id)}
       onToggle={() => toggle(row.solution_id)}
-      duplicateOf={row.duplicate_of?.author.nick ?? null}
+      duplicateOf={row.duplicate_of ? authors.of(row.duplicate_of.author) : null}
       href={solutionHref(row.solution_id)}
     />
   );
@@ -348,8 +349,8 @@ function BoardTable({
                 row.group.map((member) => (
                   <LeaderboardMember
                     key={member.solution_id}
-                    author={author(member.author)}
-                    leader={row.author.nick}
+                    author={authors.row(member.author)}
+                    leader={authors.of(row.author)}
                     cells={cells(row.metrics)}
                     date={date(member.submitted_at)}
                     href={solutionHref(member.solution_id)}

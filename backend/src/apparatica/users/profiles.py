@@ -9,7 +9,7 @@ from datetime import date
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from apparatica.auth.models import User
+from apparatica.auth.models import DELETED_USER_ID, User
 from apparatica.leaderboards.places import best_places
 from apparatica.leaderboards.rating import rating_of
 from apparatica.leaderboards.solutions import count_user_solutions
@@ -24,9 +24,14 @@ VERDICTS = (*ACCEPTED, "wrong_answer", "compile_error", "limit_exceeded", "forbi
 
 async def find_user(session: AsyncSession, nick: str) -> User | None:
     """The account of a public profile; an account being deleted is hidden at once (FR-USR-05),
-    as one hidden by a moderator (FR-ADM-03)."""
+    as one hidden by a moderator (FR-ADM-03). «Удалённый участник» has no profile (ОВ-12)."""
     return await session.scalar(
-        select(User).where(User.nick == nick, User.delete_at.is_(None), User.is_hidden.is_(False))
+        select(User).where(
+            User.nick == nick,
+            User.id != DELETED_USER_ID,
+            User.delete_at.is_(None),
+            User.is_hidden.is_(False),
+        )
     )
 
 

@@ -8,6 +8,9 @@ its reason, in the transaction of the change.
   Submits; the user still signs in and solves.
 - Staff accounts are not hidden: an administrator takes the role away first. Nobody changes their
   own role.
+- «Удалённый участник» (ОВ-12) gets no role and is not hidden as a user: that would hide every
+  deleted author at once. A solution of its is hidden on its own, and its place goes for good:
+  shown again, the solution returns to the list without a place (`ranking.rebuild`).
 - Locks follow the ingestor (`apparatica.leaderboards.ranking`): the rows of the users in the
   order of their ids, then the leaderboards, then the global leaderboard.
 """
@@ -22,7 +25,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from apparatica.admin.models import ModerationLog, TargetType
-from apparatica.auth.models import User
+from apparatica.auth.models import DELETED_USER_ID, User
 from apparatica.auth.schemas import Role
 from apparatica.core.db import Database
 from apparatica.core.platform import RatingFormula
@@ -33,7 +36,7 @@ from apparatica.submissions.models import Submission
 STAFF: tuple[Role, ...] = ("moderator", "admin")
 
 # Why a change is refused: the panel shows its own text for each.
-Refusal = Literal["staff_target", "own_role", "not_admin", "hidden_staff"]
+Refusal = Literal["staff_target", "own_role", "not_admin", "hidden_staff", "service_target"]
 
 
 class ModerationRefusedError(Exception):
@@ -65,7 +68,10 @@ class Moderation:
         self, actor: Staff, user_ids: Collection[uuid.UUID], *, hidden: bool, reason: str
     ) -> int:
         """Hide the users, or show them again; returns how many changed. ModerationRefusedError
-        `staff_target`: one of them is a moderator or an administrator (nothing changes)."""
+        `staff_target`: one of them is a moderator or an administrator, `service_target`: it is
+        «удалённый участник» (nothing changes)."""
+        if DELETED_USER_ID in user_ids:
+            raise ModerationRefusedError("service_target")
         now = self.clock()
         async with self.database.sessions.begin() as session:
             users = await _lock_users(session, user_ids)
@@ -110,7 +116,11 @@ class Moderation:
                     reason,
                 )
             authors_changed = {found.user_id for found in changed if found.user_id is not None}
-            await self._recount(session, sorted(authors_changed), now)
+            authors_changed.discard(DELETED_USER_ID)
+            anonymous = [
+                found.id for found in changed if hidden and found.user_id == DELETED_USER_ID
+            ]
+            await self._recount(session, sorted(authors_changed), now, anonymous)
         return len(changed)
 
     async def set_role(self, actor: Staff, user_id: uuid.UUID, role: Role, reason: str) -> bool:
@@ -125,12 +135,16 @@ class Moderation:
             return await change_role(session, actor.user_id, user_id, role, reason)
 
     async def _recount(
-        self, session: AsyncSession, user_ids: Collection[uuid.UUID], now: datetime
+        self,
+        session: AsyncSession,
+        user_ids: Collection[uuid.UUID],
+        now: datetime,
+        anonymous: Collection[uuid.UUID] = (),
     ) -> None:
-        if not user_ids:
+        if not user_ids and not anonymous:
             return
         await session.flush()
-        await rebuild(session, user_ids, now)
+        await rebuild(session, user_ids, now, anonymous=anonymous)
         await rating.recount(session, self.rating, now)
 
 
@@ -138,7 +152,9 @@ async def change_role(
     session: AsyncSession, actor_id: uuid.UUID | None, user_id: uuid.UUID, role: Role, reason: str
 ) -> bool:
     """Give the user the role and log it; whether it changed. `actor_id` None: by the
-    `apparatica-admin` command line."""
+    `apparatica-admin` command line. ModerationRefusedError: `hidden_staff`, `service_target`."""
+    if user_id == DELETED_USER_ID:
+        raise ModerationRefusedError("service_target")
     user = await session.scalar(select(User).where(User.id == user_id).with_for_update())
     if user is None or user.role == role:
         return False

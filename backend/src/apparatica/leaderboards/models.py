@@ -4,14 +4,17 @@ import uuid
 from datetime import date, datetime
 from decimal import Decimal
 
-from sqlalchemy import CheckConstraint, ForeignKey, Index, Numeric, UniqueConstraint
+from sqlalchemy import CheckConstraint, ForeignKey, Index, Numeric, text
 from sqlalchemy.dialects.postgresql import ARRAY, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
 
+from apparatica.auth.models import DELETED_USER_ID
 from apparatica.core.db import Base, uuid_pk
 
 # A leaderboard: entries of one problem compared on one footing (ADR-0006).
 KEY_COLUMNS = ("problem_id", "leaderboard_epoch", "toolchain_profile_id", "formula_version")
+# One entry of a user in a leaderboard; «удалённый участник» holds those of every deleted account.
+ONE_ENTRY_OF_A_USER = f"user_id <> '{DELETED_USER_ID}'"
 
 
 class LeaderboardEntry(Base):
@@ -20,7 +23,13 @@ class LeaderboardEntry(Base):
 
     __tablename__ = "leaderboard_entries"
     __table_args__ = (
-        UniqueConstraint(*KEY_COLUMNS, "user_id", name="uq_leaderboard_entries_user"),
+        Index(
+            "uq_leaderboard_entries_user",
+            *KEY_COLUMNS,
+            "user_id",
+            unique=True,
+            postgresql_where=text(ONE_ENTRY_OF_A_USER),
+        ),
         CheckConstraint("rank > 0", name="rank_positive"),
         # A follower of a group takes no place (FR-LB-04).
         CheckConstraint(
