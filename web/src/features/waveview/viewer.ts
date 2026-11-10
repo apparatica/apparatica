@@ -6,17 +6,51 @@
 export const PROTOCOL = 1;
 /** The first start downloads the WASM of Surfer (3 MB compressed). */
 export const READY_TIMEOUT_MS = 30_000;
-/** Surfer applies a command, and the result of its background work, on its next frame; with
- * nothing to wake it, frames come about a second apart. Until the adapter wakes it, the timeouts
- * leave room for such frames. */
-const IDLE_FRAME_MS = 1000;
-/** Surfer parses about 5 MB in 2 s (S3), plus the frames of the header and the body; the adapter
- * gives up on its own after this. */
-export const LOAD_TIMEOUT_MS = 2000 + 4 * IDLE_FRAME_MS;
-const COMMAND_TIMEOUT_MS = 10_000;
-/** A signal is added, coloured and named: up to three frames. */
-export const signalsTimeoutMs = (count: number): number =>
-  COMMAND_TIMEOUT_MS + 3 * IDLE_FRAME_MS * count;
+/** Surfer parses about 5 MB in 2 s (S3); the adapter gives up on its own after this. */
+export const LOAD_TIMEOUT_MS = 5000;
+export const COMMAND_TIMEOUT_MS = 10_000;
+
+/**
+ * A wait that runs only while the page is in sight. Surfer runs commands on its animation frames,
+ * and a browser gives a hidden tab none: the wait stops there and starts over once the tab is
+ * back. (A frame covered whole by an opaque layer gets a frame a second: the layers over the viewer
+ * are not quite opaque, the utility `over-viewer`.) Returns the cancel.
+ */
+export function waitInSight(host: Window, timeoutMs: number, expire: () => void): () => void {
+  const page = host.document;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const cancel = () => {
+    clearTimeout(timer);
+    page.removeEventListener("visibilitychange", restart);
+  };
+  function restart() {
+    clearTimeout(timer);
+    timer =
+      page.visibilityState === "hidden"
+        ? undefined
+        : setTimeout(() => {
+            cancel();
+            expire();
+          }, timeoutMs);
+  }
+  page.addEventListener("visibilitychange", restart);
+  restart();
+  return cancel;
+}
+
+/** Resolves once the page is in sight. */
+function inSight(host: Window): Promise<void> {
+  const page = host.document;
+  if (page.visibilityState !== "hidden") return Promise.resolve();
+  return new Promise((resolve) => {
+    const shown = () => {
+      if (page.visibilityState === "hidden") return;
+      page.removeEventListener("visibilitychange", shown);
+      resolve();
+    };
+    page.addEventListener("visibilitychange", shown);
+  });
+}
 
 export type ThemeName = "apparatica-light" | "apparatica-dark";
 
@@ -97,12 +131,12 @@ export class Channel {
     if (target === null) return Promise.reject(new ViewerError("the frame is gone"));
     const id = ++this.next;
     return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
+      const cancel = waitInSight(this.host, timeoutMs, () => {
         this.waiting.delete(id);
         reject(new ViewerError(`${type}: no reply in ${timeoutMs} ms`));
-      }, timeoutMs);
+      });
       this.waiting.set(id, (reply) => {
-        clearTimeout(timer);
+        cancel();
         if (reply.type === "error")
           reject(new ViewerError(`${type}: ${reply.message ?? "failed"}`));
         else resolve(reply);
@@ -130,7 +164,8 @@ export class Viewer {
   private snapshot: ViewerSnapshot = { state: { phase: "idle" }, frame: 0 };
   private readonly listeners = new Set<() => void>();
   private channel: Channel | null = null;
-  private timer: ReturnType<typeof setTimeout> | undefined;
+  /** Cancels the wait for "ready". */
+  private starting: () => void = () => {};
   /** Commands run one after another; a new frame starts a new chain. */
   private chain: Promise<unknown> = Promise.resolve();
   private trace: TraceView | null = null;
@@ -155,10 +190,9 @@ export class Viewer {
     this.channel = channel;
     this.chain = Promise.resolve();
     this.set({ phase: "starting" });
-    clearTimeout(this.timer);
-    this.timer = setTimeout(
-      () => this.fail(channel, `the viewer did not start in ${READY_TIMEOUT_MS} ms`),
-      READY_TIMEOUT_MS,
+    this.starting();
+    this.starting = waitInSight(host, READY_TIMEOUT_MS, () =>
+      this.fail(channel, `the viewer did not start in ${READY_TIMEOUT_MS} ms`),
     );
   }
 
@@ -167,7 +201,7 @@ export class Viewer {
     if (this.channel === null || !this.channel.owns(frame)) return;
     this.channel.close();
     this.channel = null;
-    clearTimeout(this.timer);
+    this.starting();
     this.set({ phase: "idle" });
   }
 
@@ -175,7 +209,7 @@ export class Viewer {
   retry(): void {
     this.channel?.close();
     this.channel = null;
-    clearTimeout(this.timer);
+    this.starting();
     this.snapshot = { state: { phase: "starting" }, frame: this.snapshot.frame + 1 };
     this.emit();
   }
@@ -217,7 +251,7 @@ export class Viewer {
   private unprompted(channel: Channel, message: Reply): void {
     if (channel !== this.channel) return;
     if (message.type === "ready" && this.snapshot.state.phase === "starting") {
-      clearTimeout(this.timer);
+      this.starting();
       this.run(async (ready) => {
         await ready.call("chrome", {}); // the menus and panels of Surfer stay hidden
         if (this.theme !== null) await ready.call("theme", { name: this.theme });
@@ -241,11 +275,7 @@ export class Viewer {
         { bytes, timeoutMs: LOAD_TIMEOUT_MS },
         { transfer: [bytes], timeoutMs: LOAD_TIMEOUT_MS + COMMAND_TIMEOUT_MS },
       );
-      await channel.call(
-        "signals",
-        { items: trace.signals },
-        { timeoutMs: signalsTimeoutMs(trace.signals.length) },
-      );
+      await channel.call("signals", { items: trace.signals });
       await channel.call("fit");
       if (trace.cursor !== null) {
         await channel.call("cursor", { time: trace.cursor.time });
@@ -261,6 +291,9 @@ export class Viewer {
     const channel = this.channel;
     if (channel === null) return;
     this.chain = this.chain.then(async () => {
+      // A step in a hidden tab would wait for Surfer's frames; the adapter's own wait for the
+      // file would run out meanwhile.
+      await inSight(this.host ?? window);
       if (channel !== this.channel) return;
       try {
         await step(channel);
@@ -272,7 +305,7 @@ export class Viewer {
 
   private fail(channel: Channel, message: string): void {
     if (channel !== this.channel) return;
-    clearTimeout(this.timer);
+    this.starting();
     channel.close();
     this.channel = null;
     this.set({ phase: "failed", message });

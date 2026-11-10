@@ -211,9 +211,10 @@ export function ResultsPanel({ submission, problem, busy, onCheck, onReveal }: R
             {tests.length > 0 && <TabsTrigger value="waves">{t("tabs.waves")}</TabsTrigger>}
             {synth && <TabsTrigger value="synth">{t("tabs.synth")}</TabsTrigger>}
           </TabsList>
-          {/* The tabs over each other: a covered viewer keeps running (results-waves.tsx). */}
+          {/* The tabs over each other: a covered viewer keeps running (results-waves.tsx), at full
+              speed under layers that are not quite opaque (over-viewer, globals.css). */}
           <div className="relative isolate min-h-0 flex-1">
-            <TabsContent value="console" className="absolute inset-0 z-10 bg-sf">
+            <TabsContent value="console" className="absolute inset-0 z-10 bg-sf over-viewer">
               <ResultsConsole
                 check={check}
                 connection={submission.connection}
@@ -222,7 +223,7 @@ export function ResultsPanel({ submission, problem, busy, onCheck, onReveal }: R
                 onReveal={onReveal}
               />
             </TabsContent>
-            <TabsContent value="tests" className="absolute inset-0 z-10 bg-sf">
+            <TabsContent value="tests" className="absolute inset-0 z-10 bg-sf over-viewer">
               <ResultsTests
                 check={check}
                 sections={tests}
@@ -231,7 +232,7 @@ export function ResultsPanel({ submission, problem, busy, onCheck, onReveal }: R
               />
             </TabsContent>
             {synth && (
-              <TabsContent value="synth" className="absolute inset-0 z-10 bg-sf">
+              <TabsContent value="synth" className="absolute inset-0 z-10 bg-sf over-viewer">
                 <ResultsSynth check={check} problem={problem} />
               </TabsContent>
             )}

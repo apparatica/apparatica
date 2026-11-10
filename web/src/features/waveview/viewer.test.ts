@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { fakeAdapter } from "@/test/waveview";
 
-import { READY_TIMEOUT_MS, signalsTimeoutMs, type TraceView, Viewer } from "./viewer";
+import { COMMAND_TIMEOUT_MS, READY_TIMEOUT_MS, type TraceView, Viewer } from "./viewer";
 
 let frame: HTMLIFrameElement;
 
@@ -14,6 +14,7 @@ beforeEach(() => {
 afterEach(() => {
   frame.remove();
   vi.useRealTimers();
+  vi.restoreAllMocks();
 });
 
 const trace = (key = "a"): TraceView => ({
@@ -24,6 +25,19 @@ const trace = (key = "a"): TraceView => ({
 });
 
 const phaseOf = (viewer: Viewer) => viewer.getSnapshot().state.phase;
+
+/** The page in a browser tab that is hidden or in sight. */
+function hiddenTab(hidden: boolean) {
+  let state = hidden;
+  vi.spyOn(document, "visibilityState", "get").mockImplementation(() =>
+    state ? "hidden" : "visible",
+  );
+  const set = (value: boolean) => {
+    state = value;
+    document.dispatchEvent(new Event("visibilitychange"));
+  };
+  return { hide: () => set(true), show: () => set(false) };
+}
 
 describe("the frame", () => {
   it("starts, hides the panels of Surfer and takes the theme", async () => {
@@ -117,22 +131,52 @@ describe("a trace", () => {
     );
   });
 
-  it("waits for Surfer's idle frames: eight signals a second apart each step", async () => {
+  it("waits for a hidden tab to be back: the browser gives it no frames", async () => {
     vi.useFakeTimers();
+    const tab = hiddenTab(true);
     const viewer = new Viewer();
-    const signals = ["clk", "sel", "d0", "d1", "d2", "d3", "y", "y_expected"].map((name) => ({
-      path: `tb_top.${name}`,
-      color: "Bus" as const,
-      label: name,
-    }));
-    // The failed run of CI: the file in 2 s, the signals in 12 s.
-    const adapter = fakeAdapter(frame, { delays: { load: 2000, signals: 12_000 } });
-    viewer.show({ ...trace(), signals });
+    const adapter = fakeAdapter(frame);
+    viewer.show(trace());
+    viewer.attach(frame);
+    await vi.advanceTimersByTimeAsync(2 * READY_TIMEOUT_MS);
+    expect(phaseOf(viewer)).toBe("starting");
+    adapter.ready();
+    await vi.advanceTimersByTimeAsync(2 * COMMAND_TIMEOUT_MS);
+    expect(adapter.received).toEqual([]);
+    tab.show();
+    await vi.advanceTimersByTimeAsync(10); // the replies, one after another
+    expect(phaseOf(viewer)).toBe("shown");
+  });
+
+  it("does not count the time in a hidden tab against a command", async () => {
+    vi.useFakeTimers();
+    const tab = hiddenTab(false);
+    const viewer = new Viewer();
+    // Surfer gets no frames while the tab is hidden, and answers late.
+    const adapter = fakeAdapter(frame, { delays: { signals: COMMAND_TIMEOUT_MS + 2000 } });
+    viewer.show(trace());
     viewer.attach(frame);
     adapter.ready();
-    await vi.advanceTimersByTimeAsync(20_000);
+    await vi.advanceTimersByTimeAsync(1000);
+    tab.hide();
+    await vi.advanceTimersByTimeAsync(5000);
+    tab.show(); // the wait starts over
+    await vi.advanceTimersByTimeAsync(COMMAND_TIMEOUT_MS);
     expect(phaseOf(viewer)).toBe("shown");
-    expect(signalsTimeoutMs(signals.length)).toBeGreaterThan(12_000);
+  });
+
+  it("fails a command with no reply in sight", async () => {
+    vi.useFakeTimers();
+    const viewer = new Viewer();
+    const adapter = fakeAdapter(frame, { delays: { signals: COMMAND_TIMEOUT_MS + 1 } });
+    viewer.show(trace());
+    viewer.attach(frame);
+    adapter.ready();
+    await vi.advanceTimersByTimeAsync(COMMAND_TIMEOUT_MS + 1);
+    expect(viewer.getSnapshot().state).toEqual({
+      phase: "failed",
+      message: `signals: no reply in ${COMMAND_TIMEOUT_MS} ms`,
+    });
   });
 
   it("that does not open fails the frame", async () => {

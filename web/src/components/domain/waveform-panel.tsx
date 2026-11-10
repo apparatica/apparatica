@@ -180,7 +180,7 @@ export function WaveformPanel({
           </div>
         )}
         {!normal && (
-          <div className="absolute inset-0 z-10 flex items-center justify-center overflow-y-auto bg-ed">
+          <div className="absolute inset-0 z-10 flex items-center justify-center overflow-y-auto bg-ed over-viewer">
             <Overlay state={state} />
           </div>
         )}

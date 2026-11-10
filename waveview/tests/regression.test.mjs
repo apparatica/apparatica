@@ -129,6 +129,25 @@ test("a trace window opens with its signals, cursor and themes", async (t) => {
   assert.equal((await apx("theme", { name: "dark+" })).type, "error"); // ours only
 });
 
+// The problem page covers the viewer with its other tabs and the states of the panel. A browser
+// gives a cross-origin frame that an opaque layer covers whole about one animation frame a second,
+// and Surfer runs every command on a frame; the layers of the page are not quite opaque
+// (over-viewer in web/src/app/globals.css), which leaves Surfer its frames.
+test("a viewer under a layer that is not quite opaque keeps its frames", async () => {
+  await page.evaluate(() => {
+    const layer = document.createElement("div");
+    layer.id = "cover";
+    layer.style.cssText = "position: fixed; inset: 0; background: #fff; opacity: 0.99";
+    document.body.append(layer);
+  });
+  await page.waitForTimeout(2000); // long enough for the browser to slow a covered frame down
+  const started = Date.now();
+  for (let i = 0; i < 5; i += 1) assert.equal((await apx("fit", {})).type, "ack");
+  const elapsed = Date.now() - started;
+  await page.evaluate(() => document.getElementById("cover").remove());
+  assert.ok(elapsed < 1000, `five commands under a layer of opacity 0.99 took ${elapsed} ms`);
+});
+
 test("a broken file fails the load, not the page", async () => {
   const garbage = Buffer.from(Array.from({ length: 4096 }, (_, i) => (i * 7919) % 251)).toString(
     "base64",
