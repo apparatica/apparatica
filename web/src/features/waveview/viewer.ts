@@ -6,9 +6,17 @@
 export const PROTOCOL = 1;
 /** The first start downloads the WASM of Surfer (3 MB compressed). */
 export const READY_TIMEOUT_MS = 30_000;
-/** Surfer parses about 5 MB in 2 s (S3); the adapter gives up on its own after this. */
-export const LOAD_TIMEOUT_MS = 5000;
+/** Surfer applies a command, and the result of its background work, on its next frame; with
+ * nothing to wake it, frames come about a second apart. Until the adapter wakes it, the timeouts
+ * leave room for such frames. */
+const IDLE_FRAME_MS = 1000;
+/** Surfer parses about 5 MB in 2 s (S3), plus the frames of the header and the body; the adapter
+ * gives up on its own after this. */
+export const LOAD_TIMEOUT_MS = 2000 + 4 * IDLE_FRAME_MS;
 const COMMAND_TIMEOUT_MS = 10_000;
+/** A signal is added, coloured and named: up to three frames. */
+export const signalsTimeoutMs = (count: number): number =>
+  COMMAND_TIMEOUT_MS + 3 * IDLE_FRAME_MS * count;
 
 export type ThemeName = "apparatica-light" | "apparatica-dark";
 
@@ -233,7 +241,11 @@ export class Viewer {
         { bytes, timeoutMs: LOAD_TIMEOUT_MS },
         { transfer: [bytes], timeoutMs: LOAD_TIMEOUT_MS + COMMAND_TIMEOUT_MS },
       );
-      await channel.call("signals", { items: trace.signals });
+      await channel.call(
+        "signals",
+        { items: trace.signals },
+        { timeoutMs: signalsTimeoutMs(trace.signals.length) },
+      );
       await channel.call("fit");
       if (trace.cursor !== null) {
         await channel.call("cursor", { time: trace.cursor.time });

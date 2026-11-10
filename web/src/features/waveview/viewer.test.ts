@@ -2,7 +2,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { fakeAdapter } from "@/test/waveview";
 
-import { READY_TIMEOUT_MS, type TraceView, Viewer } from "./viewer";
+import { READY_TIMEOUT_MS, signalsTimeoutMs, type TraceView, Viewer } from "./viewer";
 
 let frame: HTMLIFrameElement;
 
@@ -115,6 +115,24 @@ describe("a trace", () => {
     await vi.waitFor(() =>
       expect(adapter.received.slice(6).map(({ type }) => type)).toEqual(["cursor", "center"]),
     );
+  });
+
+  it("waits for Surfer's idle frames: eight signals a second apart each step", async () => {
+    vi.useFakeTimers();
+    const viewer = new Viewer();
+    const signals = ["clk", "sel", "d0", "d1", "d2", "d3", "y", "y_expected"].map((name) => ({
+      path: `tb_top.${name}`,
+      color: "Bus" as const,
+      label: name,
+    }));
+    // The failed run of CI: the file in 2 s, the signals in 12 s.
+    const adapter = fakeAdapter(frame, { delays: { load: 2000, signals: 12_000 } });
+    viewer.show({ ...trace(), signals });
+    viewer.attach(frame);
+    adapter.ready();
+    await vi.advanceTimersByTimeAsync(20_000);
+    expect(phaseOf(viewer)).toBe("shown");
+    expect(signalsTimeoutMs(signals.length)).toBeGreaterThan(12_000);
   });
 
   it("that does not open fails the frame", async () => {

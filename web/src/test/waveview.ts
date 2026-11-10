@@ -18,10 +18,11 @@ export interface FakeAdapter {
   ready: () => void;
 }
 
-/** `fail`: a command type that answers with an error. */
+/** `fail`: a command type that answers with an error; `delays`: milliseconds before the reply, by
+ * command type (Surfer's idle frames). */
 export function fakeAdapter(
   frame: HTMLIFrameElement,
-  { fail }: { fail?: string } = {},
+  { fail, delays = {} }: { fail?: string; delays?: Record<string, number> } = {},
 ): FakeAdapter {
   const target = frame.contentWindow;
   if (target === null) throw new Error("the frame is not in the document");
@@ -41,7 +42,7 @@ export function fakeAdapter(
         const items = command["items"] as { path: string }[];
         say({ type: "ack", id, added: items.map((item) => item.path) });
       } else say({ type: "ack", id });
-    }, 0);
+    }, delays[type] ?? 0);
   });
   return { received, say, ready: () => say({ type: "ready", protocol: 1, commands: [] }) };
 }
