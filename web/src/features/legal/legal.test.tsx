@@ -7,13 +7,13 @@ import { renderWithProviders } from "@/test/render";
 import { fillIn, LEGAL_DOCUMENTS, legalText } from "./documents";
 import { LegalIndex, LegalPage } from "./legal-page";
 
-const OPERATOR = { name: "ООО «Пример»", address: "Амстердам", email: "privacy@example.com" };
+const OPERATOR = { name: "Ада Лавлейс", email: "privacy@example.com" };
 // Pages of the site the texts may link to.
 const ROUTES = new Set(["/settings", "/legal", ...LEGAL_DOCUMENTS.map((key) => `/legal/${key}`)]);
 
 it("fills in the operator and refuses an unknown placeholder", () => {
   expect(fillIn("{{operator.name}}, {{operator.email}}", OPERATOR)).toBe(
-    "ООО «Пример», privacy@example.com",
+    "Ада Лавлейс, privacy@example.com",
   );
   expect(() => fillIn("{{operator.phone}}", OPERATOR)).toThrow("{{operator.phone}}");
   expect(() => fillIn("{{operator.constructor}}", OPERATOR)).toThrow();
@@ -46,7 +46,7 @@ it("shows the edition and marks a draft", async () => {
   expect(screen.getByText("Редакция от 3 ноября 2026 г.")).toBeInTheDocument();
   expect(screen.getByRole("note")).toHaveTextContent("Черновик");
   expect(screen.getByRole("link", { name: "Cookie" })).toHaveAttribute("href", "/legal/cookies");
-  expect(screen.getAllByText(/почта для запросов — уточняется/).length).toBeGreaterThan(0);
+  expect(screen.getAllByText(/contact@apparatica\.app/).length).toBeGreaterThan(0);
 });
 
 it("lists the documents", () => {

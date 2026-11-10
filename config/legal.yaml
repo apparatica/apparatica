@@ -2,13 +2,12 @@
 # web/content/legal/<key>.md; the site fills in the operator. Served to the frontend by
 # GET /api/v1/config.
 #
-# The texts are drafts until a lawyer has read them and the operator is known (ОВ-18): the site
-# marks them so. Before the public launch (T3.14): the operator, then `draft: false`.
-draft: true
+# `draft: true` makes the site mark the texts as drafts. The operator is a private person (ОВ-18):
+# a name and the mailbox for requests about personal data, no postal address.
+draft: false
 operator:
-  name: "[оператор — уточняется]"
-  address: "[адрес оператора — уточняется]"
-  email: "[почта для запросов — уточняется]"
+  name: "Иван Сладков"
+  email: "contact@apparatica.app"
 # What a user accepts at the first login: the first login records these versions as accepted
 # (the consents of the account). A new version is the date of the edition; sha256 is that of the
 # text: a test fails when the text changes without it, so that every change of a text is a
@@ -16,8 +15,8 @@ operator:
 # of changes.
 documents:
   terms:
-    version: 2026-11-04
-    sha256: "687c0ea72c0b77481052a8b8c1de6ff29ec998d0aaa4d06be870fa34d9d0da53"
+    version: 2026-11-10
+    sha256: "6aeb62ea331ce03c8fbf55e751e62b7689a39e0c05cb671be5736bfc23e04c43"
   privacy:
-    version: 2026-11-05
-    sha256: "779e7d1fa4f818536157ee34fc241dea4d2ea2a4b051ef315eac9b22f987cc6c"
+    version: 2026-11-10
+    sha256: "3f5e9da212d0621ccc063db4c6aee12474154f8c5cd968d5250a3813c2ada200"

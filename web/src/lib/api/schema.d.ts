@@ -1450,13 +1450,12 @@ export interface components {
         };
         /**
          * Operator
-         * @description Who processes the personal data of the users (GDPR art. 13), as the documents name them.
+         * @description Who processes the personal data of the users (GDPR art. 13), as the documents name them: a
+         *     private person, so a name and a mailbox, no postal address.
          */
         Operator: {
             /** Name */
             name: string;
-            /** Address */
-            address: string;
             /**
              * Email
              * @description For requests about personal data

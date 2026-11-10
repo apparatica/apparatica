@@ -46,8 +46,8 @@ def test_config(client: TestClient) -> None:
     assert body["limits"]["waveforms"] == {"view_max_mb": 5}
     assert body["auth_providers"] == []
     legal = body["legal"]
-    assert legal["draft"] is True  # until a lawyer and the operator (ОВ-18)
-    assert set(legal["operator"]) == {"name", "address", "email"}
+    assert legal["draft"] is False  # the operator is known (ОВ-18)
+    assert set(legal["operator"]) == {"name", "email"}
     assert set(legal["versions"]) == {"terms", "privacy"}
     assert response.headers["cache-control"] == "public, max-age=60, stale-while-revalidate=300"
 

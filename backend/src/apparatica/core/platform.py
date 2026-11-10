@@ -94,10 +94,10 @@ class RateLimits(_Model):
 
 
 class Operator(_Model):
-    """Who processes the personal data of the users (GDPR art. 13), as the documents name them."""
+    """Who processes the personal data of the users (GDPR art. 13), as the documents name them: a
+    private person, so a name and a mailbox, no postal address."""
 
     name: str
-    address: str
     email: str = Field(description="For requests about personal data")
 
 
@@ -124,7 +124,7 @@ class LegalDocuments(_Model):
 
 
 class Legal(_Model):
-    draft: bool = Field(description="The texts await a lawyer; the site marks them as drafts")
+    draft: bool = Field(description="The texts are drafts; the site marks them so")
     operator: Operator
     documents: LegalDocuments
 

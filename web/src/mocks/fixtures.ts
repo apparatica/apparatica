@@ -36,13 +36,9 @@ export const config: Schemas["ConfigResponse"] = {
     { key: "email", title: "Email", kind: "email" },
   ],
   legal: {
-    draft: true,
-    operator: {
-      name: "[оператор — уточняется]",
-      address: "[адрес оператора — уточняется]",
-      email: "[почта для запросов — уточняется]",
-    },
-    versions: { terms: "2026-11-04", privacy: "2026-11-05" },
+    draft: false,
+    operator: { name: "Иван Сладков", email: "contact@apparatica.app" },
+    versions: { terms: "2026-11-10", privacy: "2026-11-10" },
   },
 };
 
