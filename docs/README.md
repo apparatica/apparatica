@@ -15,7 +15,7 @@
 | [stand.md](stand.md) | стенд в docker compose: запуск, адреса, сервисы, хранилище, настройки | актуален |
 | [waveview.md](waveview.md) | просмотрщик волн: сборка Surfer с темами, страница и адаптер `postMessage`, публикация, заголовки origin, регрессия; встраивание в страницу задачи — в [frontend.md](frontend.md#страница-задачи) | актуален |
 | [problem-authoring.md](problem-authoring.md) | как написать задачу: пакет, тестбенч, мутанты, `judge validate` | актуален; проверка условия — с T1.10 |
-| [deployment.md](deployment.md) | серверы кодом (Ansible): хосты, файрвол, Docker и gVisor, релизы, секреты, деплой, мониторинг; операции — [deploy/RUNBOOK.md](../deploy/RUNBOOK.md) | актуален для staging, с деплоем из CI; production — T3.14 |
+| [deployment.md](deployment.md) | серверы кодом (Ansible): хосты, файрвол, Docker и gVisor, релизы, секреты, деплой, мониторинг; операции — [deploy/RUNBOOK.md](../deploy/RUNBOOK.md) | актуален: staging с деплоем из CI, production по тегу релиза |
 | [backups.md](backups.md) | бэкапы Postgres (WAL-G): архив WAL, полные бэкапы, шифрование, проверка восстановления, на стенде и на сервере; восстановление — [RUNBOOK](../deploy/RUNBOOK.md#восстановление-базы) | актуален; staging — Cloudflare R2 |
 | [alerts.md](alerts.md) | алерты: метрики бэкапов, правила Prometheus, Alertmanager и Telegram, бот и чат, проверка правил; что делать — [RUNBOOK](../deploy/RUNBOOK.md#алерты) | актуален |
 | [legal.md](legal.md) | юридические документы: тексты, оператор, редакции и согласие; реестр обработки ПДн, обработчики, порядок при утечке | актуален; тексты — черновики до юриста (ОВ-18) |

@@ -1,7 +1,9 @@
 # The host itself: packages, SSH by keys only, the firewall, security updates, the journal.
 - name: Install the packages of the host
   ansible.builtin.apt:
-    name: [ca-certificates, curl, gnupg, nftables, unattended-upgrades, apt-listchanges, sudo]
+    # python3-debian: deb822_repository of the roles gvisor and docker; not every image has it.
+    name:
+      [ca-certificates, curl, gnupg, nftables, unattended-upgrades, apt-listchanges, sudo, python3-debian]
     update_cache: true
     cache_valid_time: 3600
 
@@ -40,7 +42,9 @@
 - name: Authorize the keys of the deploys
   ansible.builtin.copy:
     dest: /home/{{ base_deploy_user }}/.ssh/authorized_keys
+    # The comment keeps the file valid without keys: no CI deploys to this host yet.
     content: |
+      # base_deploy_keys of the inventory (deploy/ansible)
       {% for key in base_deploy_keys %}
       {{ key }}
       {% endfor %}

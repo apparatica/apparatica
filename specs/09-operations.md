@@ -6,7 +6,7 @@
 |---|---|---|
 | `dev` | `docker compose -f deploy/compose.yaml -f deploy/compose.dev.yaml up`: все сервисы, Garage, демо-задачи, `SANDBOX_RUNTIME=runc` по умолчанию | разработка, контрибьюторы (Linux, macOS, Windows + WSL2) |
 | `staging` | как production, один хост приложения + один хост воркера, gVisor | проверка релиза, регрессия на реальном тулчейне |
-| `production` | AEZA, Нидерланды. VPS приложения: proxy, web, api, ingest, postgres, Valkey ×2, Garage; отдельные VPS воркеров (gVisor, `apx-sandboxd`). Резервные копии — в объектное хранилище другого провайдера в ЕС | — |
+| `production` | Нидерланды. VPS приложения: proxy, web, api, ingest, postgres, Valkey ×2, Garage; отдельные VPS воркеров (gVisor, `apx-sandboxd`). Резервные копии — в объектное хранилище другого провайдера в ЕС. На старте (T3.14c) — один VPS netcup в Амстердаме с обеими ролями, как staging; воркер отделяется, когда этого потребует нагрузка (docs/deployment.md) | — |
 
 - Docker compose на старте; разделение на сервисы и отсутствие локального состояния (кроме БД и S3) позволяют позже перейти в Kubernetes без изменений кода.
 - Релиз: тег → CI собирает образы `web`, `api` (он же `ingest`), `worker`, `toolchain` → staging → ручное подтверждение → production.

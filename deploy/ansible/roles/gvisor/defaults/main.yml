@@ -1,2 +1,3 @@
-# The gVisor release of the sandboxes (ADR-0003); a new one is a change of this value.
-gvisor_version: "20261019.0"
+# The gVisor release of the sandboxes (ADR-0003); a new one is a change of this value. The apt
+# repository serves the latest release only, as CI tests it: a new host needs the current one.
+gvisor_version: "20261102.0"

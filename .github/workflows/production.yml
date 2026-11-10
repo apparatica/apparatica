@@ -1,0 +1,88 @@
+name: Production
+
+# A release (docs/deployment.md#деплой-production): a tag v* on a commit of master. Production runs
+# the images CI published for staging, sha-<commit>, so the commit must have passed CI and reached
+# staging first. The environment `production` waits for a reviewer before the deploy.
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# One deploy at a time and in order.
+concurrency:
+  group: production
+  cancel-in-progress: false
+
+env:
+  REGISTRY: ghcr.io/${{ github.repository_owner }}
+  SITE: https://apparatica.app  # apparatica_site_host of deploy/ansible/inventories/production
+
+jobs:
+  release:
+    name: Release
+    # A tag of a release only, also when run by hand: Use workflow from → the tag.
+    if: startsWith(github.ref, 'refs/tags/v')
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: read
+    outputs:
+      tag: ${{ steps.commit.outputs.tag }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - name: Commit of the tag is on master
+        id: commit
+        run: |
+          commit=$(git rev-parse HEAD)
+          if ! git merge-base --is-ancestor "$commit" origin/master; then
+            echo "::error::${GITHUB_REF_NAME} is not a commit of master"
+            exit 1
+          fi
+          echo "tag=sha-${commit::12}" >> "$GITHUB_OUTPUT"
+      - uses: docker/login-action@81c6f93d4bc991e510b342a00b419b3bb4efc5c6 # v4.7.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      # Published by the Staging workflow after a green CI of the commit.
+      - name: Images of the commit
+        env:
+          TAG: ${{ steps.commit.outputs.tag }}
+        run: |
+          for name in api web worker; do
+            if ! docker buildx imagetools inspect "$REGISTRY/$name:$TAG" > /dev/null; then
+              echo "::error::$REGISTRY/$name:$TAG is not published: wait for the Staging workflow of the commit"
+              exit 1
+            fi
+          done
+
+  deploy:
+    name: Deploy
+    needs: release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    # A reviewer of the environment approves the deploy; its secrets reach only tags v*.
+    environment:
+      name: production
+      url: ${{ env.SITE }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: extractions/setup-just@53165ef7e734c5c07cb06b3c8e7b647c5aa16db3 # v4.0.0
+      # The key of the user deploy; the host keys are those of the inventory.
+      - name: Set up SSH to production
+        env:
+          KEY: ${{ secrets.PRODUCTION_SSH_KEY }}
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$KEY" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          grep -v '^#' deploy/ansible/inventories/production/known_hosts > ~/.ssh/known_hosts
+      - name: Deploy the commit with its images
+        env:
+          TAG: ${{ needs.release.outputs.tag }}
+        run: just deploy production -e ansible_user=deploy -e apparatica_image_tag="$TAG"

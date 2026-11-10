@@ -1,23 +1,26 @@
 # Развёртывание
 
-Как платформа ставится на серверы: что на них работает, как их подготовить и как выкатить коммит. Серверы описаны кодом в `deploy/ansible`, сервисы — тот же `deploy/compose.yaml`, что у [стенда](stand.md), с `deploy/compose.server.yaml` сверху. Операции на работающем сервере (откат, логи, сертификаты, сбои) — в [`deploy/RUNBOOK.md`](../deploy/RUNBOOK.md). Каждый коммит `master` после зелёного CI выкатывается на staging сам ([деплой из CI](#деплой-из-ci)).
+Как платформа ставится на серверы: что на них работает, как их подготовить и как выкатить коммит. Серверы описаны кодом в `deploy/ansible`, сервисы — тот же `deploy/compose.yaml`, что у [стенда](stand.md), с `deploy/compose.server.yaml` сверху. Операции на работающем сервере (откат, логи, сертификаты, сбои) — в [`deploy/RUNBOOK.md`](../deploy/RUNBOOK.md). Каждый коммит `master` после зелёного CI выкатывается на staging сам ([деплой из CI](#деплой-из-ci)), а на production — по тегу релиза и после подтверждения ([деплой production](#деплой-production)).
 
 ## Окружения и хосты
 
 | Окружение | Хосты | Имена |
 |---|---|---|
-| `staging` | один VPS `apparatica.app` (AEZA, 4 vCPU, 8 ГБ, Debian 13): роли `app` и `worker`; бэкапы — Cloudflare R2, бакет `apparatica-staging-backups` в юрисдикции EU | `staging.apparatica.app` — сайт и API, `s3.staging.apparatica.app` — S3 для presigned URL, `waveview.staging.apparatica.app` — просмотрщик волн |
+| `production` | один VPS (netcup VPS 1000 G12.5, Амстердам, 4 vCPU, 8 ГБ, 128 ГБ, Debian 13; `62.83.93.144`, `2a03:4000:13:124f:4eb:1eff:fe14:1ccd`): роли `app` и `worker`; бэкапы — Cloudflare R2, бакет `apparatica-production-backups` в юрисдикции EU | `apparatica.app` — сайт и API, `s3.apparatica.app`, `waveview.apparatica.app` |
+| `staging` | один VPS (AEZA, 4 vCPU, 8 ГБ, Debian 13; `138.124.52.47`, `2a0b:4140:b31::2`): роли `app` и `worker`; бэкапы — Cloudflare R2, бакет `apparatica-staging-backups` в юрисдикции EU | `staging.apparatica.app` — сайт и API, `s3.staging.apparatica.app` — S3 для presigned URL, `waveview.staging.apparatica.app` — просмотрщик волн |
 
-Инвентарь — `deploy/ansible/inventories/<окружение>/`: `hosts.yml` (хосты и группы) и `group_vars/all.yml` (имена, размер Garage, мониторинг, бэкапы). Корневой домен `apparatica.app` оставлен для production (T3.14).
+Инвентарь — `deploy/ansible/inventories/<окружение>/`: `hosts.yml` (хосты и группы) и `group_vars/all.yml` (имена, размер Garage, мониторинг, бэкапы). Хост в инвентаре назван именем сайта, но Ansible и CI подключаются к нему по адресу (`ansible_host`): так SSH не зависит от DNS, и смена записей домена не уведёт деплой на другой сервер.
+
+Production по specs/09 §1 — отдельные VPS приложения и воркеров. На старте он, как staging, — один VPS с обеими ролями: нагрузки (ОВ-8) хватает, а отделение воркера требует частной сети до `valkey-queue` и Garage. Пользовательский код на одном хосте с базой изолирует только gVisor.
 
 **Роли хостов.** Группа `app` — хосты платформы, `worker` — хосты песочниц. gVisor ставится только хостам `worker`, и только у них Docker получает рантайм `runsc`. Пока хост один, он входит в обе группы: роль `apparatica` поднимает все сервисы compose вместе и отказывается работать на хосте `app` без `worker`. Отдельному хосту воркера нужна частная сеть до `valkey-queue` и Garage хоста приложения, она появится вместе со вторым VPS.
 
-**DNS.** Записи A и AAAA всех трёх имён указывают на хост `app` (у staging — `138.124.52.47` и `2a0b:4140:b31::2`; адрес IPv6 — тот, что на интерфейсе хоста, `ip -6 addr`, а не `::1` его сети). Let's Encrypt проверяет имя сначала по IPv6, так что неверная AAAA срывает выдачу сертификата. Без записей Caddy не получит сертификаты. Публичные резолверы, которых спросили до появления записи, помнят её отсутствие до 30 минут: первый деплой лучше запускать, когда запись видна у нескольких (`dig @8.8.8.8`, `dig @1.1.1.1`).
+**DNS.** Записи A и AAAA всех трёх имён указывают на хост `app` (адреса — в таблице выше; адрес IPv6 — тот, что на интерфейсе хоста, `ip -6 addr`, а не `::1` его сети). Домен обслуживает DNS Cloudflare: записи — без его прокси (DNS only, серое облако), иначе Caddy не получит сертификаты, а presigned URL и просмотрщик пойдут через чужой CDN. Let's Encrypt проверяет имя сначала по IPv6, так что неверная AAAA срывает выдачу сертификата. Без записей Caddy не получит сертификаты. Публичные резолверы, которых спросили до появления записи, помнят её отсутствие до 30 минут: первый деплой лучше запускать, когда запись видна у нескольких (`dig @8.8.8.8`, `dig @1.1.1.1`).
 
 ## Что нужно на своей машине
 
 - Docker: Ansible работает в контейнере (`deploy/ansible/Dockerfile`, версии — `deploy/ansible/poetry.lock`), поэтому плейбуки одинаково запускаются в Linux, macOS и Windows.
-- SSH-доступ к хостам под `root` по ключу из `~/.ssh` и запись хоста в `~/.ssh/known_hosts`. Каталог `~/.ssh` монтируется в контейнер только для чтения, а ключи копируются в контейнер с правами, которых требует ssh.
+- SSH-доступ к хостам под `root` по ключу из `~/.ssh` и запись адреса хоста в `~/.ssh/known_hosts` (первый `ssh root@<адрес>` вручную). Каталог `~/.ssh` монтируется в контейнер только для чтения, а ключи копируются в контейнер с правами, которых требует ssh.
 - `just`.
 
 ```sh
@@ -43,7 +46,7 @@ just lint-ansible                     # ansible-lint и проверка син�
 
 **Файрвол** — своя таблица nftables `inet apparatica`: входящие на хост только `22`, `80`, `443` и `443/udp` (HTTP/3), ICMP и ответы на свои соединения. Таблицы Docker не трогаются: в `/etc/nftables.conf` нет `flush ruleset`, а остановка сервиса `nftables` удаляет только нашу таблицу. Порты контейнеров проходят хук `forward`, а не `input`, поэтому снаружи доступно только то, что публикует compose. На сервере публикует порты только Caddy, Grafana слушает `127.0.0.1:3000`.
 
-**Версии Docker и gVisor** заданы в `roles/*/defaults/main.yml`. `unattended-upgrades` их не обновляет: их репозиториев нет среди источников обновлений. Новая версия ставится сменой значения и `just provision --tags host`. Docker при смене конфигурации перезапускается вместе со всеми контейнерами.
+**Версии Docker и gVisor** заданы в `roles/*/defaults/main.yml`. `unattended-upgrades` их не обновляет: их репозиториев нет среди источников обновлений. Новая версия ставится сменой значения и `just provision --tags host`. Репозиторий gVisor хранит только последний релиз (его же ставит CI, тесты `tests/security` идут на нём): на новый хост прежняя версия не встанет, поэтому перед его подготовкой `gvisor_version` поднимается до текущей, а остальные хосты — следом, чтобы версии совпадали. Docker при смене конфигурации перезапускается вместе со всеми контейнерами.
 
 ## На сервере
 
@@ -127,6 +130,40 @@ Workflow `.github/workflows/staging.yml` запускается после зе�
 2. Секрет environment `STAGING_SSH_KEY` — приватный ключ, чей публичный указан в `base_deploy_keys` (`ssh-keygen -t ed25519 -C apparatica-ci-staging`). Новый ключ попадает на хост через `just provision staging --tags host`.
 3. После первой публикации: пакеты `api`, `web`, `worker` организации — Package settings → Change visibility → Public, как у `toolchain` и `waveview`. Пакеты, созданные из Actions, приватны, и хост не скачает их без входа в GHCR. Затем перезапустите workflow.
 
+## Деплой production
+
+Workflow `.github/workflows/production.yml` выкатывает релиз — тег `v*` (например, `v0.1.0`) на коммите `master`:
+
+```sh
+git tag -a v0.1.0 -m "Публичная бета" <коммит> && git push origin v0.1.0
+```
+
+| Job | Что делает |
+|---|---|
+| Release | проверяет, что коммит тега есть в `master` и что образы `ghcr.io/apparatica/{api,web,worker}:sha-<коммит>` опубликованы. Их публикует workflow Staging после зелёного CI коммита, поэтому production получает те же образы, что уже работают на staging; тег ставят, когда staging коммита проверен |
+| Deploy | environment `production` ждёт подтверждения ревьюера, затем `just deploy production -e ansible_user=deploy -e apparatica_image_tag=sha-<коммит>` с ключом `PRODUCTION_SSH_KEY`; хост проверяется по `deploy/ansible/inventories/production/known_hosts`. После деплоя — те же проверки, что у staging (`storage-check`, `judge-check`) |
+
+Повторить деплой релиза — Actions → Production → Run workflow, в «Use workflow from» выбрать тег. Вернуть прежний релиз — `just rollback <релиз> production` ([RUNBOOK](../deploy/RUNBOOK.md#откат)) или тот же запуск workflow с тегом прежнего релиза. e2e против production не запускаются: они создают отправки на рабочем сайте.
+
+**Настройка GitHub** (один раз, делает мейнтейнер):
+
+1. Settings → Environments → New environment `production`: Required reviewers — мейнтейнер (это и есть ручное подтверждение); Deployment branches and tags — Selected branches and tags, правило тега `v*`.
+2. Ключ CI: `ssh-keygen -t ed25519 -C apparatica-ci-production -f apparatica-ci-production`; публичный — в `base_deploy_keys` инвентаря production и `just provision production --tags host`, приватный — секрет environment `PRODUCTION_SSH_KEY`. Ключ staging не подходит: у каждого окружения свой, чтобы отзывать их по отдельности.
+
+## Запуск production
+
+Один раз, до первого деплоя на чистый хост; повторный запуск того же списка ничего не ломает.
+
+1. **Хост.** `ssh root@<адрес>` (запись в `known_hosts`), `just provision production --tags host`: пакеты, файрвол, SSH только по ключам, Docker, gVisor.
+2. **Бэкапы.** В Cloudflare R2 — бакет `apparatica-production-backups` с юрисдикцией EU и API-токен с правом Object Read & Write только на него ([backups.md](backups.md#на-сервере)). В `/etc/apparatica/secrets.env` (`install -d -m 700 /etc/apparatica`, файл `0600`) — `BACKUP_S3_KEY_ID` и `BACKUP_S3_KEY_SECRET`.
+3. **Ключи провайдеров** — туда же ([секреты](#секреты)): `TELEGRAM_BOT_TOKEN` (бот staging подходит), `APX_SMTP_URL` (ключ SMTP Brevo), `APX_GITHUB_CLIENT_ID` и `APX_GITHUB_CLIENT_SECRET` — отдельного OAuth-приложения GitHub с callback `https://apparatica.app/api/v1/auth/github/callback` (у приложения один callback, приложение staging не подойдёт).
+4. **DNS.** Записи A и AAAA `apparatica.app`, `s3.apparatica.app`, `waveview.apparatica.app` — на хост production, без прокси Cloudflare; дождаться их у публичных резолверов.
+5. **Деплой.** `just deploy production` с машины оператора или тег релиза ([выше](#деплой-production)). Первый деплой делает полный бэкап и запускает проверку восстановления.
+6. **Копия `secrets.env`** вне сервера, в менеджере паролей ([секреты](#секреты)).
+7. **Проверка.** Сайт открывается по HTTPS, вход через GitHub и по письму работает, Submit `mux4` попадает в рейтинг; пробный алерт приходит в Telegram ([RUNBOOK](../deploy/RUNBOOK.md#алерты)); `systemctl status apparatica-backup-check` — проверка восстановления прошла; превью ссылки на задачу и на решение — в Telegram и VK (готовность Ф3); заголовки безопасности и CSP — `curl -sI https://apparatica.app` ([security.md](security.md#csp-сайта)).
+
+Лимиты (`config/limits.yaml`, `config/rate-limits.yaml`) одинаковы во всех окружениях и заданы решениями ОВ-11.
+
 ## Мониторинг
 
 Prometheus, Alertmanager, node-exporter и Grafana из профиля `monitoring` ([stand.md](stand.md#мониторинг)) работают на хосте приложения (`apparatica_monitoring: true`). Порты не публикуются, кроме Grafana на loopback. node-exporter видит корень хоста только для чтения и читает метрики бэкапов из `/var/lib/apparatica/metrics`. Алерты уходят в Telegram, если заданы `apparatica_alert_telegram_chat_id` и `TELEGRAM_BOT_TOKEN` ([alerts.md](alerts.md)).
@@ -134,7 +171,7 @@ Prometheus, Alertmanager, node-exporter и Grafana из профиля `monitori
 Grafana не опубликована, её открывают через SSH-туннель:
 
 ```sh
-ssh -L 3000:127.0.0.1:3000 root@apparatica.app   # затем http://localhost:3000
+ssh -L 3000:127.0.0.1:3000 root@<адрес хоста>   # затем http://localhost:3000
 ```
 
 Вход — `admin` и `GRAFANA_ADMIN_PASSWORD` из `/etc/apparatica/secrets.env`.

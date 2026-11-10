@@ -1,5 +1,5 @@
-# The public names of staging; their DNS A records point to the app host. The root domain is kept
-# for production (T3.14).
+# The public names of staging; their DNS A and AAAA records point to the app host. The root domain
+# is production's.
 apparatica_site_host: staging.apparatica.app
 apparatica_s3_host: s3.staging.apparatica.app
 apparatica_waveview_host: waveview.staging.apparatica.app

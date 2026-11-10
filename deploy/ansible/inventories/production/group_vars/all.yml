@@ -1,0 +1,29 @@
+# The public names of production; their DNS A and AAAA records point to the app host, without the
+# proxy of Cloudflare (DNS only): Caddy gets the certificates itself.
+apparatica_site_host: apparatica.app
+apparatica_s3_host: s3.apparatica.app
+apparatica_waveview_host: waveview.apparatica.app
+
+# Size of the Garage node, GB (the disk is 128 GB).
+apparatica_garage_capacity_gb: 50
+# Backups of Postgres (docs/backups.md): Cloudflare R2, a bucket of its own under the EU jurisdiction.
+# Its keys, BACKUP_S3_KEY_ID and BACKUP_S3_KEY_SECRET, are in /etc/apparatica/secrets.env.
+apparatica_backups: true
+apparatica_backup_s3_url: https://06127661db7bdce1f8d118d524def246.eu.r2.cloudflarestorage.com
+apparatica_backup_s3_region: auto
+apparatica_backup_s3_bucket: apparatica-production-backups
+
+# Login letters go through Brevo (docs/deployment.md#почта) from the root domain, which Brevo
+# authenticates (SPF, DKIM, DMARC); the SMTP URL, APX_SMTP_URL, is in /etc/apparatica/secrets.env.
+apparatica_mail_from: "Apparatica <noreply@apparatica.app>"
+
+# Prometheus, Alertmanager and Grafana (Grafana on 127.0.0.1:3000 of the server, through an SSH
+# tunnel).
+apparatica_monitoring: true
+# Alerts (docs/alerts.md): the chat of staging with the bot @apparatica_status_bot; the site is in
+# every message. The token, TELEGRAM_BOT_TOKEN, is in /etc/apparatica/secrets.env.
+apparatica_alert_telegram_chat_id: 1278330698
+
+# The key of CI (GitHub environment `production`, secret PRODUCTION_SSH_KEY), for the user deploy.
+base_deploy_keys:
+  - ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMoA02BD1oH0onr9ZrilOeyRxu210pw4V3NPuo7oGq75 apparatica-ci-production

@@ -1,6 +1,6 @@
 # RUNBOOK
 
-Операции на работающем сервере. Как устроено развёртывание — [docs/deployment.md](../docs/deployment.md). Команды `just` запускаются из корня репозитория на машине оператора, остальные — на сервере под `root`. Ниже `dc` — compose текущего релиза, с его образами:
+Операции на работающем сервере. Как устроено развёртывание — [docs/deployment.md](../docs/deployment.md). Окружения — `staging` и `production`, их хосты и адреса — в [таблице](../docs/deployment.md#окружения-и-хосты); ниже `<окружение>` — одно из них. Команды `just` запускаются из корня репозитория на машине оператора, остальные — на сервере под `root` (`ssh root@<адрес хоста>`: по адресу, а не по имени сайта). Ниже `dc` — compose текущего релиза, с его образами:
 
 ```sh
 cd /opt/apparatica/current
@@ -13,27 +13,27 @@ alias dc='docker compose -f deploy/compose.yaml -f deploy/compose.server.yaml --
 dc ps                        # сервисы и их здоровье
 dc logs -f --tail 200 api    # логи сервиса (JSON, с request_id и submission_id)
 readlink /opt/apparatica/current && ls -t /opt/apparatica/releases
-curl -fsS https://staging.apparatica.app/api/v1/health
+curl -fsS https://$(sed -n 's/^SITE_HOST=//p' /etc/apparatica/settings.env)/api/v1/health
 ```
 
 ## Деплой
 
-Каждый коммит `master` выкатывает CI (workflow Staging, [deployment.md](../docs/deployment.md#деплой-из-ci)); повторить деплой коммита — Actions → Staging → Run workflow из `master`. Вручную, с образами, собранными на хосте:
+Staging: каждый коммит `master` выкатывает CI (workflow Staging, [deployment.md](../docs/deployment.md#деплой-из-ci)); повторить деплой коммита — Actions → Staging → Run workflow из `master`. Production: тег релиза `v*` и подтверждение в workflow Production ([deployment.md](../docs/deployment.md#деплой-production)). Вручную, с образами, собранными на хосте:
 
 ```sh
-just deploy staging
+just deploy <окружение>
 ```
 
-Ручной деплой выкатывает `HEAD` машины оператора, а следующий push в `master` — снова коммит CI. Перед выкаткой на production убедитесь, что дерево чистое: имя релиза без `-dirty-` (оно печатается в задаче «Name the release»).
+Ручной деплой выкатывает `HEAD` машины оператора, а следующий push в `master` (или тег) — снова коммит CI. На production выкатывайте вручную только чистое дерево: имя релиза без `-dirty-` (оно печатается в задаче «Name the release»).
 
 ## Откат
 
 ```sh
-ssh root@apparatica.app ls -t /opt/apparatica/releases   # сохранённые релизы, новые первыми
-just rollback <релиз> staging
+ssh root@<адрес хоста> ls -t /opt/apparatica/releases   # сохранённые релизы, новые первыми
+just rollback <релиз> <окружение>
 ```
 
-Откат снова запускает сервисы сохранённого релиза — с его образами из `release.env` — с текущими настройками и секретами и прогоняет проверки. Следующий push в `master` выкатит новый коммит поверх отката. Миграции только совместимые вперёд (specs/09 §1), поэтому схема БД не откатывается: прежний код работает с новой схемой. Релизы старше пяти последних удалены, их возвращают деплоем нужного коммита: `git switch --detach <коммит> && just deploy staging`.
+Откат снова запускает сервисы сохранённого релиза — с его образами из `release.env` — с текущими настройками и секретами и прогоняет проверки. Следующий деплой CI (push в `master` на staging, тег на production) выкатит новый коммит поверх отката. Миграции только совместимые вперёд (specs/09 §1), поэтому схема БД не откатывается: прежний код работает с новой схемой. Релизы старше пяти последних удалены, их возвращают деплоем нужного коммита: `git switch --detach <коммит> && just deploy <окружение>`.
 
 ## Перезапуск сервиса
 
@@ -48,14 +48,14 @@ dc up -d --wait worker    # воркер доделывает текущие п�
 
 Caddy получает сертификаты Let's Encrypt при первом запросе имени и продлевает их сам. Если сайт не открывается по HTTPS:
 
-1. DNS: `dig +short staging.apparatica.app` и `dig +short AAAA staging.apparatica.app` и остальные имена должны указывать на хост (IPv6 — адрес интерфейса, `ip -6 addr`).
+1. DNS: `dig +short <имя>` и `dig +short AAAA <имя>` для имени сайта и остальных имён должны указывать на хост (IPv6 — адрес интерфейса, `ip -6 addr`).
 2. Порты `80` и `443` открыты (`nft list table inet apparatica`): проверка Let's Encrypt идёт по ним.
 3. `dc logs caddy | grep -i -E "acme|certificate|error"`. Если Let's Encrypt ограничил частоту выдачи, повтор возможен только через час и позже: не перезапускайте Caddy в цикле.
 
 ## Смена секрета
 
 1. Удалите строку секрета из `/etc/apparatica/secrets.env`.
-2. `just deploy staging`: генератор допишет новое значение, compose пересоздаст сервисы, которые его читают.
+2. `just deploy <окружение>`: генератор допишет новое значение, compose пересоздаст сервисы, которые его читают.
 3. Сохраните новую копию файла вне сервера.
 
 Последствия смены:
@@ -145,7 +145,7 @@ dc up -d --no-deps postgres
 dc logs -f postgres     # ждать «archive recovery complete» и «ready to accept connections»
 ```
 
-Затем `just deploy staging` (или `dc up -d --wait caddy valkey-queue valkey-cache ingest worker`) и сразу `systemctl start apparatica-backup`: база начала новую линию времени. Когда всё проверено, `docker volume rm apparatica_postgres-before-restore`. Для восстановления до момента нужен бэкап, сделанный раньше него: если `LATEST` новее, найдите более ранний в `wal-g backup-list` и укажите его имя вместо `LATEST`.
+Затем `just deploy <окружение>` (или `dc up -d --wait caddy valkey-queue valkey-cache ingest worker`) и сразу `systemctl start apparatica-backup`: база начала новую линию времени. Когда всё проверено, `docker volume rm apparatica_postgres-before-restore`. Для восстановления до момента нужен бэкап, сделанный раньше него: если `LATEST` новее, найдите более ранний в `wal-g backup-list` и укажите его имя вместо `LATEST`.
 
 **На новом хосте** (хост потерян):
 
@@ -168,4 +168,4 @@ docker builder prune --keep-storage 10GB -f   # кэш сборки образо
 
 ## Доступ к хосту
 
-SSH пускает только по ключам. Если доступ потерян (ключ, файрвол), войдите через консоль VPS в панели AEZA. Остановка файрвола — `systemctl stop nftables` (удаляет только таблицу `inet apparatica`, правила Docker остаются).
+SSH пускает только по ключам. Если доступ потерян (ключ, файрвол), войдите через консоль VPS в панели провайдера (production — netcup SCP, staging — AEZA). Остановка файрвола — `systemctl stop nftables` (удаляет только таблицу `inet apparatica`, правила Docker остаются).
