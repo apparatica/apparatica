@@ -25,18 +25,18 @@ from apparatica.leaderboards.models import LeaderboardEntry
 from apparatica.main import create_app
 from apparatica.submissions.events import FinalizedEvent
 from apparatica.submissions.profiles import add_profile
-from conftest import CONFIG_DIR, RATING, ApiClient, Postgres
+from conftest import CONFIG_DIR, PROBLEMS, RATING, ApiClient, Postgres
 from judge.core.jobs import DoneRecord
+from judge.core.package import load_manifest, split_instance_key
 from judge.core.stage import StageResult
 
 NEXT_PROFILE = dataclasses.replace(PROFILE, id="sv-2026.11.1")
-# The submit pipeline of mux4 and the types of its stages.
+# The submit pipeline of mux4: the instances of its stages at every parameter set (ADR-0014) and
+# the types of the stages.
+MUX4 = load_manifest(PROBLEMS / "mux4")
 SUBMIT = {
-    "precheck": "precheck",
-    "lint": "lint",
-    "sim_full": "sim",
-    "synth": "synth",
-    "netlist_sim": "sim",
+    key: MUX4.stages[split_instance_key(key)[0]].type
+    for key in MUX4.instance_keys(MUX4.pipelines.practice.submit)
 }
 
 

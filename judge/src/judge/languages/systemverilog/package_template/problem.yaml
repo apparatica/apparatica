@@ -17,6 +17,10 @@ top: __top__
 interface:
   parameters:
     - {name: WIDTH, type: int, default: 8, description: "Разрядность данных"}
+  # Дополнительные наборы значений параметров: решение проверяется и при них (specs/06 §2).
+  param_sets:
+    - {id: narrow, values: {WIDTH: 1}}
+    - {id: wide, values: {WIDTH: 32}}
   ports:
     - {name: clk, dir: input, width: "1", role: clock, description: "Тактовый сигнал"}
     - {name: rst_n, dir: input, width: "1", role: reset, reset: {active: low, sync: true}, description: "Синхронный сброс, активный 0"}
@@ -38,9 +42,9 @@ stages:
   precheck: {type: precheck}
   lint: {type: lint}
   sim_run: {type: sim, testbench: main, groups: [public], max_cycles: 10000}
-  sim_full: {type: sim, testbench: main, groups: [public, hidden], max_cycles: 10000}
-  synth: {type: synth}
-  netlist_sim: {type: sim, testbench: main, groups: [public, hidden], max_cycles: 10000, design: synth.netlist_generic}
+  sim_full: {type: sim, testbench: main, groups: [public, hidden], max_cycles: 10000, param_sets: all}
+  synth: {type: synth, param_sets: all}
+  netlist_sim: {type: sim, testbench: main, groups: [public, hidden], max_cycles: 10000, design: synth.netlist_generic, param_sets: all}
 
 pipelines:
   practice:
@@ -61,3 +65,4 @@ mutants:
   - {file: mutants/m01_reset_value.sv, expect: wrong_answer, note: "сброс записывает единицы"}
   - {file: mutants/m02_ignores_en.sv, expect: wrong_answer, caught_by: [sim_full], note: "запись без en: ловят только скрытые тесты"}
   - {file: mutants/m03_initial.sv, expect: forbidden_construct, caught_by: [precheck], note: "initial вместо сброса"}
+  - {file: mutants/m04_fixed_width.sv, expect: wrong_answer, caught_by: [sim_full], note: "регистр на 8 бит: ловит набор wide"}

@@ -279,7 +279,7 @@ def test_a_solution_page(api: TestClient, database_url: str) -> None:
     assert body["best"] == {DELAY: 0.4, AREA: 400, CELLS: 40}
     assert body["reference"] == {DELAY: 0.3, AREA: 200.5, "synth.flops": 0}
     stages = {stage["key"]: stage for stage in body["stages"]}
-    assert list(stages) == ["precheck", "lint", "sim_full", "synth", "netlist_sim"]
+    assert list(stages) == list(ranking.SUBMIT)  # every instance of the submit pipeline
     assert stages["precheck"]["metrics"] == {}  # the AST hash is not public
     assert stages["synth"]["metrics"] == {"critical_path_ns": 0.5, "area_um2": 500, "cells": 40}
     assert stages["sim_full"]["tests"] == {"passed": 7, "total": 7}

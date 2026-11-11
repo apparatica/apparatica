@@ -239,7 +239,7 @@ always @(posedge clk) apx_tick();                       // счётчик так
 | `judge run <path> --solution file.sv [--kind run\|submit] [--seed N] [--out DIR] [--full-trace]` | локальный прогон, вывод как в консоли сайта; в `./out` — `events.jsonl`, `result.json` (сид, вердикт, этапы) и артефакты этапов (`<stage>/trace.fst` — окно трассы, с `--full-trace` — весь упавший тест, FR-WAV-05); код выхода 0 при `accepted` |
 | `judge metrics <path>` | синтез эталонов, печать метрик (для README задачи и регрессии) |
 | `judge pack <path>` | детерминированный tar.zst пакета и `content_hash` — sha256 списка `<sha256 файла>  <путь>` по всем файлам, отсортированного по пути (как вывод `sha256sum`); файлы и каталоги на `.` и `__pycache__` не входят, символические ссылки запрещены |
-| `judge new <slug>` | создать пакет из шаблона языкового модуля (для SV — регистр с синхронным сбросом, эталон и три мутанта; проходит `judge validate`); `number` — следующий после пакетов того же каталога |
+| `judge new <slug>` | создать пакет из шаблона языкового модуля (для SV — регистр с синхронным сбросом, два дополнительных набора параметров, эталон и четыре мутанта, в том числе с жёстко заданной разрядностью; проходит `judge validate`); `number` — следующий после пакетов того же каталога |
 
 Локально и в CI `judge` выполняет этапы в контейнере образа тулчейна (`LocalDockerExecutor`); с флагом `--no-docker` — напрямую на хосте (если инструменты установлены). Образ — `--image` или `JUDGE_TOOLCHAIN_IMAGE` (по умолчанию `apparatica-toolchain:dev`), рантайм — `--runtime` или `JUDGE_SANDBOX_RUNTIME`, лимиты классов ресурсов — `config/resource-classes.yaml` репозитория пакета (`--resource-classes`, `JUDGE_RESOURCE_CLASSES`). Воркер использует тот же код с `SandboxExecutor`.
 

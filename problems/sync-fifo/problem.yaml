@@ -3,7 +3,7 @@ schema: 1
 id: sync-fifo
 number: 5
 version: 4
-changelog: Тестбенч получает параметры задачи от судьи; условие и тесты не изменились.
+changelog: Решение проверяется при нескольких наборах значений параметров, тестбенч получает их от судьи; условие называет допустимые значения, тесты не изменились.
 leaderboard_epoch: 1
 language: systemverilog
 kind: design
@@ -19,6 +19,9 @@ interface:
   parameters:
     - {name: WIDTH, type: int, default: 8, description: "Разрядность слова"}
     - {name: DEPTH, type: int, default: 16, description: "Ёмкость в словах, степень двойки"}
+  param_sets:
+    - {id: narrow, values: {WIDTH: 1, DEPTH: 2}}
+    - {id: wide, values: {WIDTH: 32}}
   ports:
     - {name: clk, dir: input, width: "1", role: clock, description: "Общий тактовый сигнал"}
     - {name: rst_n, dir: input, width: "1", role: reset, reset: {active: low, sync: true}, description: "Синхронный сброс, активный 0"}
@@ -43,9 +46,9 @@ stages:
   precheck: {type: precheck}
   lint: {type: lint}
   sim_run: {type: sim, testbench: main, groups: [public], max_cycles: 20000}
-  sim_full: {type: sim, testbench: main, groups: [public, hidden], max_cycles: 20000}
-  synth: {type: synth}
-  netlist_sim: {type: sim, testbench: main, groups: [public, hidden], max_cycles: 20000, design: synth.netlist_generic}
+  sim_full: {type: sim, testbench: main, groups: [public, hidden], max_cycles: 20000, param_sets: all}
+  synth: {type: synth, param_sets: all}
+  netlist_sim: {type: sim, testbench: main, groups: [public, hidden], max_cycles: 20000, design: synth.netlist_generic, param_sets: all}
 
 pipelines:
   practice:
@@ -68,3 +71,4 @@ mutants:
   - {file: mutants/m03_push_when_full.sv, expect: wrong_answer, caught_by: [sim_full], note: "запись в полную очередь затирает слово"}
   - {file: mutants/m04_registered_rdata.sv, expect: wrong_answer, caught_by: [sim_full], note: "rdata запаздывает на такт"}
   - {file: mutants/m05_initial_memory.sv, expect: forbidden_construct, caught_by: [precheck], note: "память обнуляется в initial"}
+  - {file: mutants/m06_fixed_depth.sv, expect: wrong_answer, caught_by: [sim_full], note: "указатели и счётчик рассчитаны на DEPTH = 16: ловит набор narrow"}

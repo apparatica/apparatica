@@ -83,7 +83,8 @@ def end_run(database_url: str, submission_id: uuid.UUID, results: list[StageResu
 
 
 def synthesized(synth: dict[str, Any]) -> list[StageResult]:
-    """Every stage of the submit pipeline of mux4 passed; the synthesis reported `synth`."""
+    """Every stage instance of the submit pipeline of mux4 passed; the synthesis at the primary
+    set reported `synth`."""
     metrics: dict[str, dict[str, Any]] = {
         "precheck": {"code_hash": "0" * 64, "ast_hash": "n1:reference"},
         "synth": synth,

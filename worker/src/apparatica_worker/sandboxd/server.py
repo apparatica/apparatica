@@ -37,7 +37,8 @@ STDERR_TAIL = 4096
 CREATE_TIMEOUT_S = 300  # includes pulling the image
 DOCKER_TIMEOUT_S = 60
 REAP_INTERVAL_S = 30
-CWD = re.compile(r"^/work(/[A-Za-z0-9._-]+)*$")
+# A stage works in /work/<instance key>: `sim_full@narrow` at an extra parameter set (ADR-0014).
+CWD = re.compile(r"^/work(/[A-Za-z0-9._@-]+)*$")
 
 
 class SandboxdSettings(BaseSettings):

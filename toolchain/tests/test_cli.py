@@ -32,6 +32,7 @@ def test_new_package_validates(package: Path, capsys: pytest.CaptureFixture[str]
     assert out.count("ok   эталон") == 2
     assert "ok   мутант m02_ignores_en — wrong_answer, этап sim_full" in out
     assert "ok   мутант m03_initial — forbidden_construct, этап precheck" in out
+    assert "ok   мутант m04_fixed_width — wrong_answer, этап sim_full@wide" in out
 
 
 def test_broken_package_fails_validation(

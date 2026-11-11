@@ -1,7 +1,7 @@
 {
  "name": "wrong-answer-param-set",
  "submission": {
-  "id": "01a1cc14-5900-7743-88e6-40a2a8bd095d",
+  "id": "01a1cc84-83d8-70e3-ab4a-dd8c8d9c470f",
   "problem": "sync-fifo",
   "problem_title": "Синхронный FIFO",
   "version": 4,
@@ -10,9 +10,9 @@
   "verdict_detail": {
    "first_failure": {
     "stage": "sim_full@narrow",
-    "test": "t2",
-    "cycle": 30,
-    "test_number": 2,
+    "test": "t1",
+    "cycle": 4,
+    "test_number": 1,
     "hidden": null,
     "diagnostic": null
    },
@@ -20,9 +20,9 @@
    "warnings": [],
    "error_codes": []
   },
-  "created_at": "2026-11-11T19:27:28+00:00",
-  "finished_at": "2026-11-11T19:27:53.504000+00:00",
-  "code": "module sync_fifo #(\n  parameter int WIDTH = 8,\n  parameter int DEPTH = 16\n) (\n  input  logic             clk,\n  input  logic             rst_n,\n  input  logic             push,\n  input  logic [WIDTH-1:0] wdata,\n  input  logic             pop,\n  output logic [WIDTH-1:0] rdata,\n  output logic             full,\n  output logic             empty\n);\n  localparam int AW = $clog2(DEPTH);\n\n  logic [WIDTH-1:0] mem [DEPTH];\n  logic [AW-1:0] wptr, rptr;\n  logic [AW:0] count;\n\n  wire do_push = push && !full;\n  wire do_pop = pop && !empty;\n\n  assign full = count == (AW + 1)'(DEPTH);\n  assign empty = count == '0;\n  assign rdata = mem[rptr];\n\n  always_ff @(posedge clk) begin\n    if (do_push) mem[wptr] <= wdata;\n    if (!rst_n) begin\n      wptr <= '0;\n      rptr <= '0;\n      count <= '0;\n    end else begin\n      if (do_push) wptr <= wptr + 1'b1;\n      if (do_pop) rptr <= rptr + 1'b1;\n      count <= count + (AW + 1)'(do_push) - (AW + 1)'(do_pop);\n    end\n  end\nendmodule\n",
+  "created_at": "2026-11-11T21:29:59+00:00",
+  "finished_at": "2026-11-11T21:30:21.040000+00:00",
+  "code": "module sync_fifo #(\n  parameter int WIDTH = 8,\n  parameter int DEPTH = 16\n) (\n  input  logic             clk,\n  input  logic             rst_n,\n  input  logic             push,\n  input  logic [WIDTH-1:0] wdata,\n  input  logic             pop,\n  output logic [WIDTH-1:0] rdata,\n  output logic             full,\n  output logic             empty\n);\n  logic [WIDTH-1:0] mem [16];\n  logic [3:0] wptr, rptr;\n  logic [4:0] count;\n\n  wire do_push = push && !full;\n  wire do_pop = pop && !empty;\n\n  assign full = count == 5'd16;\n  assign empty = count == '0;\n  assign rdata = mem[rptr];\n\n  always_ff @(posedge clk) begin\n    if (do_push) mem[wptr] <= wdata;\n    if (!rst_n) begin\n      wptr <= '0;\n      rptr <= '0;\n      count <= '0;\n    end else begin\n      if (do_push) wptr <= wptr + 1'b1;\n      if (do_pop) rptr <= rptr + 1'b1;\n      count <= count + 5'(do_push) - 5'(do_pop);\n    end\n  end\nendmodule\n",
   "public": false,
   "leaderboard": null,
   "seed": "20261026",
@@ -30,7 +30,7 @@
   "waveview_url": null,
   "queue_position": null,
   "eta_s": null,
-  "started_at": "2026-11-11T19:27:28.601392+00:00",
+  "started_at": "2026-11-11T21:29:59.419470+00:00",
   "stages": [
    {
     "key": "precheck",
@@ -40,12 +40,12 @@
     "status": "passed",
     "failure_kind": null,
     "error_code": null,
-    "started_at": "2026-11-11T19:27:28.601392Z",
-    "duration_ms": 1110,
+    "started_at": "2026-11-11T21:29:59.419470Z",
+    "duration_ms": 1007,
     "metrics_schema": "precheck/v1",
     "metrics": {
-     "code_hash": "110bfbbea9e55a80a70048a74b828ce86acd8851186dd1dfd8c5880c690d1541",
-     "ast_hash": "n1:9f2eb13379097eea0fe4426441dee62b81f1fe2c7dfd24a7b0f976f49f386144",
+     "code_hash": "dd2cfaa502e7fc0a80d05becb4513764ec102a3b4b1e060a42b1ae1aac2f698e",
+     "ast_hash": "n1:a9e3dbb08bdf75d8fd14165cb411102782c715e72697f9191784b61b65adacf8",
      "normalization_version": 1,
      "module": "sync_fifo",
      "ports_ok": true,
@@ -58,7 +58,7 @@
      "tests": [],
      "hidden_tests": null
     },
-    "finished_at": "2026-11-11T19:27:29.711392+00:00"
+    "finished_at": "2026-11-11T21:30:00.426470+00:00"
    },
    {
     "key": "lint",
@@ -68,8 +68,8 @@
     "status": "passed",
     "failure_kind": null,
     "error_code": null,
-    "started_at": "2026-11-11T19:27:29.751281Z",
-    "duration_ms": 979,
+    "started_at": "2026-11-11T21:30:00.426359Z",
+    "duration_ms": 804,
     "metrics_schema": "lint/v1",
     "metrics": {
      "warnings": 0,
@@ -83,7 +83,7 @@
      "tests": [],
      "hidden_tests": null
     },
-    "finished_at": "2026-11-11T19:27:30.730281+00:00"
+    "finished_at": "2026-11-11T21:30:01.230359+00:00"
    },
    {
     "key": "sim_full",
@@ -99,8 +99,8 @@
     "status": "passed",
     "failure_kind": null,
     "error_code": null,
-    "started_at": "2026-11-11T19:27:30.769959Z",
-    "duration_ms": 9865,
+    "started_at": "2026-11-11T21:30:01.230330Z",
+    "duration_ms": 9002,
     "metrics_schema": "sim/v1",
     "metrics": {
      "tests_total": 4,
@@ -138,7 +138,7 @@
       "failed_index": null
      }
     },
-    "finished_at": "2026-11-11T19:27:40.634959+00:00"
+    "finished_at": "2026-11-11T21:30:10.232330+00:00"
    },
    {
     "key": "sim_full@narrow",
@@ -154,25 +154,25 @@
     "status": "failed",
     "failure_kind": "wrong",
     "error_code": null,
-    "started_at": "2026-11-11T19:27:41.292515Z",
-    "duration_ms": 11715,
+    "started_at": "2026-11-11T21:30:10.232511Z",
+    "duration_ms": 9560,
     "metrics_schema": "sim/v1",
     "metrics": {
      "tests_total": 4,
-     "tests_passed": 1,
-     "cycles": 51,
+     "tests_passed": 0,
+     "cycles": 14,
      "seed": 20261026,
      "first_failure": {
-      "test": "t2",
-      "cycle": 30,
+      "test": "t1",
+      "cycle": 4,
       "signal": "full"
      },
      "trace": "recorded",
      "trace_window": [
       0,
-      46
+      20
      ],
-     "trace_cursor_ps": 300,
+     "trace_cursor_ps": 40,
      "trace_signals": [
       {
        "path": "tb_top.clk",
@@ -232,7 +232,7 @@
      ]
     },
     "summary": {
-     "caption": "упал тест заполнение до full и опустошение, такт 30",
+     "caption": "упал тест запись и чтение по порядку, такт 4",
      "skip_reason": null,
      "diagnostics": [],
      "tests": [
@@ -240,27 +240,27 @@
        "id": "t1",
        "name": "запись и чтение по порядку",
        "group": "public",
-       "status": "passed",
+       "status": "failed",
        "duration_ms": null,
-       "cycle": null,
-       "mismatches": []
+       "cycle": 4,
+       "mismatches": [
+        {
+         "signal": "full",
+         "cycle": 4,
+         "expected": "1'h1",
+         "actual": "1'h0",
+         "hint": "full = 1, когда в очереди DEPTH слов"
+        }
+       ]
       },
       {
        "id": "t2",
        "name": "заполнение до full и опустошение",
        "group": "public",
-       "status": "failed",
+       "status": "not_run",
        "duration_ms": null,
-       "cycle": 30,
-       "mismatches": [
-        {
-         "signal": "full",
-         "cycle": 30,
-         "expected": "1'h0",
-         "actual": "1'h1",
-         "hint": "full = 1, когда в очереди DEPTH слов"
-        }
-       ]
+       "cycle": null,
+       "mismatches": []
       }
      ],
      "hidden_tests": {
@@ -269,12 +269,39 @@
       "failed_index": null
      }
     },
-    "finished_at": "2026-11-11T19:27:53.007515+00:00"
+    "finished_at": "2026-11-11T21:30:19.792511+00:00"
+   },
+   {
+    "key": "sim_full@wide",
+    "type": "sim",
+    "ordinal": 4,
+    "param_set": {
+     "id": "wide",
+     "values": {
+      "WIDTH": 32,
+      "DEPTH": 16
+     }
+    },
+    "status": "skipped",
+    "failure_kind": null,
+    "error_code": null,
+    "started_at": null,
+    "duration_ms": null,
+    "metrics_schema": null,
+    "metrics": {},
+    "summary": {
+     "caption": null,
+     "skip_reason": "previous_failed",
+     "diagnostics": [],
+     "tests": [],
+     "hidden_tests": null
+    },
+    "finished_at": null
    },
    {
     "key": "synth",
     "type": "synth",
-    "ordinal": 4,
+    "ordinal": 5,
     "param_set": {
      "id": "default",
      "values": {
@@ -301,7 +328,7 @@
    {
     "key": "synth@narrow",
     "type": "synth",
-    "ordinal": 5,
+    "ordinal": 6,
     "param_set": {
      "id": "narrow",
      "values": {
@@ -326,9 +353,36 @@
     "finished_at": null
    },
    {
+    "key": "synth@wide",
+    "type": "synth",
+    "ordinal": 7,
+    "param_set": {
+     "id": "wide",
+     "values": {
+      "WIDTH": 32,
+      "DEPTH": 16
+     }
+    },
+    "status": "skipped",
+    "failure_kind": null,
+    "error_code": null,
+    "started_at": null,
+    "duration_ms": null,
+    "metrics_schema": null,
+    "metrics": {},
+    "summary": {
+     "caption": null,
+     "skip_reason": "previous_failed",
+     "diagnostics": [],
+     "tests": [],
+     "hidden_tests": null
+    },
+    "finished_at": null
+   },
+   {
     "key": "netlist_sim",
     "type": "sim",
-    "ordinal": 6,
+    "ordinal": 8,
     "param_set": {
      "id": "default",
      "values": {
@@ -355,12 +409,39 @@
    {
     "key": "netlist_sim@narrow",
     "type": "sim",
-    "ordinal": 7,
+    "ordinal": 9,
     "param_set": {
      "id": "narrow",
      "values": {
       "WIDTH": 1,
       "DEPTH": 2
+     }
+    },
+    "status": "skipped",
+    "failure_kind": null,
+    "error_code": null,
+    "started_at": null,
+    "duration_ms": null,
+    "metrics_schema": null,
+    "metrics": {},
+    "summary": {
+     "caption": null,
+     "skip_reason": "previous_failed",
+     "diagnostics": [],
+     "tests": [],
+     "hidden_tests": null
+    },
+    "finished_at": null
+   },
+   {
+    "key": "netlist_sim@wide",
+    "type": "sim",
+    "ordinal": 10,
+    "param_set": {
+     "id": "wide",
+     "values": {
+      "WIDTH": 32,
+      "DEPTH": 16
      }
     },
     "status": "skipped",
@@ -417,15 +498,15 @@
     "kind": "fst",
     "stage": "sim_full@narrow",
     "state": "ready",
-    "size_bytes": 2491,
+    "size_bytes": 1652,
     "error_code": null,
     "waveform": {
-     "test": "t2",
+     "test": "t1",
      "scope": "failure_window",
      "from_cycle": 0,
-     "to_cycle": 46,
-     "cursor_cycle": 30,
-     "cursor_time_ps": 300,
+     "to_cycle": 20,
+     "cursor_cycle": 4,
+     "cursor_time_ps": 40,
      "signals": [
       {
        "path": "tb_top.clk",
@@ -489,7 +570,7 @@
     "kind": "events",
     "stage": null,
     "state": "ready",
-    "size_bytes": 13645,
+    "size_bytes": 14908,
     "error_code": null,
     "waveform": null
    }
@@ -497,7 +578,7 @@
  },
  "events": [
   {
-   "id": "1794425248000-0",
+   "id": "1794432599000-0",
    "event": {
     "type": "queue",
     "position": 2,
@@ -505,7 +586,7 @@
    }
   },
   {
-   "id": "1794425248600-0",
+   "id": "1794432599600-0",
    "event": {
     "type": "queue",
     "position": 1,
@@ -513,7 +594,7 @@
    }
   },
   {
-   "id": "1794425249596-0",
+   "id": "1794432600547-0",
    "event": {
     "type": "stage_start",
     "stage": "precheck",
@@ -524,7 +605,7 @@
    }
   },
   {
-   "id": "1794425250596-0",
+   "id": "1794432601547-0",
    "event": {
     "type": "heartbeat",
     "stage": "precheck",
@@ -534,7 +615,7 @@
    }
   },
   {
-   "id": "1794425250706-0",
+   "id": "1794432601554-0",
    "event": {
     "type": "stage_end",
     "result": {
@@ -546,12 +627,12 @@
      "failure_kind": null,
      "limit": null,
      "error_code": null,
-     "started_at": "2026-11-11T19:27:28.601392Z",
-     "duration_ms": 1110,
+     "started_at": "2026-11-11T21:29:59.419470Z",
+     "duration_ms": 1007,
      "metrics_schema": "precheck/v1",
      "metrics": {
-      "code_hash": "110bfbbea9e55a80a70048a74b828ce86acd8851186dd1dfd8c5880c690d1541",
-      "ast_hash": "n1:9f2eb13379097eea0fe4426441dee62b81f1fe2c7dfd24a7b0f976f49f386144",
+      "code_hash": "dd2cfaa502e7fc0a80d05becb4513764ec102a3b4b1e060a42b1ae1aac2f698e",
+      "ast_hash": "n1:a9e3dbb08bdf75d8fd14165cb411102782c715e72697f9191784b61b65adacf8",
       "normalization_version": 1,
       "module": "sync_fifo",
       "ports_ok": true,
@@ -570,7 +651,7 @@
    }
   },
   {
-   "id": "1794425250746-0",
+   "id": "1794432601554-1",
    "event": {
     "type": "stage_start",
     "stage": "lint",
@@ -581,17 +662,17 @@
    }
   },
   {
-   "id": "1794425251300-0",
+   "id": "1794432602060-0",
    "event": {
     "type": "log",
     "stage": "lint",
     "ch": "out",
-    "text": "- V e r i l a t i o n   R e p o r t: Verilator 5.052 2026-09-05 rev vUNKNOWN-built20261106\n- Verilator: Built from 0.031 MB sources in 2 modules, into 0.023 MB in 3 C++ files needing 0.000 MB\n- Verilator: Walltime 0.006 s (elab=0.000, cvt=0.002, bld=0.000); cpu 0.006 s on 1 threads; allocated 17.133 MB\n",
+    "text": "- V e r i l a t i o n   R e p o r t: Verilator 5.052 2026-09-05 rev vUNKNOWN-built20261106\n- Verilator: Built from 0.031 MB sources in 2 modules, into 0.023 MB in 3 C++ files needing 0.000 MB\n- Verilator: Walltime 0.006 s (elab=0.000, cvt=0.002, bld=0.000); cpu 0.006 s on 1 threads; allocated 17.156 MB\n",
     "attempt": 1
    }
   },
   {
-   "id": "1794425251724-0",
+   "id": "1794432602357-0",
    "event": {
     "type": "stage_end",
     "result": {
@@ -603,8 +684,8 @@
      "failure_kind": null,
      "limit": null,
      "error_code": null,
-     "started_at": "2026-11-11T19:27:29.751281Z",
-     "duration_ms": 979,
+     "started_at": "2026-11-11T21:30:00.426359Z",
+     "duration_ms": 804,
      "metrics_schema": "lint/v1",
      "metrics": {
       "warnings": 0,
@@ -624,7 +705,7 @@
    }
   },
   {
-   "id": "1794425251764-0",
+   "id": "1794432602358-0",
    "event": {
     "type": "stage_start",
     "stage": "sim_full",
@@ -641,7 +722,7 @@
    }
   },
   {
-   "id": "1794425252764-0",
+   "id": "1794432603358-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full",
@@ -651,7 +732,7 @@
    }
   },
   {
-   "id": "1794425253764-0",
+   "id": "1794432604358-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full",
@@ -661,7 +742,7 @@
    }
   },
   {
-   "id": "1794425254764-0",
+   "id": "1794432605358-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full",
@@ -671,7 +752,7 @@
    }
   },
   {
-   "id": "1794425255764-0",
+   "id": "1794432606358-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full",
@@ -681,7 +762,7 @@
    }
   },
   {
-   "id": "1794425256764-0",
+   "id": "1794432607358-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full",
@@ -691,7 +772,7 @@
    }
   },
   {
-   "id": "1794425257764-0",
+   "id": "1794432608358-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full",
@@ -701,7 +782,7 @@
    }
   },
   {
-   "id": "1794425258764-0",
+   "id": "1794432609358-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full",
@@ -711,7 +792,7 @@
    }
   },
   {
-   "id": "1794425259764-0",
+   "id": "1794432610358-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full",
@@ -721,17 +802,7 @@
    }
   },
   {
-   "id": "1794425260764-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "sim_full",
-    "elapsed_ms": 9000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794425261325-0",
+   "id": "1794432611079-0",
    "event": {
     "type": "test",
     "stage": "sim_full",
@@ -748,7 +819,7 @@
    }
   },
   {
-   "id": "1794425261325-1",
+   "id": "1794432611079-1",
    "event": {
     "type": "test",
     "stage": "sim_full",
@@ -765,7 +836,7 @@
    }
   },
   {
-   "id": "1794425261325-2",
+   "id": "1794432611079-2",
    "event": {
     "type": "test",
     "stage": "sim_full",
@@ -782,7 +853,7 @@
    }
   },
   {
-   "id": "1794425261325-3",
+   "id": "1794432611079-3",
    "event": {
     "type": "test",
     "stage": "sim_full",
@@ -799,7 +870,7 @@
    }
   },
   {
-   "id": "1794425261325-4",
+   "id": "1794432611079-4",
    "event": {
     "type": "test",
     "stage": "sim_full",
@@ -816,7 +887,7 @@
    }
   },
   {
-   "id": "1794425261325-5",
+   "id": "1794432611079-5",
    "event": {
     "type": "test",
     "stage": "sim_full",
@@ -833,7 +904,7 @@
    }
   },
   {
-   "id": "1794425261326-0",
+   "id": "1794432611079-6",
    "event": {
     "type": "test",
     "stage": "sim_full",
@@ -850,7 +921,7 @@
    }
   },
   {
-   "id": "1794425261326-1",
+   "id": "1794432611079-7",
    "event": {
     "type": "test",
     "stage": "sim_full",
@@ -867,7 +938,7 @@
    }
   },
   {
-   "id": "1794425261629-0",
+   "id": "1794432611360-0",
    "event": {
     "type": "stage_end",
     "result": {
@@ -885,8 +956,8 @@
      "failure_kind": null,
      "limit": null,
      "error_code": null,
-     "started_at": "2026-11-11T19:27:30.769959Z",
-     "duration_ms": 9865,
+     "started_at": "2026-11-11T21:30:01.230330Z",
+     "duration_ms": 9002,
      "metrics_schema": "sim/v1",
      "metrics": {
       "tests_total": 4,
@@ -930,7 +1001,7 @@
    }
   },
   {
-   "id": "1794425261669-0",
+   "id": "1794432611360-1",
    "event": {
     "type": "stage_start",
     "stage": "sim_full@narrow",
@@ -947,7 +1018,7 @@
    }
   },
   {
-   "id": "1794425262669-0",
+   "id": "1794432612360-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full@narrow",
@@ -957,7 +1028,7 @@
    }
   },
   {
-   "id": "1794425263669-0",
+   "id": "1794432613360-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full@narrow",
@@ -967,7 +1038,7 @@
    }
   },
   {
-   "id": "1794425264669-0",
+   "id": "1794432614360-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full@narrow",
@@ -977,7 +1048,7 @@
    }
   },
   {
-   "id": "1794425265669-0",
+   "id": "1794432615360-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full@narrow",
@@ -987,7 +1058,7 @@
    }
   },
   {
-   "id": "1794425266669-0",
+   "id": "1794432616360-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full@narrow",
@@ -997,7 +1068,7 @@
    }
   },
   {
-   "id": "1794425267669-0",
+   "id": "1794432617360-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full@narrow",
@@ -1007,7 +1078,7 @@
    }
   },
   {
-   "id": "1794425268669-0",
+   "id": "1794432618360-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full@narrow",
@@ -1017,7 +1088,7 @@
    }
   },
   {
-   "id": "1794425269669-0",
+   "id": "1794432619360-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full@narrow",
@@ -1027,27 +1098,7 @@
    }
   },
   {
-   "id": "1794425270669-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "sim_full@narrow",
-    "elapsed_ms": 9000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794425271669-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "sim_full@narrow",
-    "elapsed_ms": 10000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794425272204-0",
+   "id": "1794432619914-0",
    "event": {
     "type": "test",
     "stage": "sim_full@narrow",
@@ -1064,47 +1115,13 @@
    }
   },
   {
-   "id": "1794425272204-1",
+   "id": "1794432619914-1",
    "event": {
     "type": "test",
     "stage": "sim_full@narrow",
     "test": {
      "id": "t1",
      "name": "запись и чтение по порядку",
-     "group": "public",
-     "status": "passed",
-     "duration_ms": null,
-     "cycle": null,
-     "mismatches": []
-    },
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794425272205-0",
-   "event": {
-    "type": "test",
-    "stage": "sim_full@narrow",
-    "test": {
-     "id": "t2",
-     "name": "заполнение до full и опустошение",
-     "group": "public",
-     "status": "running",
-     "duration_ms": null,
-     "cycle": null,
-     "mismatches": []
-    },
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794425272205-1",
-   "event": {
-    "type": "test",
-    "stage": "sim_full@narrow",
-    "test": {
-     "id": "t2",
-     "name": "заполнение до full и опустошение",
      "group": "public",
      "status": "failed",
      "duration_ms": null,
@@ -1115,17 +1132,68 @@
    }
   },
   {
-   "id": "1794425273205-0",
+   "id": "1794432619914-2",
+   "event": {
+    "type": "test",
+    "stage": "sim_full@narrow",
+    "test": {
+     "id": "t2",
+     "name": "заполнение до full и опустошение",
+     "group": "public",
+     "status": "not_run",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794432619914-3",
+   "event": {
+    "type": "test",
+    "stage": "sim_full@narrow",
+    "test": {
+     "id": "hidden-1",
+     "name": "",
+     "group": "hidden",
+     "status": "not_run",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794432619914-4",
+   "event": {
+    "type": "test",
+    "stage": "sim_full@narrow",
+    "test": {
+     "id": "hidden-2",
+     "name": "",
+     "group": "hidden",
+     "status": "not_run",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794432620914-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full@narrow",
-    "elapsed_ms": 11536,
+    "elapsed_ms": 9554,
     "note": null,
     "attempt": 1
    }
   },
   {
-   "id": "1794425273384-0",
+   "id": "1794432620920-0",
    "event": {
     "type": "stage_end",
     "result": {
@@ -1143,25 +1211,25 @@
      "failure_kind": "wrong",
      "limit": null,
      "error_code": null,
-     "started_at": "2026-11-11T19:27:41.292515Z",
-     "duration_ms": 11715,
+     "started_at": "2026-11-11T21:30:10.232511Z",
+     "duration_ms": 9560,
      "metrics_schema": "sim/v1",
      "metrics": {
       "tests_total": 4,
-      "tests_passed": 1,
-      "cycles": 51,
+      "tests_passed": 0,
+      "cycles": 14,
       "seed": 20261026,
       "first_failure": {
-       "test": "t2",
-       "cycle": 30,
+       "test": "t1",
+       "cycle": 4,
        "signal": "full"
       },
       "trace": "recorded",
       "trace_window": [
        0,
-       46
+       20
       ],
-      "trace_cursor_ps": 300,
+      "trace_cursor_ps": 40,
       "trace_signals": [
        {
         "path": "tb_top.clk",
@@ -1222,7 +1290,7 @@
      },
      "cached": false,
      "summary": {
-      "caption": "упал тест заполнение до full и опустошение, такт 30",
+      "caption": "упал тест запись и чтение по порядку, такт 4",
       "skip_reason": null,
       "diagnostics": [],
       "tests": [
@@ -1230,27 +1298,27 @@
         "id": "t1",
         "name": "запись и чтение по порядку",
         "group": "public",
-        "status": "passed",
+        "status": "failed",
         "duration_ms": null,
-        "cycle": null,
-        "mismatches": []
+        "cycle": 4,
+        "mismatches": [
+         {
+          "signal": "full",
+          "cycle": 4,
+          "expected": "1'h1",
+          "actual": "1'h0",
+          "hint": "full = 1, когда в очереди DEPTH слов"
+         }
+        ]
        },
        {
         "id": "t2",
         "name": "заполнение до full и опустошение",
         "group": "public",
-        "status": "failed",
+        "status": "not_run",
         "duration_ms": null,
-        "cycle": 30,
-        "mismatches": [
-         {
-          "signal": "full",
-          "cycle": 30,
-          "expected": "1'h0",
-          "actual": "1'h1",
-          "hint": "full = 1, когда в очереди DEPTH слов"
-         }
-        ]
+        "cycle": null,
+        "mismatches": []
        }
       ],
       "hidden_tests": {
@@ -1264,13 +1332,48 @@
    }
   },
   {
-   "id": "1794425273384-1",
+   "id": "1794432620920-1",
+   "event": {
+    "type": "stage_end",
+    "result": {
+     "key": "sim_full@wide",
+     "type": "sim",
+     "ordinal": 4,
+     "param_set": {
+      "id": "wide",
+      "values": {
+       "WIDTH": 32,
+       "DEPTH": 16
+      }
+     },
+     "status": "skipped",
+     "failure_kind": null,
+     "limit": null,
+     "error_code": null,
+     "started_at": null,
+     "duration_ms": null,
+     "metrics_schema": null,
+     "metrics": {},
+     "cached": false,
+     "summary": {
+      "caption": null,
+      "skip_reason": "previous_failed",
+      "diagnostics": [],
+      "tests": [],
+      "hidden_tests": null
+     }
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794432620920-2",
    "event": {
     "type": "stage_end",
     "result": {
      "key": "synth",
      "type": "synth",
-     "ordinal": 4,
+     "ordinal": 5,
      "param_set": {
       "id": "default",
       "values": {
@@ -1299,13 +1402,13 @@
    }
   },
   {
-   "id": "1794425273384-2",
+   "id": "1794432620920-3",
    "event": {
     "type": "stage_end",
     "result": {
      "key": "synth@narrow",
      "type": "synth",
-     "ordinal": 5,
+     "ordinal": 6,
      "param_set": {
       "id": "narrow",
       "values": {
@@ -1334,13 +1437,48 @@
    }
   },
   {
-   "id": "1794425273384-3",
+   "id": "1794432620920-4",
+   "event": {
+    "type": "stage_end",
+    "result": {
+     "key": "synth@wide",
+     "type": "synth",
+     "ordinal": 7,
+     "param_set": {
+      "id": "wide",
+      "values": {
+       "WIDTH": 32,
+       "DEPTH": 16
+      }
+     },
+     "status": "skipped",
+     "failure_kind": null,
+     "limit": null,
+     "error_code": null,
+     "started_at": null,
+     "duration_ms": null,
+     "metrics_schema": null,
+     "metrics": {},
+     "cached": false,
+     "summary": {
+      "caption": null,
+      "skip_reason": "previous_failed",
+      "diagnostics": [],
+      "tests": [],
+      "hidden_tests": null
+     }
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794432620920-5",
    "event": {
     "type": "stage_end",
     "result": {
      "key": "netlist_sim",
      "type": "sim",
-     "ordinal": 6,
+     "ordinal": 8,
      "param_set": {
       "id": "default",
       "values": {
@@ -1369,13 +1507,13 @@
    }
   },
   {
-   "id": "1794425273384-4",
+   "id": "1794432620920-6",
    "event": {
     "type": "stage_end",
     "result": {
      "key": "netlist_sim@narrow",
      "type": "sim",
-     "ordinal": 7,
+     "ordinal": 9,
      "param_set": {
       "id": "narrow",
       "values": {
@@ -1404,23 +1542,58 @@
    }
   },
   {
-   "id": "1794425273384-5",
+   "id": "1794432620920-7",
+   "event": {
+    "type": "stage_end",
+    "result": {
+     "key": "netlist_sim@wide",
+     "type": "sim",
+     "ordinal": 10,
+     "param_set": {
+      "id": "wide",
+      "values": {
+       "WIDTH": 32,
+       "DEPTH": 16
+      }
+     },
+     "status": "skipped",
+     "failure_kind": null,
+     "limit": null,
+     "error_code": null,
+     "started_at": null,
+     "duration_ms": null,
+     "metrics_schema": null,
+     "metrics": {},
+     "cached": false,
+     "summary": {
+      "caption": null,
+      "skip_reason": "previous_failed",
+      "diagnostics": [],
+      "tests": [],
+      "hidden_tests": null
+     }
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794432620920-8",
    "event": {
     "type": "done",
     "attempt": 1
    }
   },
   {
-   "id": "1794425273504-0",
+   "id": "1794432621040-0",
    "event": {
     "type": "finalized",
     "status": "wrong_answer",
     "verdict_detail": {
      "first_failure": {
       "stage": "sim_full@narrow",
-      "test": "t2",
-      "cycle": 30,
-      "test_number": 2,
+      "test": "t1",
+      "cycle": 4,
+      "test_number": 1,
       "hidden": null,
       "diagnostic": null
      },
@@ -1433,6 +1606,6 @@
   }
  ],
  "files": {
-  "fst": "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"
+  "fst": "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"
  }
 }

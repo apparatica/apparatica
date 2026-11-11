@@ -3,7 +3,7 @@ schema: 1
 id: carry-adder
 number: 3
 version: 4
-changelog: Тестбенч получает параметры задачи от судьи; условие и тесты не изменились.
+changelog: Решение проверяется при нескольких наборах значений параметров, тестбенч получает их от судьи; условие называет допустимые значения, тесты не изменились.
 leaderboard_epoch: 1
 language: systemverilog
 kind: design
@@ -18,6 +18,9 @@ top: carry_adder
 interface:
   parameters:
     - {name: WIDTH, type: int, default: 8, description: "Разрядность слагаемых"}
+  param_sets:
+    - {id: narrow, values: {WIDTH: 1}}
+    - {id: wide, values: {WIDTH: 32}}
   ports:
     - {name: a, dir: input, width: "WIDTH", description: "Первое слагаемое"}
     - {name: b, dir: input, width: "WIDTH", description: "Второе слагаемое"}
@@ -39,9 +42,9 @@ stages:
   precheck: {type: precheck}
   lint: {type: lint}
   sim_run: {type: sim, testbench: main, groups: [public], max_cycles: 10000}
-  sim_full: {type: sim, testbench: main, groups: [public, hidden], max_cycles: 10000}
-  synth: {type: synth}
-  netlist_sim: {type: sim, testbench: main, groups: [public, hidden], max_cycles: 10000, design: synth.netlist_generic}
+  sim_full: {type: sim, testbench: main, groups: [public, hidden], max_cycles: 10000, param_sets: all}
+  synth: {type: synth, param_sets: all}
+  netlist_sim: {type: sim, testbench: main, groups: [public, hidden], max_cycles: 10000, design: synth.netlist_generic, param_sets: all}
 
 pipelines:
   practice:
@@ -64,3 +67,4 @@ mutants:
   - {file: mutants/m03_cout_generate_only.sv, expect: wrong_answer, caught_by: [sim_full], note: "cout = a[MSB] & b[MSB] без распространения переноса: ловят только скрытые тесты"}
   - {file: mutants/m04_split_nibbles.sv, expect: wrong_answer, caught_by: [sim_full], note: "перенос между тетрадами не передаётся"}
   - {file: mutants/m05_static_function.sv, expect: forbidden_construct, caught_by: [precheck], note: "функция без automatic"}
+  - {file: mutants/m06_fixed_width.sv, expect: wrong_answer, caught_by: [sim_full], note: "перенос — сравнение с 255, верно только при WIDTH = 8: ловят дополнительные наборы"}

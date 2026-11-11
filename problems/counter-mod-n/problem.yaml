@@ -3,7 +3,7 @@ schema: 1
 id: counter-mod-n
 number: 2
 version: 4
-changelog: Тестбенч получает параметры задачи от судьи; условие и тесты не изменились.
+changelog: Решение проверяется при нескольких наборах значений параметров, тестбенч получает их от судьи; условие называет допустимые значения, тесты не изменились.
 leaderboard_epoch: 1
 language: systemverilog
 kind: design
@@ -18,6 +18,9 @@ top: counter_mod_n
 interface:
   parameters:
     - {name: N, type: int, default: 10, description: "Модуль счёта, N ≥ 2"}
+  param_sets:
+    - {id: min, values: {N: 2}}
+    - {id: pow2, values: {N: 16}}
   ports:
     - {name: clk, dir: input, width: "1", role: clock, description: "Тактовый сигнал"}
     - {name: rst, dir: input, width: "1", role: reset, reset: {active: high, sync: true}, description: "Синхронный сброс, активный 1"}
@@ -39,9 +42,9 @@ stages:
   precheck: {type: precheck}
   lint: {type: lint}
   sim_run: {type: sim, testbench: main, groups: [public], max_cycles: 10000}
-  sim_full: {type: sim, testbench: main, groups: [public, hidden], max_cycles: 10000}
-  synth: {type: synth}
-  netlist_sim: {type: sim, testbench: main, groups: [public, hidden], max_cycles: 10000, design: synth.netlist_generic}
+  sim_full: {type: sim, testbench: main, groups: [public, hidden], max_cycles: 10000, param_sets: all}
+  synth: {type: synth, param_sets: all}
+  netlist_sim: {type: sim, testbench: main, groups: [public, hidden], max_cycles: 10000, design: synth.netlist_generic, param_sets: all}
 
 pipelines:
   practice:
@@ -64,3 +67,4 @@ mutants:
   - {file: mutants/m03_registered_wrap.sv, expect: wrong_answer, caught_by: [sim_full], note: "wrap запаздывает на такт"}
   - {file: mutants/m04_reset_needs_en.sv, expect: wrong_answer, caught_by: [sim_full], note: "сброс срабатывает только при en = 1"}
   - {file: mutants/m05_delay.sv, expect: forbidden_construct, caught_by: [precheck], note: "задержка # в присваивании"}
+  - {file: mutants/m06_fixed_modulus.sv, expect: wrong_answer, caught_by: [sim_full], note: "переход в 0 после 9, а не после N − 1: ловят дополнительные наборы"}

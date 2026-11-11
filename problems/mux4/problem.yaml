@@ -3,7 +3,7 @@ schema: 1
 id: mux4
 number: 1
 version: 4
-changelog: Тестбенч получает параметры задачи от судьи; условие и тесты не изменились.
+changelog: Решение проверяется при нескольких наборах значений параметров, тестбенч получает их от судьи; условие называет допустимые значения, тесты не изменились.
 leaderboard_epoch: 1
 language: systemverilog
 kind: design
@@ -18,6 +18,9 @@ top: mux4
 interface:
   parameters:
     - {name: WIDTH, type: int, default: 8, description: "Разрядность данных"}
+  param_sets:
+    - {id: narrow, values: {WIDTH: 1}}
+    - {id: wide, values: {WIDTH: 32}}
   ports:
     - {name: sel, dir: input, width: "2", description: "Номер выбираемого входа"}
     - {name: d0, dir: input, width: "WIDTH", description: "Вход 0"}
@@ -40,9 +43,9 @@ stages:
   precheck: {type: precheck}
   lint: {type: lint}
   sim_run: {type: sim, testbench: main, groups: [public], max_cycles: 10000}
-  sim_full: {type: sim, testbench: main, groups: [public, hidden], max_cycles: 10000}
-  synth: {type: synth}
-  netlist_sim: {type: sim, testbench: main, groups: [public, hidden], max_cycles: 10000, design: synth.netlist_generic}
+  sim_full: {type: sim, testbench: main, groups: [public, hidden], max_cycles: 10000, param_sets: all}
+  synth: {type: synth, param_sets: all}
+  netlist_sim: {type: sim, testbench: main, groups: [public, hidden], max_cycles: 10000, design: synth.netlist_generic, param_sets: all}
 
 pipelines:
   practice:
@@ -64,3 +67,4 @@ mutants:
   - {file: mutants/m02_incomplete_case.sv, expect: wrong_answer, caught_by: [sim_full], note: "нет ветки sel = 3: y держит прошлое значение"}
   - {file: mutants/m03_msb_from_d0.sv, expect: wrong_answer, caught_by: [sim_full], note: "старший бит всегда из d0: ловят только скрытые тесты"}
   - {file: mutants/m04_narrow_output.sv, expect: compile_error, caught_by: [precheck], note: "выход на бит уже интерфейса"}
+  - {file: mutants/m05_fixed_width.sv, expect: wrong_answer, caught_by: [sim_full], note: "выбор через 8-битный сигнал: при WIDTH = 32 старшие биты теряются, ловят скрытые тесты набора wide"}

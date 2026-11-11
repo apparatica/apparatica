@@ -216,9 +216,12 @@ def test_a_submit_after_a_run_does_not_build_again(
     assert (run.key, run.status, run.cached) == ("sim_run", "passed", False)
     assert (submit.key, submit.status, submit.cached) == ("sim_full", "passed", True)
     assert submit.metrics["tests_total"] > run.metrics["tests_total"]  # the hidden tests ran
-    # The simulator of the code, the run of synth and the simulator of its netlist.
+    # At each of the three parameter sets of mux4 (ADR-0014): the simulator of the code, the run
+    # of synth and the simulator of its netlist. A stage instance at an extra set runs in
+    # /work/sim_full@narrow: the sandbox takes the directory.
+    assert all(r.status == "passed" for r in orchestrator.reporter.items[1].results)
     cached = s3.list_objects_v2(Bucket="build-cache")["Contents"]
-    assert len(cached) == 3
+    assert len(cached) == 9
     assert all(item["Key"].startswith("sv-dev/") for item in cached)
     log = next(
         a.key

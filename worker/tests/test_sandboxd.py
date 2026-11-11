@@ -197,6 +197,14 @@ def test_exec_streams_the_command(daemon: tuple[Sandboxd, FakeDocker, SandboxdCl
     assert b"".join(chunks).replace(b"\r", b"") == b"got 0 bytes\nsecond line\n"
     assert docker.calls[-1] == ["exec", "-t", "-w", "/work/sim", name, "apx-run", "--privileged"]
 
+    # The directory of a stage instance at an extra parameter set (ADR-0014).
+    instance = container.start(["apx-run"], cwd="/work/sim_full@narrow")
+    [(read, _)] = instance.streams
+    while read():
+        pass
+    instance.wait()
+    assert docker.calls[-1][:4] == ["exec", "-t", "-w", "/work/sim_full@narrow"]
+
 
 @pytest.mark.parametrize(
     ("fields", "reason"),

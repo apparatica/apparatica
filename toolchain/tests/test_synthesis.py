@@ -211,18 +211,25 @@ def test_a_second_check_of_the_same_code_replays_the_stage_cache() -> None:
 
 def test_the_netlist_of_a_reference_passes_the_testbench_and_ranks_it() -> None:
     """netlist_sim (specs/07 §2.5) on a problem with parameters: the wrapper takes the testbench's
-    `#(.WIDTH(WIDTH))`, and the accepted Submit has the metrics of the formula."""
+    `#(.WIDTH(WIDTH))` at every parameter set (ADR-0014), and the accepted Submit has the metrics
+    of the formula, those of the primary set."""
     package = REPO / "problems" / "mux4"
     results, _ = check(package, reference(package), None)
     assert [(r.key, r.status) for r in results] == [
         ("precheck", "passed"),
         ("lint", "passed"),
         ("sim_full", "passed"),
+        ("sim_full@narrow", "passed"),
+        ("sim_full@wide", "passed"),
         ("synth", "passed"),
+        ("synth@narrow", "passed"),
+        ("synth@wide", "passed"),
         ("netlist_sim", "passed"),
+        ("netlist_sim@narrow", "passed"),
+        ("netlist_sim@wide", "passed"),
     ]
-    netlist_sim = results[-1]
-    assert netlist_sim.metrics["tests_passed"] == netlist_sim.metrics["tests_total"] > 0
+    for netlist_sim in results[-3:]:
+        assert netlist_sim.metrics["tests_passed"] == netlist_sim.metrics["tests_total"] > 0
     assert leaderboard_metrics(load_manifest(package), results) == {
         "synth.critical_path_ns": S4_METRICS["mux4"][3],
         "synth.area_um2": S4_METRICS["mux4"][0],

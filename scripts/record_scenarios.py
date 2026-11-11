@@ -9,15 +9,11 @@ An event id is a Valkey stream id, milliseconds since the epoch: the mocks repla
 
     poetry -C judge run python ../scripts/record_scenarios.py [--image IMAGE] [name ...]
 
-Stand-ins of checks at several parameter sets are put together from these recordings after every
-run, without the toolchain (`stand_ins`): name only stand-ins to rewrite just them.
-
 A backend test checks the files against the API schemas (backend/tests/test_mock_scenarios.py).
 """
 
 import argparse
 import base64
-import hashlib
 import json
 import os
 import secrets
@@ -40,11 +36,8 @@ from judge.core.pipeline import Job, run_pipeline
 from judge.core.registry import get_language
 from judge.core.stage import (
     ExecResult,
-    HiddenTests,
-    ParamSet,
     StagePlan,
     StageResult,
-    StageSummary,
 )
 from judge.core.verdict import Verdict, aggregate
 
@@ -118,6 +111,9 @@ SCENARIOS = {
     "cancelled": Scenario("sync-fifo", "run", reference, cancel=("sim_run", 2.0)),
     "internal-error": Scenario("mux4", "run", reference, broken_stage="sim_run"),
     "retry": Scenario("mux4", "run", reference, retry_after="lint"),
+    # sync-fifo checks its stages at the sets narrow and wide besides the primary one (ADR-0014).
+    "accepted-param-sets": Scenario("sync-fifo", "submit", reference),
+    "wrong-answer-param-set": Scenario("sync-fifo", "submit", mutant("m06_fixed_depth.sv")),
 }
 
 
@@ -432,181 +428,22 @@ def uuid7(ms: int) -> uuid.UUID:
     return uuid.UUID(int=value)
 
 
-# --- stand-ins at parameter sets ---------------------------------------------------------------
-
-# The judge does not expand stages by parameter sets yet (ADR-0014). Until it does, these checks of
-# sync-fifo at its primary set and a narrow one are put together from the recordings `accepted`
-# and `wrong-answer`: an instance at the narrow set repeats the logs, the metrics and the trace of
-# the primary set.
-PRIMARY = ParamSet(id="default", values={"WIDTH": 8, "DEPTH": 16})
-NARROW = ParamSet(id="narrow", values={"WIDTH": 1, "DEPTH": 2})
-EXPANDED = ("sim_full", "synth", "netlist_sim")  # the stages with `param_sets: all`
-STAND_INS = ("accepted-param-sets", "wrong-answer-param-set")
-STAGE_GAP_MS = 40  # from the end of an instance to the start of the next one
-
-
-def stage_events(document: dict[str, Any]) -> dict[str, list[Timed]]:
-    """The events of each stage of a recording, in ms since the submission was created."""
-    created = round(datetime.fromisoformat(document["submission"]["created_at"]).timestamp() * 1000)
-    stages: dict[str, list[Timed]] = {}
-    for item in document["events"]:
-        data = item["event"]
-        key = data.get("stage") or data.get("result", {}).get("key")
-        if key is not None:
-            stages.setdefault(key, []).append((int(item["id"].split("-")[0]) - created, data))
-    return stages
-
-
-def instance(
-    events: Sequence[Timed],
-    key: str,
-    ordinal: int,
-    param_set: ParamSet | None,
-    at: int,
-    moved: timedelta,
-    update: dict[str, Any],
-) -> tuple[list[Timed], StageResult]:
-    """The events and the result of a recorded stage as an instance that starts at `at` ms;
-    `moved`: from the creation of the recorded submission to the creation of the new one."""
-    begin = events[0][0]
-    shift = moved + timedelta(milliseconds=at - begin)
-    placed: list[Timed] = []
-    result: StageResult | None = None
-    for ms, recorded in events:
-        data = {**recorded, "stage": key} if "stage" in recorded else dict(recorded)
-        if data["type"] == "stage_start":
-            data |= {"ordinal": ordinal, "param_set": param_set and param_set.model_dump()}
-        if data["type"] == "stage_end":
-            stage = StageResult.model_validate(data["result"])
-            result = stage.model_copy(
-                update={
-                    "key": key,
-                    "ordinal": ordinal,
-                    "param_set": param_set,
-                    "started_at": stage.started_at and stage.started_at + shift,
-                }
-                | update
-            )
-            data["result"] = result.model_dump(mode="json")
-        placed.append((at + ms - begin, data))
-    assert result is not None, f"no result of {key}"
-    return placed, result
-
-
-def stand_in(
-    name: str, accepted: dict[str, Any], wrong: dict[str, Any] | None = None
-) -> dict[str, Any]:
-    """`accepted` at both sets; with `wrong`, its failed open test fails `sim_full` at the narrow
-    set and the instances after it are skipped."""
-    recorded = stage_events(accepted)
-    created = datetime.fromisoformat(accepted["submission"]["created_at"])
-    plan = [
-        (stage, param_set)
-        for stage in recorded
-        for param_set in ((PRIMARY, NARROW) if stage in EXPANDED else (None,))
-    ]
-    worker: list[Timed] = []
-    results: list[StageResult] = []
-    artifacts: list[dict[str, Any]] = []
-    at = recorded["precheck"][0][0]
-    for ordinal, (stage, param_set) in enumerate(plan):
-        key = stage if param_set in (None, PRIMARY) else f"{stage}@{NARROW.id}"
-        if any(r.status == "failed" for r in results):
-            skipped = StageResult(
-                key=key,
-                type=recorded[stage][-1][1]["result"]["type"],
-                ordinal=ordinal,
-                param_set=param_set,
-                status="skipped",
-                summary=StageSummary(skip_reason="previous_failed"),
-            )
-            results.append(skipped)
-            end = {"type": "stage_end", "result": skipped.model_dump(mode="json"), "attempt": 1}
-            worker.append((at, end))
-            continue
-        source, source_stage, update = accepted, stage, {}
-        if wrong is not None and key == f"sim_full@{NARROW.id}":
-            # The open test fails at the narrow set; the hidden tests do not run.
-            source, source_stage = wrong, "sim_run"
-            failed = StageResult.model_validate(stage_events(wrong)["sim_run"][-1][1]["result"])
-            update = {
-                "metrics": failed.metrics | {"tests_total": results[-1].metrics["tests_total"]},
-                "summary": failed.summary.model_copy(
-                    update={"hidden_tests": HiddenTests(total=2, passed=0)}
-                ),
-            }
-        moved = created - datetime.fromisoformat(source["submission"]["created_at"])
-        events, result = instance(
-            stage_events(source)[source_stage], key, ordinal, param_set, at, moved, update
-        )
-        worker += events
-        results.append(result)
-        artifacts += [
-            a | {"stage": key}
-            for a in source["submission"]["artifacts"]
-            if a["stage"] == source_stage
-        ]
-        at = events[-1][0] + (0 if result.status == "failed" else STAGE_GAP_MS)
-    worker.append((at, {"type": "done", "attempt": 1}))
-
-    verdict = aggregate(results)
-    events = timeline([worker], verdict)
-    submission = accepted["submission"]
-    numbered = stream_ids(round(created.timestamp() * 1000), events)
-    events_bytes = b"".join(json.dumps(e, ensure_ascii=False).encode() + b"\n" for e in numbered)
-    artifacts.append(artifact("events", None, len(events_bytes)))
-    # The id of the recording with its random bits replaced: stable from run to run.
-    salt = int(hashlib.sha256(name.encode()).hexdigest()[:12], 16)
-    document: dict[str, Any] = {
-        "name": name,
-        "submission": submission
-        | {
-            "id": str(uuid.UUID(int=uuid.UUID(submission["id"]).int >> 48 << 48 | salt)),
-            "status": verdict.status,
-            "verdict_detail": verdict.detail.model_dump(mode="json"),
-            "finished_at": (created + timedelta(milliseconds=events[-1][0])).isoformat(),
-            "stages": [stage_document(r) for r in results],
-            "artifacts": artifacts,
-        },
-        "events": numbered,
-    }
-    if wrong is not None:
-        document["files"] = wrong["files"]
-    return document
-
-
-def stand_ins() -> dict[str, str]:
-    """The files of the stand-ins, from the recordings in OUTPUT."""
-    accepted, wrong = (
-        json.loads((OUTPUT / f"{name}.json").read_text(encoding="utf-8"))
-        for name in ("accepted", "wrong-answer")
-    )
-    return {
-        "accepted-param-sets": dump(stand_in("accepted-param-sets", accepted)),
-        "wrong-answer-param-set": dump(stand_in("wrong-answer-param-set", accepted, wrong)),
-    }
-
-
 def dump(document: dict[str, Any]) -> str:
     return json.dumps(document, ensure_ascii=False, indent=1) + "\n"
 
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
-    parser.add_argument(
-        "names", nargs="*", metavar="name", help=", ".join([*SCENARIOS, *STAND_INS])
-    )
+    parser.add_argument("names", nargs="*", metavar="name", help=", ".join(SCENARIOS))
     parser.add_argument("--image", default=os.environ.get("JUDGE_TOOLCHAIN_IMAGE", DEFAULT_IMAGE))
     args = parser.parse_args(argv)
-    unknown = set(args.names) - set(SCENARIOS) - set(STAND_INS)
+    unknown = set(args.names) - set(SCENARIOS)
     if unknown:
         parser.error(f"unknown scenarios: {', '.join(sorted(unknown))}")
     OUTPUT.mkdir(parents=True, exist_ok=True)
-    for name in [n for n in args.names if n in SCENARIOS] if args.names else SCENARIOS:
+    for name in args.names or SCENARIOS:
         document = scenario_document(name, SCENARIOS[name], args.image)
         (OUTPUT / f"{name}.json").write_text(dump(document), encoding="utf-8", newline="\n")
-    for name, text in stand_ins().items():
-        (OUTPUT / f"{name}.json").write_text(text, encoding="utf-8", newline="\n")
     return 0
 
 
