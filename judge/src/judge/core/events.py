@@ -99,8 +99,11 @@ class ConsoleSink:
 
     def emit(self, event: Event) -> None:
         match event:
-            case StageStartEvent():
+            case StageStartEvent(param_set=None):
                 self._write(f"── {event.stage} ".ljust(60, "─"))
+            case StageStartEvent(param_set=ParamSet(values=values)):
+                shown = ", ".join(f"{name}={value}" for name, value in values.items())
+                self._write(f"── {event.stage} · {shown} ".ljust(60, "─"))
             case LogEvent(ch="err"):
                 self._write(f"! {event.text}")
             case LogEvent(ch="sys"):

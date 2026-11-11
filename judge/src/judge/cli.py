@@ -168,7 +168,8 @@ def _run(args: argparse.Namespace) -> int:
     classes = _resource_classes(args, [args.path])
     out: Path = args.out
     out.mkdir(parents=True, exist_ok=True)
-    for key in problem.stages:  # artifacts of an earlier run must not mix with this one
+    # Artifacts of an earlier run must not mix with this one.
+    for key in problem.instance_keys(list(problem.stages)):
         shutil.rmtree(out / key, ignore_errors=True)
 
     def keep(stage: str, name: str, data: bytes) -> None:

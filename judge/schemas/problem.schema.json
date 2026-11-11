@@ -761,8 +761,13 @@
       "type": "array"
     },
     "stages": {
-      "additionalProperties": {
-        "$ref": "#/$defs/StageConfig"
+      "patternProperties": {
+        "^[a-z][a-z0-9_]*$": {
+          "$ref": "#/$defs/StageConfig"
+        }
+      },
+      "propertyNames": {
+        "maxLength": 32
       },
       "title": "Stages",
       "type": "object"

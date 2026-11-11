@@ -15,6 +15,7 @@ from pydantic import ValidationError
 
 from judge.core.limits import stage_limits
 from judge.core.package import Parameter, Port, Problem, load_manifest
+from judge.core.pipeline import param_set_of
 from judge.core.stage import (
     CommandResult,
     ExecResult,
@@ -72,6 +73,7 @@ def context(target: Problem | None = None, **config: Any) -> StageContext:
         solution=b"// original\n",
         limits=stage_limits(target, "synth", "synth", RESOURCE_CLASSES),
         previous=previous,
+        param_set=param_set_of(target, "default"),
     )
 
 

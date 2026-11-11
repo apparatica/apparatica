@@ -7,6 +7,7 @@ import pytest
 from core_helpers import RESOURCE_CLASSES, make_problem
 
 from judge.core.limits import stage_limits
+from judge.core.pipeline import param_set_of
 from judge.core.registry import get_language
 from judge.core.stage import CommandResult, ExecResult, StageContext
 from judge.languages.systemverilog.sandbox import precheck_runner as runner
@@ -42,6 +43,7 @@ def context(solution: str, config: PrecheckConfig | None = None) -> StageContext
         solution=solution.encode(),
         limits=stage_limits(problem, "precheck", "precheck", RESOURCE_CLASSES),
         previous={},
+        param_set=param_set_of(problem, "default"),
     )
 
 

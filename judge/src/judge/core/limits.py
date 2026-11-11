@@ -119,10 +119,13 @@ def check_param_sets(problem: Problem, classes: ResourceClasses) -> None:
 
 
 def check_timeout_s(problem: Problem, kind: "SubmissionKind", classes: ResourceClasses) -> float:
-    """The total limit of one attempt (specs/07 §3): the stage timeouts of the pipeline of `kind`
-    plus the overhead. The watchdog of the ingestor waits for it."""
+    """The total limit of one attempt (specs/07 §3): the stage timeouts of the pipeline of `kind`,
+    each once per parameter set the stage checks (ADR-0014), plus the overhead. The watchdog of
+    the ingestor waits for it."""
     keys = getattr(problem.pipelines.practice, kind)
     stages = sum(
-        stage_limits(problem, key, problem.stages[key].type, classes).timeout_s for key in keys
+        stage_limits(problem, key, problem.stages[key].type, classes).timeout_s
+        * len(problem.stage_param_sets(key))
+        for key in keys
     )
     return stages + CHECK_OVERHEAD_S

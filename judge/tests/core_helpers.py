@@ -150,6 +150,29 @@ class CachedStage(ScriptStage):
         return StageOutcome(status="passed", cached=cached)
 
 
+class SetStage(ScriptStage):
+    """Reports the parameter set it got and the instance of stage `a` at that set; `code` reads
+    the set id from `set.txt`, a failed `code` fails the stage."""
+
+    stage_type: ClassVar[str] = "set"
+
+    def plan(self, ctx: StageContext) -> StagePlan:
+        plan = super().plan(ctx)
+        inputs = {**plan.inputs, "set.txt": ctx.param_set.id.encode()}
+        return StagePlan(plan.commands, plan.timeout_s, plan.output_limit, inputs=inputs)
+
+    def interpret(self, ctx: StageContext, runs: Sequence[ExecResult]) -> StageOutcome | StagePlan:
+        if not runs[-1].ok:
+            return StageOutcome(status="failed", failure_kind="wrong")
+        metrics = {
+            "set": ctx.param_set.id,
+            "values": ctx.param_set.values,
+            "a": ctx.instance("a"),
+            "timeout_s": ctx.limits.timeout_s,
+        }
+        return StageOutcome(status="passed", metrics=metrics)
+
+
 class MemoryCache:
     def __init__(self) -> None:
         self.files: dict[str, bytes] = {}
@@ -173,6 +196,7 @@ FAKE = LanguageModule(
             MissingProgramStage,
             ArtifactStage,
             CachedStage,
+            SetStage,
         )
     },
 )

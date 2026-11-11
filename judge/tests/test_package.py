@@ -8,9 +8,11 @@ import yaml
 from judge.core.package import (
     ManifestError,
     Problem,
+    instance_key,
     load_manifest,
     manifest_json_schema,
     parse_manifest,
+    split_instance_key,
 )
 
 DATA = Path(__file__).parent / "data"
@@ -236,6 +238,8 @@ def test_minimal_manifest_and_defaults() -> None:
             },
             "duplicate stages.sim.param_sets names: narrow",
         ),
+        ({"stages": {"sim@narrow": {"type": "sim"}}}, "stages.sim@narrow.[key]"),
+        ({"stages": {"Sim": {"type": "sim"}}}, "stages.Sim.[key]"),
         (
             {"stages__sim__param_sets": "all"},
             "pipelines.practice.run checks the primary parameter set only:"
@@ -266,6 +270,16 @@ def test_stage_parameter_sets_keep_the_order_of_the_interface() -> None:
     assert problem.stage_param_sets("sim") == ["default"]
     assert problem.stage_param_sets("some") == ["default", "a", "c"]
     assert problem.stage_param_sets("every") == ["default", "a", "b", "c"]
+    assert problem.instance_keys(["sim", "some", "every"]) == [
+        "sim",
+        "some",
+        "some@a",
+        "some@c",
+        "every",
+        "every@a",
+        "every@b",
+        "every@c",
+    ]
     assert problem.interface.param_set_values("b") == {"W": 2}
 
 
@@ -315,3 +329,12 @@ def test_committed_json_schema_is_up_to_date() -> None:
     assert SCHEMA_FILE.read_text(encoding="utf-8") == manifest_json_schema(), (
         "judge/schemas/problem.schema.json is stale: run `just schemas`"
     )
+
+
+@pytest.mark.parametrize(
+    ("key", "parts"),
+    [("synth", ("synth", "default")), ("netlist_sim@narrow", ("netlist_sim", "narrow"))],
+)
+def test_instance_keys_name_the_stage_and_the_set(key: str, parts: tuple[str, str]) -> None:
+    assert split_instance_key(key) == parts
+    assert instance_key(*parts) == key

@@ -4,6 +4,7 @@ import pytest
 from core_helpers import RESOURCE_CLASSES, make_problem
 
 from judge.core.limits import stage_limits
+from judge.core.pipeline import param_set_of
 from judge.core.registry import get_language
 from judge.core.stage import (
     CommandResult,
@@ -42,6 +43,7 @@ def context(config: LintConfig | None = None, *, with_precheck: bool = True) -> 
         solution=b"// original\nmodule top; endmodule\n",
         limits=stage_limits(problem, "lint", "lint", RESOURCE_CLASSES),
         previous={"precheck": precheck} if with_precheck else {},
+        param_set=param_set_of(problem, "default"),
     )
 
 

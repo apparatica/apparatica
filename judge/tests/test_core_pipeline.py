@@ -1,3 +1,4 @@
+import io
 import threading
 from pathlib import Path
 
@@ -306,3 +307,155 @@ def test_a_broken_stage_cache_entry_is_a_miss(tmp_path: Path) -> None:
     cache.files = {key: b'{"version": 1, "files": "forged"}' for key in cache.files}
     run_twice(code, cache)
     assert counter.read_text() == "xx", "the forged entry is not used and is replaced"
+
+
+# --- parameter sets (ADR-0014) -------------------------------------------------------------------
+
+SETS_INTERFACE = {
+    "parameters": [
+        {"name": "WIDTH", "type": "int", "default": 8},
+        {"name": "DEPTH", "type": "int", "default": 4},
+    ],
+    "param_sets": [
+        {"id": "narrow", "values": {"WIDTH": 1}},
+        {"id": "deep", "values": {"DEPTH": 16}},
+    ],
+    "ports": [{"name": "a", "dir": "input", "width": "WIDTH"}],
+}
+FAIL_AT_NARROW = "import sys; sys.exit(open('set.txt').read() == 'narrow')"
+
+
+def run_sets(
+    stages: dict[str, dict[str, object]],
+    submit: list[str],
+    *,
+    keys: tuple[str, ...] | None = None,
+    **extra: object,
+) -> tuple[list[StageResult], ListSink]:
+    stages = {"run": {"type": "script"}, **stages}  # Run checks the primary set only
+    problem = make_problem(stages, run=["run"], submit=submit, interface=SETS_INTERFACE, **extra)
+    sink = ListSink()
+    job = Job(problem, Path(), "submit", seed=1, solution=b"", stages=keys)
+    with HostExecutor() as executor:
+        results = run_pipeline(job, FAKE, executor, sink, RESOURCE_CLASSES)
+    return results, sink
+
+
+def test_stages_expand_into_instances_by_stage_then_by_set() -> None:
+    results, sink = run_sets(
+        {
+            "a": {"type": "set", "param_sets": "all"},
+            "b": {"type": "set"},
+            "c": {"type": "set", "param_sets": ["deep"]},
+        },
+        ["b", "a", "c"],
+    )
+    assert statuses(results) == [
+        ("b", "passed"),
+        ("a", "passed"),
+        ("a@narrow", "passed"),
+        ("a@deep", "passed"),
+        ("c", "passed"),
+        ("c@deep", "passed"),
+    ]
+    assert [r.ordinal for r in results] == [0, 1, 2, 3, 4, 5]
+    assert [r.param_set.id if r.param_set else None for r in results] == [
+        None, "default", "narrow", "deep", "default", "deep"
+    ]  # fmt: skip
+    narrow = results[2]
+    assert narrow.param_set is not None
+    assert narrow.param_set.values == {"WIDTH": 1, "DEPTH": 4}
+    assert narrow.type == "set"
+    # A stage gets its set and finds other stages at the same set; a stage at the primary set
+    # only gets the primary set, and its result reports none.
+    assert [(r.metrics["set"], r.metrics["a"]) for r in results] == [
+        ("default", "a"),
+        ("default", "a"),
+        ("narrow", "a@narrow"),
+        ("deep", "a@deep"),
+        ("default", "a"),
+        ("deep", "a@deep"),
+    ]
+    assert results[0].metrics["values"] == {"WIDTH": 8, "DEPTH": 4}
+    starts = [e for e in sink.events if isinstance(e, events.StageStartEvent)]
+    assert [(e.stage, e.param_set) for e in starts] == [(r.key, r.param_set) for r in results]
+
+
+def test_a_failed_instance_skips_the_instances_after_it() -> None:
+    results, _ = run_sets(
+        {
+            "a": {"type": "set", "param_sets": "all", "code": FAIL_AT_NARROW},
+            "b": {"type": "set", "param_sets": "all"},
+        },
+        ["a", "b"],
+    )
+    assert statuses(results) == [
+        ("a", "passed"),
+        ("a@narrow", "failed"),
+        ("a@deep", "skipped"),
+        ("b", "skipped"),
+        ("b@narrow", "skipped"),
+        ("b@deep", "skipped"),
+    ]
+    assert results[2].param_set is not None
+    assert results[2].param_set.id == "deep"
+    assert results[2].summary.skip_reason == "previous_failed"
+
+
+def test_the_timeout_of_a_stage_key_applies_to_every_instance() -> None:
+    results, _ = run_sets(
+        {"a": {"type": "set", "param_sets": ["narrow"]}},
+        ["a"],
+        limits={"stage_timeout_s": {"a": 7}},
+    )
+    assert [(r.key, r.metrics["timeout_s"]) for r in results] == [("a", 7), ("a@narrow", 7)]
+
+
+def test_job_stages_name_instances() -> None:
+    stages: dict[str, dict[str, object]] = {
+        "a": {"type": "set", "param_sets": "all"},
+        "b": {"type": "set", "param_sets": "all"},
+    }
+    results, _ = run_sets(stages, ["a", "b"], keys=("a", "a@narrow", "a@deep", "b", "b@narrow"))
+    assert [r.key for r in results] == ["a", "a@narrow", "a@deep", "b", "b@narrow"]
+    assert results[3].param_set is not None
+    assert results[3].param_set.id == "default"
+
+
+@pytest.mark.parametrize(
+    ("key", "message"),
+    [("z", "no stage 'z'"), ("a@wide", "has no set 'wide'"), ("b@narrow", "has no set 'narrow'")],
+)
+def test_job_stages_must_name_existing_instances(key: str, message: str) -> None:
+    stages: dict[str, dict[str, object]] = {
+        "a": {"type": "set", "param_sets": "all"},
+        "b": {"type": "set"},
+    }
+    with pytest.raises(PipelineConfigError, match=message):
+        run_sets(stages, ["a", "b"], keys=(key,))
+
+
+def test_too_many_parameter_sets_do_not_run() -> None:
+    interface = SETS_INTERFACE | {
+        "param_sets": [{"id": f"s{n}", "values": {"WIDTH": n}} for n in range(1, 6)]
+    }
+    problem = make_problem({"a": {"type": "set"}}, run=["a"], interface=interface)
+    job = Job(problem, Path(), "submit", seed=1, solution=b"")
+    with HostExecutor() as executor, pytest.raises(PipelineConfigError, match="allows 3"):
+        run_pipeline(job, FAKE, executor, ListSink(), RESOURCE_CLASSES)
+
+
+def test_the_console_names_the_set_of_an_instance() -> None:
+    _, sink = run_sets(
+        {"a": {"type": "set", "param_sets": ["narrow"]}, "b": {"type": "set"}}, ["a", "b"]
+    )
+    stream = io.StringIO()
+    console = events.ConsoleSink(stream)
+    for event in sink.events:
+        if isinstance(event, events.StageStartEvent):
+            console.emit(event)
+    assert [line.rstrip("─ ") for line in stream.getvalue().splitlines()] == [
+        "── a · WIDTH=8, DEPTH=4",
+        "── a@narrow · WIDTH=1, DEPTH=4",
+        "── b",
+    ]

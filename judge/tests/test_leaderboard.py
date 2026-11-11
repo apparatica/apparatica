@@ -7,22 +7,25 @@ from typing import Any
 import pytest
 
 from judge.core.leaderboard import ast_hash, leaderboard_metrics, sort_values
-from judge.core.package import Leaderboard, load_manifest
+from judge.core.package import Leaderboard, load_manifest, split_instance_key
 from judge.core.stage import StageResult
 
 FIFO = load_manifest(Path(__file__).parent / "data" / "sync-fifo")
-SUBMIT = FIFO.pipelines.practice.submit  # precheck, lint, sim_full, synth, netlist_sim, formal
+# precheck, lint, sim_full, synth, netlist_sim, formal; sim_full, synth and netlist_sim at three
+# parameter sets: default, narrow and wide.
+SUBMIT = FIFO.instance_keys(FIFO.pipelines.practice.submit)
 SYNTH = {"critical_path_ns": 0.5917, "area_um2": 1194, "cells": 526}
 
 
 def results(**changes: Any) -> list[StageResult]:
-    """Every stage of submit passed; a change is a status, a dict of metrics or None (missing)."""
+    """Every stage instance of submit passed; a change is a status, a dict of metrics or None
+    (missing)."""
     found = []
     for ordinal, key in enumerate(SUBMIT):
         change = changes.get(key, "passed")
         if change is None:
             continue
-        metrics = SYNTH if key == "synth" else {}
+        metrics = SYNTH if split_instance_key(key)[0] == "synth" else {}
         if isinstance(change, dict):
             metrics, change = change, "passed"
         status_fields: dict[str, Any] = {"status": change}
@@ -46,7 +49,9 @@ def test_an_accepted_submit_ranks_with_the_metrics_of_the_formula() -> None:
     "changes",
     [
         {"netlist_sim": "failed"},
+        {"netlist_sim@narrow": "failed"},
         {"netlist_sim": None},
+        {"synth@wide": None},
         {"netlist_sim": "skipped"},
         {"formal": "error"},
         {"synth": {"critical_path_ns": 0.5}},
@@ -55,7 +60,9 @@ def test_an_accepted_submit_ranks_with_the_metrics_of_the_formula() -> None:
     ],
     ids=[
         "netlist-differs",
+        "netlist-differs-at-an-extra-set",
         "no-netlist-sim",
+        "no-synth-at-an-extra-set",
         "netlist-sim-skipped",
         "a-stage-error",
         "metric-missing",

@@ -9,11 +9,13 @@ from core_helpers import RESOURCE_CLASSES, MemoryCache
 from judge.core.cache import BuildCache, NoCache, plan_key
 from judge.core.limits import stage_limits
 from judge.core.package import load_manifest
+from judge.core.pipeline import param_set_of
 from judge.core.registry import get_language
 from judge.core.stage import (
     CommandResult,
     ExecResult,
     FinishedStage,
+    ParamSet,
     StageContext,
     StageOutcome,
     StagePlan,
@@ -70,6 +72,7 @@ def context(
         solution=b"// original\n",
         limits=stage_limits(problem, "sim_full", "sim", RESOURCE_CLASSES),
         previous=previous,
+        param_set=param_set_of(problem, "default"),
         build_cache=cache or NoCache(),
         trace=scope,
     )
@@ -346,6 +349,27 @@ def test_the_cache_key_is_what_the_build_reads() -> None:
     assert cache_key(context(solution=b"module counter; wire a; endmodule\n")) != key
     assert cache_key(context(design=NETLIST_DESIGN)) != key
     assert cache_key(context(build_jobs=2)) != key
+
+
+def test_a_netlist_is_taken_from_the_synth_instance_of_the_same_parameter_set() -> None:
+    primary = context(design=NETLIST_DESIGN)
+    narrow_netlist = b"module counter__netlist; /* N=4 */ endmodule\n"
+    synth_narrow = FinishedStage(
+        StageResult(key="synth@narrow", type="synth", ordinal=2, status="passed"),
+        {"netlist_generic": narrow_netlist},
+    )
+    narrow = dataclasses.replace(
+        primary,
+        key="sim@narrow",
+        param_set=ParamSet(id="narrow", values={"N": 4}),
+        previous={**primary.previous, "synth@narrow": synth_narrow},
+    )
+    assert SimStage().plan(narrow).inputs["design.v"].startswith(narrow_netlist)
+    assert SimStage().plan(primary).inputs["design.v"].startswith(NETLIST)
+    # No synth at the set of the stage: no netlist from another set instead.
+    alone = dataclasses.replace(narrow, previous=primary.previous)
+    with pytest.raises(LookupError, match=r"design synth.netlist_generic was not produced"):
+        SimStage().plan(alone)
 
 
 @pytest.mark.parametrize(

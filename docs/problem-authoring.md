@@ -173,7 +173,7 @@ poetry -C judge run judge run ../problems/my-task --solution ../problems/my-task
 poetry -C judge run judge run ../problems/my-task --kind submit --seed <сид> --solution <файл>
 ```
 
-`judge run` печатает консоль, как на сайте, и пишет в `./out`: `events.jsonl` (события прогона), `result.json` (сид, вердикт, этапы с тестами и расхождениями) и, если упал открытый тест, окно временной диаграммы `out/<этап>/trace.fst` — от 64 тактов до расхождения до 16 после; с `--full-trace` — весь упавший тест, как «Открыть трассу целиком» на сайте. FST открывается в Surfer или GTKWave. `validate -v` показывает консоль всех этапов.
+`judge run` печатает консоль, как на сайте, и пишет в `./out`: `events.jsonl` (события прогона), `result.json` (сид, вердикт, этапы с тестами и расхождениями; этап с наборами параметров — по экземпляру на набор, `sim_full@narrow`, с `param_set`) и, если упал открытый тест, окно временной диаграммы `out/<этап>/trace.fst` (`out/sim_full@narrow/trace.fst` — у экземпляра) — от 64 тактов до расхождения до 16 после; с `--full-trace` — весь упавший тест, как «Открыть трассу целиком» на сайте. FST открывается в Surfer или GTKWave. `validate -v` показывает консоль всех этапов.
 
 ## Ревью
 

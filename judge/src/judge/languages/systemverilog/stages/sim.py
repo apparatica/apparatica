@@ -158,7 +158,7 @@ def _design(ctx: StageContext, config: SimConfig) -> tuple[str, bytes]:
     if config.design is None:
         return SOLUTION, canonical_solution(ctx)
     stage, output = config.design.split(".", 1)
-    finished = ctx.previous.get(stage)
+    finished = ctx.previous.get(ctx.instance(stage))  # the netlist of the same parameter set
     if finished is None or output not in finished.outputs:
         raise LookupError(f"stage {ctx.key}: design {config.design} was not produced")
     return DESIGN, netlist_design(ctx, stage, finished.outputs[output])

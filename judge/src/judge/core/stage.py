@@ -15,7 +15,7 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from judge.core.cache import NO_CACHE, BuildCache
 from judge.core.limits import StageLimits
-from judge.core.package import Problem
+from judge.core.package import Problem, instance_key
 
 StageStatus = Literal[
     "pending", "running", "passed", "warning", "failed", "skipped", "cancelled", "error"
@@ -157,6 +157,10 @@ class FinishedStage:
 
 @dataclass(frozen=True)
 class StageContext:
+    """What a stage instance gets. `key` is the instance key; `param_set` is the set of the
+    instance, the primary one for a stage at the primary set only; `previous` holds the finished
+    instances by key."""
+
     key: str
     type: str
     ordinal: int
@@ -168,8 +172,14 @@ class StageContext:
     solution: bytes
     limits: StageLimits
     previous: Mapping[str, FinishedStage]
+    param_set: ParamSet
     build_cache: BuildCache = NO_CACHE
     trace: TraceScope = "failure_window"
+
+    def instance(self, stage_key: str) -> str:
+        """Key of the instance of another stage at the set of this one, e.g. the `synth` whose
+        netlist this `netlist_sim@narrow` simulates (ADR-0014)."""
+        return instance_key(stage_key, self.param_set.id)
 
 
 # A stage's view of one console line: the text to show (None hides it) and a test progress update.

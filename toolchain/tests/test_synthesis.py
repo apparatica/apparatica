@@ -14,7 +14,7 @@ from judge.core.executor import LocalDockerExecutor
 from judge.core.leaderboard import leaderboard_metrics
 from judge.core.limits import load_resource_classes, sandbox_limits, stage_limits
 from judge.core.package import Problem, load_manifest
-from judge.core.pipeline import CACHED_RUN_NOTE, Job, run_pipeline
+from judge.core.pipeline import CACHED_RUN_NOTE, Job, param_set_of, run_pipeline
 from judge.core.registry import get_language
 from judge.core.stage import FinishedStage, StageContext, StageResult
 from judge.languages.systemverilog.stages.synth import (
@@ -268,6 +268,7 @@ def test_the_stage_run_is_byte_identical() -> None:
                 {"solution.sv": CORRECT.encode()},
             )
         },
+        param_set=param_set_of(problem, "default"),
     )
     plan = SynthStage().plan(ctx)
     files = []

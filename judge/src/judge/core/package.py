@@ -6,6 +6,7 @@ Stage configs beyond `type` are validated by the language module that owns the s
 """
 
 import json
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Annotated, Any, Literal, Self
@@ -29,6 +30,8 @@ SCHEMA_ID = "https://apparatica.app/schemas/problem/1.json"
 Slug = Annotated[str, StringConstraints(pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$", max_length=64)]
 Identifier = Annotated[str, StringConstraints(pattern=r"^[A-Za-z_][A-Za-z0-9_$]*$")]
 MetricRef = Annotated[str, StringConstraints(pattern=r"^[a-z_]+\.[a-z0-9_]+$")]
+# `@` separates the stage key and the set id in the key of a stage instance (ADR-0014).
+StageKey = Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_]*$", max_length=32)]
 ParamSetId = Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_]*$", max_length=32)]
 ParamValue = int | str
 
@@ -225,7 +228,7 @@ class Problem(_Model):
     interface: Interface
     files: Files
     testbenches: list[Testbench] = []
-    stages: dict[str, StageConfig]
+    stages: dict[StageKey, StageConfig]
     pipelines: Pipelines
     limits: Limits | None = None
     leaderboard: Leaderboard | None = None
@@ -285,6 +288,23 @@ class Problem(_Model):
             if chosen == "all" or (not isinstance(chosen, str) and s.id in chosen)
         ]
         return [PRIMARY_SET, *extra]
+
+    def instance_keys(self, stage_keys: Sequence[str]) -> list[str]:
+        """Keys of the instances of the stages in run order: by stage, at each stage the primary
+        set and then the extra ones in the order of `interface.param_sets` (ADR-0014)."""
+        return [instance_key(k, s) for k in stage_keys for s in self.stage_param_sets(k)]
+
+
+def instance_key(stage_key: str, set_id: str) -> str:
+    """Key of a stage instance (ADR-0014): the stage key at the primary set, `<key>@<set id>` at
+    an extra one."""
+    return stage_key if set_id == PRIMARY_SET else f"{stage_key}@{set_id}"
+
+
+def split_instance_key(key: str) -> tuple[str, str]:
+    """The stage key and the set id of an instance key."""
+    stage_key, _, set_id = key.partition("@")
+    return stage_key, set_id or PRIMARY_SET
 
 
 def _require_unique(what: str, names: list[str]) -> None:

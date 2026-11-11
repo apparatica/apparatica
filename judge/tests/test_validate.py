@@ -352,7 +352,10 @@ def test_mutant_caught_later_fails(tmp_path: Path) -> None:
     [
         ("late", [], True),
         ("late", ["late"], True),
+        ("late@narrow", ["late"], True),
         ("early", ["late"], True),
+        ("early@narrow", ["late"], True),
+        ("late@narrow", ["early"], False),
         ("late", ["early"], False),
         ("late", ["run_only"], False),  # not in the submit pipeline: only an exact match counts
         (None, ["late"], False),

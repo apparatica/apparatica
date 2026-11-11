@@ -29,7 +29,7 @@ from typing import Literal
 from judge.core.events import EventSink
 from judge.core.executor import Executor, check_relative
 from judge.core.limits import ResourceClasses, check_param_sets, stage_limits
-from judge.core.package import ManifestError, Problem, load_manifest
+from judge.core.package import ManifestError, Problem, load_manifest, split_instance_key
 from judge.core.pipeline import Job, PipelineConfigError, plan_stages, run_pipeline
 from judge.core.registry import LanguageModule, UnknownLanguageError, get_language
 from judge.core.stage import StageResult
@@ -127,7 +127,7 @@ class PackageValidator:
             for kind in ("run", "submit"):
                 for planned in plan_stages(problem, kind, language):
                     stage_limits(
-                        problem, planned.key, planned.stage.stage_type, self.resource_classes
+                        problem, planned.stage_key, planned.stage.stage_type, self.resource_classes
                     )
         except (UnknownLanguageError, PipelineConfigError, ValueError) as error:
             yield Check("fail", "этапы и лимиты", str(error))
@@ -207,9 +207,13 @@ class PackageValidator:
     def _template(self, package_dir: Path, problem: Problem, language: LanguageModule) -> Check:
         what = f"шаблон {problem.files.template}"
         keys = tuple(
-            key
-            for key in problem.pipelines.practice.submit
-            if problem.stages[key].type in language.template_checks
+            problem.instance_keys(
+                [
+                    key
+                    for key in problem.pipelines.practice.submit
+                    if problem.stages[key].type in language.template_checks
+                ],
+            )
         )
         if not keys:
             return Check("skip", what, "в пайплайне нет этапов проверки шаблона")
@@ -301,11 +305,13 @@ def _difference(
 
 def _caught_in_time(stage: str | None, caught_by: Sequence[str], order: Sequence[str]) -> bool:
     """A mutant caught by a listed stage or by one before them in the submit pipeline passes
-    (FR-PKG-02): an earlier stage is a stricter catch."""
+    (FR-PKG-02): an earlier stage is a stricter catch. `stage` is the instance that caught it: an
+    instance at any parameter set counts for its stage (ADR-0014)."""
     if not caught_by:
         return True
     if stage is None:
         return False
+    stage = split_instance_key(stage)[0]
     if stage in caught_by:
         return True
     positions = [order.index(key) for key in caught_by if key in order]

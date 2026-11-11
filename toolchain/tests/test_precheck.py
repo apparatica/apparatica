@@ -10,6 +10,7 @@ import yaml
 from judge.core.executor import LocalDockerExecutor
 from judge.core.limits import SandboxLimits, StageLimits
 from judge.core.package import parse_manifest
+from judge.core.pipeline import param_set_of
 from judge.core.stage import Command, StageContext, StageOutcome, StagePlan
 from judge.languages.systemverilog.stages.precheck import PrecheckConfig, PrecheckStage
 from sandbox import IMAGE, RUNTIME
@@ -54,18 +55,20 @@ def context(solution: str) -> StageContext:
         "stages": {"precheck": {"type": "precheck"}},
         "pipelines": {"practice": {"run": ["precheck"], "submit": ["precheck"]}},
     }
+    problem = parse_manifest(yaml.safe_dump(manifest), "problem.yaml")
     return StageContext(
         key="precheck",
         type="precheck",
         ordinal=0,
         config=PrecheckConfig(),
-        problem=parse_manifest(yaml.safe_dump(manifest), "problem.yaml"),
+        problem=problem,
         package_dir=Path(),
         kind="run",
         seed=1,
         solution=solution.encode(),
         limits=StageLimits(timeout_s=30, output_bytes=1 << 20, fst_bytes=1 << 20),
         previous={},
+        param_set=param_set_of(problem, "default"),
     )
 
 

@@ -7,6 +7,10 @@ separately (`judge.core.verdict`) by whoever owns the final status.
 A deterministic plan (`StagePlan.cache`, e.g. synthesis) is looked up in the stage cache first and
 replayed from there; its fresh run is kept once the stage ends with a result the same code always
 gets (FR-JDG-11).
+
+A stage checked at several parameter sets runs as one instance per set (ADR-0014): the stage key at
+the primary set, `<key>@<set id>` at the others. An instance is a stage like any other: its own
+result, artifacts, early stop and place in the verdict.
 """
 
 import base64
@@ -33,14 +37,15 @@ from judge.core.events import (
     TruncatedEvent,
 )
 from judge.core.executor import Executor, ExecutorError, OnLine
-from judge.core.limits import ResourceClasses, stage_limits
-from judge.core.package import Problem
+from judge.core.limits import ResourceClasses, check_param_sets, stage_limits
+from judge.core.package import PRIMARY_SET, Problem, split_instance_key
 from judge.core.registry import LanguageModule
 from judge.core.stage import (
     Channel,
     CommandResult,
     ExecResult,
     FinishedStage,
+    ParamSet,
     SkipReason,
     Stage,
     StageContext,
@@ -74,7 +79,8 @@ class Job:
     kind: SubmissionKind
     seed: int
     solution: bytes
-    # Stage keys to run instead of pipelines.practice.<kind>, e.g. only the checks of a template.
+    # Instance keys to run instead of pipelines.practice.<kind>, e.g. only the checks of a template
+    # or the stages up to a traced one; a stage key is the instance at the primary set.
     stages: tuple[str, ...] | None = None
     # A whole failed test is traced on request (FR-WAV-05), not only the window of the mismatch.
     trace: TraceScope = "failure_window"
@@ -82,9 +88,18 @@ class Job:
 
 @dataclass(frozen=True)
 class _Planned:
-    key: str
+    key: str  # of the instance
+    stage_key: str
     stage: Stage
     config: BaseModel
+    param_set: ParamSet
+    # The set the result reports: none for a stage at the primary set only.
+    reported_set: ParamSet | None
+
+
+def param_set_of(problem: Problem, set_id: str) -> ParamSet:
+    """A parameter set with the value of every parameter of the interface."""
+    return ParamSet(id=set_id, values=problem.interface.param_set_values(set_id))
 
 
 def plan_stages(
@@ -93,12 +108,19 @@ def plan_stages(
     language: LanguageModule,
     keys: Sequence[str] | None = None,
 ) -> list[_Planned]:
-    """Resolve stage plugins and validate their configs before anything runs."""
+    """Expand the pipeline into stage instances, resolve stage plugins and validate their configs
+    before anything runs. `keys`: instance keys to run instead of the pipeline of `kind`."""
     if keys is None:
-        keys = getattr(problem.pipelines.practice, kind)
+        keys = problem.instance_keys(getattr(problem.pipelines.practice, kind))
     planned = []
     for key in keys:
-        raw = problem.stages[key]
+        stage_key, set_id = split_instance_key(key)
+        raw = problem.stages.get(stage_key)
+        if raw is None:
+            raise PipelineConfigError(f"stage {key}: no stage {stage_key!r} in problem.yaml")
+        sets = problem.stage_param_sets(stage_key)
+        if set_id not in sets:
+            raise PipelineConfigError(f"stage {key}: stage {stage_key} has no set {set_id!r}")
         plugin = language.stages.get(raw.type)
         if plugin is None:
             raise PipelineConfigError(
@@ -108,7 +130,9 @@ def plan_stages(
             config = plugin.config_model.model_validate(raw.model_extra or {})
         except ValidationError as error:
             raise PipelineConfigError(f"stage {key}: {error}") from error
-        planned.append(_Planned(key, plugin(), config))
+        values = param_set_of(problem, set_id)
+        reported = None if sets == [PRIMARY_SET] else values
+        planned.append(_Planned(key, stage_key, plugin(), config, values, reported))
     return planned
 
 
@@ -127,6 +151,10 @@ def run_pipeline(
     `cancel_note` says in the console of the running stage why it was cancelled, `build_cache`
     keeps what the stages build for later checks of the same code."""
     cancel = cancel or threading.Event()
+    try:  # the bound may have changed since the package was validated
+        check_param_sets(job.problem, resource_classes)
+    except ValueError as error:
+        raise PipelineConfigError(str(error)) from error
     planned = plan_stages(job.problem, job.kind, language, job.stages)
     finished: dict[str, FinishedStage] = {}
     results: list[StageResult] = []
@@ -139,6 +167,7 @@ def run_pipeline(
                 key=item.key,
                 type=item.stage.stage_type,
                 ordinal=ordinal,
+                param_set=item.reported_set,
                 status="skipped",
                 summary=StageSummary(skip_reason=skip),
             )
@@ -154,12 +183,17 @@ def run_pipeline(
                 kind=job.kind,
                 seed=job.seed,
                 solution=job.solution,
-                limits=stage_limits(job.problem, item.key, item.stage.stage_type, resource_classes),
+                limits=stage_limits(
+                    job.problem, item.stage_key, item.stage.stage_type, resource_classes
+                ),
                 previous=dict(finished),
+                param_set=item.param_set,
                 build_cache=build_cache,
                 trace=job.trace,
             )
-            result, outcome = _run_stage(item.stage, ctx, executor, sink, cancel, cancel_note)
+            result, outcome = _run_stage(
+                item.stage, ctx, item.reported_set, executor, sink, cancel, cancel_note
+            )
             outputs = outcome.outputs if outcome else {}
             if outcome is not None and on_artifact is not None:
                 for name, data in outcome.artifacts.items():
@@ -179,12 +213,17 @@ def run_pipeline(
 def _run_stage(
     stage: Stage,
     ctx: StageContext,
+    reported_set: ParamSet | None,
     executor: Executor,
     sink: EventSink,
     cancel: threading.Event,
     cancel_note: Callable[[], str],
 ) -> tuple[StageResult, StageOutcome | None]:
-    sink.emit(StageStartEvent(stage=ctx.key, stage_type=ctx.type, ordinal=ctx.ordinal))
+    sink.emit(
+        StageStartEvent(
+            stage=ctx.key, stage_type=ctx.type, ordinal=ctx.ordinal, param_set=reported_set
+        )
+    )
     started_at, started = datetime.now(UTC), time.monotonic()
     runs: list[ExecResult] = []
     fresh: list[tuple[str, ExecResult]] = []  # runs of deterministic plans, for the stage cache
@@ -195,6 +234,7 @@ def _run_stage(
             key=ctx.key,
             type=ctx.type,
             ordinal=ctx.ordinal,
+            param_set=reported_set,
             status=outcome.status if outcome else "cancelled",
             failure_kind=outcome.failure_kind if outcome else None,
             limit=outcome.limit if outcome else None,

@@ -138,6 +138,22 @@ def test_check_timeout_sums_the_stages_of_the_pipeline() -> None:
     assert check_timeout_s(problem, "submit", RESOURCE_CLASSES) == 10 + 45 + 60 + CHECK_OVERHEAD_S
 
 
+def test_check_timeout_counts_every_instance_of_a_stage() -> None:
+    problem = make_problem(
+        {"lint": {"type": "lint"}, "sim": {"type": "sim", "param_sets": "all"}},
+        run=["lint"],
+        submit=["lint", "sim"],
+        interface={
+            "parameters": [{"name": "W", "type": "int", "default": 8}],
+            "param_sets": [{"id": "a", "values": {"W": 1}}, {"id": "b", "values": {"W": 2}}],
+            "ports": [{"name": "a", "dir": "input", "width": "W"}],
+        },
+        limits={"stage_timeout_s": {"sim": 45}},
+    )
+    assert check_timeout_s(problem, "run", RESOURCE_CLASSES) == 10 + CHECK_OVERHEAD_S
+    assert check_timeout_s(problem, "submit", RESOURCE_CLASSES) == 10 + 3 * 45 + CHECK_OVERHEAD_S
+
+
 def test_timeout_override_is_bounded_by_the_class() -> None:
     problem = make_problem(
         {"sim": {"type": "sim"}}, run=["sim"], limits={"stage_timeout_s": {"sim": 3600}}
