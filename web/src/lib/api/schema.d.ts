@@ -1462,6 +1462,32 @@ export interface components {
              */
             email: string;
         };
+        /**
+         * ParamSet
+         * @description The parameter set of a stage instance (ADR-0014, specs/06 §2).
+         *
+         *     A stage checked at several sets runs as one instance per set; the core knows of a set only
+         *     the names and the values of the parameters, the language module passes them to the tools.
+         */
+        ParamSet: {
+            /**
+             * Id
+             * @description `default`: the primary set, the default values of the interface
+             * @example narrow
+             */
+            id: string;
+            /**
+             * Values
+             * @description Every parameter of the interface at this set, in the order of the interface: an integer or a numeric literal of the language, as problem.yaml gives it
+             * @example {
+             *       "DEPTH": 2,
+             *       "WIDTH": 1
+             *     }
+             */
+            values: {
+                [key: string]: number | string;
+            };
+        };
         /** Parameter */
         Parameter: {
             /** Name */
@@ -1886,6 +1912,7 @@ export interface components {
         PublicStage: {
             /**
              * Key
+             * @description Key of the stage instance
              * @example synth
              */
             key: string;
@@ -1894,6 +1921,8 @@ export interface components {
              * @example synth
              */
             type: string;
+            /** @description As in the submission: null at the primary parameter set only */
+            param_set: components["schemas"]["ParamSet"] | null;
             /**
              * Status
              * @enum {string}
@@ -2300,12 +2329,18 @@ export interface components {
          * @description A finished stage as the worker reports it (`stage_results`, specs/04 §4).
          */
         StageResult: {
-            /** Key */
+            /**
+             * Key
+             * @description Key of the stage instance: the stage key, or `<stage key>@<set id>` at an extra parameter set (specs/06 §2)
+             * @example sim_full@narrow
+             */
             key: string;
             /** Type */
             type: string;
             /** Ordinal */
             ordinal: number;
+            /** @description Set of a stage checked at several parameter sets, the primary one included; null: the stage runs at the primary set only */
+            param_set?: components["schemas"]["ParamSet"] | null;
             /**
              * Status
              * @enum {string}
@@ -2350,12 +2385,18 @@ export interface components {
              * @enum {string}
              */
             type: "stage_start";
-            /** Stage */
+            /**
+             * Stage
+             * @description Key of the stage instance
+             * @example sim_full@narrow
+             */
             stage: string;
             /** Stage Type */
             stage_type: string;
             /** Ordinal */
             ordinal: number;
+            /** @description As in the stage result: null at the primary set only */
+            param_set: components["schemas"]["ParamSet"] | null;
             /**
              * Attempt
              * @description Attempt of the check; a new attempt resets the results
@@ -2627,7 +2668,9 @@ export interface components {
         SubmissionStage: {
             /**
              * Key
+             * @description Key of the stage instance: the stage key, or `<stage key>@<set id>` at an extra parameter set (specs/06 §2)
              * @example sim_full
+             * @example sim_full@narrow
              */
             key: string;
             /**
@@ -2637,6 +2680,8 @@ export interface components {
             type: string;
             /** Ordinal */
             ordinal: number;
+            /** @description Set of a stage checked at several parameter sets (ADR-0014), the primary one included: the values show for hidden tests too; null: the stage runs at the primary set only */
+            param_set: components["schemas"]["ParamSet"] | null;
             /**
              * Status
              * @enum {string}
@@ -3662,7 +3707,7 @@ export interface operations {
     get_artifact: {
         parameters: {
             query?: {
-                /** @description Key of the stage */
+                /** @description Key of the stage instance */
                 stage?: string | null;
                 /** @description Which FST of the stage: the window or the whole test */
                 scope?: "failure_window" | "full_test";

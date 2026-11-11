@@ -269,7 +269,10 @@ async def get_artifact(
     author: CurrentAuthor,
     id: SubmissionId,
     kind: ArtifactKind,
-    stage: Annotated[str | None, Query(max_length=64, description="Key of the stage")] = None,
+    stage: Annotated[
+        str | None,
+        Query(max_length=64, description="Key of the stage instance", examples=["sim_full@narrow"]),
+    ] = None,
     scope: Annotated[
         WaveformScope, Query(description="Which FST of the stage: the window or the whole test")
     ] = "failure_window",

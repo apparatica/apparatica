@@ -11,7 +11,7 @@ from typing import Literal
 from pydantic import BaseModel, Field, PositiveInt, field_validator
 
 from judge.core.package import Slug
-from judge.core.stage import FailureKind, StageStatus, StageSummary, SubmissionKind
+from judge.core.stage import FailureKind, ParamSet, StageStatus, StageSummary, SubmissionKind
 from judge.core.verdict import VerdictDetail
 
 # specs/04 §3.1; the same values as SUBMISSION_STATUSES of the models (a test checks it).
@@ -56,9 +56,18 @@ class SubmissionCreate(BaseModel):
 
 
 class SubmissionStage(BaseModel):
-    key: str = Field(examples=["sim_full"])
+    key: str = Field(
+        examples=["sim_full", "sim_full@narrow"],
+        description="Key of the stage instance: the stage key, or `<stage key>@<set id>` at an"
+        " extra parameter set (specs/06 §2)",
+    )
     type: str = Field(examples=["sim"])
     ordinal: int
+    param_set: ParamSet | None = Field(
+        description="Set of a stage checked at several parameter sets (ADR-0014), the primary one"
+        " included: the values show for hidden tests too; null: the stage runs at the primary set"
+        " only"
+    )
     status: StageStatus
     failure_kind: FailureKind | None
     error_code: str | None = Field(description="Platform failure of status=error")

@@ -448,6 +448,7 @@ function stagesOf(item: Solution): Schemas["PublicStage"][] {
     ({ key, type }) => ({
       key,
       type,
+      param_set: null,
       status: type === "lint" && item.status === "accepted_with_warnings" ? "warning" : "passed",
       metrics_schema: `${type}/v1`,
       metrics: type === "synth" ? synth : {},
@@ -459,6 +460,7 @@ function stagesOf(item: Solution): Schemas["PublicStage"][] {
     stages.push({
       key: "synth",
       type: "synth",
+      param_set: null,
       status: "passed",
       metrics_schema: "synth/v1",
       metrics: synth,

@@ -3,6 +3,7 @@
 import type { Schemas } from "@/lib/api/client";
 
 import accepted from "./scenarios/accepted.json";
+import acceptedParamSets from "./scenarios/accepted-param-sets.json";
 import acceptedWithWarnings from "./scenarios/accepted-with-warnings.json";
 import cancelled from "./scenarios/cancelled.json";
 import compileError from "./scenarios/compile-error.json";
@@ -13,6 +14,7 @@ import retry from "./scenarios/retry.json";
 import runPassed from "./scenarios/run-passed.json";
 import wrongAnswer from "./scenarios/wrong-answer.json";
 import wrongAnswerHidden from "./scenarios/wrong-answer-hidden.json";
+import wrongAnswerParamSet from "./scenarios/wrong-answer-param-set.json";
 
 /** An event of `GET /submissions/{id}/events`: `id` is the stream entry id, milliseconds first. */
 export interface StreamEvent {
@@ -41,6 +43,9 @@ const recorded = {
   cancelled,
   "internal-error": internalError,
   retry,
+  // Stand-ins put together from the recordings until the judge checks parameter sets.
+  "accepted-param-sets": acceptedParamSets,
+  "wrong-answer-param-set": wrongAnswerParamSet,
 };
 
 export type ScenarioName = keyof typeof recorded;

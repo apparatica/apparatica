@@ -60,11 +60,12 @@ export function compareEventIds(a: string, b: string): number {
 
 function stageOf(stage: Submission["stages"][number]): Stage {
   const { key, type, ordinal, status, failure_kind, error_code, started_at, duration_ms } = stage;
-  const { metrics_schema, metrics, summary } = stage;
+  const { param_set, metrics_schema, metrics, summary } = stage;
   return {
     key,
     type,
     ordinal,
+    param_set,
     status,
     failure_kind,
     limit: null,
@@ -166,6 +167,7 @@ export function applyEvent(
           key: event.stage,
           type: event.stage_type,
           ordinal: event.ordinal,
+          param_set: event.param_set,
           status: "running",
           failure_kind: null,
           limit: null,

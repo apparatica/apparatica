@@ -377,6 +377,7 @@ def public_stage(stage: StageResult) -> PublicStage:
     return PublicStage(
         key=stage.stage_key,
         type=stage.stage_type,
+        param_set=None,  # stage_results keeps no set before the migration of block 3a
         status=stage.status,  # type: ignore[arg-type]  # a stage_status value
         metrics_schema=stage.metrics_schema,
         metrics=(stage.metrics or {}) if stage.stage_type in PUBLIC_METRIC_TYPES else {},

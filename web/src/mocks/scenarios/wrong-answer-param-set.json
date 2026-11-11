@@ -1,0 +1,1568 @@
+{
+ "name": "wrong-answer-param-set",
+ "submission": {
+  "id": "01a1b562-aba8-763a-b926-40a2a8bd095d",
+  "problem": "sync-fifo",
+  "problem_title": "Синхронный FIFO",
+  "version": 3,
+  "kind": "submit",
+  "status": "wrong_answer",
+  "verdict_detail": {
+   "first_failure": {
+    "stage": "sim_full@narrow",
+    "test": "t2",
+    "cycle": 30,
+    "test_number": 2,
+    "hidden": null,
+    "diagnostic": null
+   },
+   "limit": null,
+   "warnings": [],
+   "error_codes": []
+  },
+  "created_at": "2026-11-07T09:41:45+00:00",
+  "finished_at": "2026-11-07T09:42:25.981000+00:00",
+  "code": "module sync_fifo #(\n  parameter int WIDTH = 8,\n  parameter int DEPTH = 16\n) (\n  input  logic             clk,\n  input  logic             rst_n,\n  input  logic             push,\n  input  logic [WIDTH-1:0] wdata,\n  input  logic             pop,\n  output logic [WIDTH-1:0] rdata,\n  output logic             full,\n  output logic             empty\n);\n  localparam int AW = $clog2(DEPTH);\n\n  logic [WIDTH-1:0] mem [DEPTH];\n  logic [AW-1:0] wptr, rptr;\n  logic [AW:0] count;\n\n  wire do_push = push && !full;\n  wire do_pop = pop && !empty;\n\n  assign full = count == (AW + 1)'(DEPTH);\n  assign empty = count == '0;\n  assign rdata = mem[rptr];\n\n  always_ff @(posedge clk) begin\n    if (do_push) mem[wptr] <= wdata;\n    if (!rst_n) begin\n      wptr <= '0;\n      rptr <= '0;\n      count <= '0;\n    end else begin\n      if (do_push) wptr <= wptr + 1'b1;\n      if (do_pop) rptr <= rptr + 1'b1;\n      count <= count + (AW + 1)'(do_push) - (AW + 1)'(do_pop);\n    end\n  end\nendmodule\n",
+  "public": false,
+  "leaderboard": null,
+  "seed": "20261026",
+  "toolchain_profile": "sv-dev",
+  "waveview_url": null,
+  "queue_position": null,
+  "eta_s": null,
+  "started_at": "2026-11-07T09:41:46.067285+00:00",
+  "stages": [
+   {
+    "key": "precheck",
+    "type": "precheck",
+    "ordinal": 0,
+    "param_set": null,
+    "status": "passed",
+    "failure_kind": null,
+    "error_code": null,
+    "started_at": "2026-11-07T09:41:46.067285Z",
+    "duration_ms": 1579,
+    "metrics_schema": "precheck/v1",
+    "metrics": {
+     "code_hash": "110bfbbea9e55a80a70048a74b828ce86acd8851186dd1dfd8c5880c690d1541",
+     "ast_hash": "n1:9f2eb13379097eea0fe4426441dee62b81f1fe2c7dfd24a7b0f976f49f386144",
+     "normalization_version": 1,
+     "module": "sync_fifo",
+     "ports_ok": true,
+     "state_bits": 165
+    },
+    "summary": {
+     "caption": null,
+     "skip_reason": null,
+     "diagnostics": [],
+     "tests": [],
+     "hidden_tests": null
+    },
+    "finished_at": "2026-11-07T09:41:47.646285+00:00"
+   },
+   {
+    "key": "lint",
+    "type": "lint",
+    "ordinal": 1,
+    "param_set": null,
+    "status": "passed",
+    "failure_kind": null,
+    "error_code": null,
+    "started_at": "2026-11-07T09:41:47.686985Z",
+    "duration_ms": 1422,
+    "metrics_schema": "lint/v1",
+    "metrics": {
+     "warnings": 0,
+     "errors": 0,
+     "rules": {}
+    },
+    "summary": {
+     "caption": null,
+     "skip_reason": null,
+     "diagnostics": [],
+     "tests": [],
+     "hidden_tests": null
+    },
+    "finished_at": "2026-11-07T09:41:49.108985+00:00"
+   },
+   {
+    "key": "sim_full",
+    "type": "sim",
+    "ordinal": 2,
+    "param_set": {
+     "id": "default",
+     "values": {
+      "WIDTH": 8,
+      "DEPTH": 16
+     }
+    },
+    "status": "passed",
+    "failure_kind": null,
+    "error_code": null,
+    "started_at": "2026-11-07T09:41:49.148740Z",
+    "duration_ms": 19375,
+    "metrics_schema": "sim/v1",
+    "metrics": {
+     "tests_total": 4,
+     "tests_passed": 4,
+     "cycles": 695,
+     "seed": 20261026
+    },
+    "summary": {
+     "caption": "пройдено 4 из 4",
+     "skip_reason": null,
+     "diagnostics": [],
+     "tests": [
+      {
+       "id": "t1",
+       "name": "запись и чтение по порядку",
+       "group": "public",
+       "status": "passed",
+       "duration_ms": null,
+       "cycle": null,
+       "mismatches": []
+      },
+      {
+       "id": "t2",
+       "name": "заполнение до full и опустошение",
+       "group": "public",
+       "status": "passed",
+       "duration_ms": null,
+       "cycle": null,
+       "mismatches": []
+      }
+     ],
+     "hidden_tests": {
+      "total": 2,
+      "passed": 2,
+      "failed_index": null
+     }
+    },
+    "finished_at": "2026-11-07T09:42:08.523740+00:00"
+   },
+   {
+    "key": "sim_full@narrow",
+    "type": "sim",
+    "ordinal": 3,
+    "param_set": {
+     "id": "narrow",
+     "values": {
+      "WIDTH": 1,
+      "DEPTH": 2
+     }
+    },
+    "status": "failed",
+    "failure_kind": "wrong",
+    "error_code": null,
+    "started_at": "2026-11-07T09:42:08.650978Z",
+    "duration_ms": 16166,
+    "metrics_schema": "sim/v1",
+    "metrics": {
+     "tests_total": 4,
+     "tests_passed": 1,
+     "cycles": 51,
+     "seed": 20261026,
+     "first_failure": {
+      "test": "t2",
+      "cycle": 30,
+      "signal": "full"
+     },
+     "trace": "recorded",
+     "trace_window": [
+      0,
+      46
+     ],
+     "trace_cursor_ps": 300,
+     "trace_signals": [
+      {
+       "path": "tb_top.clk",
+       "port": "clk",
+       "role": "clock"
+      },
+      {
+       "path": "tb_top.rst_n",
+       "port": "rst_n",
+       "role": "input"
+      },
+      {
+       "path": "tb_top.push",
+       "port": "push",
+       "role": "input"
+      },
+      {
+       "path": "tb_top.wdata",
+       "port": "wdata",
+       "role": "input"
+      },
+      {
+       "path": "tb_top.pop",
+       "port": "pop",
+       "role": "input"
+      },
+      {
+       "path": "tb_top.rdata",
+       "port": "rdata",
+       "role": "output"
+      },
+      {
+       "path": "tb_top.exp_rdata",
+       "port": "rdata",
+       "role": "expected"
+      },
+      {
+       "path": "tb_top.full",
+       "port": "full",
+       "role": "output"
+      },
+      {
+       "path": "tb_top.exp_full",
+       "port": "full",
+       "role": "expected"
+      },
+      {
+       "path": "tb_top.empty",
+       "port": "empty",
+       "role": "output"
+      },
+      {
+       "path": "tb_top.exp_empty",
+       "port": "empty",
+       "role": "expected"
+      }
+     ]
+    },
+    "summary": {
+     "caption": "упал тест заполнение до full и опустошение, такт 30",
+     "skip_reason": null,
+     "diagnostics": [],
+     "tests": [
+      {
+       "id": "t1",
+       "name": "запись и чтение по порядку",
+       "group": "public",
+       "status": "passed",
+       "duration_ms": null,
+       "cycle": null,
+       "mismatches": []
+      },
+      {
+       "id": "t2",
+       "name": "заполнение до full и опустошение",
+       "group": "public",
+       "status": "failed",
+       "duration_ms": null,
+       "cycle": 30,
+       "mismatches": [
+        {
+         "signal": "full",
+         "cycle": 30,
+         "expected": "1'h0",
+         "actual": "1'h1",
+         "hint": "full = 1, когда в очереди DEPTH слов"
+        }
+       ]
+      }
+     ],
+     "hidden_tests": {
+      "total": 2,
+      "passed": 0,
+      "failed_index": null
+     }
+    },
+    "finished_at": "2026-11-07T09:42:24.816978+00:00"
+   },
+   {
+    "key": "synth",
+    "type": "synth",
+    "ordinal": 4,
+    "param_set": {
+     "id": "default",
+     "values": {
+      "WIDTH": 8,
+      "DEPTH": 16
+     }
+    },
+    "status": "skipped",
+    "failure_kind": null,
+    "error_code": null,
+    "started_at": null,
+    "duration_ms": null,
+    "metrics_schema": null,
+    "metrics": {},
+    "summary": {
+     "caption": null,
+     "skip_reason": "previous_failed",
+     "diagnostics": [],
+     "tests": [],
+     "hidden_tests": null
+    },
+    "finished_at": null
+   },
+   {
+    "key": "synth@narrow",
+    "type": "synth",
+    "ordinal": 5,
+    "param_set": {
+     "id": "narrow",
+     "values": {
+      "WIDTH": 1,
+      "DEPTH": 2
+     }
+    },
+    "status": "skipped",
+    "failure_kind": null,
+    "error_code": null,
+    "started_at": null,
+    "duration_ms": null,
+    "metrics_schema": null,
+    "metrics": {},
+    "summary": {
+     "caption": null,
+     "skip_reason": "previous_failed",
+     "diagnostics": [],
+     "tests": [],
+     "hidden_tests": null
+    },
+    "finished_at": null
+   },
+   {
+    "key": "netlist_sim",
+    "type": "sim",
+    "ordinal": 6,
+    "param_set": {
+     "id": "default",
+     "values": {
+      "WIDTH": 8,
+      "DEPTH": 16
+     }
+    },
+    "status": "skipped",
+    "failure_kind": null,
+    "error_code": null,
+    "started_at": null,
+    "duration_ms": null,
+    "metrics_schema": null,
+    "metrics": {},
+    "summary": {
+     "caption": null,
+     "skip_reason": "previous_failed",
+     "diagnostics": [],
+     "tests": [],
+     "hidden_tests": null
+    },
+    "finished_at": null
+   },
+   {
+    "key": "netlist_sim@narrow",
+    "type": "sim",
+    "ordinal": 7,
+    "param_set": {
+     "id": "narrow",
+     "values": {
+      "WIDTH": 1,
+      "DEPTH": 2
+     }
+    },
+    "status": "skipped",
+    "failure_kind": null,
+    "error_code": null,
+    "started_at": null,
+    "duration_ms": null,
+    "metrics_schema": null,
+    "metrics": {},
+    "summary": {
+     "caption": null,
+     "skip_reason": "previous_failed",
+     "diagnostics": [],
+     "tests": [],
+     "hidden_tests": null
+    },
+    "finished_at": null
+   }
+  ],
+  "artifacts": [
+   {
+    "kind": "log",
+    "stage": "precheck",
+    "state": "ready",
+    "size_bytes": 0,
+    "error_code": null,
+    "waveform": null
+   },
+   {
+    "kind": "log",
+    "stage": "lint",
+    "state": "ready",
+    "size_bytes": 304,
+    "error_code": null,
+    "waveform": null
+   },
+   {
+    "kind": "log",
+    "stage": "sim_full",
+    "state": "ready",
+    "size_bytes": 0,
+    "error_code": null,
+    "waveform": null
+   },
+   {
+    "kind": "log",
+    "stage": "sim_full@narrow",
+    "state": "ready",
+    "size_bytes": 0,
+    "error_code": null,
+    "waveform": null
+   },
+   {
+    "kind": "fst",
+    "stage": "sim_full@narrow",
+    "state": "ready",
+    "size_bytes": 2491,
+    "error_code": null,
+    "waveform": {
+     "test": "t2",
+     "scope": "failure_window",
+     "from_cycle": 0,
+     "to_cycle": 46,
+     "cursor_cycle": 30,
+     "cursor_time_ps": 300,
+     "signals": [
+      {
+       "path": "tb_top.clk",
+       "port": "clk",
+       "role": "clock"
+      },
+      {
+       "path": "tb_top.rst_n",
+       "port": "rst_n",
+       "role": "input"
+      },
+      {
+       "path": "tb_top.push",
+       "port": "push",
+       "role": "input"
+      },
+      {
+       "path": "tb_top.wdata",
+       "port": "wdata",
+       "role": "input"
+      },
+      {
+       "path": "tb_top.pop",
+       "port": "pop",
+       "role": "input"
+      },
+      {
+       "path": "tb_top.rdata",
+       "port": "rdata",
+       "role": "output"
+      },
+      {
+       "path": "tb_top.exp_rdata",
+       "port": "rdata",
+       "role": "expected"
+      },
+      {
+       "path": "tb_top.full",
+       "port": "full",
+       "role": "output"
+      },
+      {
+       "path": "tb_top.exp_full",
+       "port": "full",
+       "role": "expected"
+      },
+      {
+       "path": "tb_top.empty",
+       "port": "empty",
+       "role": "output"
+      },
+      {
+       "path": "tb_top.exp_empty",
+       "port": "empty",
+       "role": "expected"
+      }
+     ]
+    }
+   },
+   {
+    "kind": "events",
+    "stage": null,
+    "state": "ready",
+    "size_bytes": 15339,
+    "error_code": null,
+    "waveform": null
+   }
+  ]
+ },
+ "events": [
+  {
+   "id": "1794044505000-0",
+   "event": {
+    "type": "queue",
+    "position": 2,
+    "eta_s": 4
+   }
+  },
+  {
+   "id": "1794044505600-0",
+   "event": {
+    "type": "queue",
+    "position": 1,
+    "eta_s": 2
+   }
+  },
+  {
+   "id": "1794044507199-0",
+   "event": {
+    "type": "stage_start",
+    "stage": "precheck",
+    "stage_type": "precheck",
+    "ordinal": 0,
+    "param_set": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044508199-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "precheck",
+    "elapsed_ms": 1000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044508778-0",
+   "event": {
+    "type": "stage_end",
+    "result": {
+     "key": "precheck",
+     "type": "precheck",
+     "ordinal": 0,
+     "param_set": null,
+     "status": "passed",
+     "failure_kind": null,
+     "limit": null,
+     "error_code": null,
+     "started_at": "2026-11-07T09:41:46.067285Z",
+     "duration_ms": 1579,
+     "metrics_schema": "precheck/v1",
+     "metrics": {
+      "code_hash": "110bfbbea9e55a80a70048a74b828ce86acd8851186dd1dfd8c5880c690d1541",
+      "ast_hash": "n1:9f2eb13379097eea0fe4426441dee62b81f1fe2c7dfd24a7b0f976f49f386144",
+      "normalization_version": 1,
+      "module": "sync_fifo",
+      "ports_ok": true,
+      "state_bits": 165
+     },
+     "cached": false,
+     "summary": {
+      "caption": null,
+      "skip_reason": null,
+      "diagnostics": [],
+      "tests": [],
+      "hidden_tests": null
+     }
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044508818-0",
+   "event": {
+    "type": "stage_start",
+    "stage": "lint",
+    "stage_type": "lint",
+    "ordinal": 1,
+    "param_set": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044509725-0",
+   "event": {
+    "type": "log",
+    "stage": "lint",
+    "ch": "out",
+    "text": "- V e r i l a t i o n   R e p o r t: Verilator 5.052 2026-09-05 rev vUNKNOWN-built20261106\n- Verilator: Built from 0.031 MB sources in 2 modules, into 0.023 MB in 3 C++ files needing 0.000 MB\n- Verilator: Walltime 0.021 s (elab=0.001, cvt=0.007, bld=0.000); cpu 0.021 s on 1 threads; allocated 17.121 MB\n",
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044510240-0",
+   "event": {
+    "type": "stage_end",
+    "result": {
+     "key": "lint",
+     "type": "lint",
+     "ordinal": 1,
+     "param_set": null,
+     "status": "passed",
+     "failure_kind": null,
+     "limit": null,
+     "error_code": null,
+     "started_at": "2026-11-07T09:41:47.686985Z",
+     "duration_ms": 1422,
+     "metrics_schema": "lint/v1",
+     "metrics": {
+      "warnings": 0,
+      "errors": 0,
+      "rules": {}
+     },
+     "cached": false,
+     "summary": {
+      "caption": null,
+      "skip_reason": null,
+      "diagnostics": [],
+      "tests": [],
+      "hidden_tests": null
+     }
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044510280-0",
+   "event": {
+    "type": "stage_start",
+    "stage": "sim_full",
+    "stage_type": "sim",
+    "ordinal": 2,
+    "param_set": {
+     "id": "default",
+     "values": {
+      "WIDTH": 8,
+      "DEPTH": 16
+     }
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044511280-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full",
+    "elapsed_ms": 1000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044512280-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full",
+    "elapsed_ms": 2000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044513280-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full",
+    "elapsed_ms": 3000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044514280-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full",
+    "elapsed_ms": 4000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044515280-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full",
+    "elapsed_ms": 5000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044516280-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full",
+    "elapsed_ms": 6000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044517280-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full",
+    "elapsed_ms": 7000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044518280-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full",
+    "elapsed_ms": 8000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044519280-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full",
+    "elapsed_ms": 9000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044520280-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full",
+    "elapsed_ms": 10000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044521280-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full",
+    "elapsed_ms": 11000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044522280-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full",
+    "elapsed_ms": 12000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044523280-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full",
+    "elapsed_ms": 13000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044524280-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full",
+    "elapsed_ms": 14000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044525280-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full",
+    "elapsed_ms": 15000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044526280-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full",
+    "elapsed_ms": 16000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044527280-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full",
+    "elapsed_ms": 17000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044528280-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full",
+    "elapsed_ms": 18000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044529132-0",
+   "event": {
+    "type": "test",
+    "stage": "sim_full",
+    "test": {
+     "id": "t1",
+     "name": "запись и чтение по порядку",
+     "group": "public",
+     "status": "running",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044529132-1",
+   "event": {
+    "type": "test",
+    "stage": "sim_full",
+    "test": {
+     "id": "t1",
+     "name": "запись и чтение по порядку",
+     "group": "public",
+     "status": "passed",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044529132-2",
+   "event": {
+    "type": "test",
+    "stage": "sim_full",
+    "test": {
+     "id": "t2",
+     "name": "заполнение до full и опустошение",
+     "group": "public",
+     "status": "running",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044529132-3",
+   "event": {
+    "type": "test",
+    "stage": "sim_full",
+    "test": {
+     "id": "t2",
+     "name": "заполнение до full и опустошение",
+     "group": "public",
+     "status": "passed",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044529132-4",
+   "event": {
+    "type": "test",
+    "stage": "sim_full",
+    "test": {
+     "id": "hidden-1",
+     "name": "",
+     "group": "hidden",
+     "status": "running",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044529133-0",
+   "event": {
+    "type": "test",
+    "stage": "sim_full",
+    "test": {
+     "id": "hidden-1",
+     "name": "",
+     "group": "hidden",
+     "status": "passed",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044529133-1",
+   "event": {
+    "type": "test",
+    "stage": "sim_full",
+    "test": {
+     "id": "hidden-2",
+     "name": "",
+     "group": "hidden",
+     "status": "running",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044529133-2",
+   "event": {
+    "type": "test",
+    "stage": "sim_full",
+    "test": {
+     "id": "hidden-2",
+     "name": "",
+     "group": "hidden",
+     "status": "passed",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044529655-0",
+   "event": {
+    "type": "stage_end",
+    "result": {
+     "key": "sim_full",
+     "type": "sim",
+     "ordinal": 2,
+     "param_set": {
+      "id": "default",
+      "values": {
+       "WIDTH": 8,
+       "DEPTH": 16
+      }
+     },
+     "status": "passed",
+     "failure_kind": null,
+     "limit": null,
+     "error_code": null,
+     "started_at": "2026-11-07T09:41:49.148740Z",
+     "duration_ms": 19375,
+     "metrics_schema": "sim/v1",
+     "metrics": {
+      "tests_total": 4,
+      "tests_passed": 4,
+      "cycles": 695,
+      "seed": 20261026
+     },
+     "cached": false,
+     "summary": {
+      "caption": "пройдено 4 из 4",
+      "skip_reason": null,
+      "diagnostics": [],
+      "tests": [
+       {
+        "id": "t1",
+        "name": "запись и чтение по порядку",
+        "group": "public",
+        "status": "passed",
+        "duration_ms": null,
+        "cycle": null,
+        "mismatches": []
+       },
+       {
+        "id": "t2",
+        "name": "заполнение до full и опустошение",
+        "group": "public",
+        "status": "passed",
+        "duration_ms": null,
+        "cycle": null,
+        "mismatches": []
+       }
+      ],
+      "hidden_tests": {
+       "total": 2,
+       "passed": 2,
+       "failed_index": null
+      }
+     }
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044529695-0",
+   "event": {
+    "type": "stage_start",
+    "stage": "sim_full@narrow",
+    "stage_type": "sim",
+    "ordinal": 3,
+    "param_set": {
+     "id": "narrow",
+     "values": {
+      "WIDTH": 1,
+      "DEPTH": 2
+     }
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044530695-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full@narrow",
+    "elapsed_ms": 1000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044531695-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full@narrow",
+    "elapsed_ms": 2000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044532695-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full@narrow",
+    "elapsed_ms": 3000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044533695-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full@narrow",
+    "elapsed_ms": 4000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044534695-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full@narrow",
+    "elapsed_ms": 5000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044535695-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full@narrow",
+    "elapsed_ms": 6000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044536695-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full@narrow",
+    "elapsed_ms": 7000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044537695-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full@narrow",
+    "elapsed_ms": 8000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044538695-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full@narrow",
+    "elapsed_ms": 9000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044539695-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full@narrow",
+    "elapsed_ms": 10000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044540695-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full@narrow",
+    "elapsed_ms": 11000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044541695-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full@narrow",
+    "elapsed_ms": 12000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044542695-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full@narrow",
+    "elapsed_ms": 13000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044543225-0",
+   "event": {
+    "type": "test",
+    "stage": "sim_full@narrow",
+    "test": {
+     "id": "t1",
+     "name": "запись и чтение по порядку",
+     "group": "public",
+     "status": "running",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044543225-1",
+   "event": {
+    "type": "test",
+    "stage": "sim_full@narrow",
+    "test": {
+     "id": "t1",
+     "name": "запись и чтение по порядку",
+     "group": "public",
+     "status": "passed",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044543225-2",
+   "event": {
+    "type": "test",
+    "stage": "sim_full@narrow",
+    "test": {
+     "id": "t2",
+     "name": "заполнение до full и опустошение",
+     "group": "public",
+     "status": "running",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044543225-3",
+   "event": {
+    "type": "test",
+    "stage": "sim_full@narrow",
+    "test": {
+     "id": "t2",
+     "name": "заполнение до full и опустошение",
+     "group": "public",
+     "status": "failed",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044544225-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full@narrow",
+    "elapsed_ms": 14530,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044545225-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full@narrow",
+    "elapsed_ms": 15530,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044545861-0",
+   "event": {
+    "type": "stage_end",
+    "result": {
+     "key": "sim_full@narrow",
+     "type": "sim",
+     "ordinal": 3,
+     "param_set": {
+      "id": "narrow",
+      "values": {
+       "WIDTH": 1,
+       "DEPTH": 2
+      }
+     },
+     "status": "failed",
+     "failure_kind": "wrong",
+     "limit": null,
+     "error_code": null,
+     "started_at": "2026-11-07T09:42:08.650978Z",
+     "duration_ms": 16166,
+     "metrics_schema": "sim/v1",
+     "metrics": {
+      "tests_total": 4,
+      "tests_passed": 1,
+      "cycles": 51,
+      "seed": 20261026,
+      "first_failure": {
+       "test": "t2",
+       "cycle": 30,
+       "signal": "full"
+      },
+      "trace": "recorded",
+      "trace_window": [
+       0,
+       46
+      ],
+      "trace_cursor_ps": 300,
+      "trace_signals": [
+       {
+        "path": "tb_top.clk",
+        "port": "clk",
+        "role": "clock"
+       },
+       {
+        "path": "tb_top.rst_n",
+        "port": "rst_n",
+        "role": "input"
+       },
+       {
+        "path": "tb_top.push",
+        "port": "push",
+        "role": "input"
+       },
+       {
+        "path": "tb_top.wdata",
+        "port": "wdata",
+        "role": "input"
+       },
+       {
+        "path": "tb_top.pop",
+        "port": "pop",
+        "role": "input"
+       },
+       {
+        "path": "tb_top.rdata",
+        "port": "rdata",
+        "role": "output"
+       },
+       {
+        "path": "tb_top.exp_rdata",
+        "port": "rdata",
+        "role": "expected"
+       },
+       {
+        "path": "tb_top.full",
+        "port": "full",
+        "role": "output"
+       },
+       {
+        "path": "tb_top.exp_full",
+        "port": "full",
+        "role": "expected"
+       },
+       {
+        "path": "tb_top.empty",
+        "port": "empty",
+        "role": "output"
+       },
+       {
+        "path": "tb_top.exp_empty",
+        "port": "empty",
+        "role": "expected"
+       }
+      ]
+     },
+     "cached": false,
+     "summary": {
+      "caption": "упал тест заполнение до full и опустошение, такт 30",
+      "skip_reason": null,
+      "diagnostics": [],
+      "tests": [
+       {
+        "id": "t1",
+        "name": "запись и чтение по порядку",
+        "group": "public",
+        "status": "passed",
+        "duration_ms": null,
+        "cycle": null,
+        "mismatches": []
+       },
+       {
+        "id": "t2",
+        "name": "заполнение до full и опустошение",
+        "group": "public",
+        "status": "failed",
+        "duration_ms": null,
+        "cycle": 30,
+        "mismatches": [
+         {
+          "signal": "full",
+          "cycle": 30,
+          "expected": "1'h0",
+          "actual": "1'h1",
+          "hint": "full = 1, когда в очереди DEPTH слов"
+         }
+        ]
+       }
+      ],
+      "hidden_tests": {
+       "total": 2,
+       "passed": 0,
+       "failed_index": null
+      }
+     }
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044545861-1",
+   "event": {
+    "type": "stage_end",
+    "result": {
+     "key": "synth",
+     "type": "synth",
+     "ordinal": 4,
+     "param_set": {
+      "id": "default",
+      "values": {
+       "WIDTH": 8,
+       "DEPTH": 16
+      }
+     },
+     "status": "skipped",
+     "failure_kind": null,
+     "limit": null,
+     "error_code": null,
+     "started_at": null,
+     "duration_ms": null,
+     "metrics_schema": null,
+     "metrics": {},
+     "cached": false,
+     "summary": {
+      "caption": null,
+      "skip_reason": "previous_failed",
+      "diagnostics": [],
+      "tests": [],
+      "hidden_tests": null
+     }
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044545861-2",
+   "event": {
+    "type": "stage_end",
+    "result": {
+     "key": "synth@narrow",
+     "type": "synth",
+     "ordinal": 5,
+     "param_set": {
+      "id": "narrow",
+      "values": {
+       "WIDTH": 1,
+       "DEPTH": 2
+      }
+     },
+     "status": "skipped",
+     "failure_kind": null,
+     "limit": null,
+     "error_code": null,
+     "started_at": null,
+     "duration_ms": null,
+     "metrics_schema": null,
+     "metrics": {},
+     "cached": false,
+     "summary": {
+      "caption": null,
+      "skip_reason": "previous_failed",
+      "diagnostics": [],
+      "tests": [],
+      "hidden_tests": null
+     }
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044545861-3",
+   "event": {
+    "type": "stage_end",
+    "result": {
+     "key": "netlist_sim",
+     "type": "sim",
+     "ordinal": 6,
+     "param_set": {
+      "id": "default",
+      "values": {
+       "WIDTH": 8,
+       "DEPTH": 16
+      }
+     },
+     "status": "skipped",
+     "failure_kind": null,
+     "limit": null,
+     "error_code": null,
+     "started_at": null,
+     "duration_ms": null,
+     "metrics_schema": null,
+     "metrics": {},
+     "cached": false,
+     "summary": {
+      "caption": null,
+      "skip_reason": "previous_failed",
+      "diagnostics": [],
+      "tests": [],
+      "hidden_tests": null
+     }
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044545861-4",
+   "event": {
+    "type": "stage_end",
+    "result": {
+     "key": "netlist_sim@narrow",
+     "type": "sim",
+     "ordinal": 7,
+     "param_set": {
+      "id": "narrow",
+      "values": {
+       "WIDTH": 1,
+       "DEPTH": 2
+      }
+     },
+     "status": "skipped",
+     "failure_kind": null,
+     "limit": null,
+     "error_code": null,
+     "started_at": null,
+     "duration_ms": null,
+     "metrics_schema": null,
+     "metrics": {},
+     "cached": false,
+     "summary": {
+      "caption": null,
+      "skip_reason": "previous_failed",
+      "diagnostics": [],
+      "tests": [],
+      "hidden_tests": null
+     }
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044545861-5",
+   "event": {
+    "type": "done",
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794044545981-0",
+   "event": {
+    "type": "finalized",
+    "status": "wrong_answer",
+    "verdict_detail": {
+     "first_failure": {
+      "stage": "sim_full@narrow",
+      "test": "t2",
+      "cycle": 30,
+      "test_number": 2,
+      "hidden": null,
+      "diagnostic": null
+     },
+     "limit": null,
+     "warnings": [],
+     "error_codes": []
+    },
+    "leaderboard": null
+   }
+  }
+ ],
+ "files": {
+  "fst": "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"
+ }
+}

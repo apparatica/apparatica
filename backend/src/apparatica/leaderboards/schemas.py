@@ -13,7 +13,7 @@ from pydantic import BaseModel, Field
 from apparatica.auth.schemas import UserRef
 from apparatica.submissions.schemas import LeaderboardPlacement
 from judge.core.package import LeaderboardKey
-from judge.core.stage import StageStatus
+from judge.core.stage import ParamSet, StageStatus
 
 MetricKey = Annotated[
     str, Field(pattern=r"^[a-z_]+\.[a-z0-9_]+$", examples=["synth.critical_path_ns"])
@@ -168,8 +168,11 @@ class TestCount(BaseModel):
 class PublicStage(BaseModel):
     """A stage of a public solution: what anyone may see (specs/05 §5)."""
 
-    key: str = Field(examples=["synth"])
+    key: str = Field(examples=["synth"], description="Key of the stage instance")
     type: str = Field(examples=["synth"])
+    param_set: ParamSet | None = Field(
+        description="As in the submission: null at the primary parameter set only"
+    )
     status: StageStatus
     metrics_schema: str | None = Field(examples=["synth/v1"])
     metrics: dict[str, object] = Field(

@@ -9,6 +9,7 @@ type PublicStage = Schemas["PublicStage"];
 const stage = (change: Partial<PublicStage>): PublicStage => ({
   key: "sim",
   type: "sim",
+  param_set: null,
   status: "passed",
   metrics_schema: null,
   metrics: {},

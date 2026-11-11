@@ -159,6 +159,7 @@ it("tells the warnings of the stages", async () => {
     {
       key: "lint",
       type: "lint",
+      param_set: null,
       status: "warning",
       metrics_schema: null,
       metrics: {},
@@ -167,6 +168,7 @@ it("tells the warnings of the stages", async () => {
     {
       key: "sim_full",
       type: "sim",
+      param_set: null,
       status: "passed",
       metrics_schema: null,
       metrics: {},

@@ -1108,10 +1108,13 @@
                   "type": "null"
                 }
               ],
-              "description": "Key of the stage",
+              "description": "Key of the stage instance",
+              "examples": [
+                "sim_full@narrow"
+              ],
               "title": "Stage"
             },
-            "description": "Key of the stage"
+            "description": "Key of the stage instance"
           },
           {
             "name": "scope",
@@ -4590,6 +4593,48 @@
         "title": "Operator",
         "description": "Who processes the personal data of the users (GDPR art. 13), as the documents name them: a\nprivate person, so a name and a mailbox, no postal address."
       },
+      "ParamSet": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "title": "Id",
+            "description": "`default`: the primary set, the default values of the interface",
+            "examples": [
+              "narrow"
+            ]
+          },
+          "values": {
+            "additionalProperties": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            },
+            "type": "object",
+            "title": "Values",
+            "description": "Every parameter of the interface at this set, in the order of the interface: an integer or a numeric literal of the language, as problem.yaml gives it",
+            "examples": [
+              {
+                "DEPTH": 2,
+                "WIDTH": 1
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "values"
+        ],
+        "title": "ParamSet",
+        "description": "The parameter set of a stage instance (ADR-0014, specs/06 §2).\n\nA stage checked at several sets runs as one instance per set; the core knows of a set only\nthe names and the values of the parameters, the language module passes them to the tools."
+      },
       "Parameter": {
         "properties": {
           "name": {
@@ -5509,6 +5554,7 @@
           "key": {
             "type": "string",
             "title": "Key",
+            "description": "Key of the stage instance",
             "examples": [
               "synth"
             ]
@@ -5519,6 +5565,17 @@
             "examples": [
               "synth"
             ]
+          },
+          "param_set": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ParamSet"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "As in the submission: null at the primary parameter set only"
           },
           "status": {
             "type": "string",
@@ -5570,6 +5627,7 @@
         "required": [
           "key",
           "type",
+          "param_set",
           "status",
           "metrics_schema",
           "metrics",
@@ -6449,7 +6507,11 @@
         "properties": {
           "key": {
             "type": "string",
-            "title": "Key"
+            "title": "Key",
+            "description": "Key of the stage instance: the stage key, or `<stage key>@<set id>` at an extra parameter set (specs/06 §2)",
+            "examples": [
+              "sim_full@narrow"
+            ]
           },
           "type": {
             "type": "string",
@@ -6458,6 +6520,17 @@
           "ordinal": {
             "type": "integer",
             "title": "Ordinal"
+          },
+          "param_set": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ParamSet"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set of a stage checked at several parameter sets, the primary one included; null: the stage runs at the primary set only"
           },
           "status": {
             "type": "string",
@@ -6594,7 +6667,11 @@
           },
           "stage": {
             "type": "string",
-            "title": "Stage"
+            "title": "Stage",
+            "description": "Key of the stage instance",
+            "examples": [
+              "sim_full@narrow"
+            ]
           },
           "stage_type": {
             "type": "string",
@@ -6603,6 +6680,17 @@
           "ordinal": {
             "type": "integer",
             "title": "Ordinal"
+          },
+          "param_set": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ParamSet"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "As in the stage result: null at the primary set only"
           },
           "attempt": {
             "type": "integer",
@@ -6618,6 +6706,7 @@
           "stage",
           "stage_type",
           "ordinal",
+          "param_set",
           "attempt"
         ],
         "title": "StageStartEvent"
@@ -7319,8 +7408,10 @@
           "key": {
             "type": "string",
             "title": "Key",
+            "description": "Key of the stage instance: the stage key, or `<stage key>@<set id>` at an extra parameter set (specs/06 §2)",
             "examples": [
-              "sim_full"
+              "sim_full",
+              "sim_full@narrow"
             ]
           },
           "type": {
@@ -7333,6 +7424,17 @@
           "ordinal": {
             "type": "integer",
             "title": "Ordinal"
+          },
+          "param_set": {
+            "anyOf": [
+              {
+                "$ref": "#/components/schemas/ParamSet"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "description": "Set of a stage checked at several parameter sets (ADR-0014), the primary one included: the values show for hidden tests too; null: the stage runs at the primary set only"
           },
           "status": {
             "type": "string",
@@ -7440,6 +7542,7 @@
           "key",
           "type",
           "ordinal",
+          "param_set",
           "status",
           "failure_kind",
           "error_code",

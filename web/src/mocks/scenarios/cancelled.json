@@ -29,6 +29,7 @@
     "key": "precheck",
     "type": "precheck",
     "ordinal": 0,
+    "param_set": null,
     "status": "passed",
     "failure_kind": null,
     "error_code": null,
@@ -56,6 +57,7 @@
     "key": "lint",
     "type": "lint",
     "ordinal": 1,
+    "param_set": null,
     "status": "passed",
     "failure_kind": null,
     "error_code": null,
@@ -80,6 +82,7 @@
     "key": "sim_run",
     "type": "sim",
     "ordinal": 2,
+    "param_set": null,
     "status": "cancelled",
     "failure_kind": null,
     "error_code": null,
@@ -126,7 +129,7 @@
     "kind": "events",
     "stage": null,
     "state": "ready",
-    "size_bytes": 3705,
+    "size_bytes": 3819,
     "error_code": null,
     "waveform": null
    }
@@ -156,6 +159,7 @@
     "stage": "precheck",
     "stage_type": "precheck",
     "ordinal": 0,
+    "param_set": null,
     "attempt": 1
    }
   },
@@ -187,6 +191,7 @@
      "key": "precheck",
      "type": "precheck",
      "ordinal": 0,
+     "param_set": null,
      "status": "passed",
      "failure_kind": null,
      "limit": null,
@@ -221,6 +226,7 @@
     "stage": "lint",
     "stage_type": "lint",
     "ordinal": 1,
+    "param_set": null,
     "attempt": 1
    }
   },
@@ -252,6 +258,7 @@
      "key": "lint",
      "type": "lint",
      "ordinal": 1,
+     "param_set": null,
      "status": "passed",
      "failure_kind": null,
      "limit": null,
@@ -283,6 +290,7 @@
     "stage": "sim_run",
     "stage_type": "sim",
     "ordinal": 2,
+    "param_set": null,
     "attempt": 1
    }
   },
@@ -334,6 +342,7 @@
      "key": "sim_run",
      "type": "sim",
      "ordinal": 2,
+     "param_set": null,
      "status": "cancelled",
      "failure_kind": null,
      "limit": null,

@@ -1,7 +1,9 @@
+import json
+
 from judge.core.events import DoneEvent, LogEvent, StageEndEvent, StageStartEvent
 from judge.core.stage import StageResult
 from judge.core.verdict import Verdict
-from record_scenarios import stream_ids, timeline, worker_events
+from record_scenarios import OUTPUT, stand_ins, stream_ids, timeline, worker_events
 
 START = StageStartEvent(stage="lint", stage_type="lint", ordinal=1)
 END = StageEndEvent(result=StageResult(key="lint", type="lint", ordinal=1, status="passed"))
@@ -66,3 +68,30 @@ def test_the_stream_starts_in_the_queue_and_ends_finalized() -> None:
 def test_stream_ids_number_the_events_of_one_millisecond() -> None:
     events = [(0, {"type": "a"}), (5, {"type": "b"}), (5, {"type": "c"}), (7, {"type": "d"})]
     assert [e["id"] for e in stream_ids(1000, events)] == ["1000-0", "1005-0", "1005-1", "1007-0"]
+
+
+def test_the_stand_ins_at_parameter_sets_are_current() -> None:
+    for name, text in stand_ins().items():
+        path = OUTPUT / f"{name}.json"
+        assert path.read_text(encoding="utf-8") == text, "run `just record-scenarios " + name + "`"
+
+
+def test_a_stand_in_fails_at_the_narrow_set_and_skips_the_rest() -> None:
+    document = json.loads(stand_ins()["wrong-answer-param-set"])
+    stages = [
+        (s["key"], s["status"], s["param_set"] and s["param_set"]["id"])
+        for s in document["submission"]["stages"]
+    ]
+    assert stages == [
+        ("precheck", "passed", None),
+        ("lint", "passed", None),
+        ("sim_full", "passed", "default"),
+        ("sim_full@narrow", "failed", "narrow"),
+        ("synth", "skipped", "default"),
+        ("synth@narrow", "skipped", "narrow"),
+        ("netlist_sim", "skipped", "default"),
+        ("netlist_sim@narrow", "skipped", "narrow"),
+    ]
+    assert document["submission"]["verdict_detail"]["first_failure"]["stage"] == "sim_full@narrow"
+    [trace] = [a for a in document["submission"]["artifacts"] if a["kind"] == "fst"]
+    assert trace["stage"] == "sim_full@narrow"

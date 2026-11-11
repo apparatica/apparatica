@@ -27,8 +27,8 @@ describe("every recorded check ends as stored", () => {
       expect(check.queue).toBeNull();
       expect(check.heartbeat).toBeNull();
       expect(check.runningSince).toBeNull();
-      expect(check.stages.map((stage) => [stage.key, stage.status])).toEqual(
-        stored.stages.map((stage) => [stage.key, stage.status]),
+      expect(check.stages.map((stage) => [stage.key, stage.status, stage.param_set])).toEqual(
+        stored.stages.map((stage) => [stage.key, stage.status, stage.param_set]),
       );
       expect(check.stages.map((stage) => stage.summary.tests)).toEqual(
         stored.stages.map((stage) => stage.summary.tests),
@@ -70,6 +70,24 @@ it("replaces a test by its id while the stage runs", () => {
   expect(tests.length).toBeGreaterThan(shown.length);
   expect(new Set(shown.map((test) => test.id)).size).toBe(shown.length);
   expect(shown.some((test) => test.status === "failed")).toBe(true);
+});
+
+it("knows the parameter set of a running instance and of a stored one", () => {
+  const scenario = scenarios["wrong-answer-param-set"];
+  const start = scenario.events.findIndex(
+    ({ event }) => event.type === "stage_start" && event.stage === "sim_full@narrow",
+  );
+  const narrow = { id: "narrow", values: { WIDTH: 1, DEPTH: 2 } };
+  const check = foldEvents(queuedCheck(scenario), scenario.events.slice(0, start + 1));
+  expect(check.stages.at(-1)).toMatchObject({
+    key: "sim_full@narrow",
+    status: "running",
+    param_set: narrow,
+  });
+  const restored = checkOf(scenario.submission);
+  expect(restored.stages.find((stage) => stage.key === "sim_full@narrow")?.param_set).toEqual(
+    narrow,
+  );
 });
 
 it("starts the results over on a new attempt", () => {
@@ -123,7 +141,14 @@ it("times the running stage from its start, then from its heartbeats", () => {
   check = applyEvent(
     check,
     "1-0",
-    { type: "stage_start", stage: "lint", stage_type: "lint", ordinal: 1, attempt: 1 },
+    {
+      type: "stage_start",
+      stage: "lint",
+      stage_type: "lint",
+      ordinal: 1,
+      param_set: null,
+      attempt: 1,
+    },
     5000,
   );
   expect(check.runningSince).toBe(5000);

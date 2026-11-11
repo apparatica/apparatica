@@ -9,7 +9,7 @@ from typing import Annotated, BinaryIO, Literal, Protocol, TextIO
 
 from pydantic import BaseModel, ConfigDict, Field, TypeAdapter
 
-from judge.core.stage import Channel, StageResult, TestCase
+from judge.core.stage import Channel, ParamSet, StageResult, TestCase
 
 
 class _Event(BaseModel):
@@ -18,9 +18,12 @@ class _Event(BaseModel):
 
 class StageStartEvent(_Event):
     type: Literal["stage_start"] = "stage_start"
-    stage: str
+    stage: str = Field(description="Key of the stage instance", examples=["sim_full@narrow"])
     stage_type: str
     ordinal: int
+    param_set: ParamSet | None = Field(
+        default=None, description="As in the stage result: null at the primary set only"
+    )
 
 
 class LogEvent(_Event):

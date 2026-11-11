@@ -104,12 +104,39 @@ class StageOutcome(_Model):
         return self
 
 
+class ParamSet(_Model):
+    """The parameter set of a stage instance (ADR-0014, specs/06 §2).
+
+    A stage checked at several sets runs as one instance per set; the core knows of a set only
+    the names and the values of the parameters, the language module passes them to the tools."""
+
+    id: str = Field(
+        pattern=r"^[a-z][a-z0-9_]*$",
+        description="`default`: the primary set, the default values of the interface",
+        examples=["narrow"],
+    )
+    values: dict[str, int | str] = Field(
+        description="Every parameter of the interface at this set, in the order of the interface:"
+        " an integer or a numeric literal of the language, as problem.yaml gives it",
+        examples=[{"WIDTH": 1, "DEPTH": 2}],
+    )
+
+
 class StageResult(_Model):
     """A finished stage as the worker reports it (`stage_results`, specs/04 §4)."""
 
-    key: str
+    key: str = Field(
+        description="Key of the stage instance: the stage key, or `<stage key>@<set id>` at an"
+        " extra parameter set (specs/06 §2)",
+        examples=["sim_full@narrow"],
+    )
     type: str
     ordinal: int
+    param_set: ParamSet | None = Field(
+        default=None,
+        description="Set of a stage checked at several parameter sets, the primary one included;"
+        " null: the stage runs at the primary set only",
+    )
     status: StageStatus
     failure_kind: FailureKind | None = None
     limit: LimitKind | None = None

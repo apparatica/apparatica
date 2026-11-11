@@ -332,6 +332,7 @@ async def get_submission(
                 key=stage.stage_key,
                 type=stage.stage_type,
                 ordinal=stage.ordinal,
+                param_set=None,  # stage_results keeps no set before the migration of block 3a
                 status=stage.status,  # type: ignore[arg-type]  # a stage_status value
                 failure_kind=stage.failure_kind,  # type: ignore[arg-type]  # table constraint
                 error_code=stage.error_code,
