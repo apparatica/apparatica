@@ -2,6 +2,7 @@
 `synth` stage on top of them (specs/07 §2.4) and the simulation of its netlist (§2.5)."""
 
 import re
+import shutil
 import threading
 import tomllib
 from fnmatch import fnmatchcase
@@ -228,11 +229,19 @@ def test_the_netlist_of_a_reference_passes_the_testbench_and_ranks_it() -> None:
     }
 
 
-def test_a_testbench_with_other_parameters_than_synthesis_is_a_problem_error() -> None:
-    """A netlist synthesized for WIDTH=4 under a testbench with WIDTH=8: `$fatal` of the wrapper
-    stops the build under -Werror-USERFATAL (S4), not a wrong answer of the solution. Synthesis
-    takes the defaults of the interface, the testbench keeps its own WIDTH."""
-    package = REPO / "problems" / "mux4"
+def test_a_testbench_with_other_parameters_than_synthesis_is_a_problem_error(
+    tmp_path: Path,
+) -> None:
+    """The judge sets the testbench parameters to the values of the set (`-G`), so the netlist
+    and the testbench disagree only when the testbench hard-codes a parameter of the design: a
+    netlist synthesized for WIDTH=4 under `#(.WIDTH(8))`. `$fatal` of the wrapper stops the build
+    under -Werror-USERFATAL (S4), not a wrong answer of the solution."""
+    package = tmp_path / "mux4"
+    shutil.copytree(REPO / "problems" / "mux4", package)
+    tb_top = package / "tb" / "tb_top.sv"
+    text = tb_top.read_text(encoding="utf-8")
+    assert "mux4 #(.WIDTH(WIDTH)) dut" in text
+    tb_top.write_text(text.replace("mux4 #(.WIDTH(WIDTH)) dut", "mux4 #(.WIDTH(8)) dut"), "utf-8")
     problem = load_manifest(package)
     parameters = [
         p.model_copy(update={"default": 4}) if p.name == "WIDTH" else p
@@ -246,6 +255,25 @@ def test_a_testbench_with_other_parameters_than_synthesis_is_a_problem_error() -
     netlist_sim = results[-1]
     assert (netlist_sim.status, netlist_sim.error_code) == ("error", "NETLIST_PARAMS_MISMATCH")
     assert any("netlist synthesized for WIDTH=4" in text for _, text in sink.lines), sink.lines
+
+
+def test_a_testbench_without_the_parameters_is_a_problem_error(tmp_path: Path) -> None:
+    """The testbench top must declare a `parameter` for every parameter of the interface
+    (specs/06 §3.1): Verilator does not build a `-G` it cannot apply."""
+    package = tmp_path / "mux4"
+    shutil.copytree(REPO / "problems" / "mux4", package)
+    tb_top = package / "tb" / "tb_top.sv"
+    text = tb_top.read_text(encoding="utf-8")
+    header = "module tb_top #(\n  parameter int WIDTH = 8\n);\n"
+    assert header in text
+    localparam = "module tb_top;\n  localparam int WIDTH = 8;\n"
+    tb_top.write_text(text.replace(header, localparam), "utf-8")
+    results, _ = check(package, reference(package), ("precheck", "sim_full"))
+    sim = results[-1]
+    assert (sim.status, sim.error_code) == ("error", "TB_PARAMS_MISSING")
+    assert sim.summary.caption == (
+        "верхний модуль тестбенча не объявляет parameter для параметров задачи: WIDTH"
+    )
 
 
 def test_the_stage_run_is_byte_identical() -> None:

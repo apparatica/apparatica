@@ -23,6 +23,7 @@ from pydantic import (
     ValidationError,
 )
 
+from judge.core.package import PRIMARY_SET
 from judge.core.stage import (
     Command,
     Diagnostic,
@@ -104,6 +105,11 @@ def job_json(ctx: StageContext, config: PrecheckConfig) -> bytes:
         "ports": [
             {"name": p.name, "dir": p.dir, "width": p.width, "signed": p.signed}
             for p in interface.ports
+        ],
+        # Not expanded by sets: the interface is checked at every set of the package (ADR-0014).
+        "param_sets": [
+            {"id": set_id, "values": interface.param_set_values(set_id)}
+            for set_id in (PRIMARY_SET, *(s.id for s in interface.param_sets))
         ],
         "limits": config.model_dump(),
     }

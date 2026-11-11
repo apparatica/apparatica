@@ -1,9 +1,9 @@
 // Testbench of mux4: the solution against mux4_model. The design is combinational; the clock only
 // paces the vectors and counts cycles for apx_tb_pkg.
-module tb_top;
+module tb_top #(
+  parameter int WIDTH = 8
+);
   import apx_tb_pkg::*;
-
-  localparam int WIDTH = 8;
 
   logic clk = 0;
   logic [1:0] sel = '0;

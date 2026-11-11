@@ -1,8 +1,9 @@
 // Testbench of counter_mod_n: the solution against counter_mod_n_model.
-module tb_top;
+module tb_top #(
+  parameter int N = 10
+);
   import apx_tb_pkg::*;
 
-  localparam int N = 10;
   localparam int W = $clog2(N);
 
   logic clk = 0, rst = 1, en = 0;

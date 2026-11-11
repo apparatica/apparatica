@@ -3,22 +3,29 @@
 Synthesis metrics rank solutions only if the synthesized circuit passed the testbench too: every
 `synth` of the submit pipeline is followed by a `sim` of its netlist (`netlist_sim`, specs/07 §2.5),
 and a `sim` with `design` takes it from a `synth` that runs before it, at parameter sets the
-`synth` has too (ADR-0014). The values of the parameter sets are number literals: they go into the
-tool flags and scripts. `precheck` is not expanded: it checks the interface at every set itself.
+`synth` has too (ADR-0014). Parameter values, the defaults and the sets, are number literals: they
+go into the tool flags and scripts. `precheck` is not expanded: it checks the interface at every
+set itself.
 """
 
 import re
 
 from judge.core.package import Problem
+from judge.languages.systemverilog.stages.common import LITERAL
 from judge.languages.systemverilog.stages.precheck import PrecheckStage
 from judge.languages.systemverilog.stages.sim import SimStage
-from judge.languages.systemverilog.stages.synth import LITERAL, SynthStage
+from judge.languages.systemverilog.stages.synth import SynthStage
 
 NETLIST_OUTPUT = "netlist_generic"
 
 
 def package_rules(problem: Problem) -> list[str]:
     broken = [
+        f"interface.parameters {param.name}: default {param.default!r} — не числовой литерал"
+        for param in problem.interface.parameters
+        if not re.match(LITERAL, str(param.default))
+    ]
+    broken += [
         f"interface.param_sets {param_set.id}: {name} = {value!r} — не числовой литерал"
         for param_set in problem.interface.param_sets
         for name, value in param_set.values.items()

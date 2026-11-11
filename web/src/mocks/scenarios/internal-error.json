@@ -1,10 +1,10 @@
 {
  "name": "internal-error",
  "submission": {
-  "id": "01a18771-4d80-7de7-bb95-f37e7d443512",
+  "id": "01a1cc15-f710-7684-a6a3-5f4a9a4d456e",
   "problem": "mux4",
   "problem_title": "Мультиплексор 4:1",
-  "version": 2,
+  "version": 4,
   "kind": "run",
   "status": "internal_error",
   "verdict_detail": {
@@ -15,8 +15,8 @@
     "EXECUTOR_FAILED"
    ]
   },
-  "created_at": "2026-10-29T11:35:12+00:00",
-  "finished_at": "2026-10-29T11:35:18.837000+00:00",
+  "created_at": "2026-11-11T19:29:14+00:00",
+  "finished_at": "2026-11-11T19:29:17.944000+00:00",
   "code": "module mux4 #(\n  parameter int WIDTH = 8\n) (\n  input  logic [1:0]       sel,\n  input  logic [WIDTH-1:0] d0,\n  input  logic [WIDTH-1:0] d1,\n  input  logic [WIDTH-1:0] d2,\n  input  logic [WIDTH-1:0] d3,\n  output logic [WIDTH-1:0] y\n);\n  always_comb begin\n    unique case (sel)\n      2'd0: y = d0;\n      2'd1: y = d1;\n      2'd2: y = d2;\n      2'd3: y = d3;\n    endcase\n  end\nendmodule\n",
   "public": false,
   "leaderboard": null,
@@ -25,7 +25,7 @@
   "waveview_url": null,
   "queue_position": null,
   "eta_s": null,
-  "started_at": "2026-10-29T11:35:13.711166+00:00",
+  "started_at": "2026-11-11T19:29:14.680868+00:00",
   "stages": [
    {
     "key": "precheck",
@@ -35,8 +35,8 @@
     "status": "passed",
     "failure_kind": null,
     "error_code": null,
-    "started_at": "2026-10-29T11:35:13.711166Z",
-    "duration_ms": 2257,
+    "started_at": "2026-11-11T19:29:14.680868Z",
+    "duration_ms": 1163,
     "metrics_schema": "precheck/v1",
     "metrics": {
      "code_hash": "de8b116271f8d0240dd92b15bdf8c43615dd39af6a129dc32236c2f81bf80774",
@@ -53,7 +53,7 @@
      "tests": [],
      "hidden_tests": null
     },
-    "finished_at": "2026-10-29T11:35:15.968166+00:00"
+    "finished_at": "2026-11-11T19:29:15.843868+00:00"
    },
    {
     "key": "lint",
@@ -63,8 +63,8 @@
     "status": "passed",
     "failure_kind": null,
     "error_code": null,
-    "started_at": "2026-10-29T11:35:15.968170Z",
-    "duration_ms": 2046,
+    "started_at": "2026-11-11T19:29:15.843663Z",
+    "duration_ms": 939,
     "metrics_schema": "lint/v1",
     "metrics": {
      "warnings": 0,
@@ -78,7 +78,7 @@
      "tests": [],
      "hidden_tests": null
     },
-    "finished_at": "2026-10-29T11:35:18.014170+00:00"
+    "finished_at": "2026-11-11T19:29:16.782663+00:00"
    },
    {
     "key": "sim_run",
@@ -88,8 +88,8 @@
     "status": "error",
     "failure_kind": null,
     "error_code": "EXECUTOR_FAILED",
-    "started_at": "2026-10-29T11:35:18.014428Z",
-    "duration_ms": 3,
+    "started_at": "2026-11-11T19:29:16.782630Z",
+    "duration_ms": 2,
     "metrics_schema": "sim/v1",
     "metrics": {},
     "summary": {
@@ -99,7 +99,7 @@
      "tests": [],
      "hidden_tests": null
     },
-    "finished_at": "2026-10-29T11:35:18.017428+00:00"
+    "finished_at": "2026-11-11T19:29:16.784630+00:00"
    }
   ],
   "artifacts": [
@@ -131,7 +131,7 @@
     "kind": "events",
     "stage": null,
     "state": "ready",
-    "size_bytes": 3483,
+    "size_bytes": 3253,
     "error_code": null,
     "waveform": null
    }
@@ -139,7 +139,7 @@
  },
  "events": [
   {
-   "id": "1793273712000-0",
+   "id": "1794425354000-0",
    "event": {
     "type": "queue",
     "position": 2,
@@ -147,7 +147,7 @@
    }
   },
   {
-   "id": "1793273712600-0",
+   "id": "1794425354600-0",
    "event": {
     "type": "queue",
     "position": 1,
@@ -155,7 +155,7 @@
    }
   },
   {
-   "id": "1793273714411-0",
+   "id": "1794425355721-0",
    "event": {
     "type": "stage_start",
     "stage": "precheck",
@@ -166,7 +166,7 @@
    }
   },
   {
-   "id": "1793273715411-0",
+   "id": "1794425356721-0",
    "event": {
     "type": "heartbeat",
     "stage": "precheck",
@@ -176,17 +176,7 @@
    }
   },
   {
-   "id": "1793273716411-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "precheck",
-    "elapsed_ms": 2000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1793273716668-0",
+   "id": "1794425356883-0",
    "event": {
     "type": "stage_end",
     "result": {
@@ -198,8 +188,8 @@
      "failure_kind": null,
      "limit": null,
      "error_code": null,
-     "started_at": "2026-10-29T11:35:13.711166Z",
-     "duration_ms": 2257,
+     "started_at": "2026-11-11T19:29:14.680868Z",
+     "duration_ms": 1163,
      "metrics_schema": "precheck/v1",
      "metrics": {
       "code_hash": "de8b116271f8d0240dd92b15bdf8c43615dd39af6a129dc32236c2f81bf80774",
@@ -222,7 +212,7 @@
    }
   },
   {
-   "id": "1793273716668-1",
+   "id": "1794425356883-1",
    "event": {
     "type": "stage_start",
     "stage": "lint",
@@ -233,27 +223,17 @@
    }
   },
   {
-   "id": "1793273717668-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "lint",
-    "elapsed_ms": 1000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1793273717854-0",
+   "id": "1794425357460-0",
    "event": {
     "type": "log",
     "stage": "lint",
     "ch": "out",
-    "text": "- V e r i l a t i o n   R e p o r t: Verilator 5.052 2026-09-05 rev vUNKNOWN-built20261026\n- Verilator: Built from 0.030 MB sources in 2 modules, into 0.015 MB in 3 C++ files needing 0.000 MB\n- Verilator: Walltime 0.008 s (elab=0.000, cvt=0.002, bld=0.000); cpu 0.008 s on 1 threads; allocated 17.414 MB\n",
+    "text": "- V e r i l a t i o n   R e p o r t: Verilator 5.052 2026-09-05 rev vUNKNOWN-built20261106\n- Verilator: Built from 0.030 MB sources in 2 modules, into 0.015 MB in 3 C++ files needing 0.000 MB\n- Verilator: Walltime 0.007 s (elab=0.000, cvt=0.002, bld=0.000); cpu 0.007 s on 1 threads; allocated 17.301 MB\n",
     "attempt": 1
    }
   },
   {
-   "id": "1793273718714-0",
+   "id": "1794425357822-0",
    "event": {
     "type": "stage_end",
     "result": {
@@ -265,8 +245,8 @@
      "failure_kind": null,
      "limit": null,
      "error_code": null,
-     "started_at": "2026-10-29T11:35:15.968170Z",
-     "duration_ms": 2046,
+     "started_at": "2026-11-11T19:29:15.843663Z",
+     "duration_ms": 939,
      "metrics_schema": "lint/v1",
      "metrics": {
       "warnings": 0,
@@ -286,7 +266,7 @@
    }
   },
   {
-   "id": "1793273718714-1",
+   "id": "1794425357822-1",
    "event": {
     "type": "stage_start",
     "stage": "sim_run",
@@ -297,7 +277,7 @@
    }
   },
   {
-   "id": "1793273718717-0",
+   "id": "1794425357824-0",
    "event": {
     "type": "log",
     "stage": "sim_run",
@@ -307,7 +287,7 @@
    }
   },
   {
-   "id": "1793273718717-1",
+   "id": "1794425357824-1",
    "event": {
     "type": "stage_end",
     "result": {
@@ -319,8 +299,8 @@
      "failure_kind": null,
      "limit": null,
      "error_code": "EXECUTOR_FAILED",
-     "started_at": "2026-10-29T11:35:18.014428Z",
-     "duration_ms": 3,
+     "started_at": "2026-11-11T19:29:16.782630Z",
+     "duration_ms": 2,
      "metrics_schema": "sim/v1",
      "metrics": {},
      "cached": false,
@@ -336,14 +316,14 @@
    }
   },
   {
-   "id": "1793273718717-2",
+   "id": "1794425357824-2",
    "event": {
     "type": "done",
     "attempt": 1
    }
   },
   {
-   "id": "1793273718837-0",
+   "id": "1794425357944-0",
    "event": {
     "type": "finalized",
     "status": "internal_error",

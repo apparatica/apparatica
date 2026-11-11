@@ -1,9 +1,9 @@
 // Testbench of sync_fifo: the solution against sync_fifo_model.
-module tb_top;
+module tb_top #(
+  parameter int WIDTH = 8,
+  parameter int DEPTH = 16
+);
   import apx_tb_pkg::*;
-
-  localparam int WIDTH = 8;
-  localparam int DEPTH = 16;
 
   logic clk = 0, rst_n = 0, push = 0, pop = 0;
   logic [WIDTH-1:0] wdata = '0, rdata, exp_rdata;

@@ -2,8 +2,8 @@
 schema: 1
 id: sync-fifo
 number: 5
-version: 3
-changelog: Добавлены синтез, проверка нетлиста и рейтинг решений; условие и тесты не изменились.
+version: 4
+changelog: Тестбенч получает параметры задачи от судьи; условие и тесты не изменились.
 leaderboard_epoch: 1
 language: systemverilog
 kind: design

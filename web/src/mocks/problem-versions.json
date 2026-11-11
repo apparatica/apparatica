@@ -2,7 +2,7 @@
   {
     "slug": "mux4",
     "number": 1,
-    "version": 3,
+    "version": 4,
     "title": "Мультиплексор 4:1",
     "difficulty": "easy",
     "tags": [
@@ -140,13 +140,13 @@
       "visibility": "after_accepted",
       "solutions": 1
     },
-    "changelog": "Добавлены синтез, проверка нетлиста и рейтинг решений; условие и тесты не изменились.",
+    "changelog": "Тестбенч получает параметры задачи от судьи; условие и тесты не изменились.",
     "published_at": "2026-10-01T00:00:00Z"
   },
   {
     "slug": "counter-mod-n",
     "number": 2,
-    "version": 3,
+    "version": 4,
     "title": "Счётчик по модулю N",
     "difficulty": "easy",
     "tags": [
@@ -278,13 +278,13 @@
       "visibility": "after_accepted",
       "solutions": 1
     },
-    "changelog": "Добавлены синтез, проверка нетлиста и рейтинг решений; условие и тесты не изменились.",
+    "changelog": "Тестбенч получает параметры задачи от судьи; условие и тесты не изменились.",
     "published_at": "2026-10-01T00:00:00Z"
   },
   {
     "slug": "carry-adder",
     "number": 3,
-    "version": 3,
+    "version": 4,
     "title": "Сумматор с переносом",
     "difficulty": "easy",
     "tags": [
@@ -413,7 +413,7 @@
       "visibility": "after_accepted",
       "solutions": 1
     },
-    "changelog": "Добавлены синтез, проверка нетлиста и рейтинг решений; условие и тесты не изменились.",
+    "changelog": "Тестбенч получает параметры задачи от судьи; условие и тесты не изменились.",
     "published_at": "2026-10-01T00:00:00Z"
   },
   {
@@ -541,7 +541,7 @@
   {
     "slug": "sync-fifo",
     "number": 5,
-    "version": 3,
+    "version": 4,
     "title": "Синхронный FIFO",
     "difficulty": "medium",
     "tags": [
@@ -707,7 +707,7 @@
       "visibility": "after_accepted",
       "solutions": 1
     },
-    "changelog": "Добавлены синтез, проверка нетлиста и рейтинг решений; условие и тесты не изменились.",
+    "changelog": "Тестбенч получает параметры задачи от судьи; условие и тесты не изменились.",
     "published_at": "2026-10-01T00:00:00Z"
   }
 ]

@@ -1,10 +1,10 @@
 {
  "name": "forbidden-construct",
  "submission": {
-  "id": "01a18770-d080-7acd-9f4e-60fcfe0cf336",
+  "id": "01a1cc15-9950-71c1-b7bd-d245ec8ec578",
   "problem": "counter-mod-n",
   "problem_title": "Счётчик по модулю N",
-  "version": 2,
+  "version": 4,
   "kind": "run",
   "status": "forbidden_construct",
   "verdict_detail": {
@@ -29,8 +29,8 @@
    "warnings": [],
    "error_codes": []
   },
-  "created_at": "2026-10-29T11:34:40+00:00",
-  "finished_at": "2026-10-29T11:34:43.951000+00:00",
+  "created_at": "2026-11-11T19:28:50+00:00",
+  "finished_at": "2026-11-11T19:28:53.160000+00:00",
   "code": "module counter_mod_n #(\n  parameter int N = 10\n) (\n  input  logic                 clk,\n  input  logic                 rst,\n  input  logic                 en,\n  output logic [$clog2(N)-1:0] count,\n  output logic                 wrap\n);\n  localparam int W = $clog2(N);\n  localparam logic [W-1:0] LAST = W'(N - 1);\n\n  assign wrap = en && count == LAST;\n\n  always_ff @(posedge clk)\n    if (rst) count <= #1 '0;\n    else if (wrap) count <= #1 '0;\n    else if (en) count <= #1 count + 1'b1;\nendmodule\n",
   "public": false,
   "leaderboard": null,
@@ -39,7 +39,7 @@
   "waveview_url": null,
   "queue_position": null,
   "eta_s": null,
-  "started_at": "2026-10-29T11:34:40.970654+00:00",
+  "started_at": "2026-11-11T19:28:50.920829+00:00",
   "stages": [
    {
     "key": "precheck",
@@ -49,8 +49,8 @@
     "status": "failed",
     "failure_kind": "forbidden",
     "error_code": null,
-    "started_at": "2026-10-29T11:34:40.970654Z",
-    "duration_ms": 1943,
+    "started_at": "2026-11-11T19:28:50.920829Z",
+    "duration_ms": 1315,
     "metrics_schema": "precheck/v1",
     "metrics": {},
     "summary": {
@@ -81,7 +81,7 @@
      "tests": [],
      "hidden_tests": null
     },
-    "finished_at": "2026-10-29T11:34:42.913654+00:00"
+    "finished_at": "2026-11-11T19:28:52.235829+00:00"
    },
    {
     "key": "lint",
@@ -139,7 +139,7 @@
     "kind": "events",
     "stage": null,
     "state": "ready",
-    "size_bytes": 2964,
+    "size_bytes": 2985,
     "error_code": null,
     "waveform": null
    }
@@ -147,7 +147,7 @@
  },
  "events": [
   {
-   "id": "1793273680000-0",
+   "id": "1794425330000-0",
    "event": {
     "type": "queue",
     "position": 2,
@@ -155,7 +155,7 @@
    }
   },
   {
-   "id": "1793273680600-0",
+   "id": "1794425330600-0",
    "event": {
     "type": "queue",
     "position": 1,
@@ -163,7 +163,7 @@
    }
   },
   {
-   "id": "1793273681888-0",
+   "id": "1794425331725-0",
    "event": {
     "type": "stage_start",
     "stage": "precheck",
@@ -174,7 +174,7 @@
    }
   },
   {
-   "id": "1793273682888-0",
+   "id": "1794425332725-0",
    "event": {
     "type": "heartbeat",
     "stage": "precheck",
@@ -184,7 +184,7 @@
    }
   },
   {
-   "id": "1793273683831-0",
+   "id": "1794425333040-0",
    "event": {
     "type": "stage_end",
     "result": {
@@ -196,8 +196,8 @@
      "failure_kind": "forbidden",
      "limit": null,
      "error_code": null,
-     "started_at": "2026-10-29T11:34:40.970654Z",
-     "duration_ms": 1943,
+     "started_at": "2026-11-11T19:28:50.920829Z",
+     "duration_ms": 1315,
      "metrics_schema": "precheck/v1",
      "metrics": {},
      "cached": false,
@@ -234,7 +234,7 @@
    }
   },
   {
-   "id": "1793273683831-1",
+   "id": "1794425333040-1",
    "event": {
     "type": "stage_end",
     "result": {
@@ -263,7 +263,7 @@
    }
   },
   {
-   "id": "1793273683831-2",
+   "id": "1794425333040-2",
    "event": {
     "type": "stage_end",
     "result": {
@@ -292,14 +292,14 @@
    }
   },
   {
-   "id": "1793273683831-3",
+   "id": "1794425333040-3",
    "event": {
     "type": "done",
     "attempt": 1
    }
   },
   {
-   "id": "1793273683951-0",
+   "id": "1794425333160-0",
    "event": {
     "type": "finalized",
     "status": "forbidden_construct",

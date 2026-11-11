@@ -5,6 +5,7 @@ import { getSolutions } from "@/features/leaderboard/api";
 import { browserApi } from "@/lib/api/browser";
 import type { Schemas } from "@/lib/api/client";
 import { config } from "@/mocks/fixtures";
+import versions from "@/mocks/problem-versions.json";
 import { renderWithProviders } from "@/test/render";
 import { signIn, signOut } from "@/test/session";
 
@@ -147,9 +148,10 @@ it("tells why a solution has no place", async () => {
 it("marks a solution of an older version", async () => {
   const solution = await solutionOf("sync-fifo", (items) => items.find((item) => item.rank === 1));
   await renderSolution({ ...solution, version: 1, placement: null, rank: null });
+  const current = versions.find((problem) => problem.slug === "sync-fifo")?.version;
   expect(screen.getByText("· версия 1")).toBeInTheDocument();
   expect(
-    screen.getByText("Решение версии 1: в рейтинге сейчас решения версии 3."),
+    screen.getByText(`Решение версии 1: в рейтинге сейчас решения версии ${current}.`),
   ).toBeInTheDocument();
 });
 

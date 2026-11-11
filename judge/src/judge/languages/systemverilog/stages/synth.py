@@ -10,7 +10,8 @@ its messages under the TTY of the stage: the colors are removed before the conso
 
 Everything the tools write is untrusted: every file has a size bound and a strict format. The run is
 deterministic (S4), so the pipeline keeps it in the stage cache by its plan: the canonical text, the
-parameters and the scripts (FR-JDG-11).
+parameters and the scripts (FR-JDG-11). The parameters are the values of the instance's set: the
+primary instance gives the leaderboard metrics, the others check synthesis at their sets (ADR-0014).
 """
 
 import re
@@ -28,7 +29,7 @@ from pydantic import (
     ValidationError,
 )
 
-from judge.core.package import PRIMARY_SET, Problem
+from judge.core.package import Problem
 from judge.core.stage import (
     Command,
     Diagnostic,
@@ -38,7 +39,11 @@ from judge.core.stage import (
     StagePlan,
     StageSummary,
 )
-from judge.languages.systemverilog.stages.common import SOLUTION, canonical_solution
+from judge.languages.systemverilog.stages.common import (
+    SOLUTION,
+    canonical_solution,
+    param_values,
+)
 
 
 @dataclass(frozen=True)
@@ -89,10 +94,6 @@ DELAY_DIGITS = 3
 AREA_DIGITS = 2
 MAX_DIAGNOSTICS = 50
 
-# A parameter value goes into the tool scripts and flags: a number literal only, no spaces or
-# separators (the package rules check the values of the parameter sets, rules.py).
-LITERAL = r"^-?[0-9][0-9_]*$|^[0-9]*'[sS]?[bBoOdDhH][0-9a-fA-FxXzZ?_]+$"
-
 
 class SynthConfig(BaseModel):
     """`stages.<key>` of type synth (specs/06 §2)."""
@@ -115,17 +116,6 @@ class SynthMetrics(BaseModel):
     logic_depth: NonNegativeInt
     liberty: str
     cells_by_type: dict[str, NonNegativeInt]
-
-
-def synth_params(problem: Problem) -> dict[str, str]:
-    """Every parameter of the interface with the value the design is synthesized with."""
-    values = {
-        name: str(value) for name, value in problem.interface.param_set_values(PRIMARY_SET).items()
-    }
-    for name, value in values.items():
-        if not re.match(LITERAL, value):
-            raise ValueError(f"parameter {name}: {value!r} is not a literal")
-    return values
 
 
 def clock_port(problem: Problem) -> str | None:
@@ -388,7 +378,7 @@ class SynthStage:
     def plan(self, ctx: StageContext) -> StagePlan:
         assert isinstance(ctx.config, SynthConfig)
         top = ctx.problem.top
-        params = synth_params(ctx.problem)
+        params = param_values(ctx.param_set)
         clock = clock_port(ctx.problem)
         return StagePlan(
             commands=(

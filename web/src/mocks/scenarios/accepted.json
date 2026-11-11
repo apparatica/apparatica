@@ -1,10 +1,10 @@
 {
  "name": "accepted",
  "submission": {
-  "id": "01a1b562-aba8-763a-b926-70f95ac6959c",
+  "id": "01a1cc14-5900-7743-88e6-70d74672d9c7",
   "problem": "sync-fifo",
   "problem_title": "Синхронный FIFO",
-  "version": 3,
+  "version": 4,
   "kind": "submit",
   "status": "accepted",
   "verdict_detail": {
@@ -13,8 +13,8 @@
    "warnings": [],
    "error_codes": []
   },
-  "created_at": "2026-11-07T09:41:45+00:00",
-  "finished_at": "2026-11-07T09:42:34.870000+00:00",
+  "created_at": "2026-11-11T19:27:28+00:00",
+  "finished_at": "2026-11-11T19:27:55.995000+00:00",
   "code": "module sync_fifo #(\n  parameter int WIDTH = 8,\n  parameter int DEPTH = 16\n) (\n  input  logic             clk,\n  input  logic             rst_n,\n  input  logic             push,\n  input  logic [WIDTH-1:0] wdata,\n  input  logic             pop,\n  output logic [WIDTH-1:0] rdata,\n  output logic             full,\n  output logic             empty\n);\n  localparam int AW = $clog2(DEPTH);\n\n  logic [WIDTH-1:0] mem [DEPTH];\n  logic [AW-1:0] wptr, rptr;\n  logic [AW:0] count;\n\n  wire do_push = push && !full;\n  wire do_pop = pop && !empty;\n\n  assign full = count == (AW + 1)'(DEPTH);\n  assign empty = count == '0;\n  assign rdata = mem[rptr];\n\n  always_ff @(posedge clk) begin\n    if (do_push) mem[wptr] <= wdata;\n    if (!rst_n) begin\n      wptr <= '0;\n      rptr <= '0;\n      count <= '0;\n    end else begin\n      if (do_push) wptr <= wptr + 1'b1;\n      if (do_pop) rptr <= rptr + 1'b1;\n      count <= count + (AW + 1)'(do_push) - (AW + 1)'(do_pop);\n    end\n  end\nendmodule\n",
   "public": false,
   "leaderboard": null,
@@ -23,7 +23,7 @@
   "waveview_url": null,
   "queue_position": null,
   "eta_s": null,
-  "started_at": "2026-11-07T09:41:46.067285+00:00",
+  "started_at": "2026-11-11T19:27:28.601392+00:00",
   "stages": [
    {
     "key": "precheck",
@@ -33,8 +33,8 @@
     "status": "passed",
     "failure_kind": null,
     "error_code": null,
-    "started_at": "2026-11-07T09:41:46.067285Z",
-    "duration_ms": 1579,
+    "started_at": "2026-11-11T19:27:28.601392Z",
+    "duration_ms": 1110,
     "metrics_schema": "precheck/v1",
     "metrics": {
      "code_hash": "110bfbbea9e55a80a70048a74b828ce86acd8851186dd1dfd8c5880c690d1541",
@@ -51,7 +51,7 @@
      "tests": [],
      "hidden_tests": null
     },
-    "finished_at": "2026-11-07T09:41:47.646285+00:00"
+    "finished_at": "2026-11-11T19:27:29.711392+00:00"
    },
    {
     "key": "lint",
@@ -61,8 +61,8 @@
     "status": "passed",
     "failure_kind": null,
     "error_code": null,
-    "started_at": "2026-11-07T09:41:47.646985Z",
-    "duration_ms": 1422,
+    "started_at": "2026-11-11T19:27:29.711281Z",
+    "duration_ms": 979,
     "metrics_schema": "lint/v1",
     "metrics": {
      "warnings": 0,
@@ -76,7 +76,7 @@
      "tests": [],
      "hidden_tests": null
     },
-    "finished_at": "2026-11-07T09:41:49.068985+00:00"
+    "finished_at": "2026-11-11T19:27:30.690281+00:00"
    },
    {
     "key": "sim_full",
@@ -86,8 +86,8 @@
     "status": "passed",
     "failure_kind": null,
     "error_code": null,
-    "started_at": "2026-11-07T09:41:49.068740Z",
-    "duration_ms": 19375,
+    "started_at": "2026-11-11T19:27:30.689959Z",
+    "duration_ms": 9865,
     "metrics_schema": "sim/v1",
     "metrics": {
      "tests_total": 4,
@@ -125,7 +125,7 @@
       "failed_index": null
      }
     },
-    "finished_at": "2026-11-07T09:42:08.443740+00:00"
+    "finished_at": "2026-11-11T19:27:40.554959+00:00"
    },
    {
     "key": "synth",
@@ -135,8 +135,8 @@
     "status": "passed",
     "failure_kind": null,
     "error_code": null,
-    "started_at": "2026-11-07T09:42:08.443444Z",
-    "duration_ms": 6099,
+    "started_at": "2026-11-11T19:27:40.554934Z",
+    "duration_ms": 3420,
     "metrics_schema": "synth/v1",
     "metrics": {
      "critical_path_ns": 0.592,
@@ -178,7 +178,7 @@
      "tests": [],
      "hidden_tests": null
     },
-    "finished_at": "2026-11-07T09:42:14.542444+00:00"
+    "finished_at": "2026-11-11T19:27:43.974934+00:00"
    },
    {
     "key": "netlist_sim",
@@ -188,8 +188,8 @@
     "status": "passed",
     "failure_kind": null,
     "error_code": null,
-    "started_at": "2026-11-07T09:42:14.542375Z",
-    "duration_ms": 19076,
+    "started_at": "2026-11-11T19:27:43.974567Z",
+    "duration_ms": 10906,
     "metrics_schema": "sim/v1",
     "metrics": {
      "tests_total": 4,
@@ -227,7 +227,7 @@
       "failed_index": null
      }
     },
-    "finished_at": "2026-11-07T09:42:33.618375+00:00"
+    "finished_at": "2026-11-11T19:27:54.880567+00:00"
    }
   ],
   "artifacts": [
@@ -275,7 +275,7 @@
     "kind": "events",
     "stage": null,
     "state": "ready",
-    "size_bytes": 16221,
+    "size_bytes": 13768,
     "error_code": null,
     "waveform": null
    }
@@ -283,7 +283,7 @@
  },
  "events": [
   {
-   "id": "1794044505000-0",
+   "id": "1794425248000-0",
    "event": {
     "type": "queue",
     "position": 2,
@@ -291,7 +291,7 @@
    }
   },
   {
-   "id": "1794044505600-0",
+   "id": "1794425248600-0",
    "event": {
     "type": "queue",
     "position": 1,
@@ -299,7 +299,7 @@
    }
   },
   {
-   "id": "1794044507199-0",
+   "id": "1794425249596-0",
    "event": {
     "type": "stage_start",
     "stage": "precheck",
@@ -310,7 +310,7 @@
    }
   },
   {
-   "id": "1794044508199-0",
+   "id": "1794425250596-0",
    "event": {
     "type": "heartbeat",
     "stage": "precheck",
@@ -320,7 +320,7 @@
    }
   },
   {
-   "id": "1794044508778-0",
+   "id": "1794425250706-0",
    "event": {
     "type": "stage_end",
     "result": {
@@ -332,8 +332,8 @@
      "failure_kind": null,
      "limit": null,
      "error_code": null,
-     "started_at": "2026-11-07T09:41:46.067285Z",
-     "duration_ms": 1579,
+     "started_at": "2026-11-11T19:27:28.601392Z",
+     "duration_ms": 1110,
      "metrics_schema": "precheck/v1",
      "metrics": {
       "code_hash": "110bfbbea9e55a80a70048a74b828ce86acd8851186dd1dfd8c5880c690d1541",
@@ -356,7 +356,7 @@
    }
   },
   {
-   "id": "1794044508778-1",
+   "id": "1794425250706-1",
    "event": {
     "type": "stage_start",
     "stage": "lint",
@@ -367,17 +367,17 @@
    }
   },
   {
-   "id": "1794044509685-0",
+   "id": "1794425251260-0",
    "event": {
     "type": "log",
     "stage": "lint",
     "ch": "out",
-    "text": "- V e r i l a t i o n   R e p o r t: Verilator 5.052 2026-09-05 rev vUNKNOWN-built20261106\n- Verilator: Built from 0.031 MB sources in 2 modules, into 0.023 MB in 3 C++ files needing 0.000 MB\n- Verilator: Walltime 0.021 s (elab=0.001, cvt=0.007, bld=0.000); cpu 0.021 s on 1 threads; allocated 17.121 MB\n",
+    "text": "- V e r i l a t i o n   R e p o r t: Verilator 5.052 2026-09-05 rev vUNKNOWN-built20261106\n- Verilator: Built from 0.031 MB sources in 2 modules, into 0.023 MB in 3 C++ files needing 0.000 MB\n- Verilator: Walltime 0.006 s (elab=0.000, cvt=0.002, bld=0.000); cpu 0.006 s on 1 threads; allocated 17.133 MB\n",
     "attempt": 1
    }
   },
   {
-   "id": "1794044510200-0",
+   "id": "1794425251684-0",
    "event": {
     "type": "stage_end",
     "result": {
@@ -389,8 +389,8 @@
      "failure_kind": null,
      "limit": null,
      "error_code": null,
-     "started_at": "2026-11-07T09:41:47.646985Z",
-     "duration_ms": 1422,
+     "started_at": "2026-11-11T19:27:29.711281Z",
+     "duration_ms": 979,
      "metrics_schema": "lint/v1",
      "metrics": {
       "warnings": 0,
@@ -410,7 +410,7 @@
    }
   },
   {
-   "id": "1794044510200-1",
+   "id": "1794425251684-1",
    "event": {
     "type": "stage_start",
     "stage": "sim_full",
@@ -421,7 +421,7 @@
    }
   },
   {
-   "id": "1794044511200-0",
+   "id": "1794425252684-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full",
@@ -431,7 +431,7 @@
    }
   },
   {
-   "id": "1794044512200-0",
+   "id": "1794425253684-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full",
@@ -441,7 +441,7 @@
    }
   },
   {
-   "id": "1794044513200-0",
+   "id": "1794425254684-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full",
@@ -451,7 +451,7 @@
    }
   },
   {
-   "id": "1794044514200-0",
+   "id": "1794425255684-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full",
@@ -461,7 +461,7 @@
    }
   },
   {
-   "id": "1794044515200-0",
+   "id": "1794425256684-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full",
@@ -471,7 +471,7 @@
    }
   },
   {
-   "id": "1794044516200-0",
+   "id": "1794425257684-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full",
@@ -481,7 +481,7 @@
    }
   },
   {
-   "id": "1794044517200-0",
+   "id": "1794425258684-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full",
@@ -491,7 +491,7 @@
    }
   },
   {
-   "id": "1794044518200-0",
+   "id": "1794425259684-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full",
@@ -501,7 +501,7 @@
    }
   },
   {
-   "id": "1794044519200-0",
+   "id": "1794425260684-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full",
@@ -511,97 +511,7 @@
    }
   },
   {
-   "id": "1794044520200-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "sim_full",
-    "elapsed_ms": 10000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044521200-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "sim_full",
-    "elapsed_ms": 11000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044522200-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "sim_full",
-    "elapsed_ms": 12000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044523200-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "sim_full",
-    "elapsed_ms": 13000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044524200-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "sim_full",
-    "elapsed_ms": 14000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044525200-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "sim_full",
-    "elapsed_ms": 15000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044526200-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "sim_full",
-    "elapsed_ms": 16000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044527200-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "sim_full",
-    "elapsed_ms": 17000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044528200-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "sim_full",
-    "elapsed_ms": 18000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044529052-0",
+   "id": "1794425261245-0",
    "event": {
     "type": "test",
     "stage": "sim_full",
@@ -618,7 +528,7 @@
    }
   },
   {
-   "id": "1794044529052-1",
+   "id": "1794425261245-1",
    "event": {
     "type": "test",
     "stage": "sim_full",
@@ -635,7 +545,7 @@
    }
   },
   {
-   "id": "1794044529052-2",
+   "id": "1794425261245-2",
    "event": {
     "type": "test",
     "stage": "sim_full",
@@ -652,7 +562,7 @@
    }
   },
   {
-   "id": "1794044529052-3",
+   "id": "1794425261245-3",
    "event": {
     "type": "test",
     "stage": "sim_full",
@@ -669,7 +579,7 @@
    }
   },
   {
-   "id": "1794044529052-4",
+   "id": "1794425261245-4",
    "event": {
     "type": "test",
     "stage": "sim_full",
@@ -686,7 +596,7 @@
    }
   },
   {
-   "id": "1794044529053-0",
+   "id": "1794425261245-5",
    "event": {
     "type": "test",
     "stage": "sim_full",
@@ -703,7 +613,7 @@
    }
   },
   {
-   "id": "1794044529053-1",
+   "id": "1794425261246-0",
    "event": {
     "type": "test",
     "stage": "sim_full",
@@ -720,7 +630,7 @@
    }
   },
   {
-   "id": "1794044529053-2",
+   "id": "1794425261246-1",
    "event": {
     "type": "test",
     "stage": "sim_full",
@@ -737,7 +647,7 @@
    }
   },
   {
-   "id": "1794044529575-0",
+   "id": "1794425261549-0",
    "event": {
     "type": "stage_end",
     "result": {
@@ -749,8 +659,8 @@
      "failure_kind": null,
      "limit": null,
      "error_code": null,
-     "started_at": "2026-11-07T09:41:49.068740Z",
-     "duration_ms": 19375,
+     "started_at": "2026-11-11T19:27:30.689959Z",
+     "duration_ms": 9865,
      "metrics_schema": "sim/v1",
      "metrics": {
       "tests_total": 4,
@@ -794,7 +704,7 @@
    }
   },
   {
-   "id": "1794044529575-1",
+   "id": "1794425261549-1",
    "event": {
     "type": "stage_start",
     "stage": "synth",
@@ -805,7 +715,7 @@
    }
   },
   {
-   "id": "1794044530575-0",
+   "id": "1794425262549-0",
    "event": {
     "type": "heartbeat",
     "stage": "synth",
@@ -815,7 +725,7 @@
    }
   },
   {
-   "id": "1794044531575-0",
+   "id": "1794425263549-0",
    "event": {
     "type": "heartbeat",
     "stage": "synth",
@@ -825,17 +735,7 @@
    }
   },
   {
-   "id": "1794044532575-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "synth",
-    "elapsed_ms": 3000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044533263-0",
+   "id": "1794425263562-0",
    "event": {
     "type": "log",
     "stage": "synth",
@@ -845,27 +745,17 @@
    }
   },
   {
-   "id": "1794044534263-0",
+   "id": "1794425264562-0",
    "event": {
     "type": "heartbeat",
     "stage": "synth",
-    "elapsed_ms": 4688,
+    "elapsed_ms": 3013,
     "note": null,
     "attempt": 1
    }
   },
   {
-   "id": "1794044535263-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "synth",
-    "elapsed_ms": 5688,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044535674-0",
+   "id": "1794425264969-0",
    "event": {
     "type": "stage_end",
     "result": {
@@ -877,8 +767,8 @@
      "failure_kind": null,
      "limit": null,
      "error_code": null,
-     "started_at": "2026-11-07T09:42:08.443444Z",
-     "duration_ms": 6099,
+     "started_at": "2026-11-11T19:27:40.554934Z",
+     "duration_ms": 3420,
      "metrics_schema": "synth/v1",
      "metrics": {
       "critical_path_ns": 0.592,
@@ -926,7 +816,7 @@
    }
   },
   {
-   "id": "1794044535674-1",
+   "id": "1794425264969-1",
    "event": {
     "type": "stage_start",
     "stage": "netlist_sim",
@@ -937,7 +827,7 @@
    }
   },
   {
-   "id": "1794044536674-0",
+   "id": "1794425265969-0",
    "event": {
     "type": "heartbeat",
     "stage": "netlist_sim",
@@ -947,7 +837,7 @@
    }
   },
   {
-   "id": "1794044537674-0",
+   "id": "1794425266969-0",
    "event": {
     "type": "heartbeat",
     "stage": "netlist_sim",
@@ -957,7 +847,7 @@
    }
   },
   {
-   "id": "1794044538674-0",
+   "id": "1794425267969-0",
    "event": {
     "type": "heartbeat",
     "stage": "netlist_sim",
@@ -967,7 +857,7 @@
    }
   },
   {
-   "id": "1794044539674-0",
+   "id": "1794425268969-0",
    "event": {
     "type": "heartbeat",
     "stage": "netlist_sim",
@@ -977,7 +867,7 @@
    }
   },
   {
-   "id": "1794044540674-0",
+   "id": "1794425269969-0",
    "event": {
     "type": "heartbeat",
     "stage": "netlist_sim",
@@ -987,7 +877,7 @@
    }
   },
   {
-   "id": "1794044541674-0",
+   "id": "1794425270969-0",
    "event": {
     "type": "heartbeat",
     "stage": "netlist_sim",
@@ -997,7 +887,7 @@
    }
   },
   {
-   "id": "1794044542674-0",
+   "id": "1794425271969-0",
    "event": {
     "type": "heartbeat",
     "stage": "netlist_sim",
@@ -1007,7 +897,7 @@
    }
   },
   {
-   "id": "1794044543674-0",
+   "id": "1794425272969-0",
    "event": {
     "type": "heartbeat",
     "stage": "netlist_sim",
@@ -1017,7 +907,7 @@
    }
   },
   {
-   "id": "1794044544674-0",
+   "id": "1794425273969-0",
    "event": {
     "type": "heartbeat",
     "stage": "netlist_sim",
@@ -1027,7 +917,7 @@
    }
   },
   {
-   "id": "1794044545674-0",
+   "id": "1794425274969-0",
    "event": {
     "type": "heartbeat",
     "stage": "netlist_sim",
@@ -1037,87 +927,7 @@
    }
   },
   {
-   "id": "1794044546674-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "netlist_sim",
-    "elapsed_ms": 11000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044547674-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "netlist_sim",
-    "elapsed_ms": 12000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044548674-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "netlist_sim",
-    "elapsed_ms": 13000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044549674-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "netlist_sim",
-    "elapsed_ms": 14000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044550674-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "netlist_sim",
-    "elapsed_ms": 15000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044551674-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "netlist_sim",
-    "elapsed_ms": 16000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044552674-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "netlist_sim",
-    "elapsed_ms": 17000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044553674-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "netlist_sim",
-    "elapsed_ms": 18000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044554196-0",
+   "id": "1794425275542-0",
    "event": {
     "type": "test",
     "stage": "netlist_sim",
@@ -1134,7 +944,7 @@
    }
   },
   {
-   "id": "1794044554196-1",
+   "id": "1794425275542-1",
    "event": {
     "type": "test",
     "stage": "netlist_sim",
@@ -1151,7 +961,7 @@
    }
   },
   {
-   "id": "1794044554196-2",
+   "id": "1794425275542-2",
    "event": {
     "type": "test",
     "stage": "netlist_sim",
@@ -1168,7 +978,7 @@
    }
   },
   {
-   "id": "1794044554196-3",
+   "id": "1794425275542-3",
    "event": {
     "type": "test",
     "stage": "netlist_sim",
@@ -1185,7 +995,7 @@
    }
   },
   {
-   "id": "1794044554196-4",
+   "id": "1794425275542-4",
    "event": {
     "type": "test",
     "stage": "netlist_sim",
@@ -1202,7 +1012,7 @@
    }
   },
   {
-   "id": "1794044554196-5",
+   "id": "1794425275542-5",
    "event": {
     "type": "test",
     "stage": "netlist_sim",
@@ -1219,7 +1029,7 @@
    }
   },
   {
-   "id": "1794044554196-6",
+   "id": "1794425275542-6",
    "event": {
     "type": "test",
     "stage": "netlist_sim",
@@ -1236,7 +1046,7 @@
    }
   },
   {
-   "id": "1794044554197-0",
+   "id": "1794425275542-7",
    "event": {
     "type": "test",
     "stage": "netlist_sim",
@@ -1253,7 +1063,7 @@
    }
   },
   {
-   "id": "1794044554750-0",
+   "id": "1794425275875-0",
    "event": {
     "type": "stage_end",
     "result": {
@@ -1265,8 +1075,8 @@
      "failure_kind": null,
      "limit": null,
      "error_code": null,
-     "started_at": "2026-11-07T09:42:14.542375Z",
-     "duration_ms": 19076,
+     "started_at": "2026-11-11T19:27:43.974567Z",
+     "duration_ms": 10906,
      "metrics_schema": "sim/v1",
      "metrics": {
       "tests_total": 4,
@@ -1310,14 +1120,14 @@
    }
   },
   {
-   "id": "1794044554750-1",
+   "id": "1794425275875-1",
    "event": {
     "type": "done",
     "attempt": 1
    }
   },
   {
-   "id": "1794044554870-0",
+   "id": "1794425275995-0",
    "event": {
     "type": "finalized",
     "status": "accepted",

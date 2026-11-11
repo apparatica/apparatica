@@ -1,6 +1,7 @@
 """The precheck runner in-process (pyslang is a dev dependency of the judge)."""
 
 import json
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -280,6 +281,55 @@ def test_interface_mismatch(header: str, code: str, message: str) -> None:
     assert result.ports_ok is False
 
 
+FIFO_SETS = [
+    {"id": "default", "values": {"WIDTH": 8, "DEPTH": 16}},
+    {"id": "narrow", "values": {"WIDTH": 1, "DEPTH": 2}},
+]
+
+
+def test_interface_is_checked_at_every_parameter_set() -> None:
+    job = replace(interface_job(FIFO_PORTS, FIFO_PARAMS), param_sets=FIFO_SETS)
+    result = check(fifo(GOOD_HEADER), job)
+    assert result.findings == []
+    assert result.ports_ok is True
+    # A width fixed to the default fits the primary set only; the message names the set.
+    fixed = GOOD_HEADER.replace("[$clog2(DEPTH):0] count", "[4:0] count")
+    assert check(fifo(fixed), interface_job(FIFO_PORTS, FIFO_PARAMS)).findings == []
+    result = check(fifo(fixed), job)
+    assert [(f.code, f.message) for f in result.findings] == [
+        (
+            "PORT_WIDTH",
+            "при наборе параметров narrow (WIDTH=1, DEPTH=2): порт count: ожидается ширина"
+            " $clog2(DEPTH)+1 (2), объявлено 5",
+        )
+    ]
+    assert result.ports_ok is False
+
+
+def test_elaboration_errors_at_an_extra_set_name_the_set() -> None:
+    job = replace(interface_job(FIFO_PORTS, FIFO_PARAMS), param_sets=FIFO_SETS)
+    extra = "  logic [7:0] spare [WIDTH-1];\n"  # an empty array at WIDTH=1
+    assert check(fifo(GOOD_HEADER, extra), interface_job(FIFO_PORTS, FIFO_PARAMS)).findings == []
+    [finding] = check(fifo(GOOD_HEADER, extra), job).findings
+    assert (finding.category, finding.code, finding.line) == ("compile", "ValueMustBePositive", 2)
+    assert finding.message.startswith("при наборе параметров narrow (WIDTH=1, DEPTH=2): ")
+
+
+def test_state_size_comes_from_the_primary_set_and_is_limited_at_every_set() -> None:
+    extra = "  logic [WIDTH-1:0] mem [DEPTH];\n"
+    sets = [
+        {"id": "default", "values": {"WIDTH": 8, "DEPTH": 16}},
+        {"id": "deep", "values": {"WIDTH": 8, "DEPTH": 1 << 20}},
+    ]
+    job = interface_job(FIFO_PORTS, FIFO_PARAMS)
+    primary = check(fifo(GOOD_HEADER, extra), job)
+    assert primary.findings == []
+    deep = check(fifo(GOOD_HEADER, extra), replace(job, param_sets=sets))
+    assert deep.state_bits == primary.state_bits
+    assert [(f.code, f.limit) for f in deep.findings] == [("STATE_SIZE", "memory")]
+    assert deep.findings[0].message.startswith("при наборе параметров deep (")
+
+
 def test_module_count_message_names_the_top() -> None:
     code = fifo(GOOD_HEADER) + "module helper; endmodule\n"
     finding = check(code, interface_job(FIFO_PORTS, FIFO_PARAMS)).findings[0]
@@ -305,7 +355,7 @@ def test_state_limit() -> None:
 
 def test_main_writes_result_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
-    job = {"top": "top", "parameters": [], "ports": PORTS, "limits": vars(LIMITS)}
+    job = {"top": "top", "parameters": [], "ports": PORTS, "limits": vars(LIMITS), "param_sets": []}
     (tmp_path / "job.json").write_text(json.dumps(job), encoding="utf-8")
     (tmp_path / "solution.sv").write_text(body("assign y = a; // ok"), encoding="utf-8")
     assert runner.main(["runner", "job.json", "solution.sv"]) == 0
@@ -317,7 +367,7 @@ def test_main_writes_result_files(tmp_path: Path, monkeypatch: pytest.MonkeyPatc
 
 def test_main_rejects_invalid_utf8(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.chdir(tmp_path)
-    job = {"top": "top", "parameters": [], "ports": PORTS, "limits": vars(LIMITS)}
+    job = {"top": "top", "parameters": [], "ports": PORTS, "limits": vars(LIMITS), "param_sets": []}
     (tmp_path / "job.json").write_text(json.dumps(job), encoding="utf-8")
     (tmp_path / "solution.sv").write_bytes(b"module top; \xff endmodule\n")
     runner.main(["runner", "job.json", "solution.sv"])

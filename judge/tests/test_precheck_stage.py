@@ -29,7 +29,11 @@ def context(solution: str, config: PrecheckConfig | None = None) -> StageContext
         {"precheck": {"type": "precheck"}},
         run=["precheck"],
         top="top",
-        interface={"parameters": [{"name": "WIDTH", "type": "int", "default": 8}], "ports": PORTS},
+        interface={
+            "parameters": [{"name": "WIDTH", "type": "int", "default": 8}],
+            "param_sets": [{"id": "narrow", "values": {"WIDTH": 1}}],
+            "ports": PORTS,
+        },
     )
     return StageContext(
         key="precheck",
@@ -82,6 +86,10 @@ def test_plan_uploads_the_runner_and_the_job() -> None:
     assert job["top"] == "top"
     assert job["parameters"] == [{"name": "WIDTH", "type": "int", "default": 8}]
     assert job["ports"][1] == {"name": "a", "dir": "input", "width": "WIDTH", "signed": False}
+    assert job["param_sets"] == [
+        {"id": "default", "values": {"WIDTH": 8}},
+        {"id": "narrow", "values": {"WIDTH": 1}},
+    ]
     assert job["limits"]["max_bytes"] == 64 * 1024
     assert plan.collect == ("result.json", "canonical.sv")
     assert plan.timeout_s == 10
@@ -122,6 +130,8 @@ def test_code_hash_ignores_comment_text(tmp_path: Path, monkeypatch: pytest.Monk
     [
         (GOOD.replace("assign y = a;", "initial y = 0;"), "forbidden", None, "CONSTRUCT"),
         (GOOD.replace("[WIDTH-1:0] a", "[3:0] a"), "compile", None, "PORT_WIDTH"),
+        # Fits the primary set only: the interface is checked at the extra set `narrow` too.
+        (GOOD.replace("[WIDTH-1:0] a", "[7:0] a"), "compile", None, "PORT_WIDTH"),
         (GOOD.replace("assign y = a;", "logic [7:0] m [2**24];"), "limit", "memory", "STATE_SIZE"),
     ],
 )

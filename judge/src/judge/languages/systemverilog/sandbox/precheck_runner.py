@@ -6,7 +6,8 @@ solution and `job.json`, runs `python3 precheck_runner.py job.json solution.sv`,
 
 Steps, each stops the check if it finds something: size limits; preprocessor tokens (lexer, before
 parsing, so no directive is ever executed); syntax; canonical text without comments; whitelist of
-syntax kinds and rules on top of it; elaboration with resource limits; state size; interface.
+syntax kinds and rules on top of it; elaboration with resource limits, state size and interface at
+every parameter set of the package.
 A solution that passes gets the normalized AST hash (specs/07 §6).
 """
 
@@ -14,7 +15,7 @@ import hashlib
 import json
 import sys
 from collections.abc import Iterable, Sequence
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict, dataclass, field, replace
 from pathlib import Path
 from typing import Any
 
@@ -25,6 +26,7 @@ RESULT_VERSION = 1
 SOURCE_NAME = "solution.sv"
 # Bump on any change of normalize_tokens: hashes of different versions are never compared.
 NORMALIZATION_VERSION = 1
+PRIMARY_SET = "default"  # the defaults of problem.yaml (ADR-0014)
 
 TK = parsing.TokenKind
 SK = syntax.SyntaxKind
@@ -194,10 +196,23 @@ class Job:
     parameters: list[dict[str, Any]]  # {name, type, default}
     ports: list[dict[str, Any]]  # {name, dir, width, signed}
     limits: Limits
+    # {id, values}: the primary set first, then the extra ones; empty: the primary set only.
+    param_sets: list[dict[str, Any]] = field(default_factory=list)
 
     @classmethod
     def from_json(cls, data: dict[str, Any]) -> "Job":
-        return cls(data["top"], data["parameters"], data["ports"], Limits(**data["limits"]))
+        return cls(
+            data["top"],
+            data["parameters"],
+            data["ports"],
+            Limits(**data["limits"]),
+            data["param_sets"],
+        )
+
+    def sets(self) -> list[dict[str, Any]]:
+        """The parameter sets to check the interface at (specs/07 §2.1), the primary one first."""
+        defaults = {p["name"]: p["default"] for p in self.parameters}
+        return self.param_sets or [{"id": PRIMARY_SET, "values": defaults}]
 
 
 def _location(sm: pyslang.SourceManager, loc: pyslang.SourceLocation) -> tuple[int, int]:
@@ -348,13 +363,12 @@ def _literal(value: Any) -> str:
     return str(value) if isinstance(value, int) else f"({value})"
 
 
-def expected_widths(job: Job) -> tuple[dict[str, int], list[Finding]]:
-    """Port widths of problem.yaml evaluated by slang with the default parameter values."""
+def expected_widths(job: Job, values: dict[str, Any]) -> tuple[dict[str, int], list[Finding]]:
+    """Port widths of problem.yaml evaluated by slang at the parameter values of a set."""
     lines = ["module __apx_expected;"]
     for param in job.parameters:
-        lines.append(
-            f"  localparam {param['type']} {param['name']} = {_literal(param['default'])};"
-        )
+        value = _literal(values[param["name"]])
+        lines.append(f"  localparam {param['type']} {param['name']} = {value};")
     for index, port in enumerate(job.ports):
         lines.append(f"  localparam longint __apx_w{index} = {port['width']};")
     lines.append("endmodule")
@@ -371,6 +385,26 @@ def expected_widths(job: Job) -> tuple[dict[str, int], list[Finding]]:
 
 
 def elaborate(tree: syntax.SyntaxTree, job: Job, result: Result) -> list[Finding]:
+    """Elaboration, state size and interface at every parameter set of the package (ADR-0014):
+    the primary one gives the module and the state size of the result, an extra set that breaks
+    the solution is named in the messages. The first set with findings stops the check."""
+    for param_set in job.sets():
+        primary = param_set["id"] == PRIMARY_SET
+        findings = _elaborate_at(tree, job, param_set["values"], result if primary else None)
+        if findings:
+            if not primary:
+                where = ", ".join(f"{name}={value}" for name, value in param_set["values"].items())
+                prefix = f"при наборе параметров {param_set['id']} ({where}): "
+                findings = [replace(f, message=prefix + f.message) for f in findings]
+            result.ports_ok = False
+            return findings
+    result.ports_ok = True
+    return []
+
+
+def _elaborate_at(
+    tree: syntax.SyntaxTree, job: Job, values: dict[str, Any], result: Result | None
+) -> list[Finding]:
     sm = tree.sourceManager
     options = ast.CompilationOptions()
     options.maxGenerateSteps = job.limits.max_generate_steps
@@ -378,8 +412,8 @@ def elaborate(tree: syntax.SyntaxTree, job: Job, result: Result) -> list[Finding
     options.maxInstanceArray = 1024
     options.errorLimit = 20
     options.topModules = {job.top}
-    # Interface widths are checked with the problem's default parameters, not the solution's.
-    options.paramOverrides = [f"{p['name']}={_literal(p['default'])}" for p in job.parameters]
+    # Interface widths are checked with the problem's parameter values, not the solution's.
+    options.paramOverrides = [f"{name}={_literal(value)}" for name, value in values.items()]
     compilation = ast.Compilation(pyslang.Bag([options]))
     compilation.addSyntaxTree(tree)
     findings = [_diagnostic(sm, d) for d in compilation.getAllDiagnostics() if d.isError()]
@@ -389,7 +423,6 @@ def elaborate(tree: syntax.SyntaxTree, job: Job, result: Result) -> list[Finding
     if not tops:
         return [Finding("compile", "MODULE_NAME", f"модуль {job.top} не найден")]
     body = tops[0].body
-    result.module = job.top
 
     # Total state: slang accepts huge unpacked arrays that Verilator and Yosys would allocate.
     state_bits = 0
@@ -401,7 +434,9 @@ def elaborate(tree: syntax.SyntaxTree, job: Job, result: Result) -> list[Finding
         return True
 
     body.visit(count)
-    result.state_bits = state_bits
+    if result is not None:
+        result.module = job.top
+        result.state_bits = state_bits
     if state_bits > job.limits.max_state_bits:
         line, col = _location(sm, body.location)
         message = (
@@ -410,12 +445,10 @@ def elaborate(tree: syntax.SyntaxTree, job: Job, result: Result) -> list[Finding
         )
         return [Finding("limit", "STATE_SIZE", message, line, col, limit="memory")]
 
-    widths, problems = expected_widths(job)
+    widths, problems = expected_widths(job, values)
     if problems:
         return problems
-    findings += check_interface(body, job, widths, sm)
-    result.ports_ok = not findings
-    return findings
+    return check_interface(body, job, widths, sm)
 
 
 _DIRECTIONS = {"In": "input", "Out": "output", "InOut": "inout"}

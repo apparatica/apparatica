@@ -14,16 +14,18 @@ from core_helpers import RESOURCE_CLASSES
 from pydantic import ValidationError
 
 from judge.core.limits import stage_limits
-from judge.core.package import Parameter, Port, Problem, load_manifest
+from judge.core.package import DeclaredParamSet, Parameter, Port, Problem, load_manifest
 from judge.core.pipeline import param_set_of
 from judge.core.stage import (
     CommandResult,
     ExecResult,
     FinishedStage,
+    ParamSet,
     StageContext,
     StageOutcome,
     StageResult,
 )
+from judge.languages.systemverilog.stages.common import param_values
 from judge.languages.systemverilog.stages.synth import (
     CHECK,
     LATCH_SOURCES,
@@ -36,7 +38,6 @@ from judge.languages.systemverilog.stages.synth import (
     SynthConfig,
     SynthStage,
     console_line,
-    synth_params,
 )
 
 DATA = Path(__file__).parent / "data"
@@ -53,7 +54,9 @@ def problem(**interface: Any) -> Problem:
     return loaded.model_copy(update={"interface": loaded.interface.model_copy(update=interface)})
 
 
-def context(target: Problem | None = None, **config: Any) -> StageContext:
+def context(
+    target: Problem | None = None, param_set: str = "default", **config: Any
+) -> StageContext:
     target = target or problem()
     previous = {
         "precheck": FinishedStage(
@@ -73,7 +76,7 @@ def context(target: Problem | None = None, **config: Any) -> StageContext:
         solution=b"// original\n",
         limits=stage_limits(target, "synth", "synth", RESOURCE_CLASSES),
         previous=previous,
-        param_set=param_set_of(target, "default"),
+        param_set=param_set_of(target, param_set),
     )
 
 
@@ -129,22 +132,23 @@ def test_the_yosys_script_reads_the_code_as_simulation_does() -> None:
     assert lines[-1] == "write_verilog -noexpr -noattr netlist.v"
 
 
-def test_parameters_take_the_values_of_the_primary_set() -> None:
+def test_parameters_take_the_values_of_the_instance_set() -> None:
     parameters = [
         Parameter(name="WIDTH", type="int", default=8),
         Parameter(name="DEPTH", type="int", default=16),
         Parameter(name="INIT", type="logic", default="4'hA"),
     ]
-    target = problem(parameters=parameters)
-    assert synth_params(target) == {"WIDTH": "8", "DEPTH": "16", "INIT": "4'hA"}
-    script = SynthStage().plan(context(target)).inputs[YOSYS_SCRIPT].decode()
-    assert "--top counter -G WIDTH=8 -G DEPTH=16 -G INIT=4'hA\n" in script
+    sets = [DeclaredParamSet(id="narrow", values={"WIDTH": 1, "INIT": "1'b1"})]
+    target = problem(parameters=parameters, param_sets=sets)
+    primary = SynthStage().plan(context(target)).inputs[YOSYS_SCRIPT].decode()
+    assert "--top counter -G WIDTH=8 -G DEPTH=16 -G INIT=4'hA\n" in primary
+    narrow = SynthStage().plan(context(target, "narrow")).inputs[YOSYS_SCRIPT].decode()
+    assert "--top counter -G WIDTH=1 -G DEPTH=16 -G INIT=1'b1\n" in narrow
 
 
-def test_a_default_must_be_a_literal() -> None:
-    target = problem(parameters=[Parameter(name="W", type="int", default="8; shell rm")])
+def test_a_parameter_value_must_be_a_literal() -> None:
     with pytest.raises(ValueError, match="not a literal"):
-        synth_params(target)
+        param_values(ParamSet(id="default", values={"W": "8; shell rm"}))
 
 
 def test_the_stage_takes_no_parameter_values() -> None:

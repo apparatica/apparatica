@@ -257,6 +257,31 @@ def test_plan_options() -> None:
     assert "+apx_groups=public" in simulate
 
 
+def test_the_build_sets_the_testbench_parameters_to_the_values_of_the_set() -> None:
+    narrow = dataclasses.replace(
+        context(), key="sim@narrow", param_set=ParamSet(id="narrow", values={"N": 4, "M": "4'hA"})
+    )
+    argv = SimStage().plan(narrow).commands[0].argv
+    assert argv[-4:] == ("--top-module", "tb_top", "-GN=4", "-GM=4'hA")
+    # Other values, another binary: the build cache key includes the flags.
+    assert cache_key(narrow) != cache_key(context())
+
+
+@pytest.mark.parametrize("design", [None, NETLIST_DESIGN])
+def test_a_testbench_top_without_the_parameters_is_a_problem_error(design: str | None) -> None:
+    output = (
+        "%Error: Parameters from the command line were not found in the design: N M\n"
+        "%Error: Exiting due to 1 error(s)\n"
+    )
+    ctx = context(design=design)
+    outcome = SimStage().interpret(ctx, [built(1, binary=None, output=output)])
+    assert isinstance(outcome, StageOutcome)
+    assert (outcome.status, outcome.error_code) == ("error", "TB_PARAMS_MISSING")
+    assert outcome.summary.caption == (
+        "верхний модуль тестбенча не объявляет parameter для параметров задачи: N, M"
+    )
+
+
 def test_a_netlist_is_built_in_its_wrapper_with_parameter_checks_as_errors() -> None:
     build = SimStage().plan(context(design=NETLIST_DESIGN))
     argv = build.commands[0].argv
@@ -364,7 +389,10 @@ def test_a_netlist_is_taken_from_the_synth_instance_of_the_same_parameter_set() 
         param_set=ParamSet(id="narrow", values={"N": 4}),
         previous={**primary.previous, "synth@narrow": synth_narrow},
     )
-    assert SimStage().plan(narrow).inputs["design.v"].startswith(narrow_netlist)
+    design = SimStage().plan(narrow).inputs["design.v"]
+    assert design.startswith(narrow_netlist)
+    # The wrapper checks the values the netlist was synthesized with: those of the set.
+    assert b'$fatal(1, "netlist synthesized for N=4");' in design
     assert SimStage().plan(primary).inputs["design.v"].startswith(NETLIST)
     # No synth at the set of the stage: no netlist from another set instead.
     alone = dataclasses.replace(narrow, previous=primary.previous)

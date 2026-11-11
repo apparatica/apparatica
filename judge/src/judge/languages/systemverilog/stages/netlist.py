@@ -4,15 +4,17 @@
 parameters, synthesized with fixed values. The testbench instantiates `top` with parameters, so the
 stage adds a wrapper `top` with the parameters and ports of `problem.yaml` around the netlist. The
 wrapper stops elaboration with `$fatal` when the testbench sets a parameter to another value than
-the netlist was synthesized with; the build turns that into an error with `-Werror-USERFATAL`
-(S4). Such a mismatch is a problem bug, not the solution's.
+the netlist was synthesized with — the values of the parameter set of the stage instance
+(ADR-0014); the build turns that into an error with `-Werror-USERFATAL` (S4). Such a mismatch is a
+problem bug, not the solution's.
 """
 
 from collections.abc import Mapping
 
 from judge.core.package import Port, Problem
 from judge.core.stage import StageContext
-from judge.languages.systemverilog.stages.synth import SynthStage, synth_params
+from judge.languages.systemverilog.stages.common import param_values
+from judge.languages.systemverilog.stages.synth import SynthStage
 
 SUFFIX = "__netlist"  # the module name of the netlist is <top>__netlist (synth.yosys_script)
 
@@ -60,5 +62,6 @@ def netlist_design(ctx: StageContext, stage: str, netlist: bytes) -> bytes:
         raise LookupError(
             f"stage {ctx.key}: design of {stage!r}: only a synth netlist is simulated"
         )
-    params = synth_params(ctx.problem)
+    # The netlist comes from the synth instance at the set of this one (ctx.instance).
+    params = param_values(ctx.param_set)
     return netlist.rstrip(b"\n") + b"\n\n" + wrapper(ctx.problem, params).encode()

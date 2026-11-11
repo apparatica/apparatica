@@ -1,10 +1,10 @@
 {
  "name": "compile-error",
  "submission": {
-  "id": "01a18770-c0e0-770f-9219-ee2ec7242dc8",
+  "id": "01a1cc15-9180-76b4-a883-1cfbee0ba5b6",
   "problem": "mux4",
   "problem_title": "Мультиплексор 4:1",
-  "version": 2,
+  "version": 4,
   "kind": "run",
   "status": "compile_error",
   "verdict_detail": {
@@ -29,8 +29,8 @@
    "warnings": [],
    "error_codes": []
   },
-  "created_at": "2026-10-29T11:34:36+00:00",
-  "finished_at": "2026-10-29T11:34:40.547000+00:00",
+  "created_at": "2026-11-11T19:28:48+00:00",
+  "finished_at": "2026-11-11T19:28:51.265000+00:00",
   "code": "module mux4 #(\n  parameter int WIDTH = 8\n) (\n  input  logic [1:0]       sel,\n  input  logic [WIDTH-1:0] d0,\n  input  logic [WIDTH-1:0] d1,\n  input  logic [WIDTH-1:0] d2,\n  input  logic [WIDTH-1:0] d3,\n  output logic [WIDTH-1:0] y\n);\n  always_comb begin\n    unique case (sel)\n      2'd0: y = d0;\n      2'd1: y = d1;\n      2'd2: y = d2;\n      2'd3: y = d3\n    endcase\n  end\nendmodule\n",
   "public": false,
   "leaderboard": null,
@@ -39,7 +39,7 @@
   "waveview_url": null,
   "queue_position": null,
   "eta_s": null,
-  "started_at": "2026-10-29T11:34:37.292798+00:00",
+  "started_at": "2026-11-11T19:28:48.752893+00:00",
   "stages": [
    {
     "key": "precheck",
@@ -49,8 +49,8 @@
     "status": "failed",
     "failure_kind": "compile",
     "error_code": null,
-    "started_at": "2026-10-29T11:34:37.292798Z",
-    "duration_ms": 2340,
+    "started_at": "2026-11-11T19:28:48.752893Z",
+    "duration_ms": 1329,
     "metrics_schema": "precheck/v1",
     "metrics": {},
     "summary": {
@@ -71,7 +71,7 @@
      "tests": [],
      "hidden_tests": null
     },
-    "finished_at": "2026-10-29T11:34:39.632798+00:00"
+    "finished_at": "2026-11-11T19:28:50.081893+00:00"
    },
    {
     "key": "lint",
@@ -129,7 +129,7 @@
     "kind": "events",
     "stage": null,
     "state": "ready",
-    "size_bytes": 2580,
+    "size_bytes": 2474,
     "error_code": null,
     "waveform": null
    }
@@ -137,7 +137,7 @@
  },
  "events": [
   {
-   "id": "1793273676000-0",
+   "id": "1794425328000-0",
    "event": {
     "type": "queue",
     "position": 2,
@@ -145,7 +145,7 @@
    }
   },
   {
-   "id": "1793273676600-0",
+   "id": "1794425328600-0",
    "event": {
     "type": "queue",
     "position": 1,
@@ -153,7 +153,7 @@
    }
   },
   {
-   "id": "1793273678087-0",
+   "id": "1794425329817-0",
    "event": {
     "type": "stage_start",
     "stage": "precheck",
@@ -164,7 +164,7 @@
    }
   },
   {
-   "id": "1793273679087-0",
+   "id": "1794425330817-0",
    "event": {
     "type": "heartbeat",
     "stage": "precheck",
@@ -174,17 +174,7 @@
    }
   },
   {
-   "id": "1793273680087-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "precheck",
-    "elapsed_ms": 2000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1793273680427-0",
+   "id": "1794425331145-0",
    "event": {
     "type": "stage_end",
     "result": {
@@ -196,8 +186,8 @@
      "failure_kind": "compile",
      "limit": null,
      "error_code": null,
-     "started_at": "2026-10-29T11:34:37.292798Z",
-     "duration_ms": 2340,
+     "started_at": "2026-11-11T19:28:48.752893Z",
+     "duration_ms": 1329,
      "metrics_schema": "precheck/v1",
      "metrics": {},
      "cached": false,
@@ -224,7 +214,7 @@
    }
   },
   {
-   "id": "1793273680427-1",
+   "id": "1794425331145-1",
    "event": {
     "type": "stage_end",
     "result": {
@@ -253,7 +243,7 @@
    }
   },
   {
-   "id": "1793273680427-2",
+   "id": "1794425331145-2",
    "event": {
     "type": "stage_end",
     "result": {
@@ -282,14 +272,14 @@
    }
   },
   {
-   "id": "1793273680427-3",
+   "id": "1794425331145-3",
    "event": {
     "type": "done",
     "attempt": 1
    }
   },
   {
-   "id": "1793273680547-0",
+   "id": "1794425331265-0",
    "event": {
     "type": "finalized",
     "status": "compile_error",

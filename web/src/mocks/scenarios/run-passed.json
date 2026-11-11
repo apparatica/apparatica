@@ -1,10 +1,10 @@
 {
  "name": "run-passed",
  "submission": {
-  "id": "01a1876f-1718-7644-af11-c700fe3f9083",
+  "id": "01a1cc14-2a20-7a24-81c5-93617133e0c8",
   "problem": "mux4",
   "problem_title": "Мультиплексор 4:1",
-  "version": 2,
+  "version": 4,
   "kind": "run",
   "status": "accepted",
   "verdict_detail": {
@@ -13,8 +13,8 @@
    "warnings": [],
    "error_codes": []
   },
-  "created_at": "2026-10-29T11:32:47+00:00",
-  "finished_at": "2026-10-29T11:33:16.225000+00:00",
+  "created_at": "2026-11-11T19:27:16+00:00",
+  "finished_at": "2026-11-11T19:27:29.055000+00:00",
   "code": "module mux4 #(\n  parameter int WIDTH = 8\n) (\n  input  logic [1:0]       sel,\n  input  logic [WIDTH-1:0] d0,\n  input  logic [WIDTH-1:0] d1,\n  input  logic [WIDTH-1:0] d2,\n  input  logic [WIDTH-1:0] d3,\n  output logic [WIDTH-1:0] y\n);\n  always_comb begin\n    unique case (sel)\n      2'd0: y = d0;\n      2'd1: y = d1;\n      2'd2: y = d2;\n      2'd3: y = d3;\n    endcase\n  end\nendmodule\n",
   "public": false,
   "leaderboard": null,
@@ -23,7 +23,7 @@
   "waveview_url": null,
   "queue_position": null,
   "eta_s": null,
-  "started_at": "2026-10-29T11:32:49.997311+00:00",
+  "started_at": "2026-11-11T19:27:16.609628+00:00",
   "stages": [
    {
     "key": "precheck",
@@ -33,8 +33,8 @@
     "status": "passed",
     "failure_kind": null,
     "error_code": null,
-    "started_at": "2026-10-29T11:32:49.997311Z",
-    "duration_ms": 3325,
+    "started_at": "2026-11-11T19:27:16.609628Z",
+    "duration_ms": 961,
     "metrics_schema": "precheck/v1",
     "metrics": {
      "code_hash": "de8b116271f8d0240dd92b15bdf8c43615dd39af6a129dc32236c2f81bf80774",
@@ -51,7 +51,7 @@
      "tests": [],
      "hidden_tests": null
     },
-    "finished_at": "2026-10-29T11:32:53.322311+00:00"
+    "finished_at": "2026-11-11T19:27:17.570628+00:00"
    },
    {
     "key": "lint",
@@ -61,8 +61,8 @@
     "status": "passed",
     "failure_kind": null,
     "error_code": null,
-    "started_at": "2026-10-29T11:32:53.322835Z",
-    "duration_ms": 2979,
+    "started_at": "2026-11-11T19:27:17.570365Z",
+    "duration_ms": 1009,
     "metrics_schema": "lint/v1",
     "metrics": {
      "warnings": 0,
@@ -76,7 +76,7 @@
      "tests": [],
      "hidden_tests": null
     },
-    "finished_at": "2026-10-29T11:32:56.301835+00:00"
+    "finished_at": "2026-11-11T19:27:18.579365+00:00"
    },
    {
     "key": "sim_run",
@@ -86,8 +86,8 @@
     "status": "passed",
     "failure_kind": null,
     "error_code": null,
-    "started_at": "2026-10-29T11:32:56.302196Z",
-    "duration_ms": 19150,
+    "started_at": "2026-11-11T19:27:18.579686Z",
+    "duration_ms": 9320,
     "metrics_schema": "sim/v1",
     "metrics": {
      "tests_total": 2,
@@ -121,7 +121,7 @@
      ],
      "hidden_tests": null
     },
-    "finished_at": "2026-10-29T11:33:15.452196+00:00"
+    "finished_at": "2026-11-11T19:27:27.899686+00:00"
    }
   ],
   "artifacts": [
@@ -153,7 +153,7 @@
     "kind": "events",
     "stage": null,
     "state": "ready",
-    "size_bytes": 7300,
+    "size_bytes": 5423,
     "error_code": null,
     "waveform": null
    }
@@ -161,7 +161,7 @@
  },
  "events": [
   {
-   "id": "1793273567000-0",
+   "id": "1794425236000-0",
    "event": {
     "type": "queue",
     "position": 2,
@@ -169,7 +169,7 @@
    }
   },
   {
-   "id": "1793273567600-0",
+   "id": "1794425236600-0",
    "event": {
     "type": "queue",
     "position": 1,
@@ -177,7 +177,7 @@
    }
   },
   {
-   "id": "1793273570650-0",
+   "id": "1794425237645-0",
    "event": {
     "type": "stage_start",
     "stage": "precheck",
@@ -188,37 +188,7 @@
    }
   },
   {
-   "id": "1793273571650-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "precheck",
-    "elapsed_ms": 1000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1793273572650-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "precheck",
-    "elapsed_ms": 2000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1793273573650-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "precheck",
-    "elapsed_ms": 3000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1793273573976-0",
+   "id": "1794425238606-0",
    "event": {
     "type": "stage_end",
     "result": {
@@ -230,8 +200,8 @@
      "failure_kind": null,
      "limit": null,
      "error_code": null,
-     "started_at": "2026-10-29T11:32:49.997311Z",
-     "duration_ms": 3325,
+     "started_at": "2026-11-11T19:27:16.609628Z",
+     "duration_ms": 961,
      "metrics_schema": "precheck/v1",
      "metrics": {
       "code_hash": "de8b116271f8d0240dd92b15bdf8c43615dd39af6a129dc32236c2f81bf80774",
@@ -254,7 +224,7 @@
    }
   },
   {
-   "id": "1793273573976-1",
+   "id": "1794425238606-1",
    "event": {
     "type": "stage_start",
     "stage": "lint",
@@ -265,37 +235,17 @@
    }
   },
   {
-   "id": "1793273574976-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "lint",
-    "elapsed_ms": 1000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1793273575976-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "lint",
-    "elapsed_ms": 2000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1793273576044-0",
+   "id": "1794425239132-0",
    "event": {
     "type": "log",
     "stage": "lint",
     "ch": "out",
-    "text": "- V e r i l a t i o n   R e p o r t: Verilator 5.052 2026-09-05 rev vUNKNOWN-built20261026\n- Verilator: Built from 0.030 MB sources in 2 modules, into 0.015 MB in 3 C++ files needing 0.000 MB\n- Verilator: Walltime 0.014 s (elab=0.000, cvt=0.002, bld=0.000); cpu 0.012 s on 1 threads; allocated 17.129 MB\n",
+    "text": "- V e r i l a t i o n   R e p o r t: Verilator 5.052 2026-09-05 rev vUNKNOWN-built20261106\n- Verilator: Built from 0.030 MB sources in 2 modules, into 0.015 MB in 3 C++ files needing 0.000 MB\n- Verilator: Walltime 0.009 s (elab=0.001, cvt=0.003, bld=0.000); cpu 0.009 s on 1 threads; allocated 17.414 MB\n",
     "attempt": 1
    }
   },
   {
-   "id": "1793273576955-0",
+   "id": "1794425239615-0",
    "event": {
     "type": "stage_end",
     "result": {
@@ -307,8 +257,8 @@
      "failure_kind": null,
      "limit": null,
      "error_code": null,
-     "started_at": "2026-10-29T11:32:53.322835Z",
-     "duration_ms": 2979,
+     "started_at": "2026-11-11T19:27:17.570365Z",
+     "duration_ms": 1009,
      "metrics_schema": "lint/v1",
      "metrics": {
       "warnings": 0,
@@ -328,7 +278,7 @@
    }
   },
   {
-   "id": "1793273576955-1",
+   "id": "1794425239615-1",
    "event": {
     "type": "stage_start",
     "stage": "sim_run",
@@ -339,7 +289,7 @@
    }
   },
   {
-   "id": "1793273577955-0",
+   "id": "1794425240615-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_run",
@@ -349,7 +299,7 @@
    }
   },
   {
-   "id": "1793273578955-0",
+   "id": "1794425241615-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_run",
@@ -359,7 +309,7 @@
    }
   },
   {
-   "id": "1793273579955-0",
+   "id": "1794425242615-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_run",
@@ -369,7 +319,7 @@
    }
   },
   {
-   "id": "1793273580955-0",
+   "id": "1794425243615-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_run",
@@ -379,7 +329,7 @@
    }
   },
   {
-   "id": "1793273581955-0",
+   "id": "1794425244615-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_run",
@@ -389,7 +339,7 @@
    }
   },
   {
-   "id": "1793273582955-0",
+   "id": "1794425245615-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_run",
@@ -399,7 +349,7 @@
    }
   },
   {
-   "id": "1793273583955-0",
+   "id": "1794425246615-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_run",
@@ -409,7 +359,7 @@
    }
   },
   {
-   "id": "1793273584955-0",
+   "id": "1794425247615-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_run",
@@ -419,107 +369,7 @@
    }
   },
   {
-   "id": "1793273585955-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "sim_run",
-    "elapsed_ms": 9000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1793273586955-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "sim_run",
-    "elapsed_ms": 10000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1793273587955-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "sim_run",
-    "elapsed_ms": 11000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1793273588955-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "sim_run",
-    "elapsed_ms": 12000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1793273589955-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "sim_run",
-    "elapsed_ms": 13000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1793273590955-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "sim_run",
-    "elapsed_ms": 14000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1793273591955-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "sim_run",
-    "elapsed_ms": 15000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1793273592955-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "sim_run",
-    "elapsed_ms": 16000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1793273593955-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "sim_run",
-    "elapsed_ms": 17000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1793273594955-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "sim_run",
-    "elapsed_ms": 18000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1793273595392-0",
+   "id": "1794425248559-0",
    "event": {
     "type": "test",
     "stage": "sim_run",
@@ -536,7 +386,7 @@
    }
   },
   {
-   "id": "1793273595392-1",
+   "id": "1794425248560-0",
    "event": {
     "type": "test",
     "stage": "sim_run",
@@ -553,7 +403,7 @@
    }
   },
   {
-   "id": "1793273595392-2",
+   "id": "1794425248560-1",
    "event": {
     "type": "test",
     "stage": "sim_run",
@@ -570,7 +420,7 @@
    }
   },
   {
-   "id": "1793273595392-3",
+   "id": "1794425248560-2",
    "event": {
     "type": "test",
     "stage": "sim_run",
@@ -587,7 +437,7 @@
    }
   },
   {
-   "id": "1793273596105-0",
+   "id": "1794425248935-0",
    "event": {
     "type": "stage_end",
     "result": {
@@ -599,8 +449,8 @@
      "failure_kind": null,
      "limit": null,
      "error_code": null,
-     "started_at": "2026-10-29T11:32:56.302196Z",
-     "duration_ms": 19150,
+     "started_at": "2026-11-11T19:27:18.579686Z",
+     "duration_ms": 9320,
      "metrics_schema": "sim/v1",
      "metrics": {
       "tests_total": 2,
@@ -640,14 +490,14 @@
    }
   },
   {
-   "id": "1793273596105-1",
+   "id": "1794425248935-1",
    "event": {
     "type": "done",
     "attempt": 1
    }
   },
   {
-   "id": "1793273596225-0",
+   "id": "1794425249055-0",
    "event": {
     "type": "finalized",
     "status": "accepted",

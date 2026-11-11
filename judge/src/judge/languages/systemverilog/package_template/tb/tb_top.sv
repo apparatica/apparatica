@@ -1,8 +1,8 @@
 // Testbench of __top__: the solution against __top___model, checks with apx_tb_pkg (specs/06 §3).
-module tb_top;
+module tb_top #(
+  parameter int WIDTH = 8
+);
   import apx_tb_pkg::*;
-
-  localparam int WIDTH = 8;
 
   logic clk = 0, rst_n = 0, en = 0;
   logic [WIDTH-1:0] d = '0, q, exp_q;

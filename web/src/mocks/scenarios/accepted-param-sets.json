@@ -1,10 +1,10 @@
 {
  "name": "accepted-param-sets",
  "submission": {
-  "id": "01a1b562-aba8-763a-b926-514c7154b8c2",
+  "id": "01a1cc14-5900-7743-88e6-514c7154b8c2",
   "problem": "sync-fifo",
   "problem_title": "Синхронный FIFO",
-  "version": 3,
+  "version": 4,
   "kind": "submit",
   "status": "accepted",
   "verdict_detail": {
@@ -13,8 +13,8 @@
    "warnings": [],
    "error_codes": []
   },
-  "created_at": "2026-11-07T09:41:45+00:00",
-  "finished_at": "2026-11-07T09:43:19.740000+00:00",
+  "created_at": "2026-11-11T19:27:28+00:00",
+  "finished_at": "2026-11-11T19:28:20.506000+00:00",
   "code": "module sync_fifo #(\n  parameter int WIDTH = 8,\n  parameter int DEPTH = 16\n) (\n  input  logic             clk,\n  input  logic             rst_n,\n  input  logic             push,\n  input  logic [WIDTH-1:0] wdata,\n  input  logic             pop,\n  output logic [WIDTH-1:0] rdata,\n  output logic             full,\n  output logic             empty\n);\n  localparam int AW = $clog2(DEPTH);\n\n  logic [WIDTH-1:0] mem [DEPTH];\n  logic [AW-1:0] wptr, rptr;\n  logic [AW:0] count;\n\n  wire do_push = push && !full;\n  wire do_pop = pop && !empty;\n\n  assign full = count == (AW + 1)'(DEPTH);\n  assign empty = count == '0;\n  assign rdata = mem[rptr];\n\n  always_ff @(posedge clk) begin\n    if (do_push) mem[wptr] <= wdata;\n    if (!rst_n) begin\n      wptr <= '0;\n      rptr <= '0;\n      count <= '0;\n    end else begin\n      if (do_push) wptr <= wptr + 1'b1;\n      if (do_pop) rptr <= rptr + 1'b1;\n      count <= count + (AW + 1)'(do_push) - (AW + 1)'(do_pop);\n    end\n  end\nendmodule\n",
   "public": false,
   "leaderboard": null,
@@ -23,7 +23,7 @@
   "waveview_url": null,
   "queue_position": null,
   "eta_s": null,
-  "started_at": "2026-11-07T09:41:46.067285+00:00",
+  "started_at": "2026-11-11T19:27:28.601392+00:00",
   "stages": [
    {
     "key": "precheck",
@@ -33,8 +33,8 @@
     "status": "passed",
     "failure_kind": null,
     "error_code": null,
-    "started_at": "2026-11-07T09:41:46.067285Z",
-    "duration_ms": 1579,
+    "started_at": "2026-11-11T19:27:28.601392Z",
+    "duration_ms": 1110,
     "metrics_schema": "precheck/v1",
     "metrics": {
      "code_hash": "110bfbbea9e55a80a70048a74b828ce86acd8851186dd1dfd8c5880c690d1541",
@@ -51,7 +51,7 @@
      "tests": [],
      "hidden_tests": null
     },
-    "finished_at": "2026-11-07T09:41:47.646285+00:00"
+    "finished_at": "2026-11-11T19:27:29.711392+00:00"
    },
    {
     "key": "lint",
@@ -61,8 +61,8 @@
     "status": "passed",
     "failure_kind": null,
     "error_code": null,
-    "started_at": "2026-11-07T09:41:47.686985Z",
-    "duration_ms": 1422,
+    "started_at": "2026-11-11T19:27:29.751281Z",
+    "duration_ms": 979,
     "metrics_schema": "lint/v1",
     "metrics": {
      "warnings": 0,
@@ -76,7 +76,7 @@
      "tests": [],
      "hidden_tests": null
     },
-    "finished_at": "2026-11-07T09:41:49.108985+00:00"
+    "finished_at": "2026-11-11T19:27:30.730281+00:00"
    },
    {
     "key": "sim_full",
@@ -92,8 +92,8 @@
     "status": "passed",
     "failure_kind": null,
     "error_code": null,
-    "started_at": "2026-11-07T09:41:49.148740Z",
-    "duration_ms": 19375,
+    "started_at": "2026-11-11T19:27:30.769959Z",
+    "duration_ms": 9865,
     "metrics_schema": "sim/v1",
     "metrics": {
      "tests_total": 4,
@@ -131,7 +131,7 @@
       "failed_index": null
      }
     },
-    "finished_at": "2026-11-07T09:42:08.523740+00:00"
+    "finished_at": "2026-11-11T19:27:40.634959+00:00"
    },
    {
     "key": "sim_full@narrow",
@@ -147,8 +147,8 @@
     "status": "passed",
     "failure_kind": null,
     "error_code": null,
-    "started_at": "2026-11-07T09:42:08.563740Z",
-    "duration_ms": 19375,
+    "started_at": "2026-11-11T19:27:40.674959Z",
+    "duration_ms": 9865,
     "metrics_schema": "sim/v1",
     "metrics": {
      "tests_total": 4,
@@ -186,7 +186,7 @@
       "failed_index": null
      }
     },
-    "finished_at": "2026-11-07T09:42:27.938740+00:00"
+    "finished_at": "2026-11-11T19:27:50.539959+00:00"
    },
    {
     "key": "synth",
@@ -202,8 +202,8 @@
     "status": "passed",
     "failure_kind": null,
     "error_code": null,
-    "started_at": "2026-11-07T09:42:27.978444Z",
-    "duration_ms": 6099,
+    "started_at": "2026-11-11T19:27:50.579934Z",
+    "duration_ms": 3420,
     "metrics_schema": "synth/v1",
     "metrics": {
      "critical_path_ns": 0.592,
@@ -245,7 +245,7 @@
      "tests": [],
      "hidden_tests": null
     },
-    "finished_at": "2026-11-07T09:42:34.077444+00:00"
+    "finished_at": "2026-11-11T19:27:53.999934+00:00"
    },
    {
     "key": "synth@narrow",
@@ -261,8 +261,8 @@
     "status": "passed",
     "failure_kind": null,
     "error_code": null,
-    "started_at": "2026-11-07T09:42:34.117444Z",
-    "duration_ms": 6099,
+    "started_at": "2026-11-11T19:27:54.039934Z",
+    "duration_ms": 3420,
     "metrics_schema": "synth/v1",
     "metrics": {
      "critical_path_ns": 0.592,
@@ -304,7 +304,7 @@
      "tests": [],
      "hidden_tests": null
     },
-    "finished_at": "2026-11-07T09:42:40.216444+00:00"
+    "finished_at": "2026-11-11T19:27:57.459934+00:00"
    },
    {
     "key": "netlist_sim",
@@ -320,8 +320,8 @@
     "status": "passed",
     "failure_kind": null,
     "error_code": null,
-    "started_at": "2026-11-07T09:42:40.256375Z",
-    "duration_ms": 19076,
+    "started_at": "2026-11-11T19:27:57.499567Z",
+    "duration_ms": 10906,
     "metrics_schema": "sim/v1",
     "metrics": {
      "tests_total": 4,
@@ -359,7 +359,7 @@
       "failed_index": null
      }
     },
-    "finished_at": "2026-11-07T09:42:59.332375+00:00"
+    "finished_at": "2026-11-11T19:28:08.405567+00:00"
    },
    {
     "key": "netlist_sim@narrow",
@@ -375,8 +375,8 @@
     "status": "passed",
     "failure_kind": null,
     "error_code": null,
-    "started_at": "2026-11-07T09:42:59.372375Z",
-    "duration_ms": 19076,
+    "started_at": "2026-11-11T19:28:08.445567Z",
+    "duration_ms": 10906,
     "metrics_schema": "sim/v1",
     "metrics": {
      "tests_total": 4,
@@ -414,7 +414,7 @@
       "failed_index": null
      }
     },
-    "finished_at": "2026-11-07T09:43:18.448375+00:00"
+    "finished_at": "2026-11-11T19:28:19.351567+00:00"
    }
   ],
   "artifacts": [
@@ -486,7 +486,7 @@
     "kind": "events",
     "stage": null,
     "state": "ready",
-    "size_bytes": 30992,
+    "size_bytes": 25960,
     "error_code": null,
     "waveform": null
    }
@@ -494,7 +494,7 @@
  },
  "events": [
   {
-   "id": "1794044505000-0",
+   "id": "1794425248000-0",
    "event": {
     "type": "queue",
     "position": 2,
@@ -502,7 +502,7 @@
    }
   },
   {
-   "id": "1794044505600-0",
+   "id": "1794425248600-0",
    "event": {
     "type": "queue",
     "position": 1,
@@ -510,7 +510,7 @@
    }
   },
   {
-   "id": "1794044507199-0",
+   "id": "1794425249596-0",
    "event": {
     "type": "stage_start",
     "stage": "precheck",
@@ -521,7 +521,7 @@
    }
   },
   {
-   "id": "1794044508199-0",
+   "id": "1794425250596-0",
    "event": {
     "type": "heartbeat",
     "stage": "precheck",
@@ -531,7 +531,7 @@
    }
   },
   {
-   "id": "1794044508778-0",
+   "id": "1794425250706-0",
    "event": {
     "type": "stage_end",
     "result": {
@@ -543,8 +543,8 @@
      "failure_kind": null,
      "limit": null,
      "error_code": null,
-     "started_at": "2026-11-07T09:41:46.067285Z",
-     "duration_ms": 1579,
+     "started_at": "2026-11-11T19:27:28.601392Z",
+     "duration_ms": 1110,
      "metrics_schema": "precheck/v1",
      "metrics": {
       "code_hash": "110bfbbea9e55a80a70048a74b828ce86acd8851186dd1dfd8c5880c690d1541",
@@ -567,7 +567,7 @@
    }
   },
   {
-   "id": "1794044508818-0",
+   "id": "1794425250746-0",
    "event": {
     "type": "stage_start",
     "stage": "lint",
@@ -578,17 +578,17 @@
    }
   },
   {
-   "id": "1794044509725-0",
+   "id": "1794425251300-0",
    "event": {
     "type": "log",
     "stage": "lint",
     "ch": "out",
-    "text": "- V e r i l a t i o n   R e p o r t: Verilator 5.052 2026-09-05 rev vUNKNOWN-built20261106\n- Verilator: Built from 0.031 MB sources in 2 modules, into 0.023 MB in 3 C++ files needing 0.000 MB\n- Verilator: Walltime 0.021 s (elab=0.001, cvt=0.007, bld=0.000); cpu 0.021 s on 1 threads; allocated 17.121 MB\n",
+    "text": "- V e r i l a t i o n   R e p o r t: Verilator 5.052 2026-09-05 rev vUNKNOWN-built20261106\n- Verilator: Built from 0.031 MB sources in 2 modules, into 0.023 MB in 3 C++ files needing 0.000 MB\n- Verilator: Walltime 0.006 s (elab=0.000, cvt=0.002, bld=0.000); cpu 0.006 s on 1 threads; allocated 17.133 MB\n",
     "attempt": 1
    }
   },
   {
-   "id": "1794044510240-0",
+   "id": "1794425251724-0",
    "event": {
     "type": "stage_end",
     "result": {
@@ -600,8 +600,8 @@
      "failure_kind": null,
      "limit": null,
      "error_code": null,
-     "started_at": "2026-11-07T09:41:47.686985Z",
-     "duration_ms": 1422,
+     "started_at": "2026-11-11T19:27:29.751281Z",
+     "duration_ms": 979,
      "metrics_schema": "lint/v1",
      "metrics": {
       "warnings": 0,
@@ -621,7 +621,7 @@
    }
   },
   {
-   "id": "1794044510280-0",
+   "id": "1794425251764-0",
    "event": {
     "type": "stage_start",
     "stage": "sim_full",
@@ -638,7 +638,7 @@
    }
   },
   {
-   "id": "1794044511280-0",
+   "id": "1794425252764-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full",
@@ -648,7 +648,7 @@
    }
   },
   {
-   "id": "1794044512280-0",
+   "id": "1794425253764-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full",
@@ -658,7 +658,7 @@
    }
   },
   {
-   "id": "1794044513280-0",
+   "id": "1794425254764-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full",
@@ -668,7 +668,7 @@
    }
   },
   {
-   "id": "1794044514280-0",
+   "id": "1794425255764-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full",
@@ -678,7 +678,7 @@
    }
   },
   {
-   "id": "1794044515280-0",
+   "id": "1794425256764-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full",
@@ -688,7 +688,7 @@
    }
   },
   {
-   "id": "1794044516280-0",
+   "id": "1794425257764-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full",
@@ -698,7 +698,7 @@
    }
   },
   {
-   "id": "1794044517280-0",
+   "id": "1794425258764-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full",
@@ -708,7 +708,7 @@
    }
   },
   {
-   "id": "1794044518280-0",
+   "id": "1794425259764-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full",
@@ -718,7 +718,7 @@
    }
   },
   {
-   "id": "1794044519280-0",
+   "id": "1794425260764-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full",
@@ -728,97 +728,7 @@
    }
   },
   {
-   "id": "1794044520280-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "sim_full",
-    "elapsed_ms": 10000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044521280-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "sim_full",
-    "elapsed_ms": 11000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044522280-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "sim_full",
-    "elapsed_ms": 12000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044523280-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "sim_full",
-    "elapsed_ms": 13000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044524280-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "sim_full",
-    "elapsed_ms": 14000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044525280-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "sim_full",
-    "elapsed_ms": 15000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044526280-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "sim_full",
-    "elapsed_ms": 16000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044527280-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "sim_full",
-    "elapsed_ms": 17000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044528280-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "sim_full",
-    "elapsed_ms": 18000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044529132-0",
+   "id": "1794425261325-0",
    "event": {
     "type": "test",
     "stage": "sim_full",
@@ -835,7 +745,7 @@
    }
   },
   {
-   "id": "1794044529132-1",
+   "id": "1794425261325-1",
    "event": {
     "type": "test",
     "stage": "sim_full",
@@ -852,7 +762,7 @@
    }
   },
   {
-   "id": "1794044529132-2",
+   "id": "1794425261325-2",
    "event": {
     "type": "test",
     "stage": "sim_full",
@@ -869,7 +779,7 @@
    }
   },
   {
-   "id": "1794044529132-3",
+   "id": "1794425261325-3",
    "event": {
     "type": "test",
     "stage": "sim_full",
@@ -886,7 +796,7 @@
    }
   },
   {
-   "id": "1794044529132-4",
+   "id": "1794425261325-4",
    "event": {
     "type": "test",
     "stage": "sim_full",
@@ -903,7 +813,7 @@
    }
   },
   {
-   "id": "1794044529133-0",
+   "id": "1794425261325-5",
    "event": {
     "type": "test",
     "stage": "sim_full",
@@ -920,7 +830,7 @@
    }
   },
   {
-   "id": "1794044529133-1",
+   "id": "1794425261326-0",
    "event": {
     "type": "test",
     "stage": "sim_full",
@@ -937,7 +847,7 @@
    }
   },
   {
-   "id": "1794044529133-2",
+   "id": "1794425261326-1",
    "event": {
     "type": "test",
     "stage": "sim_full",
@@ -954,7 +864,7 @@
    }
   },
   {
-   "id": "1794044529655-0",
+   "id": "1794425261629-0",
    "event": {
     "type": "stage_end",
     "result": {
@@ -972,8 +882,8 @@
      "failure_kind": null,
      "limit": null,
      "error_code": null,
-     "started_at": "2026-11-07T09:41:49.148740Z",
-     "duration_ms": 19375,
+     "started_at": "2026-11-11T19:27:30.769959Z",
+     "duration_ms": 9865,
      "metrics_schema": "sim/v1",
      "metrics": {
       "tests_total": 4,
@@ -1017,7 +927,7 @@
    }
   },
   {
-   "id": "1794044529695-0",
+   "id": "1794425261669-0",
    "event": {
     "type": "stage_start",
     "stage": "sim_full@narrow",
@@ -1034,7 +944,7 @@
    }
   },
   {
-   "id": "1794044530695-0",
+   "id": "1794425262669-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full@narrow",
@@ -1044,7 +954,7 @@
    }
   },
   {
-   "id": "1794044531695-0",
+   "id": "1794425263669-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full@narrow",
@@ -1054,7 +964,7 @@
    }
   },
   {
-   "id": "1794044532695-0",
+   "id": "1794425264669-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full@narrow",
@@ -1064,7 +974,7 @@
    }
   },
   {
-   "id": "1794044533695-0",
+   "id": "1794425265669-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full@narrow",
@@ -1074,7 +984,7 @@
    }
   },
   {
-   "id": "1794044534695-0",
+   "id": "1794425266669-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full@narrow",
@@ -1084,7 +994,7 @@
    }
   },
   {
-   "id": "1794044535695-0",
+   "id": "1794425267669-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full@narrow",
@@ -1094,7 +1004,7 @@
    }
   },
   {
-   "id": "1794044536695-0",
+   "id": "1794425268669-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full@narrow",
@@ -1104,7 +1014,7 @@
    }
   },
   {
-   "id": "1794044537695-0",
+   "id": "1794425269669-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full@narrow",
@@ -1114,7 +1024,7 @@
    }
   },
   {
-   "id": "1794044538695-0",
+   "id": "1794425270669-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full@narrow",
@@ -1124,97 +1034,7 @@
    }
   },
   {
-   "id": "1794044539695-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "sim_full@narrow",
-    "elapsed_ms": 10000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044540695-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "sim_full@narrow",
-    "elapsed_ms": 11000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044541695-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "sim_full@narrow",
-    "elapsed_ms": 12000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044542695-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "sim_full@narrow",
-    "elapsed_ms": 13000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044543695-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "sim_full@narrow",
-    "elapsed_ms": 14000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044544695-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "sim_full@narrow",
-    "elapsed_ms": 15000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044545695-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "sim_full@narrow",
-    "elapsed_ms": 16000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044546695-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "sim_full@narrow",
-    "elapsed_ms": 17000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044547695-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "sim_full@narrow",
-    "elapsed_ms": 18000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044548547-0",
+   "id": "1794425271230-0",
    "event": {
     "type": "test",
     "stage": "sim_full@narrow",
@@ -1231,7 +1051,7 @@
    }
   },
   {
-   "id": "1794044548547-1",
+   "id": "1794425271230-1",
    "event": {
     "type": "test",
     "stage": "sim_full@narrow",
@@ -1248,7 +1068,7 @@
    }
   },
   {
-   "id": "1794044548547-2",
+   "id": "1794425271230-2",
    "event": {
     "type": "test",
     "stage": "sim_full@narrow",
@@ -1265,7 +1085,7 @@
    }
   },
   {
-   "id": "1794044548547-3",
+   "id": "1794425271230-3",
    "event": {
     "type": "test",
     "stage": "sim_full@narrow",
@@ -1282,7 +1102,7 @@
    }
   },
   {
-   "id": "1794044548547-4",
+   "id": "1794425271230-4",
    "event": {
     "type": "test",
     "stage": "sim_full@narrow",
@@ -1299,7 +1119,7 @@
    }
   },
   {
-   "id": "1794044548548-0",
+   "id": "1794425271230-5",
    "event": {
     "type": "test",
     "stage": "sim_full@narrow",
@@ -1316,7 +1136,7 @@
    }
   },
   {
-   "id": "1794044548548-1",
+   "id": "1794425271231-0",
    "event": {
     "type": "test",
     "stage": "sim_full@narrow",
@@ -1333,7 +1153,7 @@
    }
   },
   {
-   "id": "1794044548548-2",
+   "id": "1794425271231-1",
    "event": {
     "type": "test",
     "stage": "sim_full@narrow",
@@ -1350,7 +1170,7 @@
    }
   },
   {
-   "id": "1794044549070-0",
+   "id": "1794425271534-0",
    "event": {
     "type": "stage_end",
     "result": {
@@ -1368,8 +1188,8 @@
      "failure_kind": null,
      "limit": null,
      "error_code": null,
-     "started_at": "2026-11-07T09:42:08.563740Z",
-     "duration_ms": 19375,
+     "started_at": "2026-11-11T19:27:40.674959Z",
+     "duration_ms": 9865,
      "metrics_schema": "sim/v1",
      "metrics": {
       "tests_total": 4,
@@ -1413,7 +1233,7 @@
    }
   },
   {
-   "id": "1794044549110-0",
+   "id": "1794425271574-0",
    "event": {
     "type": "stage_start",
     "stage": "synth",
@@ -1430,7 +1250,7 @@
    }
   },
   {
-   "id": "1794044550110-0",
+   "id": "1794425272574-0",
    "event": {
     "type": "heartbeat",
     "stage": "synth",
@@ -1440,7 +1260,7 @@
    }
   },
   {
-   "id": "1794044551110-0",
+   "id": "1794425273574-0",
    "event": {
     "type": "heartbeat",
     "stage": "synth",
@@ -1450,17 +1270,7 @@
    }
   },
   {
-   "id": "1794044552110-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "synth",
-    "elapsed_ms": 3000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044552798-0",
+   "id": "1794425273587-0",
    "event": {
     "type": "log",
     "stage": "synth",
@@ -1470,27 +1280,17 @@
    }
   },
   {
-   "id": "1794044553798-0",
+   "id": "1794425274587-0",
    "event": {
     "type": "heartbeat",
     "stage": "synth",
-    "elapsed_ms": 4688,
+    "elapsed_ms": 3013,
     "note": null,
     "attempt": 1
    }
   },
   {
-   "id": "1794044554798-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "synth",
-    "elapsed_ms": 5688,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044555209-0",
+   "id": "1794425274994-0",
    "event": {
     "type": "stage_end",
     "result": {
@@ -1508,8 +1308,8 @@
      "failure_kind": null,
      "limit": null,
      "error_code": null,
-     "started_at": "2026-11-07T09:42:27.978444Z",
-     "duration_ms": 6099,
+     "started_at": "2026-11-11T19:27:50.579934Z",
+     "duration_ms": 3420,
      "metrics_schema": "synth/v1",
      "metrics": {
       "critical_path_ns": 0.592,
@@ -1557,7 +1357,7 @@
    }
   },
   {
-   "id": "1794044555249-0",
+   "id": "1794425275034-0",
    "event": {
     "type": "stage_start",
     "stage": "synth@narrow",
@@ -1574,7 +1374,7 @@
    }
   },
   {
-   "id": "1794044556249-0",
+   "id": "1794425276034-0",
    "event": {
     "type": "heartbeat",
     "stage": "synth@narrow",
@@ -1584,7 +1384,7 @@
    }
   },
   {
-   "id": "1794044557249-0",
+   "id": "1794425277034-0",
    "event": {
     "type": "heartbeat",
     "stage": "synth@narrow",
@@ -1594,17 +1394,7 @@
    }
   },
   {
-   "id": "1794044558249-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "synth@narrow",
-    "elapsed_ms": 3000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044558937-0",
+   "id": "1794425277047-0",
    "event": {
     "type": "log",
     "stage": "synth@narrow",
@@ -1614,27 +1404,17 @@
    }
   },
   {
-   "id": "1794044559937-0",
+   "id": "1794425278047-0",
    "event": {
     "type": "heartbeat",
     "stage": "synth@narrow",
-    "elapsed_ms": 4688,
+    "elapsed_ms": 3013,
     "note": null,
     "attempt": 1
    }
   },
   {
-   "id": "1794044560937-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "synth@narrow",
-    "elapsed_ms": 5688,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044561348-0",
+   "id": "1794425278454-0",
    "event": {
     "type": "stage_end",
     "result": {
@@ -1652,8 +1432,8 @@
      "failure_kind": null,
      "limit": null,
      "error_code": null,
-     "started_at": "2026-11-07T09:42:34.117444Z",
-     "duration_ms": 6099,
+     "started_at": "2026-11-11T19:27:54.039934Z",
+     "duration_ms": 3420,
      "metrics_schema": "synth/v1",
      "metrics": {
       "critical_path_ns": 0.592,
@@ -1701,7 +1481,7 @@
    }
   },
   {
-   "id": "1794044561388-0",
+   "id": "1794425278494-0",
    "event": {
     "type": "stage_start",
     "stage": "netlist_sim",
@@ -1718,7 +1498,7 @@
    }
   },
   {
-   "id": "1794044562388-0",
+   "id": "1794425279494-0",
    "event": {
     "type": "heartbeat",
     "stage": "netlist_sim",
@@ -1728,7 +1508,7 @@
    }
   },
   {
-   "id": "1794044563388-0",
+   "id": "1794425280494-0",
    "event": {
     "type": "heartbeat",
     "stage": "netlist_sim",
@@ -1738,7 +1518,7 @@
    }
   },
   {
-   "id": "1794044564388-0",
+   "id": "1794425281494-0",
    "event": {
     "type": "heartbeat",
     "stage": "netlist_sim",
@@ -1748,7 +1528,7 @@
    }
   },
   {
-   "id": "1794044565388-0",
+   "id": "1794425282494-0",
    "event": {
     "type": "heartbeat",
     "stage": "netlist_sim",
@@ -1758,7 +1538,7 @@
    }
   },
   {
-   "id": "1794044566388-0",
+   "id": "1794425283494-0",
    "event": {
     "type": "heartbeat",
     "stage": "netlist_sim",
@@ -1768,7 +1548,7 @@
    }
   },
   {
-   "id": "1794044567388-0",
+   "id": "1794425284494-0",
    "event": {
     "type": "heartbeat",
     "stage": "netlist_sim",
@@ -1778,7 +1558,7 @@
    }
   },
   {
-   "id": "1794044568388-0",
+   "id": "1794425285494-0",
    "event": {
     "type": "heartbeat",
     "stage": "netlist_sim",
@@ -1788,7 +1568,7 @@
    }
   },
   {
-   "id": "1794044569388-0",
+   "id": "1794425286494-0",
    "event": {
     "type": "heartbeat",
     "stage": "netlist_sim",
@@ -1798,7 +1578,7 @@
    }
   },
   {
-   "id": "1794044570388-0",
+   "id": "1794425287494-0",
    "event": {
     "type": "heartbeat",
     "stage": "netlist_sim",
@@ -1808,7 +1588,7 @@
    }
   },
   {
-   "id": "1794044571388-0",
+   "id": "1794425288494-0",
    "event": {
     "type": "heartbeat",
     "stage": "netlist_sim",
@@ -1818,87 +1598,7 @@
    }
   },
   {
-   "id": "1794044572388-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "netlist_sim",
-    "elapsed_ms": 11000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044573388-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "netlist_sim",
-    "elapsed_ms": 12000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044574388-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "netlist_sim",
-    "elapsed_ms": 13000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044575388-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "netlist_sim",
-    "elapsed_ms": 14000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044576388-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "netlist_sim",
-    "elapsed_ms": 15000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044577388-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "netlist_sim",
-    "elapsed_ms": 16000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044578388-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "netlist_sim",
-    "elapsed_ms": 17000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044579388-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "netlist_sim",
-    "elapsed_ms": 18000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044579910-0",
+   "id": "1794425289067-0",
    "event": {
     "type": "test",
     "stage": "netlist_sim",
@@ -1915,7 +1615,7 @@
    }
   },
   {
-   "id": "1794044579910-1",
+   "id": "1794425289067-1",
    "event": {
     "type": "test",
     "stage": "netlist_sim",
@@ -1932,7 +1632,7 @@
    }
   },
   {
-   "id": "1794044579910-2",
+   "id": "1794425289067-2",
    "event": {
     "type": "test",
     "stage": "netlist_sim",
@@ -1949,7 +1649,7 @@
    }
   },
   {
-   "id": "1794044579910-3",
+   "id": "1794425289067-3",
    "event": {
     "type": "test",
     "stage": "netlist_sim",
@@ -1966,7 +1666,7 @@
    }
   },
   {
-   "id": "1794044579910-4",
+   "id": "1794425289067-4",
    "event": {
     "type": "test",
     "stage": "netlist_sim",
@@ -1983,7 +1683,7 @@
    }
   },
   {
-   "id": "1794044579910-5",
+   "id": "1794425289067-5",
    "event": {
     "type": "test",
     "stage": "netlist_sim",
@@ -2000,7 +1700,7 @@
    }
   },
   {
-   "id": "1794044579910-6",
+   "id": "1794425289067-6",
    "event": {
     "type": "test",
     "stage": "netlist_sim",
@@ -2017,7 +1717,7 @@
    }
   },
   {
-   "id": "1794044579911-0",
+   "id": "1794425289067-7",
    "event": {
     "type": "test",
     "stage": "netlist_sim",
@@ -2034,7 +1734,7 @@
    }
   },
   {
-   "id": "1794044580464-0",
+   "id": "1794425289400-0",
    "event": {
     "type": "stage_end",
     "result": {
@@ -2052,8 +1752,8 @@
      "failure_kind": null,
      "limit": null,
      "error_code": null,
-     "started_at": "2026-11-07T09:42:40.256375Z",
-     "duration_ms": 19076,
+     "started_at": "2026-11-11T19:27:57.499567Z",
+     "duration_ms": 10906,
      "metrics_schema": "sim/v1",
      "metrics": {
       "tests_total": 4,
@@ -2097,7 +1797,7 @@
    }
   },
   {
-   "id": "1794044580504-0",
+   "id": "1794425289440-0",
    "event": {
     "type": "stage_start",
     "stage": "netlist_sim@narrow",
@@ -2114,7 +1814,7 @@
    }
   },
   {
-   "id": "1794044581504-0",
+   "id": "1794425290440-0",
    "event": {
     "type": "heartbeat",
     "stage": "netlist_sim@narrow",
@@ -2124,7 +1824,7 @@
    }
   },
   {
-   "id": "1794044582504-0",
+   "id": "1794425291440-0",
    "event": {
     "type": "heartbeat",
     "stage": "netlist_sim@narrow",
@@ -2134,7 +1834,7 @@
    }
   },
   {
-   "id": "1794044583504-0",
+   "id": "1794425292440-0",
    "event": {
     "type": "heartbeat",
     "stage": "netlist_sim@narrow",
@@ -2144,7 +1844,7 @@
    }
   },
   {
-   "id": "1794044584504-0",
+   "id": "1794425293440-0",
    "event": {
     "type": "heartbeat",
     "stage": "netlist_sim@narrow",
@@ -2154,7 +1854,7 @@
    }
   },
   {
-   "id": "1794044585504-0",
+   "id": "1794425294440-0",
    "event": {
     "type": "heartbeat",
     "stage": "netlist_sim@narrow",
@@ -2164,7 +1864,7 @@
    }
   },
   {
-   "id": "1794044586504-0",
+   "id": "1794425295440-0",
    "event": {
     "type": "heartbeat",
     "stage": "netlist_sim@narrow",
@@ -2174,7 +1874,7 @@
    }
   },
   {
-   "id": "1794044587504-0",
+   "id": "1794425296440-0",
    "event": {
     "type": "heartbeat",
     "stage": "netlist_sim@narrow",
@@ -2184,7 +1884,7 @@
    }
   },
   {
-   "id": "1794044588504-0",
+   "id": "1794425297440-0",
    "event": {
     "type": "heartbeat",
     "stage": "netlist_sim@narrow",
@@ -2194,7 +1894,7 @@
    }
   },
   {
-   "id": "1794044589504-0",
+   "id": "1794425298440-0",
    "event": {
     "type": "heartbeat",
     "stage": "netlist_sim@narrow",
@@ -2204,7 +1904,7 @@
    }
   },
   {
-   "id": "1794044590504-0",
+   "id": "1794425299440-0",
    "event": {
     "type": "heartbeat",
     "stage": "netlist_sim@narrow",
@@ -2214,87 +1914,7 @@
    }
   },
   {
-   "id": "1794044591504-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "netlist_sim@narrow",
-    "elapsed_ms": 11000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044592504-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "netlist_sim@narrow",
-    "elapsed_ms": 12000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044593504-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "netlist_sim@narrow",
-    "elapsed_ms": 13000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044594504-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "netlist_sim@narrow",
-    "elapsed_ms": 14000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044595504-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "netlist_sim@narrow",
-    "elapsed_ms": 15000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044596504-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "netlist_sim@narrow",
-    "elapsed_ms": 16000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044597504-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "netlist_sim@narrow",
-    "elapsed_ms": 17000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044598504-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "netlist_sim@narrow",
-    "elapsed_ms": 18000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794044599026-0",
+   "id": "1794425300013-0",
    "event": {
     "type": "test",
     "stage": "netlist_sim@narrow",
@@ -2311,7 +1931,7 @@
    }
   },
   {
-   "id": "1794044599026-1",
+   "id": "1794425300013-1",
    "event": {
     "type": "test",
     "stage": "netlist_sim@narrow",
@@ -2328,7 +1948,7 @@
    }
   },
   {
-   "id": "1794044599026-2",
+   "id": "1794425300013-2",
    "event": {
     "type": "test",
     "stage": "netlist_sim@narrow",
@@ -2345,7 +1965,7 @@
    }
   },
   {
-   "id": "1794044599026-3",
+   "id": "1794425300013-3",
    "event": {
     "type": "test",
     "stage": "netlist_sim@narrow",
@@ -2362,7 +1982,7 @@
    }
   },
   {
-   "id": "1794044599026-4",
+   "id": "1794425300013-4",
    "event": {
     "type": "test",
     "stage": "netlist_sim@narrow",
@@ -2379,7 +1999,7 @@
    }
   },
   {
-   "id": "1794044599026-5",
+   "id": "1794425300013-5",
    "event": {
     "type": "test",
     "stage": "netlist_sim@narrow",
@@ -2396,7 +2016,7 @@
    }
   },
   {
-   "id": "1794044599026-6",
+   "id": "1794425300013-6",
    "event": {
     "type": "test",
     "stage": "netlist_sim@narrow",
@@ -2413,7 +2033,7 @@
    }
   },
   {
-   "id": "1794044599027-0",
+   "id": "1794425300013-7",
    "event": {
     "type": "test",
     "stage": "netlist_sim@narrow",
@@ -2430,7 +2050,7 @@
    }
   },
   {
-   "id": "1794044599580-0",
+   "id": "1794425300346-0",
    "event": {
     "type": "stage_end",
     "result": {
@@ -2448,8 +2068,8 @@
      "failure_kind": null,
      "limit": null,
      "error_code": null,
-     "started_at": "2026-11-07T09:42:59.372375Z",
-     "duration_ms": 19076,
+     "started_at": "2026-11-11T19:28:08.445567Z",
+     "duration_ms": 10906,
      "metrics_schema": "sim/v1",
      "metrics": {
       "tests_total": 4,
@@ -2493,14 +2113,14 @@
    }
   },
   {
-   "id": "1794044599620-0",
+   "id": "1794425300386-0",
    "event": {
     "type": "done",
     "attempt": 1
    }
   },
   {
-   "id": "1794044599740-0",
+   "id": "1794425300506-0",
    "event": {
     "type": "finalized",
     "status": "accepted",

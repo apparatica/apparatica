@@ -2,7 +2,9 @@
 
 The first plan builds `apx_tb_pkg` + the problem testbench + the design with `apx-verilate`; the
 binary goes to the build cache before it ever runs (ADR-0003), and a check of the same code and
-testbench takes it from there instead of building. The next plan runs the binary with the
+testbench takes it from there instead of building. The build sets the parameters of the testbench
+top to the values of the instance's parameter set with `-G` (ADR-0014); a top that does not
+declare them is a problem bug. The next plan runs the binary with the
 submission seed, the selected groups and random initialization; build and run share the time and
 output limits of the stage. The verdict comes from the result file of `apx_tb_pkg` (untrusted,
 `tbproto`); progress lines become live test events. When an open test fails, a follow-up run of
@@ -38,7 +40,11 @@ from judge.core.stage import (
     TestCase,
 )
 from judge.languages.systemverilog import tbproto
-from judge.languages.systemverilog.stages.common import SOLUTION, canonical_solution
+from judge.languages.systemverilog.stages.common import (
+    SOLUTION,
+    canonical_solution,
+    param_values,
+)
 from judge.languages.systemverilog.stages.netlist import netlist_design
 
 TB_PKG = "/opt/apx/sv/apx_tb_pkg.sv"
@@ -56,6 +62,10 @@ _FINISH_NOTICE = re.compile(r"^- \S*apx_tb_pkg\.sv:\d+: Verilog \$finish$")
 DESIGN = "design.v"
 # The parameter check of the netlist wrapper; -Wno-fatal would leave it a warning (S4).
 _USERFATAL = re.compile(r"^%Error-USERFATAL", re.MULTILINE)
+# A `-G` of the parameter set that the testbench top does not declare as `parameter` (Verilator).
+_PARAMS_NOT_FOUND = re.compile(
+    r"^%Error: Parameters from the command line were not found in the design:(.*)$", re.MULTILINE
+)
 NETLIST_HINT = (
     "Схема после синтеза ведёт себя иначе, чем код в симуляции. Обычные причины: результат"
     " зависит от начального состояния (не все регистры сбрасываются), блокирующие присваивания в"
@@ -250,6 +260,9 @@ class SimStage:
             design_name,
             "--top-module",
             testbench.top,
+            # The values of the instance's parameter set, the primary one too: the testbench top
+            # declares a `parameter` for every parameter of the interface (specs/06 §3.1).
+            *(f"-G{name}={value}" for name, value in param_values(ctx.param_set).items()),
         )
         return StagePlan(
             commands=(Command(build),),
@@ -353,6 +366,9 @@ class SimStage:
         exit_code = build.commands[0].exit_code
         if exit_code == OOM_KILLED:
             return StageOutcome(status="failed", failure_kind="limit", limit="memory")
+        missing = _PARAMS_NOT_FOUND.search(build.output) if exit_code != 0 else None
+        if missing is not None:
+            return _testbench_without_params(missing.group(1).split())
         if exit_code != 0 and ctx.config.design is not None:
             return _design_not_built(build)
         if exit_code != 0:
@@ -541,6 +557,16 @@ class SimStage:
             metrics["trace_cursor_ps"] = result.first_mismatch.time_ps
             metrics["trace_signals"] = [signal.model_dump() for signal in signals]
         return outcome.model_copy(update={"metrics": metrics, "artifacts": artifacts})
+
+
+def _testbench_without_params(names: list[str]) -> StageOutcome:
+    """The testbench top must take the values of the parameter set (specs/06 §3.1): one that has
+    no `parameter` for them is a problem bug, `judge validate` finds it on the references."""
+    caption = "верхний модуль тестбенча не объявляет parameter для параметров задачи: " + ", ".join(
+        names
+    )
+    summary = StageSummary(caption=caption)
+    return StageOutcome(status="error", error_code="TB_PARAMS_MISSING", summary=summary)
 
 
 def _design_not_built(build: ExecResult) -> StageOutcome:

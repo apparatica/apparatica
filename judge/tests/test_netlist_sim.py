@@ -164,3 +164,13 @@ def test_number_literals_are_allowed_values(value: int | str) -> None:
     narrow = FIFO.interface.param_sets[0].model_copy(update={"values": {"WIDTH": value}})
     interface = FIFO.interface.model_copy(update={"param_sets": [narrow]})
     assert package_rules(FIFO.model_copy(update={"interface": interface})) == []
+
+
+def test_the_defaults_are_literals_too() -> None:
+    width = FIFO.interface.parameters[0].model_copy(update={"default": "DEPTH/2"})
+    interface = FIFO.interface.model_copy(
+        update={"parameters": [width, *FIFO.interface.parameters[1:]]}
+    )
+    assert package_rules(FIFO.model_copy(update={"interface": interface})) == [
+        "interface.parameters WIDTH: default 'DEPTH/2' — не числовой литерал"
+    ]
