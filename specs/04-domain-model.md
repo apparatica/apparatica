@@ -101,7 +101,7 @@ PostgreSQL 17+. Первичные ключи — UUIDv7 (сортируемы �
 Индексы: `(guest_id, created_at desc)`, `(problem_version_id, status)`, `(ast_hash)`.
 
 **`stage_results`**
-`id uuid pk`, `submission_id fk`, `stage_key text` (уникален в пайплайне: `lint`, `sim`, `synth`…), `stage_type text`, `ordinal int`, `status stage_status`, `failure_kind text null`, `started_at`, `finished_at`, `duration_ms int`, `metrics jsonb`, `metrics_schema text` (например `synth/v1`), `summary jsonb` (тесты, свойства, диагностики, причина пропуска), `error_code text null`.
+`id uuid pk`, `submission_id fk`, `stage_key text` (уникален в пайплайне: `lint`, `sim`, `synth`…; у экземпляра дополнительного набора параметров — `<ключ>@<id набора>`, 06 §2), `stage_type text`, `ordinal int`, `status stage_status`, `failure_kind text null`, `started_at`, `finished_at`, `duration_ms int`, `metrics jsonb`, `metrics_schema text` (например `synth/v1`), `summary jsonb` (тесты, свойства, диагностики, причина пропуска), `error_code text null`.
 Уникальность `(submission_id, stage_key)` — ингестор делает upsert, повторная доставка идемпотентна. `failure_kind` задан тогда и только тогда, когда `status = failed` (§3.3). Результаты этапов и артефакты удаляются вместе с отправкой.
 
 **`artifacts`**
@@ -146,6 +146,10 @@ PostgreSQL 17+. Первичные ключи — UUIDv7 (сортируемы �
 Миграция `submissions`: `is_public bool` (true для принятых Submit вошедших пользователей), `is_hidden bool` (модерация), `reference_solution_id uuid null fk` — прогон эталона (FR-SYN-04): Submit без автора (`user_id` и `guest_id` пусты), его ставит ингестор на профиле по умолчанию; метрики эталона — метрики его последнего принятого прогона на этом профиле. Индекс `(reference_solution_id, toolchain_profile_id, created_at desc)` по прогонам.
 
 **`moderation_log`**: `id`, `actor_id null` (команда `apparatica-admin` или удалённый аккаунт), `action text` (`hide`, `unhide`, `set_role`), `target_type text` (`user`, `submission`), `target_id text`, `reason text`, `details jsonb null` (у смены роли — прежняя и новая), `created_at`. Нужна к публичной бете вместе со скрытием решений и пользователей (T3.12).
+
+### Ф3а — наборы параметров
+
+Миграция `stage_results`: `param_set text null` — `id` набора параметров экземпляра (`default` — основной набор) у этапа, раскрытого по нескольким наборам; `null` у этапа только с основным набором (ADR-0014). Значения набора берутся из пакета версии задачи, в строке не хранятся.
 
 ### Ф5 — модерация
 
