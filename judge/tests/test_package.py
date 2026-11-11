@@ -78,6 +78,12 @@ def test_spec_example_is_valid() -> None:
     }
     assert problem.limits is not None
     assert problem.limits.stage_timeout_s["sim_run"] == 20.0
+    # The core takes param_sets, the language module gets the rest.
+    assert problem.stages["synth"].model_extra == {"clock_period_ns": 2.0, "forbid_latches": True}
+    assert problem.stage_param_sets("sim_run") == ["default"]
+    assert problem.stage_param_sets("synth") == ["default", "narrow", "wide"]
+    assert problem.interface.param_set_values("wide") == {"WIDTH": 32, "DEPTH": 16}
+    assert problem.interface.param_set_values("default") == {"WIDTH": 8, "DEPTH": 16}
 
 
 def test_minimal_manifest_and_defaults() -> None:
@@ -175,11 +181,92 @@ def test_minimal_manifest_and_defaults() -> None:
         ),
         ({"reference": {"visibility": "everyone"}}, "reference.visibility: Input should be"),
         ({"changelog": "x" * 2001}, "changelog: String should have at most 2000 characters"),
+        (
+            {"interface__param_sets": [{"id": "default", "values": {"W": 1}}]},
+            "interface: param_sets: the id 'default' is the primary set",
+        ),
+        (
+            {"interface__param_sets": [{"id": "Narrow", "values": {"W": 1}}]},
+            "interface.param_sets[0].id: String should match pattern",
+        ),
+        (
+            {"interface__param_sets": [{"id": "a", "values": {}}]},
+            "interface.param_sets[0].values: Dictionary should have at least 1 item",
+        ),
+        (
+            {"interface__param_sets": [{"id": "a", "values": {"W": 1.5}}]},
+            "interface.param_sets[0].values.W",
+        ),
+        (
+            {"interface__param_sets": [{"id": "a", "values": {"N": 1}}]},
+            "interface: param_sets a: not in interface.parameters: N",
+        ),
+        (
+            {
+                "interface__param_sets": [
+                    {"id": "a", "values": {"W": 1}},
+                    {"id": "a", "values": {"W": 2}},
+                ]
+            },
+            "interface: duplicate parameter set names: a",
+        ),
+        (
+            {"interface__param_sets": [{"id": "a", "values": {"W": 8}}]},
+            "interface: param_sets a: the same values as the set 'default'",
+        ),
+        (
+            {
+                "interface__param_sets": [
+                    {"id": "a", "values": {"W": 1}},
+                    {"id": "b", "values": {"W": "1"}},
+                ]
+            },
+            "interface: param_sets b: the same values as the set 'a'",
+        ),
+        ({"stages__sim__param_sets": "some"}, "stages.sim.param_sets"),
+        ({"stages__sim__param_sets": []}, "stages.sim.param_sets"),
+        (
+            {"stages__sim__param_sets": ["narrow"]},
+            "stages.sim.param_sets: not in interface.param_sets: narrow",
+        ),
+        (
+            {
+                "interface__param_sets": [{"id": "narrow", "values": {"W": 1}}],
+                "stages__sim__param_sets": ["narrow", "narrow"],
+            },
+            "duplicate stages.sim.param_sets names: narrow",
+        ),
+        (
+            {"stages__sim__param_sets": "all"},
+            "pipelines.practice.run checks the primary parameter set only:"
+            " param_sets of sim must be 'primary'",
+        ),
     ],
 )
 def test_invalid_manifest_reports_path_and_reason(changes: dict[str, Any], expected: str) -> None:
     found = issues(manifest(**changes))
     assert any(expected in issue for issue in found), found
+
+
+def test_stage_parameter_sets_keep_the_order_of_the_interface() -> None:
+    sets = [{"id": name, "values": {"W": n}} for n, name in enumerate(["a", "b", "c"], start=1)]
+    stages = {
+        "precheck": {"type": "precheck"},
+        "sim": {"type": "sim"},
+        "some": {"type": "sim", "param_sets": ["c", "a"]},
+        "every": {"type": "sim", "param_sets": "all"},
+    }
+    problem = parse_manifest(
+        manifest(
+            interface__param_sets=sets,
+            stages=stages,
+            pipelines__practice__submit=["precheck", "sim", "some", "every"],
+        )
+    )
+    assert problem.stage_param_sets("sim") == ["default"]
+    assert problem.stage_param_sets("some") == ["default", "a", "c"]
+    assert problem.stage_param_sets("every") == ["default", "a", "b", "c"]
+    assert problem.interface.param_set_values("b") == {"W": 2}
 
 
 def test_all_issues_are_reported_at_once() -> None:

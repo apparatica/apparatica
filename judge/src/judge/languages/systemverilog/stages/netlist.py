@@ -12,7 +12,7 @@ from collections.abc import Mapping
 
 from judge.core.package import Port, Problem
 from judge.core.stage import StageContext
-from judge.languages.systemverilog.stages.synth import SynthConfig, SynthStage, synth_params
+from judge.languages.systemverilog.stages.synth import SynthStage, synth_params
 
 SUFFIX = "__netlist"  # the module name of the netlist is <top>__netlist (synth.yosys_script)
 
@@ -60,6 +60,5 @@ def netlist_design(ctx: StageContext, stage: str, netlist: bytes) -> bytes:
         raise LookupError(
             f"stage {ctx.key}: design of {stage!r}: only a synth netlist is simulated"
         )
-    config = SynthConfig.model_validate(raw.model_extra or {})
-    params = synth_params(ctx.problem, config)
+    params = synth_params(ctx.problem)
     return netlist.rstrip(b"\n") + b"\n\n" + wrapper(ctx.problem, params).encode()

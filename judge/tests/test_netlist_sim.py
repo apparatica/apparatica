@@ -1,4 +1,4 @@
-"""netlist_sim (specs/07 §2.5): the wrapper of the netlist and the package rules around it."""
+"""netlist_sim (specs/07 §2.5): the wrapper of the netlist and the package rules of SV."""
 
 from pathlib import Path
 from typing import Any
@@ -124,3 +124,43 @@ def test_a_run_pipeline_without_synth_cannot_simulate_a_netlist() -> None:
         "этап netlist_sim: design synth.netlist_generic — нужен netlist_generic этапа synth,"
         " который идёт раньше в pipelines.practice.run"
     ]
+
+
+def test_a_netlist_is_simulated_only_at_the_sets_it_was_synthesized_at() -> None:
+    problem = with_pipeline(
+        list(FIFO.pipelines.practice.submit),
+        synth={"type": "synth", "param_sets": ["wide"]},
+    )
+    assert package_rules(problem) == [
+        "этап netlist_sim: наборы параметров narrow — их нет у этапа synth, нетлист для них"
+        " не синтезируется"
+    ]
+
+
+def test_precheck_is_not_expanded_by_parameter_sets() -> None:
+    problem = with_pipeline(
+        list(FIFO.pipelines.practice.submit), precheck={"type": "precheck", "param_sets": "all"}
+    )
+    assert package_rules(problem) == [
+        "этап precheck: precheck не раскрывается по наборам параметров — он сам сверяет"
+        " интерфейс при каждом наборе; уберите param_sets"
+    ]
+
+
+@pytest.mark.parametrize("value", ["8; rm -rf", "WIDTH*2", "8 -p shell"])
+def test_the_values_of_a_parameter_set_are_literals(value: str) -> None:
+    narrow = FIFO.interface.param_sets[0].model_copy(update={"values": {"WIDTH": value}})
+    interface = FIFO.interface.model_copy(
+        update={"param_sets": [narrow, *FIFO.interface.param_sets[1:]]}
+    )
+    problem = FIFO.model_copy(update={"interface": interface})
+    assert package_rules(problem) == [
+        f"interface.param_sets narrow: WIDTH = {value!r} — не числовой литерал"
+    ]
+
+
+@pytest.mark.parametrize("value", [1, "4'hA", "8'sd3", "1_000"])
+def test_number_literals_are_allowed_values(value: int | str) -> None:
+    narrow = FIFO.interface.param_sets[0].model_copy(update={"values": {"WIDTH": value}})
+    interface = FIFO.interface.model_copy(update={"param_sets": [narrow]})
+    assert package_rules(FIFO.model_copy(update={"interface": interface})) == []

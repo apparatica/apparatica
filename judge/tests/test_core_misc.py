@@ -7,7 +7,13 @@ from core_helpers import RESOURCE_CLASSES, make_problem
 from pydantic import ValidationError
 
 from judge.core import events, stage
-from judge.core.limits import CHECK_OVERHEAD_S, check_timeout_s, sandbox_limits, stage_limits
+from judge.core.limits import (
+    CHECK_OVERHEAD_S,
+    check_param_sets,
+    check_timeout_s,
+    sandbox_limits,
+    stage_limits,
+)
 from judge.core.registry import UnknownLanguageError, get_language
 from judge.core.verdict import aggregate
 
@@ -176,3 +182,19 @@ def test_console_sink() -> None:
         "test t7 (push и pop): failed",
         "sim: failed (wrong, 1.5 s)",
     ]
+
+
+def test_the_class_bounds_the_number_of_parameter_sets() -> None:
+    bound = RESOURCE_CLASSES.classes["light"].max_param_sets
+
+    def with_sets(count: int) -> Any:
+        interface = {
+            "parameters": [{"name": "W", "type": "int", "default": 8}],
+            "param_sets": [{"id": f"s{n}", "values": {"W": n + 1}} for n in range(count)],
+            "ports": [{"name": "a", "dir": "input", "width": "W"}],
+        }
+        return make_problem({"sim": {"type": "sim"}}, run=["sim"], interface=interface)
+
+    check_param_sets(with_sets(bound), RESOURCE_CLASSES)
+    with pytest.raises(ValueError, match=f"{bound + 1} extra parameter sets, .* allows {bound}"):
+        check_param_sets(with_sets(bound + 1), RESOURCE_CLASSES)

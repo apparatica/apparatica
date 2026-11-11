@@ -18,6 +18,9 @@ interface:
   parameters:
     - {name: WIDTH, type: int, default: 8}
     - {name: DEPTH, type: int, default: 16}
+  param_sets:                  # дополнительные наборы; основной — значения по умолчанию
+    - {id: narrow, values: {WIDTH: 1, DEPTH: 2}}
+    - {id: wide,   values: {WIDTH: 32}}
   ports:
     - {name: clk,   dir: input,  width: "1",     role: clock, description: "Общий тактовый сигнал"}
     - {name: rst_n, dir: input,  width: "1",     role: reset, reset: {active: low, sync: true}, description: "Синхронный сброс, активный 0"}
@@ -42,9 +45,9 @@ stages:
   precheck: {type: precheck}
   lint:     {type: lint, flags: ["-Wall"], warnings_fail: false}
   sim_run:  {type: sim, testbench: main, groups: [public], max_cycles: 200000}
-  sim_full: {type: sim, testbench: main, groups: [public, hidden], max_cycles: 500000}
-  synth:    {type: synth, params: {WIDTH: 8, DEPTH: 16}, clock_period_ns: 2.0, forbid_latches: true}
-  netlist_sim: {type: sim, testbench: main, groups: [public, hidden], design: synth.netlist_generic}
+  sim_full: {type: sim, testbench: main, groups: [public, hidden], max_cycles: 500000, param_sets: all}
+  synth:    {type: synth, clock_period_ns: 2.0, forbid_latches: true, param_sets: all}
+  netlist_sim: {type: sim, testbench: main, groups: [public, hidden], design: synth.netlist_generic, param_sets: all}
   formal:   {type: formal, sources: [formal/props.sv], sby: formal/props.sby, depth: 20}
 
 pipelines:

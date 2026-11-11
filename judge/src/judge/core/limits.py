@@ -6,7 +6,15 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import yaml
-from pydantic import BaseModel, ConfigDict, Field, PositiveFloat, PositiveInt, model_validator
+from pydantic import (
+    BaseModel,
+    ConfigDict,
+    Field,
+    NonNegativeInt,
+    PositiveFloat,
+    PositiveInt,
+    model_validator,
+)
 
 from judge.core.package import Problem
 
@@ -28,6 +36,9 @@ class ResourceClass(BaseModel):
     stage_timeout_s: dict[str, PositiveFloat] = Field(description="Stage type -> timeout")
     default_stage_timeout_s: PositiveFloat
     max_stage_timeout_s: PositiveFloat = Field(description="Upper bound for problem overrides")
+    max_param_sets: NonNegativeInt = Field(
+        description="Extra parameter sets a problem may declare (interface.param_sets, ADR-0014)"
+    )
 
     @model_validator(mode="after")
     def _timeouts_within_bound(self) -> "ResourceClass":
@@ -93,6 +104,18 @@ def stage_limits(
             f"of resource class {problem.resource_class}"
         )
     return StageLimits(timeout, output_kb * 1024, fst_mb * 1024 * 1024)
+
+
+def check_param_sets(problem: Problem, classes: ResourceClasses) -> None:
+    """The number of extra parameter sets is within the bound of the resource class: every set
+    multiplies the stages that check it (ADR-0014, NFR-PERF-02)."""
+    resource = _resource_class(problem, classes)
+    count = len(problem.interface.param_sets)
+    if count > resource.max_param_sets:
+        raise ValueError(
+            f"interface.param_sets: {count} extra parameter sets, resource class "
+            f"{problem.resource_class} allows {resource.max_param_sets}"
+        )
 
 
 def check_timeout_s(problem: Problem, kind: "SubmissionKind", classes: ResourceClasses) -> float:

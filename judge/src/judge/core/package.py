@@ -29,6 +29,11 @@ SCHEMA_ID = "https://apparatica.app/schemas/problem/1.json"
 Slug = Annotated[str, StringConstraints(pattern=r"^[a-z0-9]+(-[a-z0-9]+)*$", max_length=64)]
 Identifier = Annotated[str, StringConstraints(pattern=r"^[A-Za-z_][A-Za-z0-9_$]*$")]
 MetricRef = Annotated[str, StringConstraints(pattern=r"^[a-z_]+\.[a-z0-9_]+$")]
+ParamSetId = Annotated[str, StringConstraints(pattern=r"^[a-z][a-z0-9_]*$", max_length=32)]
+ParamValue = int | str
+
+# The id of the primary parameter set: the defaults of `interface.parameters` (ADR-0014).
+PRIMARY_SET = "default"
 
 
 class _Model(BaseModel):
@@ -43,8 +48,19 @@ class Author(_Model):
 class Parameter(_Model):
     name: Identifier
     type: Literal["int", "int unsigned", "bit", "logic"]
-    default: int | str
+    default: ParamValue
     description: str | None = None
+
+
+class DeclaredParamSet(_Model):
+    """An extra parameter set (ADR-0014, specs/06 §2): the parameters it changes."""
+
+    id: ParamSetId = Field(description=f"Unique; `{PRIMARY_SET}` is the primary set")
+    values: dict[Identifier, ParamValue] = Field(
+        min_length=1,
+        description="Parameter -> a numeric literal; the others keep their defaults",
+        examples=[{"WIDTH": 1, "DEPTH": 2}],
+    )
 
 
 class ResetSpec(_Model):
@@ -64,13 +80,46 @@ class Port(_Model):
 
 class Interface(_Model):
     parameters: list[Parameter] = []
+    param_sets: list[DeclaredParamSet] = Field(
+        default=[],
+        description="Extra parameter sets of the submit stages; the primary set is the defaults",
+    )
     ports: list[Port] = Field(min_length=1)
 
     @model_validator(mode="after")
     def _unique_names(self) -> Self:
         _require_unique("parameter", [p.name for p in self.parameters])
         _require_unique("port", [p.name for p in self.ports])
+        _require_unique("parameter set", [s.id for s in self.param_sets])
+        if any(s.id == PRIMARY_SET for s in self.param_sets):
+            raise ValueError(f"param_sets: the id {PRIMARY_SET!r} is the primary set")
+        declared = {p.name for p in self.parameters}
+        for param_set in self.param_sets:
+            unknown = sorted(set(param_set.values) - declared)
+            if unknown:
+                raise ValueError(
+                    f"param_sets {param_set.id}: not in interface.parameters: {', '.join(unknown)}"
+                )
+        seen = {_values_key(self.param_set_values(PRIMARY_SET)): PRIMARY_SET}
+        for param_set in self.param_sets:
+            key = _values_key(self.param_set_values(param_set.id))
+            if key in seen:
+                raise ValueError(
+                    f"param_sets {param_set.id}: the same values as the set {seen[key]!r}"
+                )
+            seen[key] = param_set.id
         return self
+
+    def param_set_values(self, set_id: str) -> dict[str, ParamValue]:
+        """Every parameter with its value at the set, in the order of `parameters`."""
+        values = {p.name: p.default for p in self.parameters}
+        if set_id != PRIMARY_SET:
+            values |= next(s for s in self.param_sets if s.id == set_id).values
+        return values
+
+
+def _values_key(values: dict[str, ParamValue]) -> tuple[tuple[str, str], ...]:
+    return tuple((name, str(value)) for name, value in values.items())
 
 
 class Files(_Model):
@@ -86,12 +135,20 @@ class Testbench(_Model):
     groups: dict[str, NonNegativeInt] = Field(description="Group -> expected number of tests")
 
 
+StageParamSets = Literal["primary", "all"] | Annotated[list[ParamSetId], Field(min_length=1)]
+
+
 class StageConfig(BaseModel):
     """`type` picks the stage plugin of the language module; the plugin validates the rest."""
 
     model_config = ConfigDict(extra="allow", strict=True, frozen=True)
 
     type: str
+    param_sets: StageParamSets = Field(
+        default="primary",
+        description="Parameter sets the stage checks: the primary one, all of"
+        " interface.param_sets too, or the primary one and the listed extra sets (ADR-0014)",
+    )
 
 
 class Pipeline(_Model):
@@ -198,7 +255,36 @@ class Problem(_Model):
             raise ValueError(
                 f"leaderboard.order: stages not in pipelines.practice.submit: {', '.join(unranked)}"
             )
+        declared = {s.id for s in self.interface.param_sets}
+        for key, stage in self.stages.items():
+            if isinstance(stage.param_sets, str):
+                continue
+            _require_unique(f"stages.{key}.param_sets", stage.param_sets)
+            unknown = [s for s in stage.param_sets if s not in declared]
+            if unknown:
+                raise ValueError(
+                    f"stages.{key}.param_sets: not in interface.param_sets: {', '.join(unknown)}"
+                )
+        expanded = [
+            k for k in self.pipelines.practice.run if self.stages[k].param_sets != "primary"
+        ]
+        if expanded:
+            raise ValueError(
+                "pipelines.practice.run checks the primary parameter set only:"
+                f" param_sets of {', '.join(expanded)} must be 'primary'"
+            )
         return self
+
+    def stage_param_sets(self, key: str) -> list[str]:
+        """Ids of the parameter sets of a stage: the primary set, then the extra ones in the order
+        of `interface.param_sets` (ADR-0014)."""
+        chosen = self.stages[key].param_sets
+        extra = [
+            s.id
+            for s in self.interface.param_sets
+            if chosen == "all" or (not isinstance(chosen, str) and s.id in chosen)
+        ]
+        return [PRIMARY_SET, *extra]
 
 
 def _require_unique(what: str, names: list[str]) -> None:

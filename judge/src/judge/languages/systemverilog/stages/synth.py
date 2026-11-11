@@ -17,7 +17,7 @@ import re
 from collections.abc import Sequence
 from dataclasses import dataclass
 from fnmatch import fnmatchcase
-from typing import Annotated, ClassVar
+from typing import ClassVar
 
 from pydantic import (
     BaseModel,
@@ -25,11 +25,10 @@ from pydantic import (
     Field,
     NonNegativeInt,
     PositiveFloat,
-    StringConstraints,
     ValidationError,
 )
 
-from judge.core.package import Identifier, Problem
+from judge.core.package import PRIMARY_SET, Problem
 from judge.core.stage import (
     Command,
     Diagnostic,
@@ -90,9 +89,9 @@ DELAY_DIGITS = 3
 AREA_DIGITS = 2
 MAX_DIAGNOSTICS = 50
 
-# A parameter value goes into the Yosys script: a number literal only, no spaces or separators.
+# A parameter value goes into the tool scripts and flags: a number literal only, no spaces or
+# separators (the package rules check the values of the parameter sets, rules.py).
 LITERAL = r"^-?[0-9][0-9_]*$|^[0-9]*'[sS]?[bBoOdDhH][0-9a-fA-FxXzZ?_]+$"
-ParamValue = int | Annotated[str, StringConstraints(pattern=LITERAL)]
 
 
 class SynthConfig(BaseModel):
@@ -100,10 +99,6 @@ class SynthConfig(BaseModel):
 
     model_config = ConfigDict(extra="forbid", strict=True, frozen=True)
 
-    params: dict[Identifier, ParamValue] = Field(
-        default={},
-        description="Parameter values to synthesize with; the others keep the problem defaults",
-    )
     clock_period_ns: PositiveFloat = 2.0
     forbid_latches: bool = True
 
@@ -122,13 +117,11 @@ class SynthMetrics(BaseModel):
     cells_by_type: dict[str, NonNegativeInt]
 
 
-def synth_params(problem: Problem, config: SynthConfig) -> dict[str, str]:
+def synth_params(problem: Problem) -> dict[str, str]:
     """Every parameter of the interface with the value the design is synthesized with."""
-    declared = {parameter.name: parameter.default for parameter in problem.interface.parameters}
-    unknown = sorted(set(config.params) - set(declared))
-    if unknown:
-        raise ValueError(f"synth params not in interface.parameters: {', '.join(unknown)}")
-    values = {name: str(config.params.get(name, default)) for name, default in declared.items()}
+    values = {
+        name: str(value) for name, value in problem.interface.param_set_values(PRIMARY_SET).items()
+    }
     for name, value in values.items():
         if not re.match(LITERAL, value):
             raise ValueError(f"parameter {name}: {value!r} is not a literal")
@@ -395,7 +388,7 @@ class SynthStage:
     def plan(self, ctx: StageContext) -> StagePlan:
         assert isinstance(ctx.config, SynthConfig)
         top = ctx.problem.top
-        params = synth_params(ctx.problem, ctx.config)
+        params = synth_params(ctx.problem)
         clock = clock_port(ctx.problem)
         return StagePlan(
             commands=(

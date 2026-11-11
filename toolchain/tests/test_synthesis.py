@@ -13,7 +13,7 @@ from judge.core.events import Event, LogEvent
 from judge.core.executor import LocalDockerExecutor
 from judge.core.leaderboard import leaderboard_metrics
 from judge.core.limits import load_resource_classes, sandbox_limits, stage_limits
-from judge.core.package import Problem, StageConfig, load_manifest
+from judge.core.package import Problem, load_manifest
 from judge.core.pipeline import CACHED_RUN_NOTE, Job, run_pipeline
 from judge.core.registry import get_language
 from judge.core.stage import FinishedStage, StageContext, StageResult
@@ -230,13 +230,16 @@ def test_the_netlist_of_a_reference_passes_the_testbench_and_ranks_it() -> None:
 
 def test_a_testbench_with_other_parameters_than_synthesis_is_a_problem_error() -> None:
     """A netlist synthesized for WIDTH=4 under a testbench with WIDTH=8: `$fatal` of the wrapper
-    stops the build under -Werror-USERFATAL (S4), not a wrong answer of the solution."""
+    stops the build under -Werror-USERFATAL (S4), not a wrong answer of the solution. Synthesis
+    takes the defaults of the interface, the testbench keeps its own WIDTH."""
     package = REPO / "problems" / "mux4"
     problem = load_manifest(package)
-    stages = dict(problem.stages) | {
-        "synth": StageConfig.model_validate({"type": "synth", "params": {"WIDTH": 4}})
-    }
-    narrow = problem.model_copy(update={"stages": stages})
+    parameters = [
+        p.model_copy(update={"default": 4}) if p.name == "WIDTH" else p
+        for p in problem.interface.parameters
+    ]
+    interface = problem.interface.model_copy(update={"parameters": parameters})
+    narrow = problem.model_copy(update={"interface": interface})
     results, sink = check(
         package, reference(package), ("precheck", "synth", "netlist_sim"), problem=narrow
     )

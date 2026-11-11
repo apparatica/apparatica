@@ -23,6 +23,7 @@
           "description": "Разрядность данных"
         }
       ],
+      "param_sets": [],
       "ports": [
         {
           "name": "sel",
@@ -166,6 +167,7 @@
           "description": "Модуль счёта, N ≥ 2"
         }
       ],
+      "param_sets": [],
       "ports": [
         {
           "name": "clk",
@@ -303,6 +305,7 @@
           "description": "Разрядность слагаемых"
         }
       ],
+      "param_sets": [],
       "ports": [
         {
           "name": "a",
@@ -430,6 +433,7 @@
     "top": "seq_detector",
     "interface": {
       "parameters": [],
+      "param_sets": [],
       "ports": [
         {
           "name": "clk",
@@ -565,6 +569,7 @@
           "description": "Ёмкость в словах, степень двойки"
         }
       ],
+      "param_sets": [],
       "ports": [
         {
           "name": "clk",

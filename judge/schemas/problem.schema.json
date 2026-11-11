@@ -27,6 +27,49 @@
       "title": "Author",
       "type": "object"
     },
+    "DeclaredParamSet": {
+      "additionalProperties": false,
+      "description": "An extra parameter set (ADR-0014, specs/06 §2): the parameters it changes.",
+      "properties": {
+        "id": {
+          "description": "Unique; `default` is the primary set",
+          "maxLength": 32,
+          "pattern": "^[a-z][a-z0-9_]*$",
+          "title": "Id",
+          "type": "string"
+        },
+        "values": {
+          "description": "Parameter -> a numeric literal; the others keep their defaults",
+          "examples": [
+            {
+              "DEPTH": 2,
+              "WIDTH": 1
+            }
+          ],
+          "minProperties": 1,
+          "patternProperties": {
+            "^[A-Za-z_][A-Za-z0-9_$]*$": {
+              "anyOf": [
+                {
+                  "type": "integer"
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "title": "Values",
+          "type": "object"
+        }
+      },
+      "required": [
+        "id",
+        "values"
+      ],
+      "title": "DeclaredParamSet",
+      "type": "object"
+    },
     "Files": {
       "additionalProperties": false,
       "properties": {
@@ -64,6 +107,15 @@
             "$ref": "#/$defs/Parameter"
           },
           "title": "Parameters",
+          "type": "array"
+        },
+        "param_sets": {
+          "default": [],
+          "description": "Extra parameter sets of the submit stages; the primary set is the defaults",
+          "items": {
+            "$ref": "#/$defs/DeclaredParamSet"
+          },
+          "title": "Param Sets",
           "type": "array"
         },
         "ports": {
@@ -508,6 +560,29 @@
         "type": {
           "title": "Type",
           "type": "string"
+        },
+        "param_sets": {
+          "anyOf": [
+            {
+              "enum": [
+                "primary",
+                "all"
+              ],
+              "type": "string"
+            },
+            {
+              "items": {
+                "maxLength": 32,
+                "pattern": "^[a-z][a-z0-9_]*$",
+                "type": "string"
+              },
+              "minItems": 1,
+              "type": "array"
+            }
+          ],
+          "default": "primary",
+          "description": "Parameter sets the stage checks: the primary one, all of interface.param_sets too, or the primary one and the listed extra sets (ADR-0014)",
+          "title": "Param Sets"
         }
       },
       "required": [

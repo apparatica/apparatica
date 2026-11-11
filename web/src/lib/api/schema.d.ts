@@ -810,6 +810,28 @@ export interface components {
             legal: components["schemas"]["LegalInfo"];
         };
         /**
+         * DeclaredParamSet
+         * @description An extra parameter set (ADR-0014, specs/06 §2): the parameters it changes.
+         */
+        DeclaredParamSet: {
+            /**
+             * Id
+             * @description Unique; `default` is the primary set
+             */
+            id: string;
+            /**
+             * Values
+             * @description Parameter -> a numeric literal; the others keep their defaults
+             * @example {
+             *       "DEPTH": 2,
+             *       "WIDTH": 1
+             *     }
+             */
+            values: {
+                [key: string]: number | string;
+            };
+        };
+        /**
          * Diagnostic
          * @description A tool message in the common format (ADR-0011): editor markers and console links.
          */
@@ -1207,6 +1229,12 @@ export interface components {
              * @default []
              */
             parameters: components["schemas"]["Parameter"][];
+            /**
+             * Param Sets
+             * @description Extra parameter sets of the submit stages; the primary set is the defaults
+             * @default []
+             */
+            param_sets: components["schemas"]["DeclaredParamSet"][];
             /** Ports */
             ports: components["schemas"]["Port"][];
         };

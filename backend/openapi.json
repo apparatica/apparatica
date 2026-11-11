@@ -3181,6 +3181,49 @@
         "title": "ConfigResponse",
         "description": "What the frontend needs before anything else: features, levels, limits, login options,\nthe legal documents."
       },
+      "DeclaredParamSet": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "maxLength": 32,
+            "pattern": "^[a-z][a-z0-9_]*$",
+            "title": "Id",
+            "description": "Unique; `default` is the primary set"
+          },
+          "values": {
+            "patternProperties": {
+              "^[A-Za-z_][A-Za-z0-9_$]*$": {
+                "anyOf": [
+                  {
+                    "type": "integer"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              }
+            },
+            "type": "object",
+            "minProperties": 1,
+            "title": "Values",
+            "description": "Parameter -> a numeric literal; the others keep their defaults",
+            "examples": [
+              {
+                "DEPTH": 2,
+                "WIDTH": 1
+              }
+            ]
+          }
+        },
+        "additionalProperties": false,
+        "type": "object",
+        "required": [
+          "id",
+          "values"
+        ],
+        "title": "DeclaredParamSet",
+        "description": "An extra parameter set (ADR-0014, specs/06 §2): the parameters it changes."
+      },
       "Diagnostic": {
         "properties": {
           "severity": {
@@ -4067,6 +4110,15 @@
             },
             "type": "array",
             "title": "Parameters",
+            "default": []
+          },
+          "param_sets": {
+            "items": {
+              "$ref": "#/components/schemas/DeclaredParamSet"
+            },
+            "type": "array",
+            "title": "Param Sets",
+            "description": "Extra parameter sets of the submit stages; the primary set is the defaults",
             "default": []
           },
           "ports": {

@@ -11,6 +11,7 @@ from typing import Any
 
 import pytest
 from core_helpers import RESOURCE_CLASSES
+from pydantic import ValidationError
 
 from judge.core.limits import stage_limits
 from judge.core.package import Parameter, Port, Problem, load_manifest
@@ -126,41 +127,27 @@ def test_the_yosys_script_reads_the_code_as_simulation_does() -> None:
     assert lines[-1] == "write_verilog -noexpr -noattr netlist.v"
 
 
-def test_parameters_take_the_stage_values_over_the_defaults() -> None:
+def test_parameters_take_the_values_of_the_primary_set() -> None:
     parameters = [
         Parameter(name="WIDTH", type="int", default=8),
         Parameter(name="DEPTH", type="int", default=16),
         Parameter(name="INIT", type="logic", default="4'hA"),
     ]
     target = problem(parameters=parameters)
-    config = SynthConfig.model_validate({"params": {"DEPTH": 4}})
-    assert synth_params(target, config) == {"WIDTH": "8", "DEPTH": "4", "INIT": "4'hA"}
-    script = SynthStage().plan(context(target, params={"DEPTH": 4})).inputs[YOSYS_SCRIPT].decode()
-    assert "--top counter -G WIDTH=8 -G DEPTH=4 -G INIT=4'hA\n" in script
+    assert synth_params(target) == {"WIDTH": "8", "DEPTH": "16", "INIT": "4'hA"}
+    script = SynthStage().plan(context(target)).inputs[YOSYS_SCRIPT].decode()
+    assert "--top counter -G WIDTH=8 -G DEPTH=16 -G INIT=4'hA\n" in script
 
 
-@pytest.mark.parametrize(
-    ("parameters", "params", "error"),
-    [
-        pytest.param([], {"WIDTH": 8}, "not in interface.parameters", id="unknown"),
-        pytest.param(
-            [Parameter(name="W", type="int", default="8; shell rm")],
-            {},
-            "not a literal",
-            id="default-not-a-literal",
-        ),
-    ],
-)
-def test_bad_parameters_are_a_problem_error(
-    parameters: list[Parameter], params: dict[str, int], error: str
-) -> None:
-    with pytest.raises(ValueError, match=error):
-        synth_params(problem(parameters=parameters), SynthConfig.model_validate({"params": params}))
+def test_a_default_must_be_a_literal() -> None:
+    target = problem(parameters=[Parameter(name="W", type="int", default="8; shell rm")])
+    with pytest.raises(ValueError, match="not a literal"):
+        synth_params(target)
 
 
-def test_a_stage_value_must_be_a_literal() -> None:
-    with pytest.raises(ValueError, match="pattern"):
-        SynthConfig.model_validate({"params": {"WIDTH": "8 -p shell"}})
+def test_the_stage_takes_no_parameter_values() -> None:
+    with pytest.raises(ValidationError, match="params"):
+        SynthConfig.model_validate({"params": {"WIDTH": 4}})
 
 
 def test_opensta_constraints_are_fixed_and_clock_the_clock_port() -> None:

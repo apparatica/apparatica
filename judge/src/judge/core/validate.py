@@ -3,7 +3,8 @@
 The checks run the package through the same pipelines as submissions:
 
 1. `problem.yaml` against the schema and its cross references;
-2. the language module, stage plugins and stage configs, stage limits of the resource class,
+2. the language module, stage plugins and stage configs, stage limits and the number of parameter
+   sets of the resource class,
    the rules of the language across stages (for SV: every `synth` is followed by `netlist_sim`);
 3. the files the manifest names exist inside the package;
 4. the statement is UTF-8 and renders: KaTeX, WaveDrom, pictures from assets/ (`statement`);
@@ -27,7 +28,7 @@ from typing import Literal
 
 from judge.core.events import EventSink
 from judge.core.executor import Executor, check_relative
-from judge.core.limits import ResourceClasses, stage_limits
+from judge.core.limits import ResourceClasses, check_param_sets, stage_limits
 from judge.core.package import ManifestError, Problem, load_manifest
 from judge.core.pipeline import Job, PipelineConfigError, plan_stages, run_pipeline
 from judge.core.registry import LanguageModule, UnknownLanguageError, get_language
@@ -122,6 +123,7 @@ class PackageValidator:
 
         try:
             language = self.language_lookup(problem.language)
+            check_param_sets(problem, self.resource_classes)
             for kind in ("run", "submit"):
                 for planned in plan_stages(problem, kind, language):
                     stage_limits(
