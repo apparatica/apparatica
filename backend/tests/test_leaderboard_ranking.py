@@ -27,8 +27,9 @@ from apparatica.submissions.events import FinalizedEvent
 from apparatica.submissions.profiles import add_profile
 from conftest import CONFIG_DIR, PROBLEMS, RATING, ApiClient, Postgres
 from judge.core.jobs import DoneRecord
-from judge.core.package import load_manifest, split_instance_key
-from judge.core.stage import StageResult
+from judge.core.package import PRIMARY_SET, load_manifest, split_instance_key
+from judge.core.pipeline import param_set_of
+from judge.core.stage import ParamSet, StageResult
 
 NEXT_PROFILE = dataclasses.replace(PROFILE, id="sv-2026.11.1")
 # The submit pipeline of mux4: the instances of its stages at every parameter set (ADR-0014) and
@@ -38,6 +39,18 @@ SUBMIT = {
     key: MUX4.stages[split_instance_key(key)[0]].type
     for key in MUX4.instance_keys(MUX4.pipelines.practice.submit)
 }
+
+
+def reported_set(key: str) -> ParamSet | None:
+    """The set the judge reports for an instance of mux4: none for a stage at the primary set
+    only."""
+    stage, set_id = split_instance_key(key)
+    if MUX4.stage_param_sets(stage) == [PRIMARY_SET]:
+        return None
+    return param_set_of(MUX4, set_id)
+
+
+SETS = {key: reported_set(key) for key in SUBMIT}
 
 
 @pytest.fixture
@@ -64,14 +77,22 @@ def api(database_url: str) -> Iterator[TestClient]:
 
 
 def accepted(delay: float, area: float, ast: str) -> list[StageResult]:
-    """Every stage of the submit pipeline passed, with these metrics and this AST hash."""
+    """Every stage of the submit pipeline passed, with these metrics and this AST hash; the
+    synthesis at the extra sets reports other metrics, which rank nothing (ADR-0014)."""
     metrics: dict[str, dict[str, Any]] = {
         "precheck": {"code_hash": "0" * 64, "ast_hash": ast},
         "synth": {"critical_path_ns": delay, "area_um2": area, "cells": 40},
+        "synth@narrow": {"critical_path_ns": 0.01, "area_um2": 1, "cells": 1},
+        "synth@wide": {"critical_path_ns": 9.9, "area_um2": 9999, "cells": 999},
     }
     return [
         StageResult(
-            key=key, type=type_, ordinal=ordinal, status="passed", metrics=metrics.get(key, {})
+            key=key,
+            type=type_,
+            ordinal=ordinal,
+            param_set=SETS[key],
+            status="passed",
+            metrics=metrics.get(key, {}),
         )
         for ordinal, (key, type_) in enumerate(SUBMIT.items())
     ]

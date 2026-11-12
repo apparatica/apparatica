@@ -231,6 +231,17 @@ def test_submissions_and_stage_results(database_url: str) -> None:
         await rejected(database, submission(v1, kind="practice"))
         await rejected(database, submission(v1, seed=-1))
 
+        # ADR-0014: an instance key names the set of the row; the primary set has no `@`.
+        await add(
+            database,
+            stage(row, "synth", "passed", param_set="default"),
+            stage(row, "synth@narrow", "passed", param_set="narrow"),
+        )
+        await rejected(database, stage(row, "netlist_sim@narrow", "passed"))
+        await rejected(database, stage(row, "netlist_sim@narrow", "passed", param_set="wide"))
+        await rejected(database, stage(row, "netlist_sim@narrow", "passed", param_set="default"))
+        await rejected(database, stage(row, "netlist_sim", "passed", param_set="narrow"))
+
         # Deleting a submission (guest retention, Ф1) deletes its results.
         async with database.sessions.begin() as session:
             await session.execute(delete(Submission).where(Submission.id == row.id))

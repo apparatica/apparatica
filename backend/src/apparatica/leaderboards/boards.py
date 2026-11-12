@@ -55,7 +55,7 @@ from apparatica.problems.models import Problem, ProblemVersion, ReferenceSolutio
 from apparatica.problems.progress import ACCEPTED
 from apparatica.submissions.models import StageResult, Submission
 from judge.core.leaderboard import sort_values
-from judge.core.package import Leaderboard
+from judge.core.package import PRIMARY_SET, Leaderboard
 
 GROUP_LIMIT = 50  # followers listed under a leader
 # Types of the stages whose metrics anyone may see (specs/05 §5).
@@ -149,13 +149,15 @@ async def metrics_of(
     session: AsyncSession, submission_ids: Collection[uuid.UUID], stages: Sequence[str]
 ) -> dict[uuid.UUID, Metrics]:
     """The public metrics of the submissions: numbers of the stages `stages` and of the stages
-    of the types in PUBLIC_METRIC_TYPES."""
+    of the types in PUBLIC_METRIC_TYPES, at the primary parameter set (ADR-0014): an instance of
+    an extra set only checks correctness, its key is no stage key."""
     found: dict[uuid.UUID, Metrics] = {submission_id: {} for submission_id in submission_ids}
     if not found:
         return found
     rows = await session.execute(
         select(StageResult.submission_id, StageResult.stage_key, StageResult.metrics).where(
             StageResult.submission_id.in_(found),
+            or_(StageResult.param_set.is_(None), StageResult.param_set == PRIMARY_SET),
             or_(
                 StageResult.stage_key.in_(stages),
                 StageResult.stage_type.in_(PUBLIC_METRIC_TYPES),

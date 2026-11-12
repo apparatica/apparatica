@@ -284,6 +284,17 @@ def test_a_solution_page(api: TestClient, database_url: str) -> None:
     assert stages["synth"]["metrics"] == {"critical_path_ns": 0.5, "area_um2": 500, "cells": 40}
     assert stages["sim_full"]["tests"] == {"passed": 7, "total": 7}
     assert stages["synth"]["tests"] is None
+    # ADR-0014: the set of each instance with the values of the package; the metrics of the
+    # extra sets show at their instances and rank nothing (`best`, `reference` above).
+    assert stages["precheck"]["param_set"] is None
+    assert stages["synth"]["param_set"] == {"id": "default", "values": {"WIDTH": 8}}
+    assert stages["synth@narrow"]["param_set"] == {"id": "narrow", "values": {"WIDTH": 1}}
+    assert stages["netlist_sim@wide"]["param_set"] == {"id": "wide", "values": {"WIDTH": 32}}
+    assert stages["synth@narrow"]["metrics"] == {
+        "critical_path_ns": 0.01,
+        "area_um2": 1,
+        "cells": 1,
+    }
 
     board = get(api, BOARD)
     assert board["reference"] == {

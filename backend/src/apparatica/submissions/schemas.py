@@ -5,12 +5,13 @@ what the worker reports and the ingestor aggregates.
 """
 
 import uuid
+from collections.abc import Callable, Mapping
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, PositiveInt, field_validator
 
-from judge.core.package import Slug
+from judge.core.package import Interface, Slug
 from judge.core.stage import FailureKind, ParamSet, StageStatus, StageSummary, SubmissionKind
 from judge.core.verdict import VerdictDetail
 
@@ -53,6 +54,19 @@ class SubmissionCreate(BaseModel):
         except UnicodeEncodeError:
             raise ValueError("the code must be valid Unicode text") from None
         return code
+
+
+def param_sets_of(manifest: Mapping[str, Any]) -> Callable[[str | None], ParamSet | None]:
+    """The set of a stored stage instance with its values (ADR-0014): `stage_results` keeps the
+    id of the set, the values are those of the package of the problem version (`manifest`)."""
+    interface = Interface.model_validate(manifest["interface"])
+
+    def param_set(set_id: str | None) -> ParamSet | None:
+        if set_id is None:
+            return None
+        return ParamSet(id=set_id, values=interface.param_set_values(set_id))
+
+    return param_set
 
 
 class SubmissionStage(BaseModel):

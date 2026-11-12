@@ -133,6 +133,11 @@ class StageResult(Base):
         CheckConstraint(
             "(status = 'failed') = (failure_kind IS NOT NULL)", name="failure_kind_iff_failed"
         ),
+        # ADR-0014: the set an instance key names is the set of the row (`default`: no `@`).
+        CheckConstraint(
+            "split_part(stage_key, '@', 2) = coalesce(nullif(param_set, 'default'), '')",
+            name="param_set_of_key",
+        ),
     )
 
     id: Mapped[uuid.UUID] = uuid_pk()
@@ -142,6 +147,9 @@ class StageResult(Base):
     stage_key: Mapped[str]
     stage_type: Mapped[str]
     ordinal: Mapped[int]
+    # The id of the parameter set of the instance (`default`: the primary set); none: the stage
+    # runs at the primary set only. The values are in the package of the version (ADR-0014).
+    param_set: Mapped[str | None]
     status: Mapped[str] = mapped_column(Enum(*STAGE_STATUSES, name="stage_status"))
     failure_kind: Mapped[str | None]
     started_at: Mapped[datetime | None]

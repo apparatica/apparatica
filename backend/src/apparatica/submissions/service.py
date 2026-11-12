@@ -47,6 +47,7 @@ from apparatica.submissions.schemas import (
     SubmissionCreated,
     SubmissionStage,
     SubmissionSummary,
+    param_sets_of,
 )
 from apparatica.submissions.tokens import JobTokens
 from judge.core.jobs import JudgeJob, queue_name
@@ -293,6 +294,7 @@ async def get_submission(
         )
     ).all()
     now = datetime.now(UTC)
+    param_set = param_sets_of(version.manifest)
     return Submission(
         id=submission.id,
         problem=slug,
@@ -332,7 +334,7 @@ async def get_submission(
                 key=stage.stage_key,
                 type=stage.stage_type,
                 ordinal=stage.ordinal,
-                param_set=None,  # stage_results keeps no set before the migration of block 3a
+                param_set=param_set(stage.param_set),
                 status=stage.status,  # type: ignore[arg-type]  # a stage_status value
                 failure_kind=stage.failure_kind,  # type: ignore[arg-type]  # table constraint
                 error_code=stage.error_code,

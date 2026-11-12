@@ -63,8 +63,9 @@ from apparatica.problems.models import Problem, ProblemVersion, ReferenceSolutio
 from apparatica.problems.progress import ACCEPTED
 from apparatica.submissions.models import StageResult, Submission
 from apparatica.submissions.quotas import Author
+from apparatica.submissions.schemas import param_sets_of
 from judge.core.package import Reference
-from judge.core.stage import StageSummary
+from judge.core.stage import ParamSet, StageSummary
 
 STAFF = ("moderator", "admin")  # see every code (specs/04 §6)
 
@@ -345,6 +346,7 @@ async def get_solution(
     locked = not own and not await code_open(session, problem.id, visitor)
     placement = await placement_of(session, submission)
     reference = await best_reference(session, board)
+    param_set = param_sets_of(version.manifest)
     return Solution(
         **summary.model_dump(exclude={"author"}),
         author=SolutionAuthor(
@@ -354,7 +356,7 @@ async def get_solution(
         toolchain_profile=submission.toolchain_profile_id,
         code=None if locked else submission.code,
         code_locked=locked,
-        stages=[public_stage(stage) for stage in stages],
+        stages=[public_stage(stage, param_set(stage.param_set)) for stage in stages],
         placement=placement if placement is not None and placement.is_best else None,
         order=board.formula.order if board.formula is not None else [],
         best=await best_metrics(session, board),
@@ -362,9 +364,9 @@ async def get_solution(
     )
 
 
-def public_stage(stage: StageResult) -> PublicStage:
-    """What anyone may see of a stage (specs/05 §5): metrics of synthesis and formal stages, the
-    counts of the tests of a simulation, no test data."""
+def public_stage(stage: StageResult, param_set: ParamSet | None) -> PublicStage:
+    """What anyone may see of a stage (specs/05 §5): its parameter set, metrics of synthesis and
+    formal stages, the counts of the tests of a simulation, no test data."""
     summary = StageSummary.model_validate(stage.summary or {})
     hidden = summary.hidden_tests
     tests = None
@@ -377,7 +379,7 @@ def public_stage(stage: StageResult) -> PublicStage:
     return PublicStage(
         key=stage.stage_key,
         type=stage.stage_type,
-        param_set=None,  # stage_results keeps no set before the migration of block 3a
+        param_set=param_set,
         status=stage.status,  # type: ignore[arg-type]  # a stage_status value
         metrics_schema=stage.metrics_schema,
         metrics=(stage.metrics or {}) if stage.stage_type in PUBLIC_METRIC_TYPES else {},

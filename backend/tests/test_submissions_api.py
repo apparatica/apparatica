@@ -364,3 +364,33 @@ def test_a_finished_submission(api: TestClient, database_url: str) -> None:
         {"kind": "log", "state": "ready", **common},
         {"kind": "fst", "state": "expired", **common},
     ]
+
+
+def test_a_stage_instance_shows_the_values_of_its_set(api: TestClient, database_url: str) -> None:
+    """ADR-0014: the row keeps the id of the set; the API adds the values from the package of the
+    version, for every parameter of the interface."""
+    submission_id = uuid.UUID(submit(api, kind="submit").json()["id"])
+
+    async def store(database: Database) -> None:
+        async with database.sessions.begin() as session:
+            for ordinal, (key, param_set) in enumerate(
+                [("lint", None), ("sim_full", "default"), ("sim_full@narrow", "narrow")]
+            ):
+                session.add(
+                    StageResult(
+                        submission_id=submission_id,
+                        stage_key=key,
+                        stage_type=key.split("_")[0],
+                        ordinal=ordinal,
+                        param_set=param_set,
+                        status="passed",
+                    )
+                )
+
+    run(database_url, store)
+    stages = api.get(f"/api/v1/submissions/{submission_id}").json()["stages"]
+    assert [(stage["key"], stage["param_set"]) for stage in stages] == [
+        ("lint", None),
+        ("sim_full", {"id": "default", "values": {"WIDTH": 8}}),
+        ("sim_full@narrow", {"id": "narrow", "values": {"WIDTH": 1}}),
+    ]

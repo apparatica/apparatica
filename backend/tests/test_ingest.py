@@ -37,8 +37,8 @@ from judge.core.jobs import (
     WaveformRecord,
     submission_stream_key,
 )
+from judge.core.stage import ParamSet, StageSummary
 from judge.core.stage import StageResult as Result
-from judge.core.stage import StageSummary
 from judge.core.stage import TestCase as Case
 from judge.core.verdict import FirstFailure, VerdictDetail
 
@@ -184,6 +184,46 @@ def test_a_check_is_stored_as_it_runs(database_url: str) -> None:
             ("log", "lint.log.zst", NOW + timedelta(days=30)),
             ("fst", "trace.fst", NOW + timedelta(days=7)),
         ]
+
+    run(database_url, scenario)
+
+
+def test_the_set_of_an_instance_is_stored_by_id(database_url: str) -> None:
+    """ADR-0014: the row keeps the id of the set, the values are in the package."""
+    narrow = ParamSet(id="narrow", values={"WIDTH": 1})
+    instances = (
+        LINT,
+        SIM.model_copy(update={"param_set": ParamSet(id="default", values={"WIDTH": 8})}),
+        SIM.model_copy(update={"key": "sim_run@narrow", "ordinal": 3, "param_set": narrow}),
+    )
+
+    async def scenario(database: Database) -> list[tuple[str, str | None]]:
+        submission = await new_submission(database)
+        done = DoneRecord(**common(submission), results=instances, artifacts=())
+        await ingestor(database).ingest(done)
+        async with database.sessions() as session:
+            rows = await session.execute(
+                select(StageResult.stage_key, StageResult.param_set)
+                .where(StageResult.submission_id == submission)
+                .order_by(StageResult.ordinal)
+            )
+            return [tuple(row) for row in rows]  # type: ignore[misc]
+
+    assert run(database_url, scenario) == [
+        ("lint", None),
+        ("sim_run", "default"),
+        ("sim_run@narrow", "narrow"),
+    ]
+
+
+def test_an_instance_without_its_set_is_refused(database_url: str) -> None:
+    """A key `<stage>@<set>` with no set, or another one, breaks the rule of the table."""
+    wrong = SIM.model_copy(update={"key": "sim_run@narrow"})
+
+    async def scenario(database: Database) -> None:
+        submission = await new_submission(database)
+        with pytest.raises(InvalidRecordError, match="param_set_of_key"):
+            await ingestor(database).ingest(StageEndRecord(**common(submission), result=wrong))
 
     run(database_url, scenario)
 

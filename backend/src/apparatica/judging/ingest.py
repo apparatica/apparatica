@@ -70,6 +70,7 @@ type CheckRecord = AttemptStartedRecord | StageEndRecord | DoneRecord | AttemptF
 _STAGE_COLUMNS = (
     "stage_type",
     "ordinal",
+    "param_set",
     "status",
     "failure_kind",
     "started_at",
@@ -257,6 +258,7 @@ async def _upsert_stages(
             "stage_key": result.key,
             "stage_type": result.type,
             "ordinal": result.ordinal,
+            "param_set": result.param_set.id if result.param_set is not None else None,
             "status": result.status,
             "failure_kind": result.failure_kind,
             "started_at": result.started_at,

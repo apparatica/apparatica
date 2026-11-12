@@ -9,7 +9,7 @@ from typing import Any
 import test_leaderboard_ranking as ranking
 from sqlalchemy import func, select, update
 from test_ingest import NOW, TOKENS, run
-from test_leaderboard_ranking import NEXT_PROFILE, SUBMIT
+from test_leaderboard_ranking import NEXT_PROFILE, SETS, SUBMIT
 from test_submissions_api import PROFILE, RecordingQueue
 
 from apparatica.core.db import Database
@@ -91,7 +91,12 @@ def synthesized(synth: dict[str, Any]) -> list[StageResult]:
     }
     return [
         StageResult(
-            key=key, type=type_, ordinal=ordinal, status="passed", metrics=metrics.get(key, {})
+            key=key,
+            type=type_,
+            ordinal=ordinal,
+            param_set=SETS[key],
+            status="passed",
+            metrics=metrics.get(key, {}),
         )
         for ordinal, (key, type_) in enumerate(SUBMIT.items())
     ]
