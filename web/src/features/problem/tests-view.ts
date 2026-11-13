@@ -3,6 +3,7 @@
 // only (specs/06 §3.4). The names of the open tests come from the check; before they come, only
 // their number from the problem is known.
 import type { Check, Stage, TestCase } from "@/features/submission/machine";
+import type { ParamSet } from "@/features/submission/param-sets";
 import type { Schemas } from "@/lib/api/client";
 
 import { blockOf, OPEN_GROUP, pendingStage } from "./pipeline-view";
@@ -55,7 +56,10 @@ export type HiddenView =
   | { kind: "notRun"; total: number; passed: number; reason: NotRunReason };
 
 export interface TestsSection {
+  /** The key of the stage instance. */
   stage: string;
+  /** The set of a stage checked at several parameter sets, the primary one included. */
+  paramSet: ParamSet | null;
   rows: TestsRow[];
 }
 
@@ -82,12 +86,15 @@ function hiddenTotal(groups: Record<string, number>): number {
   );
 }
 
-/** The stages of the check that run tests of the code, in pipeline order: those not started yet
- * too. The tests of the netlist belong to the synth block (specs/08 §6). */
+/** The stage instances of the check that run tests of the code, in pipeline order: those not
+ * started yet too. The tests of the netlist belong to the synth block (specs/08 §6). */
 function simStages(check: Check, pipeline: Schemas["PipelineInfo"]): Stage[] {
-  return pipeline[check.kind].flatMap(({ key, type }, ordinal) =>
+  return pipeline[check.kind].flatMap(({ key, type, param_set }, ordinal) =>
     blockOf({ key, type }) === "sim"
-      ? [check.stages.find((stage) => stage.key === key) ?? pendingStage(key, type, ordinal)]
+      ? [
+          check.stages.find((stage) => stage.key === key) ??
+            pendingStage(key, type, ordinal, param_set),
+        ]
       : [],
   );
 }
@@ -245,6 +252,7 @@ export function testsView(
     const rows = openRows(check, stage, problem.tests);
     return {
       stage: stage.key,
+      paramSet: stage.param_set ?? null,
       rows: hidden === null ? rows : [...rows, { kind: "hidden", hidden }],
     };
   });

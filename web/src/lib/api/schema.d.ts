@@ -1532,7 +1532,8 @@ export interface components {
         };
         /**
          * PipelineInfo
-         * @description Stages of Run and Submit, in order, to draw the pipeline before the first check.
+         * @description Stage instances of Run and Submit in run order, to draw the pipeline before the first
+         *     check: a stage checked at several parameter sets comes once per set (ADR-0014).
          */
         PipelineInfo: {
             /** Run */
@@ -1544,7 +1545,9 @@ export interface components {
         PipelineStage: {
             /**
              * Key
-             * @example sim
+             * @description Key of the stage instance, as the check reports it: the stage key, or `<stage key>@<set id>` at an extra parameter set (specs/06 §2)
+             * @example sim_full
+             * @example sim_full@narrow
              */
             key: string;
             /**
@@ -1552,6 +1555,8 @@ export interface components {
              * @example sim
              */
             type: string;
+            /** @description Set of a stage checked at several parameter sets (ADR-0014), the primary one included; null: the stage runs at the primary set only */
+            param_set: components["schemas"]["ParamSet"] | null;
         };
         /**
          * PointsFormula

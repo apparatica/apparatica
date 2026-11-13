@@ -2,6 +2,7 @@
 // the server and its small copy in the dialog «Поделиться» are drawn from the same data.
 import type { Difficulty } from "@/components/domain/difficulty-badge";
 import { CARD_METRICS } from "@/features/leaderboard/metrics";
+import { extraSetOf } from "@/features/submission/param-sets";
 import type { AuthorNames } from "@/features/profile/author";
 import type { Schemas } from "@/lib/api/client";
 
@@ -46,11 +47,13 @@ export interface SolutionCard {
 
 export type ShareCard = ProblemCard | SolutionCard;
 
-type StageLike = Pick<Schemas["PublicStage"], "key" | "type" | "metrics">;
+type StageLike = Pick<Schemas["PublicStage"], "key" | "type" | "metrics"> &
+  Partial<Pick<Schemas["PublicStage"], "param_set">>;
 
-/** The metrics of the cards (delay, area, cells, flops) of the synthesis stage, if there is one. */
+/** The metrics of the cards (delay, area, cells, flops) of the synthesis stage, if there is one:
+ * at the primary parameter set, which ranks (ADR-0014). */
 export function synthMetrics(stages: readonly StageLike[]): ShareMetric[] {
-  const synth = stages.find((stage) => stage.type === "synth");
+  const synth = stages.find((stage) => stage.type === "synth" && extraSetOf(stage) === null);
   if (synth === undefined) return [];
   return CARD_METRICS.flatMap((metric) => {
     const value = synth.metrics[metric];

@@ -444,11 +444,13 @@ function stagesOf(item: Solution): Schemas["PublicStage"][] {
     logic_depth: item.depth,
     liberty: "nangate45",
   };
+  // The stage instances of the Submit: every synthesis has the made-up metrics, as the API shows
+  // the metrics of each set; those of the primary set rank (ADR-0014).
   const stages: Schemas["PublicStage"][] = (version?.pipeline.submit ?? []).map(
-    ({ key, type }) => ({
+    ({ key, type, param_set }) => ({
       key,
       type,
-      param_set: null,
+      param_set,
       status: type === "lint" && item.status === "accepted_with_warnings" ? "warning" : "passed",
       metrics_schema: `${type}/v1`,
       metrics: type === "synth" ? synth : {},

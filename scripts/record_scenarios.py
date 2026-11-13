@@ -111,8 +111,8 @@ SCENARIOS = {
     "cancelled": Scenario("sync-fifo", "run", reference, cancel=("sim_run", 2.0)),
     "internal-error": Scenario("mux4", "run", reference, broken_stage="sim_run"),
     "retry": Scenario("mux4", "run", reference, retry_after="lint"),
-    # sync-fifo checks its stages at the sets narrow and wide besides the primary one (ADR-0014).
-    "accepted-param-sets": Scenario("sync-fifo", "submit", reference),
+    # The Submit scenarios of mux4, counter-mod-n and sync-fifo check their stages at the sets of
+    # the problem besides the primary one (ADR-0014): `accepted` passes all of them.
     "wrong-answer-param-set": Scenario("sync-fifo", "submit", mutant("m06_fixed_depth.sv")),
 }
 

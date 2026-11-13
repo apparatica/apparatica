@@ -98,37 +98,120 @@
       "run": [
         {
           "key": "precheck",
-          "type": "precheck"
+          "type": "precheck",
+          "param_set": null
         },
         {
           "key": "lint",
-          "type": "lint"
+          "type": "lint",
+          "param_set": null
         },
         {
           "key": "sim_run",
-          "type": "sim"
+          "type": "sim",
+          "param_set": null
         }
       ],
       "submit": [
         {
           "key": "precheck",
-          "type": "precheck"
+          "type": "precheck",
+          "param_set": null
         },
         {
           "key": "lint",
-          "type": "lint"
+          "type": "lint",
+          "param_set": null
         },
         {
           "key": "sim_full",
-          "type": "sim"
+          "type": "sim",
+          "param_set": {
+            "id": "default",
+            "values": {
+              "WIDTH": 8
+            }
+          }
+        },
+        {
+          "key": "sim_full@narrow",
+          "type": "sim",
+          "param_set": {
+            "id": "narrow",
+            "values": {
+              "WIDTH": 1
+            }
+          }
+        },
+        {
+          "key": "sim_full@wide",
+          "type": "sim",
+          "param_set": {
+            "id": "wide",
+            "values": {
+              "WIDTH": 32
+            }
+          }
         },
         {
           "key": "synth",
-          "type": "synth"
+          "type": "synth",
+          "param_set": {
+            "id": "default",
+            "values": {
+              "WIDTH": 8
+            }
+          }
+        },
+        {
+          "key": "synth@narrow",
+          "type": "synth",
+          "param_set": {
+            "id": "narrow",
+            "values": {
+              "WIDTH": 1
+            }
+          }
+        },
+        {
+          "key": "synth@wide",
+          "type": "synth",
+          "param_set": {
+            "id": "wide",
+            "values": {
+              "WIDTH": 32
+            }
+          }
         },
         {
           "key": "netlist_sim",
-          "type": "sim"
+          "type": "sim",
+          "param_set": {
+            "id": "default",
+            "values": {
+              "WIDTH": 8
+            }
+          }
+        },
+        {
+          "key": "netlist_sim@narrow",
+          "type": "sim",
+          "param_set": {
+            "id": "narrow",
+            "values": {
+              "WIDTH": 1
+            }
+          }
+        },
+        {
+          "key": "netlist_sim@wide",
+          "type": "sim",
+          "param_set": {
+            "id": "wide",
+            "values": {
+              "WIDTH": 32
+            }
+          }
         }
       ]
     },
@@ -249,37 +332,120 @@
       "run": [
         {
           "key": "precheck",
-          "type": "precheck"
+          "type": "precheck",
+          "param_set": null
         },
         {
           "key": "lint",
-          "type": "lint"
+          "type": "lint",
+          "param_set": null
         },
         {
           "key": "sim_run",
-          "type": "sim"
+          "type": "sim",
+          "param_set": null
         }
       ],
       "submit": [
         {
           "key": "precheck",
-          "type": "precheck"
+          "type": "precheck",
+          "param_set": null
         },
         {
           "key": "lint",
-          "type": "lint"
+          "type": "lint",
+          "param_set": null
         },
         {
           "key": "sim_full",
-          "type": "sim"
+          "type": "sim",
+          "param_set": {
+            "id": "default",
+            "values": {
+              "N": 10
+            }
+          }
+        },
+        {
+          "key": "sim_full@min",
+          "type": "sim",
+          "param_set": {
+            "id": "min",
+            "values": {
+              "N": 2
+            }
+          }
+        },
+        {
+          "key": "sim_full@pow2",
+          "type": "sim",
+          "param_set": {
+            "id": "pow2",
+            "values": {
+              "N": 16
+            }
+          }
         },
         {
           "key": "synth",
-          "type": "synth"
+          "type": "synth",
+          "param_set": {
+            "id": "default",
+            "values": {
+              "N": 10
+            }
+          }
+        },
+        {
+          "key": "synth@min",
+          "type": "synth",
+          "param_set": {
+            "id": "min",
+            "values": {
+              "N": 2
+            }
+          }
+        },
+        {
+          "key": "synth@pow2",
+          "type": "synth",
+          "param_set": {
+            "id": "pow2",
+            "values": {
+              "N": 16
+            }
+          }
         },
         {
           "key": "netlist_sim",
-          "type": "sim"
+          "type": "sim",
+          "param_set": {
+            "id": "default",
+            "values": {
+              "N": 10
+            }
+          }
+        },
+        {
+          "key": "netlist_sim@min",
+          "type": "sim",
+          "param_set": {
+            "id": "min",
+            "values": {
+              "N": 2
+            }
+          }
+        },
+        {
+          "key": "netlist_sim@pow2",
+          "type": "sim",
+          "param_set": {
+            "id": "pow2",
+            "values": {
+              "N": 16
+            }
+          }
         }
       ]
     },
@@ -397,37 +563,120 @@
       "run": [
         {
           "key": "precheck",
-          "type": "precheck"
+          "type": "precheck",
+          "param_set": null
         },
         {
           "key": "lint",
-          "type": "lint"
+          "type": "lint",
+          "param_set": null
         },
         {
           "key": "sim_run",
-          "type": "sim"
+          "type": "sim",
+          "param_set": null
         }
       ],
       "submit": [
         {
           "key": "precheck",
-          "type": "precheck"
+          "type": "precheck",
+          "param_set": null
         },
         {
           "key": "lint",
-          "type": "lint"
+          "type": "lint",
+          "param_set": null
         },
         {
           "key": "sim_full",
-          "type": "sim"
+          "type": "sim",
+          "param_set": {
+            "id": "default",
+            "values": {
+              "WIDTH": 8
+            }
+          }
+        },
+        {
+          "key": "sim_full@narrow",
+          "type": "sim",
+          "param_set": {
+            "id": "narrow",
+            "values": {
+              "WIDTH": 1
+            }
+          }
+        },
+        {
+          "key": "sim_full@wide",
+          "type": "sim",
+          "param_set": {
+            "id": "wide",
+            "values": {
+              "WIDTH": 32
+            }
+          }
         },
         {
           "key": "synth",
-          "type": "synth"
+          "type": "synth",
+          "param_set": {
+            "id": "default",
+            "values": {
+              "WIDTH": 8
+            }
+          }
+        },
+        {
+          "key": "synth@narrow",
+          "type": "synth",
+          "param_set": {
+            "id": "narrow",
+            "values": {
+              "WIDTH": 1
+            }
+          }
+        },
+        {
+          "key": "synth@wide",
+          "type": "synth",
+          "param_set": {
+            "id": "wide",
+            "values": {
+              "WIDTH": 32
+            }
+          }
         },
         {
           "key": "netlist_sim",
-          "type": "sim"
+          "type": "sim",
+          "param_set": {
+            "id": "default",
+            "values": {
+              "WIDTH": 8
+            }
+          }
+        },
+        {
+          "key": "netlist_sim@narrow",
+          "type": "sim",
+          "param_set": {
+            "id": "narrow",
+            "values": {
+              "WIDTH": 1
+            }
+          }
+        },
+        {
+          "key": "netlist_sim@wide",
+          "type": "sim",
+          "param_set": {
+            "id": "wide",
+            "values": {
+              "WIDTH": 32
+            }
+          }
         }
       ]
     },
@@ -519,37 +768,45 @@
       "run": [
         {
           "key": "precheck",
-          "type": "precheck"
+          "type": "precheck",
+          "param_set": null
         },
         {
           "key": "lint",
-          "type": "lint"
+          "type": "lint",
+          "param_set": null
         },
         {
           "key": "sim_run",
-          "type": "sim"
+          "type": "sim",
+          "param_set": null
         }
       ],
       "submit": [
         {
           "key": "precheck",
-          "type": "precheck"
+          "type": "precheck",
+          "param_set": null
         },
         {
           "key": "lint",
-          "type": "lint"
+          "type": "lint",
+          "param_set": null
         },
         {
           "key": "sim_full",
-          "type": "sim"
+          "type": "sim",
+          "param_set": null
         },
         {
           "key": "synth",
-          "type": "synth"
+          "type": "synth",
+          "param_set": null
         },
         {
           "key": "netlist_sim",
-          "type": "sim"
+          "type": "sim",
+          "param_set": null
         }
       ]
     },
@@ -705,37 +962,129 @@
       "run": [
         {
           "key": "precheck",
-          "type": "precheck"
+          "type": "precheck",
+          "param_set": null
         },
         {
           "key": "lint",
-          "type": "lint"
+          "type": "lint",
+          "param_set": null
         },
         {
           "key": "sim_run",
-          "type": "sim"
+          "type": "sim",
+          "param_set": null
         }
       ],
       "submit": [
         {
           "key": "precheck",
-          "type": "precheck"
+          "type": "precheck",
+          "param_set": null
         },
         {
           "key": "lint",
-          "type": "lint"
+          "type": "lint",
+          "param_set": null
         },
         {
           "key": "sim_full",
-          "type": "sim"
+          "type": "sim",
+          "param_set": {
+            "id": "default",
+            "values": {
+              "WIDTH": 8,
+              "DEPTH": 16
+            }
+          }
+        },
+        {
+          "key": "sim_full@narrow",
+          "type": "sim",
+          "param_set": {
+            "id": "narrow",
+            "values": {
+              "WIDTH": 1,
+              "DEPTH": 2
+            }
+          }
+        },
+        {
+          "key": "sim_full@wide",
+          "type": "sim",
+          "param_set": {
+            "id": "wide",
+            "values": {
+              "WIDTH": 32,
+              "DEPTH": 16
+            }
+          }
         },
         {
           "key": "synth",
-          "type": "synth"
+          "type": "synth",
+          "param_set": {
+            "id": "default",
+            "values": {
+              "WIDTH": 8,
+              "DEPTH": 16
+            }
+          }
+        },
+        {
+          "key": "synth@narrow",
+          "type": "synth",
+          "param_set": {
+            "id": "narrow",
+            "values": {
+              "WIDTH": 1,
+              "DEPTH": 2
+            }
+          }
+        },
+        {
+          "key": "synth@wide",
+          "type": "synth",
+          "param_set": {
+            "id": "wide",
+            "values": {
+              "WIDTH": 32,
+              "DEPTH": 16
+            }
+          }
         },
         {
           "key": "netlist_sim",
-          "type": "sim"
+          "type": "sim",
+          "param_set": {
+            "id": "default",
+            "values": {
+              "WIDTH": 8,
+              "DEPTH": 16
+            }
+          }
+        },
+        {
+          "key": "netlist_sim@narrow",
+          "type": "sim",
+          "param_set": {
+            "id": "narrow",
+            "values": {
+              "WIDTH": 1,
+              "DEPTH": 2
+            }
+          }
+        },
+        {
+          "key": "netlist_sim@wide",
+          "type": "sim",
+          "param_set": {
+            "id": "wide",
+            "values": {
+              "WIDTH": 32,
+              "DEPTH": 16
+            }
+          }
         }
       ]
     },

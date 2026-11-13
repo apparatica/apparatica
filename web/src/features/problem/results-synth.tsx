@@ -23,12 +23,17 @@ import { getLeaderboardTop, leaderboardKeys } from "@/features/leaderboard/api";
 import { CARD_METRICS, useOrderWords } from "@/features/leaderboard/metrics";
 import { CardGrid, SynthCards } from "@/features/leaderboard/synth-cards";
 import { type Check, isFinished, type Stage } from "@/features/submission/machine";
+import { setValues } from "@/features/submission/param-sets";
 import type { Schemas } from "@/lib/api/client";
 import { cn } from "@/lib/utils";
 
-import { netlistStageOf, placeShare, synthStageOf } from "./synth-view";
+import { isNetlist } from "./pipeline-view";
+import { netlistStageOf, placeShare, type SetCheck, setChecks, synthStageOf } from "./synth-view";
 
-export type SynthProblem = Pick<Schemas["ProblemDetail"], "slug" | "leaderboard" | "reference">;
+export type SynthProblem = Pick<
+  Schemas["ProblemDetail"],
+  "slug" | "pipeline" | "leaderboard" | "reference"
+>;
 
 export interface ResultsSynthProps {
   check: Check;
@@ -67,10 +72,17 @@ export function ResultsSynth({ check, problem }: ResultsSynthProps) {
   } else if (synth.status === "skipped" || synth.status === "cancelled") {
     body = <SynthNotice title={t("notRun")}>{t("notRunBody")}</SynthNotice>;
   } else {
+    const sets = setChecks(check, problem.pipeline);
     body = (
       <>
+        {sets.length > 0 && synth.param_set != null && (
+          <p className="text-caption text-mu">
+            {t("primary", { values: setValues(synth.param_set) })}
+          </p>
+        )}
         <SynthMetrics synth={synth} problem={problem} />
         <NetlistRow stage={netlistStageOf(check)} finished={finished} />
+        {sets.length > 0 && <SetRows sets={sets} />}
         <Place check={check} problem={problem} />
       </>
     );
@@ -156,23 +168,105 @@ function NetlistRow({ stage, finished }: { stage: Stage | undefined; finished: b
       text = t("error");
       break;
   }
-  const Icon = icon;
+  return (
+    <StatusRow
+      status={stage?.status ?? "pending"}
+      icon={icon}
+      tone={tone}
+      title={t("title")}
+      text={text}
+      hint={hint}
+    />
+  );
+}
+
+/** A row of the tab: an icon of the status, a title, what happened and a hint. */
+function StatusRow({
+  status,
+  icon: Icon,
+  tone,
+  title,
+  text,
+  hint = null,
+}: {
+  status: string;
+  icon: LucideIcon;
+  tone: keyof typeof TONES;
+  title: string;
+  text: string;
+  hint?: string | null;
+}) {
   return (
     <div
-      data-status={stage?.status ?? "pending"}
+      data-status={status}
       className="flex items-start gap-2.5 rounded-md border border-bd bg-sf px-3 py-2"
     >
       <Icon
         size={14}
         aria-hidden="true"
-        className={cn("mt-[3px] flex-none", TONES[tone], icon === LoaderCircle && "animate-spin")}
+        className={cn("mt-[3px] flex-none", TONES[tone], Icon === LoaderCircle && "animate-spin")}
       />
       <div className="min-w-0">
-        <p className="font-medium">{t("title")}</p>
+        <p className="font-medium">{title}</p>
         <p className={cn("text-caption", tone === "er" ? "text-er" : "text-mu")}>{text}</p>
         {hint !== null && <p className="text-caption text-tx">{hint}</p>}
       </div>
     </div>
+  );
+}
+
+/** The extra parameter sets: whether the solution synthesizes at them and its netlist passes the
+ * tests (ADR-0014). Their metrics do not rank and are not shown. */
+function SetRows({ sets }: { sets: readonly SetCheck[] }) {
+  const t = useTranslations("problem.results.synth.sets");
+  const ts = useTranslations("problem.results.paramSet");
+  const rowOf = ({ set, status, stage }: SetCheck): ReactNode => {
+    const title = ts("extra", { set: set.id, values: setValues(set) });
+    const caption = stage?.summary.caption || null;
+    const synthesis = stage !== null && !isNetlist(stage);
+    let icon: LucideIcon = Clock;
+    let tone: keyof typeof TONES = "mu";
+    let text = t("pending");
+    let hint: string | null = null;
+    switch (status) {
+      case "running":
+        icon = LoaderCircle;
+        tone = "in";
+        text = synthesis ? t("runningSynth") : t("runningNetlist");
+        break;
+      case "passed":
+        icon = CircleCheck;
+        tone = "ok";
+        text = t("passed");
+        break;
+      case "failed":
+        icon = CircleX;
+        tone = "er";
+        if (synthesis) text = caption ? t("failedSynthCaption", { caption }) : t("failedSynth");
+        else text = caption ?? t("failedNetlist");
+        hint = stage?.summary.diagnostics.find((item) => item.severity === "info")?.message ?? null;
+        break;
+      case "notRun":
+        icon = CircleMinus;
+        text = t("notRun");
+        break;
+      case "error":
+        icon = OctagonAlert;
+        tone = "er";
+        text = t("error");
+        break;
+    }
+    return (
+      <li key={set.id}>
+        <StatusRow status={status} icon={icon} tone={tone} title={title} text={text} hint={hint} />
+      </li>
+    );
+  };
+  return (
+    <section aria-label={t("title")} className="flex flex-col gap-1.5">
+      <h3 className="font-mono text-label text-mu uppercase">{t("title")}</h3>
+      <ul className="flex flex-col gap-1.5">{sets.map(rowOf)}</ul>
+    </section>
   );
 }
 

@@ -1,6 +1,8 @@
 // What the results panel shows of a check (FR-RUN-04/05, specs/08 §3): its stages folded into the
 // four pipeline blocks, and the facts the banners tell. precheck is shown in the lint block and
 // netlist_sim in the synth block (specs/08 §6); blocks without stages are not shown (FR-RUN-02).
+// A stage checked at several parameter sets runs as one instance per set, `<key>@<set>` (ADR-0014):
+// its instances are drawn in the block of the stage.
 import {
   PIPELINE_BLOCKS,
   type PipelineBlock,
@@ -8,6 +10,12 @@ import {
 } from "@/components/domain/pipeline";
 import { isSolutionFile } from "@/features/editor/languages";
 import type { Check, Stage } from "@/features/submission/machine";
+import {
+  extraSetOf,
+  type ParamSet,
+  PRIMARY_SET,
+  stageKeyOf,
+} from "@/features/submission/param-sets";
 import type { Schemas } from "@/lib/api/client";
 
 export type Limit = NonNullable<Stage["limit"]>;
@@ -24,16 +32,20 @@ const BLOCKS_BY_KEY: Record<string, PipelineBlock> = { netlist_sim: "synth" };
 
 /** The block a stage is drawn in; undefined for a stage the panel does not show. */
 export function blockOf(stage: { key: string; type: string }): PipelineBlock | undefined {
-  return BLOCKS_BY_KEY[stage.key] ?? BLOCKS[stage.type];
+  return BLOCKS_BY_KEY[stageKeyOf(stage.key)] ?? BLOCKS[stage.type];
 }
+
+/** The check of the netlist after synthesis, at any set. */
+export const isNetlist = (stage: { key: string }) => stageKeyOf(stage.key) in BLOCKS_BY_KEY;
 
 /** The test group that Run checks; the others are hidden (specs/06 §3.4). */
 export const OPEN_GROUP = "public";
 
 /** The caption of a block in place of its status word. */
 export type BlockDetail =
-  /** The stage's own caption from the judge: "пройдено 4 из 4". */
-  | { kind: "caption"; text: string }
+  /** The stage's own caption from the judge: "пройдено 4 из 4"; of a passed block, that of the
+   * primary set, and `sets`: how many sets the block checked, when more than one. */
+  | { kind: "caption"; text: string; sets?: number }
   | { kind: "warnings"; count: number }
   | { kind: "limit"; limit: Limit }
   /** A stage the check never reached. */
@@ -47,16 +59,25 @@ export interface BlockView {
   /** As drawn: a stage stopped by a limit is drawn as a warning (mock-up ResultStates). */
   status: StageStatus;
   detail: BlockDetail | null;
+  /** The extra parameter set of the instance that decides the block: the one that runs, failed or
+   * hit a limit (specs/08 §6). */
+  set: ParamSet | null;
   /** The time of the block's stages; of a running block, the time so far. */
   durationMs: number | null;
 }
 
 /** A stage of the pipeline the check has not started. */
-export function pendingStage(key: string, type: string, ordinal: number): Stage {
+export function pendingStage(
+  key: string,
+  type: string,
+  ordinal: number,
+  param_set: ParamSet | null = null,
+): Stage {
   return {
     key,
     type,
     ordinal,
+    param_set,
     status: "pending",
     failure_kind: null,
     limit: null,
@@ -75,8 +96,8 @@ export function pendingStage(key: string, type: string, ordinal: number): Stage 
 function stagesOf(pipeline: Schemas["PipelineInfo"], check: Check | null): Stage[] {
   const planned = check === null ? [...pipeline.submit, ...pipeline.run] : pipeline[check.kind];
   const stages = new Map<string, Stage>();
-  planned.forEach(({ key, type }, ordinal) => {
-    if (!stages.has(key)) stages.set(key, pendingStage(key, type, ordinal));
+  planned.forEach(({ key, type, param_set }, ordinal) => {
+    if (!stages.has(key)) stages.set(key, pendingStage(key, type, ordinal, param_set));
   });
   for (const stage of check?.stages ?? []) stages.set(stage.key, stage);
   return [...stages.values()].sort((a, b) => a.ordinal - b.ordinal);
@@ -114,48 +135,55 @@ function foldBlock(
     return text ? { kind: "caption", text } : null;
   };
 
-  // The first stage that did not pass decides; a block of passed stages shows the last caption of
-  // its own stages: the synth block shows the metrics of synthesis, not the tests of the netlist.
+  // The first stage that did not pass decides: the instances of a stage run in a row and the first
+  // failure skips the rest, so it is the worst of them. A block of passed stages shows the last
+  // caption of its own stages at the primary set: the synth block shows the metrics of synthesis,
+  // not the tests of the netlist, and those of the primary set, which rank (ADR-0014).
   const decisive = stages.find((stage) => stage.status !== "passed" && stage.status !== "warning");
   if (decisive === undefined) {
     const warnings = countWarnings(stages);
     const status = stages.some((stage) => stage.status === "warning") ? "warning" : "passed";
-    const detail =
-      status === "warning" && warnings > 0
-        ? { kind: "warnings" as const, count: warnings }
-        : caption(
-            stages.findLast((stage) => !(stage.key in BLOCKS_BY_KEY) && stage.summary.caption),
-          );
-    return { block, status, detail, durationMs };
+    const own = stages.findLast(
+      (stage) => !isNetlist(stage) && extraSetOf(stage) === null && stage.summary.caption,
+    );
+    const sets = new Set(stages.map((stage) => stage.param_set?.id ?? PRIMARY_SET)).size;
+    let detail = caption(own);
+    if (status === "warning" && warnings > 0) detail = { kind: "warnings", count: warnings };
+    else if (detail?.kind === "caption" && sets > 1) detail = { ...detail, sets };
+    return { block, status, detail, set: null, durationMs };
   }
-  const netlist: BlockDetail | null =
-    decisive.key in BLOCKS_BY_KEY
-      ? { kind: "netlist", caption: decisive.summary.caption ?? null }
-      : null;
+  const set = extraSetOf(decisive);
+  const netlist: BlockDetail | null = isNetlist(decisive)
+    ? { kind: "netlist", caption: decisive.summary.caption ?? null }
+    : null;
   switch (decisive.status) {
     case "pending": {
-      // Between two stages of the block, the block is still running.
+      // Between two stages of the block, the block is still running: at the set that comes next.
       const started = decisive !== stages[0];
-      if (started && !finished) return { block, status: "running", detail: netlist, durationMs };
-      return { block, status: "pending", detail: finished ? { kind: "notRun" } : null, durationMs };
+      if (started && !finished) {
+        return { block, status: "running", detail: netlist, set, durationMs };
+      }
+      const detail = finished ? { kind: "notRun" as const } : null;
+      return { block, status: "pending", detail, set: null, durationMs };
     }
     case "skipped": {
       const detail =
         decisive.summary.skip_reason === "cancelled" ? { kind: "notRun" as const } : null;
-      return { block, status: "skipped", detail, durationMs: null };
+      return { block, status: "skipped", detail, set: null, durationMs: null };
     }
     case "failed": {
       const limit = limitOf(decisive, check?.verdict ?? null);
-      if (limit !== null)
-        return { block, status: "warning", detail: { kind: "limit", limit }, durationMs };
-      return { block, status: "failed", detail: netlist ?? caption(decisive), durationMs };
+      if (limit !== null) {
+        return { block, status: "warning", detail: { kind: "limit", limit }, set, durationMs };
+      }
+      return { block, status: "failed", detail: netlist ?? caption(decisive), set, durationMs };
     }
     case "error":
-      return { block, status: "error", detail: null, durationMs: null };
+      return { block, status: "error", detail: null, set: null, durationMs: null };
     case "running":
-      return { block, status: "running", detail: netlist ?? caption(decisive), durationMs };
+      return { block, status: "running", detail: netlist ?? caption(decisive), set, durationMs };
     default:
-      return { block, status: decisive.status, detail: caption(decisive), durationMs };
+      return { block, status: decisive.status, detail: caption(decisive), set: null, durationMs };
   }
 }
 

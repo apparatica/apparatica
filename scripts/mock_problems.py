@@ -18,7 +18,7 @@ import sys
 from pathlib import Path
 from typing import Any
 
-from judge.core.package import Problem, load_manifest
+from judge.core.package import PRIMARY_SET, Problem, load_manifest, split_instance_key
 
 ROOT = Path(__file__).resolve().parents[1]
 PROBLEMS = ROOT / "problems"
@@ -27,8 +27,17 @@ REFERENCES = ROOT / "web" / "src" / "mocks" / "reference-solutions.json"
 PUBLISHED_AT = "2026-10-01T00:00:00Z"
 
 
-def _stages(manifest: Problem, keys: list[str]) -> list[dict[str, str]]:
-    return [{"key": key, "type": manifest.stages[key].type} for key in keys]
+def _stages(manifest: Problem, keys: list[str]) -> list[dict[str, Any]]:
+    """The stage instances, a stage at several parameter sets once per set (ADR-0014)."""
+    stages = []
+    for key in manifest.instance_keys(keys):
+        stage_key, set_id = split_instance_key(key)
+        param_set = None
+        if manifest.stage_param_sets(stage_key) != [PRIMARY_SET]:
+            values = manifest.interface.param_set_values(set_id)
+            param_set = {"id": set_id, "values": values}
+        stages.append({"key": key, "type": manifest.stages[stage_key].type, "param_set": param_set})
+    return stages
 
 
 def _tests(manifest: Problem) -> dict[str, int]:

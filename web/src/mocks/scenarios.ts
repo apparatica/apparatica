@@ -3,7 +3,6 @@
 import type { Schemas } from "@/lib/api/client";
 
 import accepted from "./scenarios/accepted.json";
-import acceptedParamSets from "./scenarios/accepted-param-sets.json";
 import acceptedWithWarnings from "./scenarios/accepted-with-warnings.json";
 import cancelled from "./scenarios/cancelled.json";
 import compileError from "./scenarios/compile-error.json";
@@ -43,8 +42,6 @@ const recorded = {
   cancelled,
   "internal-error": internalError,
   retry,
-  // Stand-ins put together from the recordings until the judge checks parameter sets.
-  "accepted-param-sets": acceptedParamSets,
   "wrong-answer-param-set": wrongAnswerParamSet,
 };
 

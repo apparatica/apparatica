@@ -1,7 +1,7 @@
 {
  "name": "accepted-with-warnings",
  "submission": {
-  "id": "01a1cc14-c278-77c5-aa19-13978dc614f7",
+  "id": "01a1d635-9430-753d-abcf-2b757a481cec",
   "problem": "mux4",
   "problem_title": "Мультиплексор 4:1",
   "version": 4,
@@ -15,8 +15,8 @@
    ],
    "error_codes": []
   },
-  "created_at": "2026-11-11T19:27:55+00:00",
-  "finished_at": "2026-11-11T19:28:19.664000+00:00",
+  "created_at": "2026-11-13T18:39:58+00:00",
+  "finished_at": "2026-11-13T18:41:02.409000+00:00",
   "code": "module mux4 #(\n  parameter int WIDTH = 8\n) (\n  input  logic [1:0]       sel,\n  input  logic [WIDTH-1:0] d0,\n  input  logic [WIDTH-1:0] d1,\n  input  logic [WIDTH-1:0] d2,\n  input  logic [WIDTH-1:0] d3,\n  output logic [WIDTH-1:0] y\n);\n  always_comb begin\n    unique case (sel)\n      2'd0: y = {1'b0, d0};\n      2'd1: y = d1;\n      2'd2: y = d2;\n      2'd3: y = d3;\n    endcase\n  end\nendmodule\n",
   "public": false,
   "leaderboard": null,
@@ -25,7 +25,7 @@
   "waveview_url": null,
   "queue_position": null,
   "eta_s": null,
-  "started_at": "2026-11-11T19:27:55.605878+00:00",
+  "started_at": "2026-11-13T18:39:59.378863+00:00",
   "stages": [
    {
     "key": "precheck",
@@ -35,8 +35,8 @@
     "status": "passed",
     "failure_kind": null,
     "error_code": null,
-    "started_at": "2026-11-11T19:27:55.605878Z",
-    "duration_ms": 1031,
+    "started_at": "2026-11-13T18:39:59.378863Z",
+    "duration_ms": 985,
     "metrics_schema": "precheck/v1",
     "metrics": {
      "code_hash": "b56379fd3ee48e70a7a29e85e48d60f01e845b12b7d5f516c433eba71670dd81",
@@ -53,7 +53,7 @@
      "tests": [],
      "hidden_tests": null
     },
-    "finished_at": "2026-11-11T19:27:56.636878+00:00"
+    "finished_at": "2026-11-13T18:40:00.363863+00:00"
    },
    {
     "key": "lint",
@@ -63,8 +63,8 @@
     "status": "warning",
     "failure_kind": null,
     "error_code": null,
-    "started_at": "2026-11-11T19:27:56.637450Z",
-    "duration_ms": 888,
+    "started_at": "2026-11-13T18:40:00.363784Z",
+    "duration_ms": 827,
     "metrics_schema": "lint/v1",
     "metrics": {
      "warnings": 1,
@@ -91,18 +91,23 @@
      "tests": [],
      "hidden_tests": null
     },
-    "finished_at": "2026-11-11T19:27:57.525450+00:00"
+    "finished_at": "2026-11-13T18:40:01.190784+00:00"
    },
    {
     "key": "sim_full",
     "type": "sim",
     "ordinal": 2,
-    "param_set": null,
+    "param_set": {
+     "id": "default",
+     "values": {
+      "WIDTH": 8
+     }
+    },
     "status": "passed",
     "failure_kind": null,
     "error_code": null,
-    "started_at": "2026-11-11T19:27:57.525879Z",
-    "duration_ms": 9127,
+    "started_at": "2026-11-13T18:40:01.190874Z",
+    "duration_ms": 9024,
     "metrics_schema": "sim/v1",
     "metrics": {
      "tests_total": 4,
@@ -140,18 +145,131 @@
       "failed_index": null
      }
     },
-    "finished_at": "2026-11-11T19:28:06.652879+00:00"
+    "finished_at": "2026-11-13T18:40:10.214874+00:00"
+   },
+   {
+    "key": "sim_full@narrow",
+    "type": "sim",
+    "ordinal": 3,
+    "param_set": {
+     "id": "narrow",
+     "values": {
+      "WIDTH": 1
+     }
+    },
+    "status": "passed",
+    "failure_kind": null,
+    "error_code": null,
+    "started_at": "2026-11-13T18:40:10.215221Z",
+    "duration_ms": 9008,
+    "metrics_schema": "sim/v1",
+    "metrics": {
+     "tests_total": 4,
+     "tests_passed": 4,
+     "cycles": 231,
+     "seed": 20261026
+    },
+    "summary": {
+     "caption": "пройдено 4 из 4",
+     "skip_reason": null,
+     "diagnostics": [],
+     "tests": [
+      {
+       "id": "t1",
+       "name": "каждый вход по очереди",
+       "group": "public",
+       "status": "passed",
+       "duration_ms": null,
+       "cycle": null,
+       "mismatches": []
+      },
+      {
+       "id": "t2",
+       "name": "данные меняются при том же sel",
+       "group": "public",
+       "status": "passed",
+       "duration_ms": null,
+       "cycle": null,
+       "mismatches": []
+      }
+     ],
+     "hidden_tests": {
+      "total": 2,
+      "passed": 2,
+      "failed_index": null
+     }
+    },
+    "finished_at": "2026-11-13T18:40:19.223221+00:00"
+   },
+   {
+    "key": "sim_full@wide",
+    "type": "sim",
+    "ordinal": 4,
+    "param_set": {
+     "id": "wide",
+     "values": {
+      "WIDTH": 32
+     }
+    },
+    "status": "passed",
+    "failure_kind": null,
+    "error_code": null,
+    "started_at": "2026-11-13T18:40:19.223246Z",
+    "duration_ms": 8512,
+    "metrics_schema": "sim/v1",
+    "metrics": {
+     "tests_total": 4,
+     "tests_passed": 4,
+     "cycles": 231,
+     "seed": 20261026
+    },
+    "summary": {
+     "caption": "пройдено 4 из 4",
+     "skip_reason": null,
+     "diagnostics": [],
+     "tests": [
+      {
+       "id": "t1",
+       "name": "каждый вход по очереди",
+       "group": "public",
+       "status": "passed",
+       "duration_ms": null,
+       "cycle": null,
+       "mismatches": []
+      },
+      {
+       "id": "t2",
+       "name": "данные меняются при том же sel",
+       "group": "public",
+       "status": "passed",
+       "duration_ms": null,
+       "cycle": null,
+       "mismatches": []
+      }
+     ],
+     "hidden_tests": {
+      "total": 2,
+      "passed": 2,
+      "failed_index": null
+     }
+    },
+    "finished_at": "2026-11-13T18:40:27.735246+00:00"
    },
    {
     "key": "synth",
     "type": "synth",
-    "ordinal": 3,
-    "param_set": null,
+    "ordinal": 5,
+    "param_set": {
+     "id": "default",
+     "values": {
+      "WIDTH": 8
+     }
+    },
     "status": "passed",
     "failure_kind": null,
     "error_code": null,
-    "started_at": "2026-11-11T19:28:06.653017Z",
-    "duration_ms": 2886,
+    "started_at": "2026-11-13T18:40:27.735518Z",
+    "duration_ms": 2802,
     "metrics_schema": "synth/v1",
     "metrics": {
      "critical_path_ns": 0.172,
@@ -178,18 +296,105 @@
      "tests": [],
      "hidden_tests": null
     },
-    "finished_at": "2026-11-11T19:28:09.539017+00:00"
+    "finished_at": "2026-11-13T18:40:30.537518+00:00"
+   },
+   {
+    "key": "synth@narrow",
+    "type": "synth",
+    "ordinal": 6,
+    "param_set": {
+     "id": "narrow",
+     "values": {
+      "WIDTH": 1
+     }
+    },
+    "status": "passed",
+    "failure_kind": null,
+    "error_code": null,
+    "started_at": "2026-11-13T18:40:30.537479Z",
+    "duration_ms": 2503,
+    "metrics_schema": "synth/v1",
+    "metrics": {
+     "critical_path_ns": 0.123,
+     "area_um2": 5.59,
+     "cells": 3,
+     "flops": 0,
+     "latches": 0,
+     "logic_depth": 2,
+     "liberty": "nangate45",
+     "cells_by_type": {
+      "MUX2_X1": 3
+     }
+    },
+    "summary": {
+     "caption": "0,123 нс, 5,59 мкм², ячеек 3",
+     "skip_reason": null,
+     "diagnostics": [],
+     "tests": [],
+     "hidden_tests": null
+    },
+    "finished_at": "2026-11-13T18:40:33.040479+00:00"
+   },
+   {
+    "key": "synth@wide",
+    "type": "synth",
+    "ordinal": 7,
+    "param_set": {
+     "id": "wide",
+     "values": {
+      "WIDTH": 32
+     }
+    },
+    "status": "passed",
+    "failure_kind": null,
+    "error_code": null,
+    "started_at": "2026-11-13T18:40:33.040239Z",
+    "duration_ms": 2750,
+    "metrics_schema": "synth/v1",
+    "metrics": {
+     "critical_path_ns": 0.399,
+     "area_um2": 145.24,
+     "cells": 143,
+     "flops": 0,
+     "latches": 0,
+     "logic_depth": 3,
+     "liberty": "nangate45",
+     "cells_by_type": {
+      "AND2_X1": 1,
+      "AOI22_X1": 23,
+      "INV_X1": 35,
+      "NAND2_X1": 20,
+      "NAND3_X1": 31,
+      "NAND4_X1": 9,
+      "NOR2_X1": 1,
+      "OAI211_X1": 13,
+      "OAI221_X1": 10
+     }
+    },
+    "summary": {
+     "caption": "0,399 нс, 145,24 мкм², ячеек 143",
+     "skip_reason": null,
+     "diagnostics": [],
+     "tests": [],
+     "hidden_tests": null
+    },
+    "finished_at": "2026-11-13T18:40:35.790239+00:00"
    },
    {
     "key": "netlist_sim",
     "type": "sim",
-    "ordinal": 4,
-    "param_set": null,
+    "ordinal": 8,
+    "param_set": {
+     "id": "default",
+     "values": {
+      "WIDTH": 8
+     }
+    },
     "status": "passed",
     "failure_kind": null,
     "error_code": null,
-    "started_at": "2026-11-11T19:28:09.538871Z",
-    "duration_ms": 9022,
+    "started_at": "2026-11-13T18:40:35.790033Z",
+    "duration_ms": 8419,
     "metrics_schema": "sim/v1",
     "metrics": {
      "tests_total": 4,
@@ -227,7 +432,115 @@
       "failed_index": null
      }
     },
-    "finished_at": "2026-11-11T19:28:18.560871+00:00"
+    "finished_at": "2026-11-13T18:40:44.209033+00:00"
+   },
+   {
+    "key": "netlist_sim@narrow",
+    "type": "sim",
+    "ordinal": 9,
+    "param_set": {
+     "id": "narrow",
+     "values": {
+      "WIDTH": 1
+     }
+    },
+    "status": "passed",
+    "failure_kind": null,
+    "error_code": null,
+    "started_at": "2026-11-13T18:40:44.209318Z",
+    "duration_ms": 8526,
+    "metrics_schema": "sim/v1",
+    "metrics": {
+     "tests_total": 4,
+     "tests_passed": 4,
+     "cycles": 231,
+     "seed": 20261026
+    },
+    "summary": {
+     "caption": "пройдено 4 из 4",
+     "skip_reason": null,
+     "diagnostics": [],
+     "tests": [
+      {
+       "id": "t1",
+       "name": "каждый вход по очереди",
+       "group": "public",
+       "status": "passed",
+       "duration_ms": null,
+       "cycle": null,
+       "mismatches": []
+      },
+      {
+       "id": "t2",
+       "name": "данные меняются при том же sel",
+       "group": "public",
+       "status": "passed",
+       "duration_ms": null,
+       "cycle": null,
+       "mismatches": []
+      }
+     ],
+     "hidden_tests": {
+      "total": 2,
+      "passed": 2,
+      "failed_index": null
+     }
+    },
+    "finished_at": "2026-11-13T18:40:52.735318+00:00"
+   },
+   {
+    "key": "netlist_sim@wide",
+    "type": "sim",
+    "ordinal": 10,
+    "param_set": {
+     "id": "wide",
+     "values": {
+      "WIDTH": 32
+     }
+    },
+    "status": "passed",
+    "failure_kind": null,
+    "error_code": null,
+    "started_at": "2026-11-13T18:40:52.735255Z",
+    "duration_ms": 9255,
+    "metrics_schema": "sim/v1",
+    "metrics": {
+     "tests_total": 4,
+     "tests_passed": 4,
+     "cycles": 231,
+     "seed": 20261026
+    },
+    "summary": {
+     "caption": "пройдено 4 из 4",
+     "skip_reason": null,
+     "diagnostics": [],
+     "tests": [
+      {
+       "id": "t1",
+       "name": "каждый вход по очереди",
+       "group": "public",
+       "status": "passed",
+       "duration_ms": null,
+       "cycle": null,
+       "mismatches": []
+      },
+      {
+       "id": "t2",
+       "name": "данные меняются при том же sel",
+       "group": "public",
+       "status": "passed",
+       "duration_ms": null,
+       "cycle": null,
+       "mismatches": []
+      }
+     ],
+     "hidden_tests": {
+      "total": 2,
+      "passed": 2,
+      "failed_index": null
+     }
+    },
+    "finished_at": "2026-11-13T18:41:01.990255+00:00"
    }
   ],
   "artifacts": [
@@ -257,9 +570,41 @@
    },
    {
     "kind": "log",
+    "stage": "sim_full@narrow",
+    "state": "ready",
+    "size_bytes": 0,
+    "error_code": null,
+    "waveform": null
+   },
+   {
+    "kind": "log",
+    "stage": "sim_full@wide",
+    "state": "ready",
+    "size_bytes": 0,
+    "error_code": null,
+    "waveform": null
+   },
+   {
+    "kind": "log",
     "stage": "synth",
     "state": "ready",
     "size_bytes": 1016,
+    "error_code": null,
+    "waveform": null
+   },
+   {
+    "kind": "log",
+    "stage": "synth@narrow",
+    "state": "ready",
+    "size_bytes": 966,
+    "error_code": null,
+    "waveform": null
+   },
+   {
+    "kind": "log",
+    "stage": "synth@wide",
+    "state": "ready",
+    "size_bytes": 1022,
     "error_code": null,
     "waveform": null
    },
@@ -272,10 +617,26 @@
     "waveform": null
    },
    {
+    "kind": "log",
+    "stage": "netlist_sim@narrow",
+    "state": "ready",
+    "size_bytes": 0,
+    "error_code": null,
+    "waveform": null
+   },
+   {
+    "kind": "log",
+    "stage": "netlist_sim@wide",
+    "state": "ready",
+    "size_bytes": 0,
+    "error_code": null,
+    "waveform": null
+   },
+   {
     "kind": "events",
     "stage": null,
     "state": "ready",
-    "size_bytes": 13731,
+    "size_bytes": 35431,
     "error_code": null,
     "waveform": null
    }
@@ -283,7 +644,7 @@
  },
  "events": [
   {
-   "id": "1794425275000-0",
+   "id": "1794595198000-0",
    "event": {
     "type": "queue",
     "position": 2,
@@ -291,7 +652,7 @@
    }
   },
   {
-   "id": "1794425275600-0",
+   "id": "1794595198600-0",
    "event": {
     "type": "queue",
     "position": 1,
@@ -299,7 +660,7 @@
    }
   },
   {
-   "id": "1794425276588-0",
+   "id": "1794595199677-0",
    "event": {
     "type": "stage_start",
     "stage": "precheck",
@@ -310,17 +671,7 @@
    }
   },
   {
-   "id": "1794425277588-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "precheck",
-    "elapsed_ms": 1000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794425277620-0",
+   "id": "1794595200662-0",
    "event": {
     "type": "stage_end",
     "result": {
@@ -332,8 +683,8 @@
      "failure_kind": null,
      "limit": null,
      "error_code": null,
-     "started_at": "2026-11-11T19:27:55.605878Z",
-     "duration_ms": 1031,
+     "started_at": "2026-11-13T18:39:59.378863Z",
+     "duration_ms": 985,
      "metrics_schema": "precheck/v1",
      "metrics": {
       "code_hash": "b56379fd3ee48e70a7a29e85e48d60f01e845b12b7d5f516c433eba71670dd81",
@@ -356,7 +707,7 @@
    }
   },
   {
-   "id": "1794425277620-1",
+   "id": "1794595200662-1",
    "event": {
     "type": "stage_start",
     "stage": "lint",
@@ -367,7 +718,7 @@
    }
   },
   {
-   "id": "1794425278191-0",
+   "id": "1794595201159-0",
    "event": {
     "type": "log",
     "stage": "lint",
@@ -377,17 +728,17 @@
    }
   },
   {
-   "id": "1794425278194-0",
+   "id": "1794595201162-0",
    "event": {
     "type": "log",
     "stage": "lint",
     "ch": "out",
-    "text": "- V e r i l a t i o n   R e p o r t: Verilator 5.052 2026-09-05 rev vUNKNOWN-built20261106\n- Verilator: Built from 0.030 MB sources in 2 modules, into 0.015 MB in 3 C++ files needing 0.000 MB\n- Verilator: Walltime 0.006 s (elab=0.000, cvt=0.002, bld=0.000); cpu 0.006 s on 1 threads; allocated 17.328 MB\n",
+    "text": "- V e r i l a t i o n   R e p o r t: Verilator 5.052 2026-09-05 rev vUNKNOWN-built20261106\n- Verilator: Built from 0.030 MB sources in 2 modules, into 0.015 MB in 3 C++ files needing 0.000 MB\n- Verilator: Walltime 0.008 s (elab=0.001, cvt=0.003, bld=0.000); cpu 0.008 s on 1 threads; allocated 17.176 MB\n",
     "attempt": 1
    }
   },
   {
-   "id": "1794425278508-0",
+   "id": "1794595201489-0",
    "event": {
     "type": "stage_end",
     "result": {
@@ -399,8 +750,8 @@
      "failure_kind": null,
      "limit": null,
      "error_code": null,
-     "started_at": "2026-11-11T19:27:56.637450Z",
-     "duration_ms": 888,
+     "started_at": "2026-11-13T18:40:00.363784Z",
+     "duration_ms": 827,
      "metrics_schema": "lint/v1",
      "metrics": {
       "warnings": 1,
@@ -433,18 +784,23 @@
    }
   },
   {
-   "id": "1794425278508-1",
+   "id": "1794595201489-1",
    "event": {
     "type": "stage_start",
     "stage": "sim_full",
     "stage_type": "sim",
     "ordinal": 2,
-    "param_set": null,
+    "param_set": {
+     "id": "default",
+     "values": {
+      "WIDTH": 8
+     }
+    },
     "attempt": 1
    }
   },
   {
-   "id": "1794425279508-0",
+   "id": "1794595202489-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full",
@@ -454,7 +810,7 @@
    }
   },
   {
-   "id": "1794425280508-0",
+   "id": "1794595203489-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full",
@@ -464,7 +820,7 @@
    }
   },
   {
-   "id": "1794425281508-0",
+   "id": "1794595204489-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full",
@@ -474,7 +830,7 @@
    }
   },
   {
-   "id": "1794425282508-0",
+   "id": "1794595205489-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full",
@@ -484,7 +840,7 @@
    }
   },
   {
-   "id": "1794425283508-0",
+   "id": "1794595206489-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full",
@@ -494,7 +850,7 @@
    }
   },
   {
-   "id": "1794425284508-0",
+   "id": "1794595207489-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full",
@@ -504,7 +860,7 @@
    }
   },
   {
-   "id": "1794425285508-0",
+   "id": "1794595208489-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full",
@@ -514,7 +870,7 @@
    }
   },
   {
-   "id": "1794425286508-0",
+   "id": "1794595209489-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full",
@@ -524,7 +880,7 @@
    }
   },
   {
-   "id": "1794425287280-0",
+   "id": "1794595210184-0",
    "event": {
     "type": "test",
     "stage": "sim_full",
@@ -541,7 +897,7 @@
    }
   },
   {
-   "id": "1794425287280-1",
+   "id": "1794595210184-1",
    "event": {
     "type": "test",
     "stage": "sim_full",
@@ -558,7 +914,7 @@
    }
   },
   {
-   "id": "1794425287280-2",
+   "id": "1794595210184-2",
    "event": {
     "type": "test",
     "stage": "sim_full",
@@ -575,7 +931,7 @@
    }
   },
   {
-   "id": "1794425287280-3",
+   "id": "1794595210184-3",
    "event": {
     "type": "test",
     "stage": "sim_full",
@@ -592,7 +948,7 @@
    }
   },
   {
-   "id": "1794425287280-4",
+   "id": "1794595210184-4",
    "event": {
     "type": "test",
     "stage": "sim_full",
@@ -609,7 +965,7 @@
    }
   },
   {
-   "id": "1794425287280-5",
+   "id": "1794595210184-5",
    "event": {
     "type": "test",
     "stage": "sim_full",
@@ -626,7 +982,7 @@
    }
   },
   {
-   "id": "1794425287280-6",
+   "id": "1794595210184-6",
    "event": {
     "type": "test",
     "stage": "sim_full",
@@ -643,7 +999,7 @@
    }
   },
   {
-   "id": "1794425287280-7",
+   "id": "1794595210184-7",
    "event": {
     "type": "test",
     "stage": "sim_full",
@@ -660,20 +1016,25 @@
    }
   },
   {
-   "id": "1794425287635-0",
+   "id": "1794595210514-0",
    "event": {
     "type": "stage_end",
     "result": {
      "key": "sim_full",
      "type": "sim",
      "ordinal": 2,
-     "param_set": null,
+     "param_set": {
+      "id": "default",
+      "values": {
+       "WIDTH": 8
+      }
+     },
      "status": "passed",
      "failure_kind": null,
      "limit": null,
      "error_code": null,
-     "started_at": "2026-11-11T19:27:57.525879Z",
-     "duration_ms": 9127,
+     "started_at": "2026-11-13T18:40:01.190874Z",
+     "duration_ms": 9024,
      "metrics_schema": "sim/v1",
      "metrics": {
       "tests_total": 4,
@@ -717,18 +1078,611 @@
    }
   },
   {
-   "id": "1794425287635-1",
+   "id": "1794595210514-1",
    "event": {
     "type": "stage_start",
-    "stage": "synth",
-    "stage_type": "synth",
+    "stage": "sim_full@narrow",
+    "stage_type": "sim",
     "ordinal": 3,
-    "param_set": null,
+    "param_set": {
+     "id": "narrow",
+     "values": {
+      "WIDTH": 1
+     }
+    },
     "attempt": 1
    }
   },
   {
-   "id": "1794425288635-0",
+   "id": "1794595211514-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full@narrow",
+    "elapsed_ms": 1000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595212514-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full@narrow",
+    "elapsed_ms": 2000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595213514-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full@narrow",
+    "elapsed_ms": 3000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595214514-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full@narrow",
+    "elapsed_ms": 4000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595215514-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full@narrow",
+    "elapsed_ms": 5000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595216514-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full@narrow",
+    "elapsed_ms": 6000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595217514-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full@narrow",
+    "elapsed_ms": 7000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595218514-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full@narrow",
+    "elapsed_ms": 8000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595219225-0",
+   "event": {
+    "type": "test",
+    "stage": "sim_full@narrow",
+    "test": {
+     "id": "t1",
+     "name": "каждый вход по очереди",
+     "group": "public",
+     "status": "running",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595219225-1",
+   "event": {
+    "type": "test",
+    "stage": "sim_full@narrow",
+    "test": {
+     "id": "t1",
+     "name": "каждый вход по очереди",
+     "group": "public",
+     "status": "passed",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595219225-2",
+   "event": {
+    "type": "test",
+    "stage": "sim_full@narrow",
+    "test": {
+     "id": "t2",
+     "name": "данные меняются при том же sel",
+     "group": "public",
+     "status": "running",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595219225-3",
+   "event": {
+    "type": "test",
+    "stage": "sim_full@narrow",
+    "test": {
+     "id": "t2",
+     "name": "данные меняются при том же sel",
+     "group": "public",
+     "status": "passed",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595219225-4",
+   "event": {
+    "type": "test",
+    "stage": "sim_full@narrow",
+    "test": {
+     "id": "hidden-1",
+     "name": "",
+     "group": "hidden",
+     "status": "running",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595219225-5",
+   "event": {
+    "type": "test",
+    "stage": "sim_full@narrow",
+    "test": {
+     "id": "hidden-1",
+     "name": "",
+     "group": "hidden",
+     "status": "passed",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595219225-6",
+   "event": {
+    "type": "test",
+    "stage": "sim_full@narrow",
+    "test": {
+     "id": "hidden-2",
+     "name": "",
+     "group": "hidden",
+     "status": "running",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595219225-7",
+   "event": {
+    "type": "test",
+    "stage": "sim_full@narrow",
+    "test": {
+     "id": "hidden-2",
+     "name": "",
+     "group": "hidden",
+     "status": "passed",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595219522-0",
+   "event": {
+    "type": "stage_end",
+    "result": {
+     "key": "sim_full@narrow",
+     "type": "sim",
+     "ordinal": 3,
+     "param_set": {
+      "id": "narrow",
+      "values": {
+       "WIDTH": 1
+      }
+     },
+     "status": "passed",
+     "failure_kind": null,
+     "limit": null,
+     "error_code": null,
+     "started_at": "2026-11-13T18:40:10.215221Z",
+     "duration_ms": 9008,
+     "metrics_schema": "sim/v1",
+     "metrics": {
+      "tests_total": 4,
+      "tests_passed": 4,
+      "cycles": 231,
+      "seed": 20261026
+     },
+     "cached": false,
+     "summary": {
+      "caption": "пройдено 4 из 4",
+      "skip_reason": null,
+      "diagnostics": [],
+      "tests": [
+       {
+        "id": "t1",
+        "name": "каждый вход по очереди",
+        "group": "public",
+        "status": "passed",
+        "duration_ms": null,
+        "cycle": null,
+        "mismatches": []
+       },
+       {
+        "id": "t2",
+        "name": "данные меняются при том же sel",
+        "group": "public",
+        "status": "passed",
+        "duration_ms": null,
+        "cycle": null,
+        "mismatches": []
+       }
+      ],
+      "hidden_tests": {
+       "total": 2,
+       "passed": 2,
+       "failed_index": null
+      }
+     }
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595219522-1",
+   "event": {
+    "type": "stage_start",
+    "stage": "sim_full@wide",
+    "stage_type": "sim",
+    "ordinal": 4,
+    "param_set": {
+     "id": "wide",
+     "values": {
+      "WIDTH": 32
+     }
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595220522-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full@wide",
+    "elapsed_ms": 1000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595221522-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full@wide",
+    "elapsed_ms": 2000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595222522-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full@wide",
+    "elapsed_ms": 3000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595223522-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full@wide",
+    "elapsed_ms": 4000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595224522-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full@wide",
+    "elapsed_ms": 5000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595225522-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full@wide",
+    "elapsed_ms": 6000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595226522-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full@wide",
+    "elapsed_ms": 7000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595227522-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "sim_full@wide",
+    "elapsed_ms": 8000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595227707-0",
+   "event": {
+    "type": "test",
+    "stage": "sim_full@wide",
+    "test": {
+     "id": "t1",
+     "name": "каждый вход по очереди",
+     "group": "public",
+     "status": "running",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595227707-1",
+   "event": {
+    "type": "test",
+    "stage": "sim_full@wide",
+    "test": {
+     "id": "t1",
+     "name": "каждый вход по очереди",
+     "group": "public",
+     "status": "passed",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595227707-2",
+   "event": {
+    "type": "test",
+    "stage": "sim_full@wide",
+    "test": {
+     "id": "t2",
+     "name": "данные меняются при том же sel",
+     "group": "public",
+     "status": "running",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595227707-3",
+   "event": {
+    "type": "test",
+    "stage": "sim_full@wide",
+    "test": {
+     "id": "t2",
+     "name": "данные меняются при том же sel",
+     "group": "public",
+     "status": "passed",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595227707-4",
+   "event": {
+    "type": "test",
+    "stage": "sim_full@wide",
+    "test": {
+     "id": "hidden-1",
+     "name": "",
+     "group": "hidden",
+     "status": "running",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595227707-5",
+   "event": {
+    "type": "test",
+    "stage": "sim_full@wide",
+    "test": {
+     "id": "hidden-1",
+     "name": "",
+     "group": "hidden",
+     "status": "passed",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595227707-6",
+   "event": {
+    "type": "test",
+    "stage": "sim_full@wide",
+    "test": {
+     "id": "hidden-2",
+     "name": "",
+     "group": "hidden",
+     "status": "running",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595227707-7",
+   "event": {
+    "type": "test",
+    "stage": "sim_full@wide",
+    "test": {
+     "id": "hidden-2",
+     "name": "",
+     "group": "hidden",
+     "status": "passed",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595228034-0",
+   "event": {
+    "type": "stage_end",
+    "result": {
+     "key": "sim_full@wide",
+     "type": "sim",
+     "ordinal": 4,
+     "param_set": {
+      "id": "wide",
+      "values": {
+       "WIDTH": 32
+      }
+     },
+     "status": "passed",
+     "failure_kind": null,
+     "limit": null,
+     "error_code": null,
+     "started_at": "2026-11-13T18:40:19.223246Z",
+     "duration_ms": 8512,
+     "metrics_schema": "sim/v1",
+     "metrics": {
+      "tests_total": 4,
+      "tests_passed": 4,
+      "cycles": 231,
+      "seed": 20261026
+     },
+     "cached": false,
+     "summary": {
+      "caption": "пройдено 4 из 4",
+      "skip_reason": null,
+      "diagnostics": [],
+      "tests": [
+       {
+        "id": "t1",
+        "name": "каждый вход по очереди",
+        "group": "public",
+        "status": "passed",
+        "duration_ms": null,
+        "cycle": null,
+        "mismatches": []
+       },
+       {
+        "id": "t2",
+        "name": "данные меняются при том же sel",
+        "group": "public",
+        "status": "passed",
+        "duration_ms": null,
+        "cycle": null,
+        "mismatches": []
+       }
+      ],
+      "hidden_tests": {
+       "total": 2,
+       "passed": 2,
+       "failed_index": null
+      }
+     }
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595228034-1",
+   "event": {
+    "type": "stage_start",
+    "stage": "synth",
+    "stage_type": "synth",
+    "ordinal": 5,
+    "param_set": {
+     "id": "default",
+     "values": {
+      "WIDTH": 8
+     }
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595229034-0",
    "event": {
     "type": "heartbeat",
     "stage": "synth",
@@ -738,7 +1692,7 @@
    }
   },
   {
-   "id": "1794425289122-0",
+   "id": "1794595229434-0",
    "event": {
     "type": "log",
     "stage": "synth",
@@ -748,30 +1702,35 @@
    }
   },
   {
-   "id": "1794425290122-0",
+   "id": "1794595230434-0",
    "event": {
     "type": "heartbeat",
     "stage": "synth",
-    "elapsed_ms": 2487,
+    "elapsed_ms": 2400,
     "note": null,
     "attempt": 1
    }
   },
   {
-   "id": "1794425290521-0",
+   "id": "1794595230836-0",
    "event": {
     "type": "stage_end",
     "result": {
      "key": "synth",
      "type": "synth",
-     "ordinal": 3,
-     "param_set": null,
+     "ordinal": 5,
+     "param_set": {
+      "id": "default",
+      "values": {
+       "WIDTH": 8
+      }
+     },
      "status": "passed",
      "failure_kind": null,
      "limit": null,
      "error_code": null,
-     "started_at": "2026-11-11T19:28:06.653017Z",
-     "duration_ms": 2886,
+     "started_at": "2026-11-13T18:40:27.735518Z",
+     "duration_ms": 2802,
      "metrics_schema": "synth/v1",
      "metrics": {
       "critical_path_ns": 0.172,
@@ -804,18 +1763,213 @@
    }
   },
   {
-   "id": "1794425290521-1",
+   "id": "1794595230836-1",
    "event": {
     "type": "stage_start",
-    "stage": "netlist_sim",
-    "stage_type": "sim",
-    "ordinal": 4,
-    "param_set": null,
+    "stage": "synth@narrow",
+    "stage_type": "synth",
+    "ordinal": 6,
+    "param_set": {
+     "id": "narrow",
+     "values": {
+      "WIDTH": 1
+     }
+    },
     "attempt": 1
    }
   },
   {
-   "id": "1794425291521-0",
+   "id": "1794595231836-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "synth@narrow",
+    "elapsed_ms": 1000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595232084-0",
+   "event": {
+    "type": "log",
+    "stage": "synth@narrow",
+    "ch": "out",
+    "text": "Startpoint: sel[0] (input port clocked by clk)\nEndpoint: y (output port clocked by clk)\nPath Group: clk\nPath Type: max\n\n   Delay     Time   Description\n-----------------------------------------------------------\n   0.000    0.000   clock clk (rise edge)\n   0.000    0.000   clock network delay (ideal)\n   0.000    0.000 ^ input external delay\n   0.010    0.010 ^ sel[0] (in)\n   0.056    0.066 v _2_/Z (MUX2_X1)\n   0.057    0.123 v _4_/Z (MUX2_X1)\n   0.000    0.123 v y (out)\n            0.123   data arrival time\n\n   2.000    2.000   clock clk (rise edge)\n   0.000    2.000   clock network delay (ideal)\n   0.000    2.000   clock reconvergence pessimism\n   0.000    2.000   output external delay\n            2.000   data required time\n-----------------------------------------------------------\n            2.000   data required time\n           -0.123   data arrival time\n-----------------------------------------------------------\n            1.877   slack (MET)\n\n\n",
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595233084-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "synth@narrow",
+    "elapsed_ms": 2248,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595233339-0",
+   "event": {
+    "type": "stage_end",
+    "result": {
+     "key": "synth@narrow",
+     "type": "synth",
+     "ordinal": 6,
+     "param_set": {
+      "id": "narrow",
+      "values": {
+       "WIDTH": 1
+      }
+     },
+     "status": "passed",
+     "failure_kind": null,
+     "limit": null,
+     "error_code": null,
+     "started_at": "2026-11-13T18:40:30.537479Z",
+     "duration_ms": 2503,
+     "metrics_schema": "synth/v1",
+     "metrics": {
+      "critical_path_ns": 0.123,
+      "area_um2": 5.59,
+      "cells": 3,
+      "flops": 0,
+      "latches": 0,
+      "logic_depth": 2,
+      "liberty": "nangate45",
+      "cells_by_type": {
+       "MUX2_X1": 3
+      }
+     },
+     "cached": false,
+     "summary": {
+      "caption": "0,123 нс, 5,59 мкм², ячеек 3",
+      "skip_reason": null,
+      "diagnostics": [],
+      "tests": [],
+      "hidden_tests": null
+     }
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595233339-1",
+   "event": {
+    "type": "stage_start",
+    "stage": "synth@wide",
+    "stage_type": "synth",
+    "ordinal": 7,
+    "param_set": {
+     "id": "wide",
+     "values": {
+      "WIDTH": 32
+     }
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595234339-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "synth@wide",
+    "elapsed_ms": 1000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595234633-0",
+   "event": {
+    "type": "log",
+    "stage": "synth@wide",
+    "ch": "out",
+    "text": "Startpoint: sel[1] (input port clocked by clk)\nEndpoint: y[10] (output port clocked by clk)\nPath Group: clk\nPath Type: max\n\n   Delay     Time   Description\n-----------------------------------------------------------\n   0.000    0.000   clock clk (rise edge)\n   0.000    0.000   clock network delay (ideal)\n   0.000    0.000 v input external delay\n   0.047    0.047 v sel[1] (in)\n   0.299    0.346 ^ _185_/ZN (NOR2_X1)\n   0.015    0.362 v _194_/ZN (AOI22_X1)\n   0.037    0.399 ^ _195_/ZN (OAI211_X1)\n   0.000    0.399 ^ y[10] (out)\n            0.399   data arrival time\n\n   2.000    2.000   clock clk (rise edge)\n   0.000    2.000   clock network delay (ideal)\n   0.000    2.000   clock reconvergence pessimism\n   0.000    2.000   output external delay\n            2.000   data required time\n-----------------------------------------------------------\n            2.000   data required time\n           -0.399   data arrival time\n-----------------------------------------------------------\n            1.601   slack (MET)\n\n\n",
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595235633-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "synth@wide",
+    "elapsed_ms": 2294,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595236089-0",
+   "event": {
+    "type": "stage_end",
+    "result": {
+     "key": "synth@wide",
+     "type": "synth",
+     "ordinal": 7,
+     "param_set": {
+      "id": "wide",
+      "values": {
+       "WIDTH": 32
+      }
+     },
+     "status": "passed",
+     "failure_kind": null,
+     "limit": null,
+     "error_code": null,
+     "started_at": "2026-11-13T18:40:33.040239Z",
+     "duration_ms": 2750,
+     "metrics_schema": "synth/v1",
+     "metrics": {
+      "critical_path_ns": 0.399,
+      "area_um2": 145.24,
+      "cells": 143,
+      "flops": 0,
+      "latches": 0,
+      "logic_depth": 3,
+      "liberty": "nangate45",
+      "cells_by_type": {
+       "AND2_X1": 1,
+       "AOI22_X1": 23,
+       "INV_X1": 35,
+       "NAND2_X1": 20,
+       "NAND3_X1": 31,
+       "NAND4_X1": 9,
+       "NOR2_X1": 1,
+       "OAI211_X1": 13,
+       "OAI221_X1": 10
+      }
+     },
+     "cached": false,
+     "summary": {
+      "caption": "0,399 нс, 145,24 мкм², ячеек 143",
+      "skip_reason": null,
+      "diagnostics": [],
+      "tests": [],
+      "hidden_tests": null
+     }
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595236089-1",
+   "event": {
+    "type": "stage_start",
+    "stage": "netlist_sim",
+    "stage_type": "sim",
+    "ordinal": 8,
+    "param_set": {
+     "id": "default",
+     "values": {
+      "WIDTH": 8
+     }
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595237089-0",
    "event": {
     "type": "heartbeat",
     "stage": "netlist_sim",
@@ -825,7 +1979,7 @@
    }
   },
   {
-   "id": "1794425292521-0",
+   "id": "1794595238089-0",
    "event": {
     "type": "heartbeat",
     "stage": "netlist_sim",
@@ -835,7 +1989,7 @@
    }
   },
   {
-   "id": "1794425293521-0",
+   "id": "1794595239089-0",
    "event": {
     "type": "heartbeat",
     "stage": "netlist_sim",
@@ -845,7 +1999,7 @@
    }
   },
   {
-   "id": "1794425294521-0",
+   "id": "1794595240089-0",
    "event": {
     "type": "heartbeat",
     "stage": "netlist_sim",
@@ -855,7 +2009,7 @@
    }
   },
   {
-   "id": "1794425295521-0",
+   "id": "1794595241089-0",
    "event": {
     "type": "heartbeat",
     "stage": "netlist_sim",
@@ -865,7 +2019,7 @@
    }
   },
   {
-   "id": "1794425296521-0",
+   "id": "1794595242089-0",
    "event": {
     "type": "heartbeat",
     "stage": "netlist_sim",
@@ -875,7 +2029,7 @@
    }
   },
   {
-   "id": "1794425297521-0",
+   "id": "1794595243089-0",
    "event": {
     "type": "heartbeat",
     "stage": "netlist_sim",
@@ -885,7 +2039,7 @@
    }
   },
   {
-   "id": "1794425298521-0",
+   "id": "1794595244089-0",
    "event": {
     "type": "heartbeat",
     "stage": "netlist_sim",
@@ -895,7 +2049,7 @@
    }
   },
   {
-   "id": "1794425299248-0",
+   "id": "1794595244224-0",
    "event": {
     "type": "test",
     "stage": "netlist_sim",
@@ -912,7 +2066,7 @@
    }
   },
   {
-   "id": "1794425299248-1",
+   "id": "1794595244224-1",
    "event": {
     "type": "test",
     "stage": "netlist_sim",
@@ -929,7 +2083,7 @@
    }
   },
   {
-   "id": "1794425299248-2",
+   "id": "1794595244224-2",
    "event": {
     "type": "test",
     "stage": "netlist_sim",
@@ -946,7 +2100,7 @@
    }
   },
   {
-   "id": "1794425299248-3",
+   "id": "1794595244224-3",
    "event": {
     "type": "test",
     "stage": "netlist_sim",
@@ -963,7 +2117,7 @@
    }
   },
   {
-   "id": "1794425299248-4",
+   "id": "1794595244224-4",
    "event": {
     "type": "test",
     "stage": "netlist_sim",
@@ -980,7 +2134,7 @@
    }
   },
   {
-   "id": "1794425299248-5",
+   "id": "1794595244224-5",
    "event": {
     "type": "test",
     "stage": "netlist_sim",
@@ -997,7 +2151,7 @@
    }
   },
   {
-   "id": "1794425299248-6",
+   "id": "1794595244224-6",
    "event": {
     "type": "test",
     "stage": "netlist_sim",
@@ -1014,7 +2168,7 @@
    }
   },
   {
-   "id": "1794425299248-7",
+   "id": "1794595244224-7",
    "event": {
     "type": "test",
     "stage": "netlist_sim",
@@ -1031,20 +2185,25 @@
    }
   },
   {
-   "id": "1794425299544-0",
+   "id": "1794595244508-0",
    "event": {
     "type": "stage_end",
     "result": {
      "key": "netlist_sim",
      "type": "sim",
-     "ordinal": 4,
-     "param_set": null,
+     "ordinal": 8,
+     "param_set": {
+      "id": "default",
+      "values": {
+       "WIDTH": 8
+      }
+     },
      "status": "passed",
      "failure_kind": null,
      "limit": null,
      "error_code": null,
-     "started_at": "2026-11-11T19:28:09.538871Z",
-     "duration_ms": 9022,
+     "started_at": "2026-11-13T18:40:35.790033Z",
+     "duration_ms": 8419,
      "metrics_schema": "sim/v1",
      "metrics": {
       "tests_total": 4,
@@ -1088,14 +2247,602 @@
    }
   },
   {
-   "id": "1794425299544-1",
+   "id": "1794595244508-1",
+   "event": {
+    "type": "stage_start",
+    "stage": "netlist_sim@narrow",
+    "stage_type": "sim",
+    "ordinal": 9,
+    "param_set": {
+     "id": "narrow",
+     "values": {
+      "WIDTH": 1
+     }
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595245508-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "netlist_sim@narrow",
+    "elapsed_ms": 1000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595246508-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "netlist_sim@narrow",
+    "elapsed_ms": 2000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595247508-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "netlist_sim@narrow",
+    "elapsed_ms": 3000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595248508-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "netlist_sim@narrow",
+    "elapsed_ms": 4000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595249508-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "netlist_sim@narrow",
+    "elapsed_ms": 5000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595250508-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "netlist_sim@narrow",
+    "elapsed_ms": 6000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595251508-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "netlist_sim@narrow",
+    "elapsed_ms": 7000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595252508-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "netlist_sim@narrow",
+    "elapsed_ms": 8000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595252716-0",
+   "event": {
+    "type": "test",
+    "stage": "netlist_sim@narrow",
+    "test": {
+     "id": "t1",
+     "name": "каждый вход по очереди",
+     "group": "public",
+     "status": "running",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595252716-1",
+   "event": {
+    "type": "test",
+    "stage": "netlist_sim@narrow",
+    "test": {
+     "id": "t1",
+     "name": "каждый вход по очереди",
+     "group": "public",
+     "status": "passed",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595252716-2",
+   "event": {
+    "type": "test",
+    "stage": "netlist_sim@narrow",
+    "test": {
+     "id": "t2",
+     "name": "данные меняются при том же sel",
+     "group": "public",
+     "status": "running",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595252716-3",
+   "event": {
+    "type": "test",
+    "stage": "netlist_sim@narrow",
+    "test": {
+     "id": "t2",
+     "name": "данные меняются при том же sel",
+     "group": "public",
+     "status": "passed",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595252716-4",
+   "event": {
+    "type": "test",
+    "stage": "netlist_sim@narrow",
+    "test": {
+     "id": "hidden-1",
+     "name": "",
+     "group": "hidden",
+     "status": "running",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595252716-5",
+   "event": {
+    "type": "test",
+    "stage": "netlist_sim@narrow",
+    "test": {
+     "id": "hidden-1",
+     "name": "",
+     "group": "hidden",
+     "status": "passed",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595252716-6",
+   "event": {
+    "type": "test",
+    "stage": "netlist_sim@narrow",
+    "test": {
+     "id": "hidden-2",
+     "name": "",
+     "group": "hidden",
+     "status": "running",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595252716-7",
+   "event": {
+    "type": "test",
+    "stage": "netlist_sim@narrow",
+    "test": {
+     "id": "hidden-2",
+     "name": "",
+     "group": "hidden",
+     "status": "passed",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595253034-0",
+   "event": {
+    "type": "stage_end",
+    "result": {
+     "key": "netlist_sim@narrow",
+     "type": "sim",
+     "ordinal": 9,
+     "param_set": {
+      "id": "narrow",
+      "values": {
+       "WIDTH": 1
+      }
+     },
+     "status": "passed",
+     "failure_kind": null,
+     "limit": null,
+     "error_code": null,
+     "started_at": "2026-11-13T18:40:44.209318Z",
+     "duration_ms": 8526,
+     "metrics_schema": "sim/v1",
+     "metrics": {
+      "tests_total": 4,
+      "tests_passed": 4,
+      "cycles": 231,
+      "seed": 20261026
+     },
+     "cached": false,
+     "summary": {
+      "caption": "пройдено 4 из 4",
+      "skip_reason": null,
+      "diagnostics": [],
+      "tests": [
+       {
+        "id": "t1",
+        "name": "каждый вход по очереди",
+        "group": "public",
+        "status": "passed",
+        "duration_ms": null,
+        "cycle": null,
+        "mismatches": []
+       },
+       {
+        "id": "t2",
+        "name": "данные меняются при том же sel",
+        "group": "public",
+        "status": "passed",
+        "duration_ms": null,
+        "cycle": null,
+        "mismatches": []
+       }
+      ],
+      "hidden_tests": {
+       "total": 2,
+       "passed": 2,
+       "failed_index": null
+      }
+     }
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595253034-1",
+   "event": {
+    "type": "stage_start",
+    "stage": "netlist_sim@wide",
+    "stage_type": "sim",
+    "ordinal": 10,
+    "param_set": {
+     "id": "wide",
+     "values": {
+      "WIDTH": 32
+     }
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595254034-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "netlist_sim@wide",
+    "elapsed_ms": 1000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595255034-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "netlist_sim@wide",
+    "elapsed_ms": 2000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595256034-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "netlist_sim@wide",
+    "elapsed_ms": 3000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595257034-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "netlist_sim@wide",
+    "elapsed_ms": 4000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595258034-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "netlist_sim@wide",
+    "elapsed_ms": 5000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595259034-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "netlist_sim@wide",
+    "elapsed_ms": 6000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595260034-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "netlist_sim@wide",
+    "elapsed_ms": 7000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595261034-0",
+   "event": {
+    "type": "heartbeat",
+    "stage": "netlist_sim@wide",
+    "elapsed_ms": 8000,
+    "note": null,
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595261918-0",
+   "event": {
+    "type": "test",
+    "stage": "netlist_sim@wide",
+    "test": {
+     "id": "t1",
+     "name": "каждый вход по очереди",
+     "group": "public",
+     "status": "running",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595261918-1",
+   "event": {
+    "type": "test",
+    "stage": "netlist_sim@wide",
+    "test": {
+     "id": "t1",
+     "name": "каждый вход по очереди",
+     "group": "public",
+     "status": "passed",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595261918-2",
+   "event": {
+    "type": "test",
+    "stage": "netlist_sim@wide",
+    "test": {
+     "id": "t2",
+     "name": "данные меняются при том же sel",
+     "group": "public",
+     "status": "running",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595261918-3",
+   "event": {
+    "type": "test",
+    "stage": "netlist_sim@wide",
+    "test": {
+     "id": "t2",
+     "name": "данные меняются при том же sel",
+     "group": "public",
+     "status": "passed",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595261918-4",
+   "event": {
+    "type": "test",
+    "stage": "netlist_sim@wide",
+    "test": {
+     "id": "hidden-1",
+     "name": "",
+     "group": "hidden",
+     "status": "running",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595261918-5",
+   "event": {
+    "type": "test",
+    "stage": "netlist_sim@wide",
+    "test": {
+     "id": "hidden-1",
+     "name": "",
+     "group": "hidden",
+     "status": "passed",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595261918-6",
+   "event": {
+    "type": "test",
+    "stage": "netlist_sim@wide",
+    "test": {
+     "id": "hidden-2",
+     "name": "",
+     "group": "hidden",
+     "status": "running",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595261918-7",
+   "event": {
+    "type": "test",
+    "stage": "netlist_sim@wide",
+    "test": {
+     "id": "hidden-2",
+     "name": "",
+     "group": "hidden",
+     "status": "passed",
+     "duration_ms": null,
+     "cycle": null,
+     "mismatches": []
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595262289-0",
+   "event": {
+    "type": "stage_end",
+    "result": {
+     "key": "netlist_sim@wide",
+     "type": "sim",
+     "ordinal": 10,
+     "param_set": {
+      "id": "wide",
+      "values": {
+       "WIDTH": 32
+      }
+     },
+     "status": "passed",
+     "failure_kind": null,
+     "limit": null,
+     "error_code": null,
+     "started_at": "2026-11-13T18:40:52.735255Z",
+     "duration_ms": 9255,
+     "metrics_schema": "sim/v1",
+     "metrics": {
+      "tests_total": 4,
+      "tests_passed": 4,
+      "cycles": 231,
+      "seed": 20261026
+     },
+     "cached": false,
+     "summary": {
+      "caption": "пройдено 4 из 4",
+      "skip_reason": null,
+      "diagnostics": [],
+      "tests": [
+       {
+        "id": "t1",
+        "name": "каждый вход по очереди",
+        "group": "public",
+        "status": "passed",
+        "duration_ms": null,
+        "cycle": null,
+        "mismatches": []
+       },
+       {
+        "id": "t2",
+        "name": "данные меняются при том же sel",
+        "group": "public",
+        "status": "passed",
+        "duration_ms": null,
+        "cycle": null,
+        "mismatches": []
+       }
+      ],
+      "hidden_tests": {
+       "total": 2,
+       "passed": 2,
+       "failed_index": null
+      }
+     }
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595262289-1",
    "event": {
     "type": "done",
     "attempt": 1
    }
   },
   {
-   "id": "1794425299664-0",
+   "id": "1794595262409-0",
    "event": {
     "type": "finalized",
     "status": "accepted_with_warnings",

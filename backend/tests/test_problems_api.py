@@ -276,18 +276,35 @@ def test_problem_is_its_current_version(api: TestClient) -> None:
         "reset": None,
         "description": "Номер выбираемого входа",
     }
+    # Stages at several parameter sets come once per set, as the judge runs them (ADR-0014).
+    sets = {
+        "default": {"id": "default", "values": {"WIDTH": 8}},
+        "narrow": {"id": "narrow", "values": {"WIDTH": 1}},
+        "wide": {"id": "wide", "values": {"WIDTH": 32}},
+    }
+
+    def instances(key: str, type_: str) -> list[dict[str, object]]:
+        return [
+            {
+                "key": key if set_id == "default" else f"{key}@{set_id}",
+                "type": type_,
+                "param_set": param_set,
+            }
+            for set_id, param_set in sets.items()
+        ]
+
     assert problem["pipeline"] == {
         "run": [
-            {"key": "precheck", "type": "precheck"},
-            {"key": "lint", "type": "lint"},
-            {"key": "sim_run", "type": "sim"},
+            {"key": "precheck", "type": "precheck", "param_set": None},
+            {"key": "lint", "type": "lint", "param_set": None},
+            {"key": "sim_run", "type": "sim", "param_set": None},
         ],
         "submit": [
-            {"key": "precheck", "type": "precheck"},
-            {"key": "lint", "type": "lint"},
-            {"key": "sim_full", "type": "sim"},
-            {"key": "synth", "type": "synth"},
-            {"key": "netlist_sim", "type": "sim"},
+            {"key": "precheck", "type": "precheck", "param_set": None},
+            {"key": "lint", "type": "lint", "param_set": None},
+            *instances("sim_full", "sim"),
+            *instances("synth", "synth"),
+            *instances("netlist_sim", "sim"),
         ],
     }
     assert problem["tests"] == {"public": 2, "hidden": 2}

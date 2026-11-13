@@ -8,6 +8,7 @@ import { useSeconds } from "@/components/domain/duration";
 import { TestList, type TestRowView } from "@/components/domain/test-list";
 import { Button } from "@/components/ui/button";
 import type { Check } from "@/features/submission/machine";
+import { PRIMARY_SET, setValues, stageKeyOf } from "@/features/submission/param-sets";
 import { cn } from "@/lib/utils";
 
 import type { HiddenView, NotRunReason, TestsCount, TestsRow, TestsSection } from "./tests-view";
@@ -152,11 +153,22 @@ export interface ResultsTestsProps {
 
 export function ResultsTests({ check, sections, traced, onShowWaves }: ResultsTestsProps) {
   const t = useTranslations("problem.results.tests");
+  const ts = useTranslations("problem.results.paramSet");
   const rowOf = useRows(check.seed, traced, onShowWaves);
+  // Several stages are named by their keys, the instances of a stage by their sets and values.
+  const stages = new Set(sections.map((section) => stageKeyOf(section.stage))).size;
   const titleOf = (section: TestsSection) => {
     const hidden = check.kind === "submit" && section.rows.some((row) => row.kind === "hidden");
-    const title = t(check.kind === "run" ? "titleRun" : hidden ? "titleSubmit" : "titleSubmitOpen");
-    return sections.length > 1 ? t("titleStage", { title, stage: section.stage }) : title;
+    let title = t(check.kind === "run" ? "titleRun" : hidden ? "titleSubmit" : "titleSubmitOpen");
+    if (stages > 1) title = t("titleStage", { title, stage: stageKeyOf(section.stage) });
+    const set = section.paramSet;
+    if (set !== null && sections.length > 1) {
+      const values = setValues(set);
+      const stage =
+        set.id === PRIMARY_SET ? ts("primary", { values }) : ts("extra", { set: set.id, values });
+      title = t("titleStage", { title, stage });
+    }
+    return title;
   };
   return (
     <div className="h-full overflow-y-auto">

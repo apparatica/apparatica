@@ -29,7 +29,8 @@ import { CompareButton, useCompare } from "@/features/reference/compare";
 import { type SolutionCard, synthMetrics } from "@/features/share/card";
 import { useProblemCard } from "@/features/share/problem-card";
 import { ShareButton } from "@/features/share/share-dialog";
-import { type Check, isFinished, type Submission } from "@/features/submission/machine";
+import { type Check, isFinished, type Stage, type Submission } from "@/features/submission/machine";
+import { extraSetOf, setValues } from "@/features/submission/param-sets";
 import type { SubmissionState } from "@/features/submission/use-submission";
 import { apiUrl } from "@/lib/api/browser";
 import type { Schemas } from "@/lib/api/client";
@@ -87,6 +88,14 @@ export function Banner({ tone, icon: Icon, title, children, actions, spin = fals
       {actions !== undefined && <div className="flex flex-none flex-wrap gap-2">{actions}</div>}
     </div>
   );
+}
+
+/** The title of a banner about a stage instance at an extra parameter set names the set and its
+ * values (FR-JDG-14, specs/08 §3). */
+function useAtSet(stage: Stage | null, title: string): string {
+  const t = useTranslations("problem.results.banner");
+  const set = stage === null ? null : extraSetOf(stage);
+  return set === null ? title : t("atSet", { title, set: set.id, values: setValues(set) });
 }
 
 const code = (chunks: ReactNode) => (
@@ -365,11 +374,14 @@ function WrongBanner({ check, onShowWaves }: ResultBannerProps) {
     body =
       failure.caption === null ? t("wrongOther") : t("wrongCaption", { caption: failure.caption });
   }
+  const set = stage === null ? null : extraSetOf(stage);
+  let title = check.kind === "run" ? t("wrongRun") : t("wrongSubmit");
+  if (set !== null) title = t("wrongSet", { set: set.id, values: setValues(set) });
   return (
     <Banner
       tone="er"
       icon={CircleX}
-      title={check.kind === "run" ? t("wrongRun") : t("wrongSubmit")}
+      title={title}
       actions={
         onShowWaves == null ? undefined : <Button onClick={onShowWaves}>{t("showWaves")}</Button>
       }
@@ -409,8 +421,9 @@ function CompileBanner({ check, problem, onReveal }: ResultBannerProps) {
     if (forbidden) body = t("forbiddenOther");
     else body = caption ? t("compileCaption", { caption }) : t("compileOther");
   }
+  const title = useAtSet(failedStage(check), forbidden ? t("forbidden") : t("compile"));
   return (
-    <Banner tone="er" icon={CircleX} title={forbidden ? t("forbidden") : t("compile")}>
+    <Banner tone="er" icon={CircleX} title={title}>
       {body}
     </Banner>
   );
@@ -427,6 +440,7 @@ function LimitBanner({ check, submission }: ResultBannerProps) {
   if (limit === "output" && truncated?.kind === "truncated") {
     title = t("limitOf", { title, size: kilobytes(truncated.limitKb) });
   }
+  title = useAtSet(stage, title);
   const log = submission.submission?.artifacts.find(
     (artifact) =>
       artifact.kind === "log" && artifact.stage === stage?.key && artifact.state === "ready",

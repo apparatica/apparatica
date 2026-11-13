@@ -49,7 +49,9 @@ from apparatica.problems.schemas import (
     TagList,
 )
 from apparatica.problems.schemas import Tag as TagSchema
-from judge.core.package import Interface
+from judge.core.package import PRIMARY_SET, Interface, split_instance_key
+from judge.core.package import Problem as Package
+from judge.core.stage import ParamSet
 
 
 async def list_tags(session: AsyncSession) -> TagList:
@@ -252,12 +254,23 @@ def _detail(problem: Problem, found: ProblemVersion) -> ProblemVersionDetail:
 
 
 def _pipeline(manifest: dict[str, Any]) -> PipelineInfo:
-    stages, practice = manifest["stages"], manifest["pipelines"]["practice"]
+    """The stage instances of Run and Submit as the judge runs them (ADR-0014)."""
+    package = Package.model_validate(manifest)
+    interface = package.interface
 
     def describe(keys: list[str]) -> list[PipelineStage]:
-        return [PipelineStage(key=key, type=stages[key]["type"]) for key in keys]
+        described = []
+        for key in package.instance_keys(keys):
+            stage_key, set_id = split_instance_key(key)
+            param_set = None
+            if package.stage_param_sets(stage_key) != [PRIMARY_SET]:
+                param_set = ParamSet(id=set_id, values=interface.param_set_values(set_id))
+            stage_type = package.stages[stage_key].type
+            described.append(PipelineStage(key=key, type=stage_type, param_set=param_set))
+        return described
 
-    return PipelineInfo(run=describe(practice["run"]), submit=describe(practice["submit"]))
+    practice = package.pipelines.practice
+    return PipelineInfo(run=describe(practice.run), submit=describe(practice.submit))
 
 
 def _leaderboard(manifest: dict[str, Any]) -> LeaderboardFormula | None:

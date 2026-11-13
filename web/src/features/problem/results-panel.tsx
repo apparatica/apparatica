@@ -15,6 +15,7 @@ import { Shortcut } from "@/components/ui/kbd";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useGuest } from "@/features/account/session";
 import { type Check, isFinished, type Submission } from "@/features/submission/machine";
+import { setValues } from "@/features/submission/param-sets";
 import type { SubmissionState } from "@/features/submission/use-submission";
 import { Viewer } from "@/features/waveview/viewer";
 import type { Schemas } from "@/lib/api/client";
@@ -81,6 +82,38 @@ function useDetail(): (detail: BlockDetail | null) => string | undefined {
   };
 }
 
+/** A block as drawn. An instance at an extra parameter set names its set: in place of the caption
+ * of the stage while it runs and with the status word when it failed, its values and the caption
+ * on hover (specs/08 §3, §6). */
+function useStageView(): (view: BlockView) => StageView {
+  const t = useTranslations("problem.results.stage");
+  const ts = useTranslations("problem.results.paramSet");
+  const detailOf = useDetail();
+  return ({ block, status, detail, set, durationMs }) => {
+    let text = detailOf(detail);
+    let title: string | undefined;
+    if (detail?.kind === "caption") {
+      title = detail.sets ? `${detail.text} · ${t("sets", { count: detail.sets })}` : detail.text;
+    } else if (detail?.kind === "netlist") {
+      title = detail.caption ?? undefined;
+    }
+    let withStatus = false;
+    if (set !== null) {
+      const name = t("set", { set: set.id });
+      if (detail === null || detail.kind === "caption") {
+        text = name;
+        withStatus = status === "failed";
+      } else {
+        text = `${text} · ${name}`;
+      }
+      title = [ts("extra", { set: set.id, values: setValues(set) }), title]
+        .filter(Boolean)
+        .join(" · ");
+    }
+    return { block, status, detail: text, withStatus, durationMs, title };
+  };
+}
+
 /** The caption right of the pipeline title: the wait, the time so far or the total. */
 function PipelineTotal({ check, blocks }: { check: Check | null; blocks: BlockView[] }) {
   const t = useTranslations("problem.results.total");
@@ -99,7 +132,7 @@ export function ResultsPanel({ submission, problem, busy, onCheck, onReveal }: R
   const t = useTranslations("problem.results");
   const tp = useTranslations("domain.pipeline");
   const tv = useTranslations("domain.verdict");
-  const detailOf = useDetail();
+  const stageView = useStageView();
   const now = useNow(tickOf(submission));
   // The console is open at first (specs/08 §3); the chosen tab stays for the next checks.
   const [tab, setTab] = useState<ResultsTab>("console");
@@ -141,18 +174,7 @@ export function ResultsPanel({ submission, problem, busy, onCheck, onReveal }: R
 
   const runningMs = check?.runningSince == null ? null : Math.max(0, now - check.runningSince);
   const blocks = pipelineView(problem.pipeline, check, runningMs);
-  const stages: StageView[] = blocks.map(({ block, status, detail, durationMs }) => ({
-    block,
-    status,
-    detail: detailOf(detail),
-    durationMs,
-    title:
-      detail?.kind === "caption"
-        ? detail.text
-        : detail?.kind === "netlist"
-          ? (detail.caption ?? undefined)
-          : undefined,
-  }));
+  const stages: StageView[] = blocks.map(stageView);
   const tests = check === null ? [] : testsView(check, problem);
   const count = testsCount(tests);
   let open = tab;

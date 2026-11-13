@@ -12,9 +12,20 @@ const FIFO = versions.find(
   (problem) => problem.slug === "sync-fifo",
 ) as Schemas["ProblemVersionDetail"];
 
+const COUNTER = versions.find(
+  (problem) => problem.slug === "counter-mod-n",
+) as Schemas["ProblemVersionDetail"];
+
 const rowsOf = (check: Check, problem = FIFO) => {
   const [section, ...rest] = testsView(check, problem);
   expect(rest).toEqual([]);
+  return section?.rows ?? [];
+};
+
+/** The rows of the instance at the primary set of a stage checked at several sets (ADR-0014). */
+const primaryRows = (check: Check, problem = FIFO) => {
+  const [section] = testsView(check, problem);
+  expect(section?.paramSet?.id).toBe("default");
   return section?.rows ?? [];
 };
 
@@ -201,6 +212,32 @@ describe("the open tests", () => {
   });
 });
 
+describe("parameter sets", () => {
+  it("give a section to each instance, those not started yet too", () => {
+    const scenario = scenarios["wrong-answer-param-set"];
+    const primary = playCheck(
+      scenario,
+      eventsUntil(scenario, (event) => event.type === "stage_start" && event.stage === "sim_full"),
+    );
+    expect(testsView(primary, FIFO).map(({ stage, paramSet }) => [stage, paramSet?.id])).toEqual([
+      ["sim_full", "default"],
+      ["sim_full@narrow", "narrow"],
+      ["sim_full@wide", "wide"],
+    ]);
+    expect(testsView(primary, FIFO)[1]?.rows).toEqual([
+      expect.objectContaining({ kind: "notRun", from: 1, to: 2, reason: "waiting" }),
+      { kind: "hidden", hidden: { kind: "notRun", total: 2, passed: 0, reason: "waiting" } },
+    ]);
+  });
+
+  it("stop at the instance that failed: the next ones did not run", () => {
+    const [primary, narrow, wide] = testsView(playCheck(scenarios["wrong-answer-param-set"]), FIFO);
+    expect(primary?.rows.at(-1)).toEqual({ kind: "hidden", hidden: { kind: "passed", total: 2 } });
+    expect(narrow?.rows[0]).toMatchObject({ kind: "failed", index: 1 });
+    expect(wide?.rows[0]).toMatchObject({ kind: "notRun", from: 1, to: 2, reason: "skipped" });
+  });
+});
+
 describe("the hidden tests", () => {
   it("are counted while they run", () => {
     const scenario = scenarios.accepted;
@@ -208,14 +245,15 @@ describe("the hidden tests", () => {
       scenario,
       eventsUntil(scenario, (event) => event.type === "test" && event.test.id === "hidden-1"),
     );
-    const rows = rowsOf(check);
+    const rows = primaryRows(check);
     expect(rows).toEqual([
       expect.objectContaining({ kind: "passed", from: 1, to: 2 }),
       { kind: "hidden", hidden: { kind: "running", total: 2, passed: 0, index: 1 } },
     ]);
+    // The instances at the extra sets wait: their tests count from the start.
     expect(testsCount(testsView(check, FIFO))).toEqual({
       passed: 2,
-      total: 4,
+      total: 12,
       failed: false,
       finished: false,
     });
@@ -227,7 +265,7 @@ describe("the hidden tests", () => {
       scenario,
       eventsUntil(scenario, (event) => event.type === "test"),
     );
-    expect(rowsOf(check).at(-1)).toEqual({
+    expect(primaryRows(check).at(-1)).toEqual({
       kind: "hidden",
       hidden: { kind: "notRun", total: 2, passed: 0, reason: "waiting" },
     });
@@ -235,10 +273,13 @@ describe("the hidden tests", () => {
 
   it("pass all together", () => {
     const check = playCheck(scenarios.accepted);
-    expect(rowsOf(check).at(-1)).toEqual({ kind: "hidden", hidden: { kind: "passed", total: 2 } });
+    expect(primaryRows(check).at(-1)).toEqual({
+      kind: "hidden",
+      hidden: { kind: "passed", total: 2 },
+    });
     expect(testsCount(testsView(check, FIFO))).toEqual({
-      passed: 4,
-      total: 4,
+      passed: 12,
+      total: 12,
       failed: false,
       finished: true,
     });
@@ -246,13 +287,14 @@ describe("the hidden tests", () => {
 
   it("show only the number of the failed one", () => {
     const check = playCheck(scenarios["wrong-answer-hidden"]);
-    expect(rowsOf(check)).toEqual([
+    expect(primaryRows(check, COUNTER)).toEqual([
       expect.objectContaining({ kind: "passed", from: 1, to: 2 }),
       { kind: "hidden", hidden: { kind: "failed", total: 2, passed: 0, index: 1 } },
     ]);
-    expect(testsCount(testsView(check, FIFO))).toEqual({
+    // The instances at the extra sets did not run: an earlier one failed.
+    expect(testsCount(testsView(check, COUNTER))).toEqual({
       passed: 2,
-      total: 4,
+      total: 12,
       failed: true,
       finished: true,
     });
@@ -275,7 +317,7 @@ describe("the hidden tests", () => {
           : stage,
       ),
     };
-    expect(rowsOf(stopped).at(-1)).toEqual({
+    expect(primaryRows(stopped, COUNTER).at(-1)).toEqual({
       kind: "hidden",
       hidden: { kind: "notRun", total: 2, passed: 0, reason: "afterFailure" },
     });

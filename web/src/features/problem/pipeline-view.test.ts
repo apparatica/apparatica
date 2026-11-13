@@ -29,9 +29,9 @@ const shape = (blocks: ReturnType<typeof pipelineView>) =>
 
 it("draws the stages of Run and Submit as not run before the first check", () => {
   expect(pipelineView(FIFO.pipeline, null, null)).toEqual([
-    { block: "lint", status: "pending", detail: { kind: "notRun" }, durationMs: null },
-    { block: "sim", status: "pending", detail: { kind: "notRun" }, durationMs: null },
-    { block: "synth", status: "pending", detail: { kind: "notRun" }, durationMs: null },
+    { block: "lint", status: "pending", detail: { kind: "notRun" }, set: null, durationMs: null },
+    { block: "sim", status: "pending", detail: { kind: "notRun" }, set: null, durationMs: null },
+    { block: "synth", status: "pending", detail: { kind: "notRun" }, set: null, durationMs: null },
   ]);
 });
 
@@ -53,6 +53,7 @@ it("runs the lint block from precheck to the end of lint, timing it", () => {
     block: "lint",
     status: "running",
     detail: null,
+    set: null,
     durationMs: 400,
   });
   // precheck ended, lint not started yet: the block still runs.
@@ -80,17 +81,22 @@ describe("a finished check", () => {
       "accepted",
       [
         ["lint", "passed", null],
-        ["sim", "passed", { kind: "caption", text: "пройдено 4 из 4" }],
+        // The captions of the primary set, of the three sets the blocks checked.
+        ["sim", "passed", { kind: "caption", text: "пройдено 4 из 4", sets: 3 }],
         // synth with netlist_sim: the metrics of synthesis, not the tests of the netlist
-        ["synth", "passed", { kind: "caption", text: "0,592 нс, 1194,87 мкм², ячеек 526" }],
+        [
+          "synth",
+          "passed",
+          { kind: "caption", text: "0,592 нс, 1194,87 мкм², ячеек 526", sets: 3 },
+        ],
       ],
     ],
     [
       "accepted-with-warnings",
       [
         ["lint", "warning", { kind: "warnings", count: 1 }],
-        ["sim", "passed", { kind: "caption", text: "пройдено 4 из 4" }],
-        ["synth", "passed", { kind: "caption", text: "0,172 нс, 41,76 мкм², ячеек 41" }],
+        ["sim", "passed", { kind: "caption", text: "пройдено 4 из 4", sets: 3 }],
+        ["synth", "passed", { kind: "caption", text: "0,172 нс, 41,76 мкм², ячеек 41", sets: 3 }],
       ],
     ],
     [
@@ -157,6 +163,65 @@ describe("a finished check", () => {
       ["sim", "pending", { kind: "notRun" }],
       ["synth", "pending", { kind: "notRun" }],
     ]);
+  });
+});
+
+describe("parameter sets", () => {
+  const scenario = scenarios["wrong-answer-param-set"];
+  const NARROW = { id: "narrow", values: { WIDTH: 1, DEPTH: 2 } };
+
+  it("plans every instance of a stage before the first check", () => {
+    const keys = FIFO.pipeline.submit.map((stage) => stage.key);
+    expect(keys).toContain("sim_full@narrow");
+    expect(keys).toContain("netlist_sim@wide");
+  });
+
+  it("names the set of the instance that runs, and the next one between two", () => {
+    const narrow = playCheck(
+      scenario,
+      eventsUntil(
+        scenario,
+        (event) => event.type === "stage_start" && event.stage === "sim_full@narrow",
+      ),
+    );
+    expect(pipelineView(FIFO.pipeline, narrow, 100)[1]).toMatchObject({
+      block: "sim",
+      status: "running",
+      detail: null,
+      set: NARROW,
+    });
+    // The primary instance passed, the next one has not started: the block still runs.
+    const between = playCheck(
+      scenario,
+      eventsUntil(
+        scenario,
+        (event) => event.type === "stage_end" && event.result.key === "sim_full",
+      ),
+    );
+    expect(pipelineView(FIFO.pipeline, between, null)[1]).toMatchObject({
+      status: "running",
+      set: NARROW,
+    });
+    // The primary instance runs: no set to name.
+    const primary = playCheck(
+      scenario,
+      eventsUntil(scenario, (event) => event.type === "stage_start" && event.stage === "sim_full"),
+    );
+    expect(pipelineView(FIFO.pipeline, primary, 100)[1]).toMatchObject({ set: null });
+  });
+
+  it("is failed by the instance of an extra set, the worst of them", () => {
+    const blocks = pipelineView(FIFO.pipeline, playCheck(scenario), null);
+    expect(blocks.map(({ block, status, set }) => [block, status, set])).toEqual([
+      ["lint", "passed", null],
+      ["sim", "failed", NARROW],
+      ["synth", "skipped", null],
+    ]);
+    expect(pipelineView(FIFO.pipeline, checkOf(scenario.submission), null)).toEqual(blocks);
+    expect(failureOf(playCheck(scenario))).toMatchObject({
+      kind: "test",
+      name: "запись и чтение по порядку",
+    });
   });
 });
 

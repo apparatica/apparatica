@@ -46,6 +46,8 @@ export interface StageView {
   status: StageStatus;
   /** The reason or the result in place of the status word: "тест 7 из 32", "1 замечание". */
   detail?: string | undefined;
+  /** The status word stays before the detail: "ошибка · набор narrow". */
+  withStatus?: boolean | undefined;
   /** The time of the stage; of a running stage, the time so far. */
   durationMs?: number | null | undefined;
   /** The whole detail on hover, when the block is too narrow for it. */
@@ -59,6 +61,7 @@ export function PipelineStage({
   block,
   status,
   detail,
+  withStatus = false,
   durationMs,
   className,
   ...props
@@ -67,7 +70,12 @@ export function PipelineStage({
   const seconds = useSeconds();
   const { icon: Icon, className: tone } = STAGES[status];
   const word = t(`status.${status}`);
-  const caption = [detail ?? word, durationMs == null ? null : seconds(durationMs)]
+  const replaced = detail !== undefined && !withStatus;
+  const caption = [
+    withStatus ? word : null,
+    detail ?? word,
+    durationMs == null ? null : seconds(durationMs),
+  ]
     .filter(Boolean)
     .join(" · ");
   return (
@@ -84,7 +92,7 @@ export function PipelineStage({
       <div className="flex min-w-0 flex-col leading-[1.25]">
         <span className="truncate text-[12.5px] font-medium text-tx">{t(`blocks.${block}`)}</span>
         <span className="truncate font-mono text-[11px]">
-          {detail !== undefined && <span className="sr-only">{word}: </span>}
+          {replaced && <span className="sr-only">{word}: </span>}
           {caption}
         </span>
       </div>

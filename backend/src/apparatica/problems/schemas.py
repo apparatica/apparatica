@@ -11,6 +11,7 @@ from typing import Literal
 from pydantic import BaseModel, Field, RootModel
 
 from judge.core.package import Interface, LeaderboardKey
+from judge.core.stage import ParamSet
 
 Sort = Literal["number", "-number", "difficulty", "-difficulty", "acceptance", "-acceptance"]
 ProblemStatus = Literal["solved", "attempted", "not_started"]
@@ -57,12 +58,21 @@ class ProblemPage(BaseModel):
 
 
 class PipelineStage(BaseModel):
-    key: str = Field(examples=["sim"])
+    key: str = Field(
+        examples=["sim_full", "sim_full@narrow"],
+        description="Key of the stage instance, as the check reports it: the stage key, or"
+        " `<stage key>@<set id>` at an extra parameter set (specs/06 §2)",
+    )
     type: str = Field(examples=["sim"])
+    param_set: ParamSet | None = Field(
+        description="Set of a stage checked at several parameter sets (ADR-0014), the primary one"
+        " included; null: the stage runs at the primary set only"
+    )
 
 
 class PipelineInfo(BaseModel):
-    """Stages of Run and Submit, in order, to draw the pipeline before the first check."""
+    """Stage instances of Run and Submit in run order, to draw the pipeline before the first
+    check: a stage checked at several parameter sets comes once per set (ADR-0014)."""
 
     run: list[PipelineStage]
     submit: list[PipelineStage]

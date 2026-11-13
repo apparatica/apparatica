@@ -22,6 +22,14 @@ const kinds = (rows: ConsoleRow[]) =>
 describe("the rows of a check", () => {
   it("open and close each stage and fold the passed tests in a row", () => {
     const rows = consoleRows(playCheck(scenarios.accepted), FIFO.tests, SV);
+    // A stage checked at several parameter sets runs once per set (ADR-0014).
+    const instances = (key: string) => [key, `${key}@narrow`, `${key}@wide`];
+    const tested = (key: string) => [
+      `── ${key}`,
+      { kind: "passed", hidden: false, from: 1, to: 2, total: 2 },
+      { kind: "passed", hidden: true, from: 1, to: 2, total: 2 },
+      `${key}: passed`,
+    ];
     expect(
       own(rows).map((row) => {
         if (row.kind === "separator") return `── ${row.stage}`;
@@ -33,16 +41,9 @@ describe("the rows of a check", () => {
       "precheck: passed",
       "── lint",
       "lint: passed",
-      "── sim_full",
-      { kind: "passed", hidden: false, from: 1, to: 2, total: 2 },
-      { kind: "passed", hidden: true, from: 1, to: 2, total: 2 },
-      "sim_full: passed",
-      "── synth",
-      "synth: passed",
-      "── netlist_sim",
-      { kind: "passed", hidden: false, from: 1, to: 2, total: 2 },
-      { kind: "passed", hidden: true, from: 1, to: 2, total: 2 },
-      "netlist_sim: passed",
+      ...instances("sim_full").flatMap(tested),
+      ...instances("synth").flatMap((key) => [`── ${key}`, `${key}: passed`]),
+      ...instances("netlist_sim").flatMap(tested),
     ]);
   });
 

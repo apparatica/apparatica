@@ -1,7 +1,7 @@
 {
  "name": "wrong-answer-hidden",
  "submission": {
-  "id": "01a1cc15-56e8-7732-851c-f2ece825b8a7",
+  "id": "01a1d636-8e30-7c32-b36c-8718dc34683f",
   "problem": "counter-mod-n",
   "problem_title": "Счётчик по модулю N",
   "version": 4,
@@ -24,8 +24,8 @@
    "warnings": [],
    "error_codes": []
   },
-  "created_at": "2026-11-11T19:28:33+00:00",
-  "finished_at": "2026-11-11T19:28:48.736000+00:00",
+  "created_at": "2026-11-13T18:41:02+00:00",
+  "finished_at": "2026-11-13T18:41:15.997000+00:00",
   "code": "module counter_mod_n #(\n  parameter int N = 10\n) (\n  input  logic                 clk,\n  input  logic                 rst,\n  input  logic                 en,\n  output logic [$clog2(N)-1:0] count,\n  output logic                 wrap\n);\n  localparam int W = $clog2(N);\n  localparam logic [W-1:0] LAST = W'(N - 1);\n\n  assign wrap = count == LAST;\n\n  always_ff @(posedge clk)\n    if (rst) count <= '0;\n    else if (en && wrap) count <= '0;\n    else if (en) count <= count + 1'b1;\nendmodule\n",
   "public": false,
   "leaderboard": null,
@@ -34,7 +34,7 @@
   "waveview_url": null,
   "queue_position": null,
   "eta_s": null,
-  "started_at": "2026-11-11T19:28:33.892922+00:00",
+  "started_at": "2026-11-13T18:41:02.818448+00:00",
   "stages": [
    {
     "key": "precheck",
@@ -44,8 +44,8 @@
     "status": "passed",
     "failure_kind": null,
     "error_code": null,
-    "started_at": "2026-11-11T19:28:33.892922Z",
-    "duration_ms": 1151,
+    "started_at": "2026-11-13T18:41:02.818448Z",
+    "duration_ms": 1066,
     "metrics_schema": "precheck/v1",
     "metrics": {
      "code_hash": "b238dd109923f75b5280aef45c6eaef55ce476a8f0e25a5302157ef49901a8da",
@@ -62,7 +62,7 @@
      "tests": [],
      "hidden_tests": null
     },
-    "finished_at": "2026-11-11T19:28:35.043922+00:00"
+    "finished_at": "2026-11-13T18:41:03.884448+00:00"
    },
    {
     "key": "lint",
@@ -72,8 +72,8 @@
     "status": "passed",
     "failure_kind": null,
     "error_code": null,
-    "started_at": "2026-11-11T19:28:35.044182Z",
-    "duration_ms": 1115,
+    "started_at": "2026-11-13T18:41:03.884526Z",
+    "duration_ms": 846,
     "metrics_schema": "lint/v1",
     "metrics": {
      "warnings": 0,
@@ -87,18 +87,23 @@
      "tests": [],
      "hidden_tests": null
     },
-    "finished_at": "2026-11-11T19:28:36.159182+00:00"
+    "finished_at": "2026-11-13T18:41:04.730526+00:00"
    },
    {
     "key": "sim_full",
     "type": "sim",
     "ordinal": 2,
-    "param_set": null,
+    "param_set": {
+     "id": "default",
+     "values": {
+      "N": 10
+     }
+    },
     "status": "failed",
     "failure_kind": "wrong",
     "error_code": null,
-    "started_at": "2026-11-11T19:28:36.159438Z",
-    "duration_ms": 11614,
+    "started_at": "2026-11-13T18:41:04.730394Z",
+    "duration_ms": 10278,
     "metrics_schema": "sim/v1",
     "metrics": {
      "tests_total": 4,
@@ -141,13 +146,122 @@
       "failed_index": 1
      }
     },
-    "finished_at": "2026-11-11T19:28:47.773438+00:00"
+    "finished_at": "2026-11-13T18:41:15.008394+00:00"
+   },
+   {
+    "key": "sim_full@min",
+    "type": "sim",
+    "ordinal": 3,
+    "param_set": {
+     "id": "min",
+     "values": {
+      "N": 2
+     }
+    },
+    "status": "skipped",
+    "failure_kind": null,
+    "error_code": null,
+    "started_at": null,
+    "duration_ms": null,
+    "metrics_schema": null,
+    "metrics": {},
+    "summary": {
+     "caption": null,
+     "skip_reason": "previous_failed",
+     "diagnostics": [],
+     "tests": [],
+     "hidden_tests": null
+    },
+    "finished_at": null
+   },
+   {
+    "key": "sim_full@pow2",
+    "type": "sim",
+    "ordinal": 4,
+    "param_set": {
+     "id": "pow2",
+     "values": {
+      "N": 16
+     }
+    },
+    "status": "skipped",
+    "failure_kind": null,
+    "error_code": null,
+    "started_at": null,
+    "duration_ms": null,
+    "metrics_schema": null,
+    "metrics": {},
+    "summary": {
+     "caption": null,
+     "skip_reason": "previous_failed",
+     "diagnostics": [],
+     "tests": [],
+     "hidden_tests": null
+    },
+    "finished_at": null
    },
    {
     "key": "synth",
     "type": "synth",
-    "ordinal": 3,
-    "param_set": null,
+    "ordinal": 5,
+    "param_set": {
+     "id": "default",
+     "values": {
+      "N": 10
+     }
+    },
+    "status": "skipped",
+    "failure_kind": null,
+    "error_code": null,
+    "started_at": null,
+    "duration_ms": null,
+    "metrics_schema": null,
+    "metrics": {},
+    "summary": {
+     "caption": null,
+     "skip_reason": "previous_failed",
+     "diagnostics": [],
+     "tests": [],
+     "hidden_tests": null
+    },
+    "finished_at": null
+   },
+   {
+    "key": "synth@min",
+    "type": "synth",
+    "ordinal": 6,
+    "param_set": {
+     "id": "min",
+     "values": {
+      "N": 2
+     }
+    },
+    "status": "skipped",
+    "failure_kind": null,
+    "error_code": null,
+    "started_at": null,
+    "duration_ms": null,
+    "metrics_schema": null,
+    "metrics": {},
+    "summary": {
+     "caption": null,
+     "skip_reason": "previous_failed",
+     "diagnostics": [],
+     "tests": [],
+     "hidden_tests": null
+    },
+    "finished_at": null
+   },
+   {
+    "key": "synth@pow2",
+    "type": "synth",
+    "ordinal": 7,
+    "param_set": {
+     "id": "pow2",
+     "values": {
+      "N": 16
+     }
+    },
     "status": "skipped",
     "failure_kind": null,
     "error_code": null,
@@ -167,8 +281,65 @@
    {
     "key": "netlist_sim",
     "type": "sim",
-    "ordinal": 4,
-    "param_set": null,
+    "ordinal": 8,
+    "param_set": {
+     "id": "default",
+     "values": {
+      "N": 10
+     }
+    },
+    "status": "skipped",
+    "failure_kind": null,
+    "error_code": null,
+    "started_at": null,
+    "duration_ms": null,
+    "metrics_schema": null,
+    "metrics": {},
+    "summary": {
+     "caption": null,
+     "skip_reason": "previous_failed",
+     "diagnostics": [],
+     "tests": [],
+     "hidden_tests": null
+    },
+    "finished_at": null
+   },
+   {
+    "key": "netlist_sim@min",
+    "type": "sim",
+    "ordinal": 9,
+    "param_set": {
+     "id": "min",
+     "values": {
+      "N": 2
+     }
+    },
+    "status": "skipped",
+    "failure_kind": null,
+    "error_code": null,
+    "started_at": null,
+    "duration_ms": null,
+    "metrics_schema": null,
+    "metrics": {},
+    "summary": {
+     "caption": null,
+     "skip_reason": "previous_failed",
+     "diagnostics": [],
+     "tests": [],
+     "hidden_tests": null
+    },
+    "finished_at": null
+   },
+   {
+    "key": "netlist_sim@pow2",
+    "type": "sim",
+    "ordinal": 10,
+    "param_set": {
+     "id": "pow2",
+     "values": {
+      "N": 16
+     }
+    },
     "status": "skipped",
     "failure_kind": null,
     "error_code": null,
@@ -215,7 +386,7 @@
     "kind": "events",
     "stage": null,
     "state": "ready",
-    "size_bytes": 7756,
+    "size_bytes": 10511,
     "error_code": null,
     "waveform": null
    }
@@ -223,7 +394,7 @@
  },
  "events": [
   {
-   "id": "1794425313000-0",
+   "id": "1794595262000-0",
    "event": {
     "type": "queue",
     "position": 2,
@@ -231,7 +402,7 @@
    }
   },
   {
-   "id": "1794425313600-0",
+   "id": "1794595262600-0",
    "event": {
     "type": "queue",
     "position": 1,
@@ -239,7 +410,7 @@
    }
   },
   {
-   "id": "1794425314735-0",
+   "id": "1794595263687-0",
    "event": {
     "type": "stage_start",
     "stage": "precheck",
@@ -250,7 +421,7 @@
    }
   },
   {
-   "id": "1794425315735-0",
+   "id": "1794595264687-0",
    "event": {
     "type": "heartbeat",
     "stage": "precheck",
@@ -260,7 +431,7 @@
    }
   },
   {
-   "id": "1794425315886-0",
+   "id": "1794595264753-0",
    "event": {
     "type": "stage_end",
     "result": {
@@ -272,8 +443,8 @@
      "failure_kind": null,
      "limit": null,
      "error_code": null,
-     "started_at": "2026-11-11T19:28:33.892922Z",
-     "duration_ms": 1151,
+     "started_at": "2026-11-13T18:41:02.818448Z",
+     "duration_ms": 1066,
      "metrics_schema": "precheck/v1",
      "metrics": {
       "code_hash": "b238dd109923f75b5280aef45c6eaef55ce476a8f0e25a5302157ef49901a8da",
@@ -296,7 +467,7 @@
    }
   },
   {
-   "id": "1794425315886-1",
+   "id": "1794595264753-1",
    "event": {
     "type": "stage_start",
     "stage": "lint",
@@ -307,17 +478,17 @@
    }
   },
   {
-   "id": "1794425316492-0",
+   "id": "1794595265270-0",
    "event": {
     "type": "log",
     "stage": "lint",
     "ch": "out",
-    "text": "- V e r i l a t i o n   R e p o r t: Verilator 5.052 2026-09-05 rev vUNKNOWN-built20261106\n- Verilator: Built from 0.030 MB sources in 2 modules, into 0.018 MB in 3 C++ files needing 0.000 MB\n- Verilator: Walltime 0.006 s (elab=0.000, cvt=0.002, bld=0.000); cpu 0.006 s on 1 threads; allocated 17.305 MB\n",
+    "text": "- V e r i l a t i o n   R e p o r t: Verilator 5.052 2026-09-05 rev vUNKNOWN-built20261106\n- Verilator: Built from 0.030 MB sources in 2 modules, into 0.018 MB in 3 C++ files needing 0.000 MB\n- Verilator: Walltime 0.006 s (elab=0.000, cvt=0.002, bld=0.000); cpu 0.006 s on 1 threads; allocated 17.324 MB\n",
     "attempt": 1
    }
   },
   {
-   "id": "1794425317001-0",
+   "id": "1794595265599-0",
    "event": {
     "type": "stage_end",
     "result": {
@@ -329,8 +500,8 @@
      "failure_kind": null,
      "limit": null,
      "error_code": null,
-     "started_at": "2026-11-11T19:28:35.044182Z",
-     "duration_ms": 1115,
+     "started_at": "2026-11-13T18:41:03.884526Z",
+     "duration_ms": 846,
      "metrics_schema": "lint/v1",
      "metrics": {
       "warnings": 0,
@@ -350,18 +521,23 @@
    }
   },
   {
-   "id": "1794425317001-1",
+   "id": "1794595265599-1",
    "event": {
     "type": "stage_start",
     "stage": "sim_full",
     "stage_type": "sim",
     "ordinal": 2,
-    "param_set": null,
+    "param_set": {
+     "id": "default",
+     "values": {
+      "N": 10
+     }
+    },
     "attempt": 1
    }
   },
   {
-   "id": "1794425318001-0",
+   "id": "1794595266599-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full",
@@ -371,7 +547,7 @@
    }
   },
   {
-   "id": "1794425319001-0",
+   "id": "1794595267599-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full",
@@ -381,7 +557,7 @@
    }
   },
   {
-   "id": "1794425320001-0",
+   "id": "1794595268599-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full",
@@ -391,7 +567,7 @@
    }
   },
   {
-   "id": "1794425321001-0",
+   "id": "1794595269599-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full",
@@ -401,7 +577,7 @@
    }
   },
   {
-   "id": "1794425322001-0",
+   "id": "1794595270599-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full",
@@ -411,7 +587,7 @@
    }
   },
   {
-   "id": "1794425323001-0",
+   "id": "1794595271599-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full",
@@ -421,7 +597,7 @@
    }
   },
   {
-   "id": "1794425324001-0",
+   "id": "1794595272599-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full",
@@ -431,7 +607,7 @@
    }
   },
   {
-   "id": "1794425325001-0",
+   "id": "1794595273599-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full",
@@ -441,7 +617,7 @@
    }
   },
   {
-   "id": "1794425326001-0",
+   "id": "1794595274599-0",
    "event": {
     "type": "heartbeat",
     "stage": "sim_full",
@@ -451,27 +627,7 @@
    }
   },
   {
-   "id": "1794425327001-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "sim_full",
-    "elapsed_ms": 10000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794425328001-0",
-   "event": {
-    "type": "heartbeat",
-    "stage": "sim_full",
-    "elapsed_ms": 11000,
-    "note": null,
-    "attempt": 1
-   }
-  },
-  {
-   "id": "1794425328107-0",
+   "id": "1794595275524-0",
    "event": {
     "type": "test",
     "stage": "sim_full",
@@ -488,7 +644,7 @@
    }
   },
   {
-   "id": "1794425328107-1",
+   "id": "1794595275525-0",
    "event": {
     "type": "test",
     "stage": "sim_full",
@@ -505,7 +661,7 @@
    }
   },
   {
-   "id": "1794425328107-2",
+   "id": "1794595275525-1",
    "event": {
     "type": "test",
     "stage": "sim_full",
@@ -522,7 +678,7 @@
    }
   },
   {
-   "id": "1794425328107-3",
+   "id": "1794595275525-2",
    "event": {
     "type": "test",
     "stage": "sim_full",
@@ -539,7 +695,7 @@
    }
   },
   {
-   "id": "1794425328107-4",
+   "id": "1794595275525-3",
    "event": {
     "type": "test",
     "stage": "sim_full",
@@ -556,7 +712,7 @@
    }
   },
   {
-   "id": "1794425328107-5",
+   "id": "1794595275525-4",
    "event": {
     "type": "test",
     "stage": "sim_full",
@@ -573,7 +729,7 @@
    }
   },
   {
-   "id": "1794425328108-0",
+   "id": "1794595275525-5",
    "event": {
     "type": "test",
     "stage": "sim_full",
@@ -590,20 +746,25 @@
    }
   },
   {
-   "id": "1794425328616-0",
+   "id": "1794595275876-0",
    "event": {
     "type": "stage_end",
     "result": {
      "key": "sim_full",
      "type": "sim",
      "ordinal": 2,
-     "param_set": null,
+     "param_set": {
+      "id": "default",
+      "values": {
+       "N": 10
+      }
+     },
      "status": "failed",
      "failure_kind": "wrong",
      "limit": null,
      "error_code": null,
-     "started_at": "2026-11-11T19:28:36.159438Z",
-     "duration_ms": 11614,
+     "started_at": "2026-11-13T18:41:04.730394Z",
+     "duration_ms": 10278,
      "metrics_schema": "sim/v1",
      "metrics": {
       "tests_total": 4,
@@ -652,14 +813,87 @@
    }
   },
   {
-   "id": "1794425328616-1",
+   "id": "1794595275876-1",
+   "event": {
+    "type": "stage_end",
+    "result": {
+     "key": "sim_full@min",
+     "type": "sim",
+     "ordinal": 3,
+     "param_set": {
+      "id": "min",
+      "values": {
+       "N": 2
+      }
+     },
+     "status": "skipped",
+     "failure_kind": null,
+     "limit": null,
+     "error_code": null,
+     "started_at": null,
+     "duration_ms": null,
+     "metrics_schema": null,
+     "metrics": {},
+     "cached": false,
+     "summary": {
+      "caption": null,
+      "skip_reason": "previous_failed",
+      "diagnostics": [],
+      "tests": [],
+      "hidden_tests": null
+     }
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595275876-2",
+   "event": {
+    "type": "stage_end",
+    "result": {
+     "key": "sim_full@pow2",
+     "type": "sim",
+     "ordinal": 4,
+     "param_set": {
+      "id": "pow2",
+      "values": {
+       "N": 16
+      }
+     },
+     "status": "skipped",
+     "failure_kind": null,
+     "limit": null,
+     "error_code": null,
+     "started_at": null,
+     "duration_ms": null,
+     "metrics_schema": null,
+     "metrics": {},
+     "cached": false,
+     "summary": {
+      "caption": null,
+      "skip_reason": "previous_failed",
+      "diagnostics": [],
+      "tests": [],
+      "hidden_tests": null
+     }
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595275876-3",
    "event": {
     "type": "stage_end",
     "result": {
      "key": "synth",
      "type": "synth",
-     "ordinal": 3,
-     "param_set": null,
+     "ordinal": 5,
+     "param_set": {
+      "id": "default",
+      "values": {
+       "N": 10
+      }
+     },
      "status": "skipped",
      "failure_kind": null,
      "limit": null,
@@ -681,14 +915,87 @@
    }
   },
   {
-   "id": "1794425328616-2",
+   "id": "1794595275876-4",
+   "event": {
+    "type": "stage_end",
+    "result": {
+     "key": "synth@min",
+     "type": "synth",
+     "ordinal": 6,
+     "param_set": {
+      "id": "min",
+      "values": {
+       "N": 2
+      }
+     },
+     "status": "skipped",
+     "failure_kind": null,
+     "limit": null,
+     "error_code": null,
+     "started_at": null,
+     "duration_ms": null,
+     "metrics_schema": null,
+     "metrics": {},
+     "cached": false,
+     "summary": {
+      "caption": null,
+      "skip_reason": "previous_failed",
+      "diagnostics": [],
+      "tests": [],
+      "hidden_tests": null
+     }
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595275876-5",
+   "event": {
+    "type": "stage_end",
+    "result": {
+     "key": "synth@pow2",
+     "type": "synth",
+     "ordinal": 7,
+     "param_set": {
+      "id": "pow2",
+      "values": {
+       "N": 16
+      }
+     },
+     "status": "skipped",
+     "failure_kind": null,
+     "limit": null,
+     "error_code": null,
+     "started_at": null,
+     "duration_ms": null,
+     "metrics_schema": null,
+     "metrics": {},
+     "cached": false,
+     "summary": {
+      "caption": null,
+      "skip_reason": "previous_failed",
+      "diagnostics": [],
+      "tests": [],
+      "hidden_tests": null
+     }
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595275876-6",
    "event": {
     "type": "stage_end",
     "result": {
      "key": "netlist_sim",
      "type": "sim",
-     "ordinal": 4,
-     "param_set": null,
+     "ordinal": 8,
+     "param_set": {
+      "id": "default",
+      "values": {
+       "N": 10
+      }
+     },
      "status": "skipped",
      "failure_kind": null,
      "limit": null,
@@ -710,14 +1017,82 @@
    }
   },
   {
-   "id": "1794425328616-3",
+   "id": "1794595275876-7",
+   "event": {
+    "type": "stage_end",
+    "result": {
+     "key": "netlist_sim@min",
+     "type": "sim",
+     "ordinal": 9,
+     "param_set": {
+      "id": "min",
+      "values": {
+       "N": 2
+      }
+     },
+     "status": "skipped",
+     "failure_kind": null,
+     "limit": null,
+     "error_code": null,
+     "started_at": null,
+     "duration_ms": null,
+     "metrics_schema": null,
+     "metrics": {},
+     "cached": false,
+     "summary": {
+      "caption": null,
+      "skip_reason": "previous_failed",
+      "diagnostics": [],
+      "tests": [],
+      "hidden_tests": null
+     }
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595275877-0",
+   "event": {
+    "type": "stage_end",
+    "result": {
+     "key": "netlist_sim@pow2",
+     "type": "sim",
+     "ordinal": 10,
+     "param_set": {
+      "id": "pow2",
+      "values": {
+       "N": 16
+      }
+     },
+     "status": "skipped",
+     "failure_kind": null,
+     "limit": null,
+     "error_code": null,
+     "started_at": null,
+     "duration_ms": null,
+     "metrics_schema": null,
+     "metrics": {},
+     "cached": false,
+     "summary": {
+      "caption": null,
+      "skip_reason": "previous_failed",
+      "diagnostics": [],
+      "tests": [],
+      "hidden_tests": null
+     }
+    },
+    "attempt": 1
+   }
+  },
+  {
+   "id": "1794595275877-1",
    "event": {
     "type": "done",
     "attempt": 1
    }
   },
   {
-   "id": "1794425328736-0",
+   "id": "1794595275997-0",
    "event": {
     "type": "finalized",
     "status": "wrong_answer",

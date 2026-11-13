@@ -26,6 +26,20 @@ export const Warning: Story = {
 export const Failed: Story = {
   args: { block: "sim", status: "failed", detail: "тест 7 из 32", durationMs: 2100 },
 };
+/** An instance at an extra parameter set failed: the status word stays, the set follows. */
+export const FailedAtSet: Story = {
+  args: {
+    block: "sim",
+    status: "failed",
+    detail: "набор narrow",
+    withStatus: true,
+    durationMs: 9500,
+    title: "набор narrow: WIDTH=1, DEPTH=2 · тест 1 из 4",
+  },
+};
+export const RunningAtSet: Story = {
+  args: { block: "sim", status: "running", detail: "набор wide", durationMs: 12300 },
+};
 export const Skipped: Story = { args: { block: "formal", status: "skipped" } };
 export const Cancelled: Story = { args: { block: "sim", status: "cancelled", durationMs: 1100 } };
 export const PlatformError: Story = { args: { block: "sim", status: "error" } };

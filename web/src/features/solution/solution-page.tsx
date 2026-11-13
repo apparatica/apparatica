@@ -21,6 +21,7 @@ import { leaderboardHref } from "@/features/leaderboard/query";
 import { SynthCards } from "@/features/leaderboard/synth-cards";
 import { blockOf } from "@/features/problem/pipeline-view";
 import { useAuthorNames } from "@/features/profile/author";
+import { extraSetOf } from "@/features/submission/param-sets";
 import { solutionCard } from "@/features/share/card";
 import { ShareButton } from "@/features/share/share-dialog";
 import type { Schemas } from "@/lib/api/client";
@@ -224,7 +225,10 @@ function PlaceCard({ solution, problem }: { solution: Solution; problem: Solutio
 
 function Metrics({ solution, problem }: { solution: Solution; problem: SolutionProblem }) {
   const t = useTranslations("solution");
-  const synth = solution.stages.find((stage) => stage.type === "synth");
+  // The metrics of the primary parameter set, which rank (ADR-0014).
+  const synth = solution.stages.find(
+    (stage) => stage.type === "synth" && extraSetOf(stage) === null,
+  );
   if (synth === undefined || Object.keys(synth.metrics).length === 0) return null;
   return (
     <section aria-label={t("metrics")}>

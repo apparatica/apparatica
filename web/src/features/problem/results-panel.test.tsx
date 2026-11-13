@@ -46,6 +46,9 @@ afterEach(() => {
 const FIFO = versions.find(
   (problem) => problem.slug === "sync-fifo",
 ) as Schemas["ProblemVersionDetail"];
+const COUNTER = versions.find(
+  (problem) => problem.slug === "counter-mod-n",
+) as Schemas["ProblemVersionDetail"];
 
 function stateOf(check: Check | null, extra: Partial<SubmissionState> = {}): SubmissionState {
   return {
@@ -69,13 +72,13 @@ function stateOf(check: Check | null, extra: Partial<SubmissionState> = {}): Sub
   };
 }
 
-function renderPanel(state: SubmissionState, busy = false) {
+function renderPanel(state: SubmissionState, busy = false, problem = FIFO) {
   const onCheck = vi.fn();
   const onReveal = vi.fn();
   renderWithProviders(
     <ResultsPanel
       submission={state}
-      problem={FIFO}
+      problem={problem}
       busy={busy}
       onCheck={onCheck}
       onReveal={onReveal}
@@ -432,9 +435,9 @@ describe("the tests", () => {
     expect(within(testsTab()).getByText("1/2")).toHaveClass("text-er");
   });
 
-  it("count the hidden tests of Submit too", () => {
+  it("count the hidden tests of Submit too, at every parameter set", () => {
     renderPanel(stateOf(finished("accepted")));
-    expect(within(testsTab()).getByText("4/4")).toHaveClass("text-ok");
+    expect(within(testsTab()).getByText("12/12")).toHaveClass("text-ok");
   });
 
   it("have no counter before the tests start", () => {
@@ -470,9 +473,11 @@ describe("the tests", () => {
   });
 
   it("show only the number of a failed hidden test", async () => {
-    renderPanel(stateOf(finished("wrong-answer-hidden")));
+    renderPanel(stateOf(finished("wrong-answer-hidden")), false, COUNTER);
     await userEvent.click(testsTab());
-    const list = screen.getByRole("region", { name: "Открытые и скрытые тесты · Submit" });
+    const list = screen.getByRole("region", {
+      name: "Открытые и скрытые тесты · Submit · основной набор: N=10",
+    });
     expect(within(list).getByText("Тесты 1–2")).toBeInTheDocument();
     expect(within(list).getByText("упал скрытый тест 1 · пройдено 0 из 2")).toBeInTheDocument();
     expect(within(list).queryByRole("table")).not.toBeInTheDocument();
@@ -835,6 +840,106 @@ describe("the synthesis", () => {
   it("has no tab for a Run: it does not synthesize", () => {
     renderPanel(stateOf(finished("run-passed")));
     expect(screen.queryByRole("tab", { name: "Синтез" })).not.toBeInTheDocument();
+  });
+});
+
+describe("parameter sets", () => {
+  const NARROW = "набор narrow: WIDTH=1, DEPTH=2";
+  const synthTab = () => screen.getByRole("region", { name: "Метрики синтеза" });
+
+  it("of a wrong answer at an extra set name the set in the block and the banner", async () => {
+    renderPanel(stateOf(finished("wrong-answer-param-set")));
+    const sim = stageOf("Симуляция");
+    expect(sim).toHaveAttribute("data-status", "failed");
+    expect(sim).toHaveTextContent("ошибка · набор narrow");
+    expect(sim).toHaveAttribute(
+      "title",
+      `${NARROW} · упал тест запись и чтение по порядку, такт 4`,
+    );
+    expect(screen.getByText(`Неверный ответ · ${NARROW}`)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("tab", { name: /^Тесты/ }));
+    const title = "Открытые и скрытые тесты · Submit";
+    expect(
+      screen.getByRole("region", { name: `${title} · основной набор: WIDTH=8, DEPTH=16` }),
+    ).toBeInTheDocument();
+    const narrow = screen.getByRole("region", { name: `${title} · ${NARROW}` });
+    expect(within(narrow).getByText("Тест 1 · запись и чтение по порядку")).toBeInTheDocument();
+    const wide = screen.getByRole("region", { name: `${title} · набор wide: WIDTH=32, DEPTH=16` });
+    // The open tests and the hidden ones.
+    expect(within(wide).getAllByText("не запускались: предыдущий этап не пройден")).toHaveLength(2);
+  });
+
+  it("name the set of the instance that runs", () => {
+    const scenario = scenarios["wrong-answer-param-set"];
+    const check = playCheck(
+      scenario,
+      eventsUntil(
+        scenario,
+        (event) => event.type === "stage_start" && event.stage === "sim_full@narrow",
+      ),
+    );
+    renderPanel(stateOf(check, { connection: { state: "open" } }));
+    const sim = stageOf("Симуляция");
+    expect(sim).toHaveAttribute("data-status", "running");
+    expect(sim).toHaveTextContent("набор narrow");
+    expect(sim).toHaveAttribute("title", NARROW);
+  });
+
+  it("of an accepted Submit show the metrics of the primary set and the checks of the others", () => {
+    renderPanel(stateOf(finished("accepted")));
+    expect(stageOf("Симуляция")).toHaveAttribute("title", "пройдено 4 из 4 · 3 набора параметров");
+    const tab = within(synthTab());
+    expect(
+      tab.getByText(
+        "Метрики основного набора параметров (WIDTH=8, DEPTH=16): по ним сравнение с эталоном и место в рейтинге.",
+      ),
+    ).toBeInTheDocument();
+    const sets = within(tab.getByRole("region", { name: "Дополнительные наборы параметров" }));
+    expect(sets.getByText(NARROW)).toBeInTheDocument();
+    expect(sets.getByText("набор wide: WIDTH=32, DEPTH=16")).toBeInTheDocument();
+    expect(sets.getAllByText("синтезируется, нетлист прошёл те же тесты")).toHaveLength(2);
+  });
+
+  it("of a solution that does not synthesize at an extra set", async () => {
+    const accepted = finished("accepted");
+    const check: Check = {
+      ...accepted,
+      status: "compile_error",
+      verdict: {
+        first_failure: { stage: "synth@narrow", test: null },
+        limit: null,
+        warnings: [],
+        error_codes: [],
+      },
+      stages: accepted.stages.map((stage) => {
+        if (stage.key === "synth@narrow") {
+          return {
+            ...stage,
+            status: "failed",
+            failure_kind: "compile",
+            summary: { caption: "пустой массив mem", diagnostics: [], tests: [] },
+          };
+        }
+        if (
+          ["synth@wide", "netlist_sim", "netlist_sim@narrow", "netlist_sim@wide"].includes(
+            stage.key,
+          )
+        ) {
+          return { ...stage, status: "skipped", duration_ms: null };
+        }
+        return stage;
+      }),
+    };
+    renderPanel(stateOf(check));
+    expect(stageOf("Синтез")).toHaveTextContent("ошибка · набор narrow");
+    expect(screen.getByText(`Ошибка компиляции · ${NARROW}`)).toBeInTheDocument();
+    expect(screen.getByText("Решение не собирается: пустой массив mem.")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("tab", { name: "Синтез" }));
+    const sets = within(
+      within(synthTab()).getByRole("region", { name: "Дополнительные наборы параметров" }),
+    );
+    expect(sets.getByText("не синтезируется: пустой массив mem")).toHaveClass("text-er");
+    expect(sets.getByText("не запускалась")).toBeInTheDocument();
   });
 });
 
