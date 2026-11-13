@@ -41,7 +41,7 @@
 
 ## `apx-verilate`
 
-`apx-verilate [АРГУМЕНТЫ VERILATOR...]` — Verilator с флагами `--binary --timing --trace-fst`, для которых собран рантайм в образе. Рантайм не компилируется на каждую отправку: `make` получает пустые `VM_GLOBAL_FAST`/`VM_GLOBAL_SLOW`, а объекты берутся из `libverilated_apx.a`. Остальные флаги (`--x-assign`, `--x-initial`, `-Wno-*`, `-j`, исходники, `--top-module`) передаёт этап `sim` (specs/07 §2.3).
+`apx-verilate [АРГУМЕНТЫ VERILATOR...]` — Verilator с флагами `--binary --timing --trace-fst`, для которых собран рантайм в образе. Рантайм не компилируется на каждую отправку: `make` получает пустые `VM_GLOBAL_FAST`/`VM_GLOBAL_SLOW`, а объекты берутся из `libverilated_apx.a`. Остальные флаги (`OPT_FAST` для `make`, `--x-assign`, `--x-initial`, `-Wno-*`, `-j`, исходники, `--top-module`) передаёт этап `sim` (specs/07 §2.3).
 
 Флаги, влияющие на рантайм, менять только здесь: библиотека совпадает с ними. При сборке образа `build-runtime.sh` компилирует эталонный тестбенч `runtime_ref.sv` со всеми нужными частями рантайма (timing, FST, рандомизация, потоки) и падает, если набор объектов изменился.
 

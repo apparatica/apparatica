@@ -211,6 +211,8 @@ def test_plan_builds_first() -> None:
     plan = SimStage().plan(context())
     (build,) = (c.argv for c in plan.commands)
     assert build[:2] == ("apx-verilate", "--quiet")
+    # T3a.8: -Og instead of Verilator's -Os halves the build of an apx_tb_pkg testbench.
+    assert build[build.index("-s") + 1 :][:2] == ("-MAKEFLAGS", "OPT_FAST=-Og")
     assert build[build.index("--x-assign") :][:2] == ("--x-assign", "unique")
     assert build[build.index("--x-initial") :][:2] == ("--x-initial", "unique")
     # apx_tb_pkg first: its macros must be defined before the testbench (specs/06 §3.2).

@@ -441,7 +441,10 @@ def test_too_many_parameter_sets_do_not_run() -> None:
     }
     problem = make_problem({"a": {"type": "set"}}, run=["a"], interface=interface)
     job = Job(problem, Path(), "submit", seed=1, solution=b"")
-    with HostExecutor() as executor, pytest.raises(PipelineConfigError, match="allows 3"):
+    with (
+        HostExecutor() as executor,
+        pytest.raises(PipelineConfigError, match=r"5 extra .* allows \d+$"),
+    ):
         run_pipeline(job, FAKE, executor, ListSink(), RESOURCE_CLASSES)
 
 

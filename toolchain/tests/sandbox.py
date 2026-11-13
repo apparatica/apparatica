@@ -29,6 +29,7 @@ SANDBOX_FLAGS = [
 
 # The `sim` stage flags that apx-verilate does not add (specs/07 §2.3).
 SIM_FLAGS = [
+    "-MAKEFLAGS", "OPT_FAST=-Og",
     "--timescale", "1ps/1ps",
     "--x-assign", "unique",
     "--x-initial", "unique",

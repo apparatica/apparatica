@@ -1,5 +1,5 @@
-"""Measure the time of a Submit on a running site (NFR-PERF-02, T3a.7): p50 of a check without the
-queue, and where the time goes by stage and parameter set.
+"""Measure the time of a Submit on a running site (NFR-PERF-02, T3a.7), or of a Run with --kind run
+(NFR-PERF-01): p50 of a check without the queue, and where the time goes by stage and parameter set.
 
 Each round submits the reference solution of a demo problem as a new guest (a guest has a quota of
 checks per hour) and waits for the verdict over server-sent events. A unique line of whitespace
@@ -36,7 +36,7 @@ PRIMARY_SET = "default"  # the id of the primary parameter set (judge.core.stage
 
 @dataclass
 class Round:
-    """One measured Submit."""
+    """One measured check."""
 
     check_s: float  # finished_at - started_at
     queue_s: float  # started_at - created_at
@@ -144,13 +144,13 @@ def vary(code: str, nonce: int) -> str:
 
 
 def measure(
-    url: str, host: str | None, problem: str, code: str, number: int, timeout: float
+    url: str, host: str | None, problem: str, kind: str, code: str, timeout: float
 ) -> dict[str, Any]:
-    """Submit the code once as a new guest; return the finished submission and the wall time."""
+    """Check the code once as a new guest; return the finished submission and the wall time."""
     site = Site(url, host)
     version = site.get(f"/api/v1/problems/{problem}")["version"]
     code = vary(code, secrets.randbits(64))
-    body = {"problem": problem, "version": version, "kind": "submit", "code": code}
+    body = {"problem": problem, "version": version, "kind": kind, "code": code}
     started = time.monotonic()
     submission = site.post("/api/v1/submissions", body)["id"]
     site.wait_finalized(submission, timeout)
@@ -167,26 +167,27 @@ def reference_of(problem: str) -> Path:
 
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Measure the time of a Submit (NFR-PERF-02).")
+    parser.add_argument("--kind", choices=("submit", "run"), default="submit")
     parser.add_argument("--site", default="http://localhost:8080", help="the site's base URL")
     parser.add_argument("--host", help="the Host header, when the site is reached by another name")
     parser.add_argument("--problem", default="sync-fifo", help="the problem slug")
     parser.add_argument("--solution", type=Path, help="default: the package's reference")
     parser.add_argument("--rounds", type=int, default=10)
-    parser.add_argument("--timeout", type=float, default=300, help="per Submit, s")
-    parser.add_argument("--expect", default="accepted", help="the status every Submit must get")
+    parser.add_argument("--timeout", type=float, default=300, help="per check, s")
+    parser.add_argument("--expect", default="accepted", help="the status every check must get")
     args = parser.parse_args(argv)
     code = (args.solution or reference_of(args.problem)).read_text(encoding="utf-8")
 
     rounds: list[Round] = []
     for number in range(1, args.rounds + 1):
-        result = measure(args.site, args.host, args.problem, code, number, args.timeout)
+        result = measure(args.site, args.host, args.problem, args.kind, code, args.timeout)
         submission = result["submission"]
         if submission["status"] != args.expect:
             print(f"round {number}: {submission['status']}, expected {args.expect}")
             return 1
         rounds.append(round_of(submission, result["wall_s"]))
         print(f"round {number}: {rounds[-1].check_s:.2f} s", file=sys.stderr)
-    print(f"{args.problem} at {args.site}")
+    print(f"{args.kind} {args.problem} at {args.site}")
     print("\n".join(report(rounds)))
     return 0
 

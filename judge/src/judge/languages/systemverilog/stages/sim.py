@@ -52,6 +52,10 @@ RESULT = "tb_result.jsonl"
 TRACE = "trace.fst"
 RESULT_LIMIT = 1 << 20
 BUILDER = "apx-verilate"
+# g++ level of the model and testbench code (Verilator's default is -Os). T3a.8: -Og builds an
+# apx_tb_pkg testbench about twice as fast as -Os, a simulation of a million cycles is ~1.3 times
+# slower; -O0 builds a second faster still but simulates 5 times slower.
+BUILD_OPT = "-Og"
 # A larger binary runs but is not cached: it would not fit a request of apx-sandboxd (base64).
 BINARY_LIMIT = 32 << 20
 CACHED_NOTE = "simulator from the build cache: this code was built earlier"
@@ -244,6 +248,8 @@ class SimStage:
             "--quiet",
             "-MAKEFLAGS",
             "-s",
+            "-MAKEFLAGS",
+            f"OPT_FAST={BUILD_OPT}",
             "--timescale",
             "1ps/1ps",
             "--x-assign",
