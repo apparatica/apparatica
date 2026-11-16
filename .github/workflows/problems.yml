@@ -7,7 +7,7 @@ name: Problems
 on:
   push:
     branches: [master]
-    paths:
+    paths: &paths
       - problems/**
       - judge/src/**
       - judge/poetry.lock
@@ -18,16 +18,7 @@ on:
       - scripts/changed_problems.py
       - .github/workflows/problems.yml
   pull_request:
-    paths:
-      - problems/**
-      - judge/src/**
-      - judge/poetry.lock
-      - toolchain/**
-      - config/resource-classes.yaml
-      - web/src/lib/statement/**
-      - web/scripts/statement-check.ts
-      - scripts/changed_problems.py
-      - .github/workflows/problems.yml
+    paths: *paths
   schedule:
     - cron: "17 3 * * 1" # weekly: base image packages and the runner change underneath
   workflow_dispatch:

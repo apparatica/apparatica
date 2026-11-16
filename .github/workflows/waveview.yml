@@ -3,18 +3,14 @@ name: Waveview site
 on:
   push:
     branches: [master]
-    paths:
+    paths: &paths
       - waveview/**
       # The regression test opens the FST of this recording (current toolchain profile).
       - web/src/mocks/scenarios/wrong-answer.json
       - pnpm-lock.yaml
       - .github/workflows/waveview.yml
   pull_request:
-    paths:
-      - waveview/**
-      - web/src/mocks/scenarios/wrong-answer.json
-      - pnpm-lock.yaml
-      - .github/workflows/waveview.yml
+    paths: *paths
   workflow_dispatch:
 
 permissions:

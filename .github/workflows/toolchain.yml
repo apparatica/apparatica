@@ -3,7 +3,7 @@ name: Toolchain image
 on:
   push:
     branches: [master]
-    paths:
+    paths: &paths
       - toolchain/**
       # The image tests exercise the judge against the image (executor, testbench protocol) and the
       # worker in a sandbox (apx-sandboxd, the orchestrator: worker/tests/*_image.py); the security
@@ -18,20 +18,7 @@ on:
       - .github/actions/install-gvisor/**
       - .github/workflows/toolchain.yml
   pull_request:
-    paths:
-      - toolchain/**
-      # The image tests exercise the judge against the image (executor, testbench protocol) and the
-      # worker in a sandbox (apx-sandboxd, the orchestrator: worker/tests/*_image.py); the security
-      # suite runs on every change of the judge, the image or the sandbox (NFR-SEC-04).
-      - judge/src/**
-      - judge/poetry.lock
-      - worker/src/**
-      - worker/tests/*_image.py
-      - worker/poetry.lock
-      - tests/security/**
-      - config/resource-classes.yaml
-      - .github/actions/install-gvisor/**
-      - .github/workflows/toolchain.yml
+    paths: *paths
   workflow_dispatch:
 
 permissions:
