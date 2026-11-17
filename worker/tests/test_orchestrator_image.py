@@ -10,7 +10,7 @@ import time
 import uuid
 from collections.abc import Iterator
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast
 
 import boto3
 import pytest
@@ -53,6 +53,8 @@ pytestmark = pytest.mark.image
 ROOT = Path(__file__).parents[2]
 IMAGE = os.environ.get("TOOLCHAIN_IMAGE", "apparatica-toolchain:dev")
 RUNTIME = os.environ.get("JUDGE_SANDBOX_RUNTIME", "runc")
+
+type Entries = list[tuple[bytes, list[tuple[bytes, dict[bytes, bytes]]]]] | None  # of XREAD
 
 
 class Reports:
@@ -134,28 +136,39 @@ def attempt(
     tmp_path: Path,
     slug: str,
     code: str,
-    cancel_after_s: float | None = None,
+    cancel_at: str | None = None,
 ) -> AttemptReport:
     job = check(s3, slug, code)
     orchestrator = make_orchestrator(sandboxd, s3, valkey_url, tmp_path)
     valkey, reports = orchestrator.valkey, orchestrator.reporter
     assert isinstance(reports, Reports)
-    if cancel_after_s is None:
+    if cancel_at is None:
         orchestrator(job, "judge.light")
-    else:  # as the API does it: the key, then the message
+    else:  # at the start of the stage, as the API does it: the key, then the message
         orchestrator.cancels = CancelListener(valkey)
         orchestrator.cancels.start()
+        done = threading.Event()
 
         def cancel() -> None:
-            valkey.set(cancel_key(job.submission_id), "user")
-            valkey.publish(CANCEL_CHANNEL, f"{job.submission_id} user")
+            key, last = submission_stream_key(job.submission_id), b"0"
+            while not done.is_set():
+                read = cast(Entries, valkey.xread({key: last}, block=100))
+                for _, entries in read or []:
+                    for entry_id, fields in entries:
+                        last = entry_id
+                        event = json.loads(*fields.values())
+                        if (event["type"], event.get("stage")) == ("stage_start", cancel_at):
+                            valkey.set(cancel_key(job.submission_id), "user")
+                            valkey.publish(CANCEL_CHANNEL, f"{job.submission_id} user")
+                            return
 
-        timer = threading.Timer(cancel_after_s, cancel)
-        timer.start()
+        canceller = threading.Thread(target=cancel, daemon=True)
+        canceller.start()
         try:
             orchestrator(job, "judge.light")
         finally:
-            timer.cancel()
+            done.set()
+            canceller.join()
             orchestrator.cancels.stop()
     [report] = reports.items
     assert orchestrator.valkey.get(lease_key(job.submission_id)) is None
@@ -237,13 +250,16 @@ def test_a_cancel_kills_the_running_stage(
 ) -> None:
     code = (ROOT / "problems" / "sync-fifo" / "reference" / "sync_fifo.sv").read_text("utf-8")
     started = time.monotonic()
-    report = attempt(sandboxd, s3, valkey_url, tmp_path, "sync-fifo", code, cancel_after_s=3)
+    # At the start of the simulation stage, not after a time: a fast build ends the check first.
+    report = attempt(sandboxd, s3, valkey_url, tmp_path, "sync-fifo", code, cancel_at="sim_run")
     assert report.cancelled
     assert time.monotonic() - started < 60  # not the whole check
-    statuses = [r.status for r in report.results]
-    assert "cancelled" in statuses
-    assert set(statuses[statuses.index("cancelled") + 1 :]) <= {"skipped"}
-    cancelled = next(r for r in report.results if r.status == "cancelled")
+    assert [(r.key, r.status) for r in report.results] == [
+        ("precheck", "passed"),
+        ("lint", "passed"),
+        ("sim_run", "cancelled"),
+    ]
+    [cancelled] = [r for r in report.results if r.status == "cancelled"]
     log = zstandard.ZstdDecompressor().decompress(
         read(s3, next(a.key for a in report.artifacts if a.stage == cancelled.key))
     )
